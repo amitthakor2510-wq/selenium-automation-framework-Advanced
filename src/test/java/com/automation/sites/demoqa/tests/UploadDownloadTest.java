@@ -34,10 +34,6 @@ public class UploadDownloadTest extends BaseTest {
         uploadFilePath = uploadFile.getAbsolutePath();
 
         // ── Download folder ────────────────────────────────────────────────────
-        // Default downloads folder differs by OS:
-        // Linux/Ubuntu  →  /home/<username>/Downloads
-        // Windows       →  C:\Users\<username>\Downloads
-        downloadFolderPath = System.getProperty("user.home") + File.separator + "Downloads";
     }
 
     @Test(priority = 1, groups = {"smoke", "regression"})
