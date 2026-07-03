@@ -12,14 +12,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Centralised "human pause" engine.
- *
  * Previously, human-like delay was only applied AFTER a whole test
  * finished (in TestListener), and individual test/page classes used
  * hardcoded pause(1)/Thread.sleep(1500) calls scattered everywhere.
  * That meant the delay was not actually human-like between individual
  * actions (click, type, navigate) - the exact steps a human eye/bot
  * detector would look at.
- *
  * This class fixes that by giving Page Objects a single, config-driven
  * way to click/type with a randomized pause BEFORE each interaction,
  * and (for typing) randomized inter-keystroke delay. All timings come

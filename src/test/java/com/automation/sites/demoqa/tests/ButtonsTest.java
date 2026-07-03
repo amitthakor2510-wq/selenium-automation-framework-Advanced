@@ -7,7 +7,6 @@ import org.testng.annotations.Test;
 
 public class ButtonsTest extends BaseTest {
 
-    @Test(groups = {"regression"})
     public void verifyDoubleClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 
@@ -17,7 +16,6 @@ public class ButtonsTest extends BaseTest {
         Assert.assertEquals(page.getDoubleClickMessage(), "You have done a double click");
     }
 
-    @Test(groups = {"regression"})
     public void verifyRightClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 
@@ -27,7 +25,6 @@ public class ButtonsTest extends BaseTest {
         Assert.assertEquals(page.getRightClickMessage(), "You have done a right click");
     }
 
-    @Test(groups = {"regression"})
     public void verifyDynamicClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 

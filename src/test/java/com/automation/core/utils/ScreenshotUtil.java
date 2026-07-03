@@ -26,7 +26,6 @@ public class ScreenshotUtil {
             Files.copy(src.toPath(), Paths.get(filePath));
 
         } catch (IOException e) {
-            e.printStackTrace();
         }
 
         return filePath;
