@@ -1,0 +1,15 @@
+# =========================================================
+# TEMPLATE - copy this file to config/<yoursite>.properties
+# and fill in the values for the new site project.
+# =========================================================
+
+site.name=<yoursite>
+url=https://example.com
+
+# Uncomment and set only if this site needs different values
+# than global.properties:
+# browser=chrome
+# headless=false
+# human.pause.enabled=true
+# human.pause.min=400
+# human.pause.max=1200
