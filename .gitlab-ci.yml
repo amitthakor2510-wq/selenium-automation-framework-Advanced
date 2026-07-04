@@ -1,0 +1,9 @@
+stages:
+  - test
+
+run_selenium_tests:
+  stage: test
+  script:
+    - mvn clean test
+  tags:
+    - selenium-tests
