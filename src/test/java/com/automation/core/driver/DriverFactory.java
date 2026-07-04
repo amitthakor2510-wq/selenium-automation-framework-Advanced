@@ -10,6 +10,10 @@ import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Single place responsible for creating a WebDriver instance.
  * Supports chrome / firefox / edge, and a headless=true/false
@@ -44,6 +48,21 @@ public final class DriverFactory {
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-extensions");
         options.addArguments("--remote-allow-origins=*");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+
+        // Download directory — matches what UploadDownloadTest uses
+        String downloadPath = System.getProperty("user.dir")
+                + File.separator + "target"
+                + File.separator + "downloads";
+        new File(downloadPath).mkdirs();
+
+        Map<String, Object> prefs = new HashMap<>();
+        prefs.put("download.default_directory", downloadPath);
+        prefs.put("download.prompt_for_download", false);
+        prefs.put("download.directory_upgrade", true);
+        prefs.put("safebrowsing.enabled", true);
+        options.setExperimentalOption("prefs", prefs);
 
         if (headless) {
             options.addArguments("--headless=new");
