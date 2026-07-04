@@ -7,7 +7,8 @@ import org.testng.annotations.Test;
 
 public class DynamicPropertiesTest extends BaseTest {
 
-    @Test(priority = 1, groups = {"smoke", "regression"})
+    @Test(priority = 1, groups = {"smoke", "regression"},
+            description = "Dynamic Properties - Button Enables After 5 Seconds")
     public void verifyButtonEnablesAfterDelay() {
         DynamicPropertiesPage page = new DynamicPropertiesPage(getDriver());
 
@@ -17,7 +18,8 @@ public class DynamicPropertiesTest extends BaseTest {
                 "Button should become enabled after 5 seconds");
     }
 
-    @Test(priority = 2, groups = {"regression"})
+    @Test(priority = 2, groups = {"regression"},
+            description = "Dynamic Properties - Button Color Changes After 5 Seconds")
     public void verifyButtonColorChangesAfterDelay() {
         DynamicPropertiesPage page = new DynamicPropertiesPage(getDriver());
 
@@ -30,7 +32,8 @@ public class DynamicPropertiesTest extends BaseTest {
                 "Button class should contain text-danger");
     }
 
-    @Test(priority = 3, groups = {"regression"})
+    @Test(priority = 3, groups = {"regression"},
+            description = "Dynamic Properties - Button Appears After 5 Seconds")
     public void verifyButtonAppearsAfterDelay() {
         DynamicPropertiesPage page = new DynamicPropertiesPage(getDriver());
 

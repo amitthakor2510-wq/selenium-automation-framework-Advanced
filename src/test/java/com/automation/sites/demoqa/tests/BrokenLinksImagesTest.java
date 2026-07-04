@@ -7,7 +7,8 @@ import org.testng.annotations.Test;
 
 public class BrokenLinksImagesTest extends BaseTest {
 
-    @Test(priority = 1, groups = {"smoke", "regression"})
+    @Test(priority = 1, groups = {"smoke", "regression"},
+            description = "Broken Links Images - Valid Image Loads")
     public void verifyValidImageIsLoaded() {
         BrokenLinksImagesPage page = new BrokenLinksImagesPage(getDriver());
 
@@ -17,7 +18,8 @@ public class BrokenLinksImagesTest extends BaseTest {
                 "Valid image should load successfully");
     }
 
-    @Test(priority = 2, groups = {"regression"})
+    @Test(priority = 2, groups = {"regression"},
+            description = "Broken Links Images - Broken Image Does Not Load")
     public void verifyBrokenImageIsNotLoaded() {
         BrokenLinksImagesPage page = new BrokenLinksImagesPage(getDriver());
 
@@ -27,7 +29,8 @@ public class BrokenLinksImagesTest extends BaseTest {
                 "Broken image should NOT load - naturalWidth should be 0");
     }
 
-    @Test(priority = 3, groups = {"regression"})
+    @Test(priority = 3, groups = {"regression"},
+            description = "Broken Links Images - Valid Link Navigates Correctly")
     public void verifyValidLinkNavigatesCorrectly() {
         BrokenLinksImagesPage page = new BrokenLinksImagesPage(getDriver());
 
@@ -38,7 +41,8 @@ public class BrokenLinksImagesTest extends BaseTest {
                 "Valid link should navigate to demoqa.com");
     }
 
-    @Test(priority = 4, groups = {"regression"})
+    @Test(priority = 4, groups = {"regression"},
+            description = "Broken Links Images - Broken Link Returns 500")
     public void verifyBrokenLinkResponse() {
         BrokenLinksImagesPage page = new BrokenLinksImagesPage(getDriver());
 

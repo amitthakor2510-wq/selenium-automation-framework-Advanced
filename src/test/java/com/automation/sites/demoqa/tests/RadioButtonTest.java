@@ -7,7 +7,8 @@ import org.testng.annotations.Test;
 
 public class RadioButtonTest extends BaseTest {
 
-    @Test(groups = {"regression"})
+    @Test(priority = 1, groups = {"regression"},
+            description = "Radio Button - Select Yes Option")
     public void verifyRadioButton() {
         RadioButtonPage page = new RadioButtonPage(getDriver());
 

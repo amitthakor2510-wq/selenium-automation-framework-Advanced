@@ -6,7 +6,8 @@ import org.testng.annotations.Test;
 
 public class SampleTest extends BaseTest {
 
-    @Test(groups = {"smoke"})
+    @Test(priority = 1, groups = {"smoke"},
+            description = "Home Page - Verify Page Title")
     public void verifyTitle() {
         String actualTitle = getDriver().getTitle();
         System.out.println("Page Title: " + actualTitle);

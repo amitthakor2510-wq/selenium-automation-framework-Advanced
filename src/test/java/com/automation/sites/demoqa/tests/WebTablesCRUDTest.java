@@ -7,7 +7,8 @@ import org.testng.annotations.Test;
 
 public class WebTablesCRUDTest extends BaseTest {
 
-    @Test(groups = {"regression"})
+    @Test(priority = 1, groups = {"regression"},
+            description = "Web Tables - Full CRUD Add Edit Delete Record")
     public void verifyFullCRUDOperation() {
         WebTablesPage page = new WebTablesPage(getDriver());
 

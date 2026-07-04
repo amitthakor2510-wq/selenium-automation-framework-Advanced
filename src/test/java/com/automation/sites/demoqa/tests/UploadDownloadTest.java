@@ -36,8 +36,10 @@ public class UploadDownloadTest extends BaseTest {
         // ── Download folder ────────────────────────────────────────────────────
     }
 
-    @Test(priority = 1, groups = {"smoke", "regression"})
-    public void verifyFileUpload() {
+    @Test(priority = 1,
+            groups = {"smoke", "regression"},
+            description = "Upload and Download - Verify File Upload")
+    public void verifyFileUpload(){
         UploadDownloadPage page = new UploadDownloadPage(getDriver());
 
         page.navigateToUploadDownload();
@@ -48,7 +50,9 @@ public class UploadDownloadTest extends BaseTest {
                 "Uploaded filename should appear on page");
     }
 
-    @Test(priority = 2, groups = {"regression"})
+    @Test(priority = 2,
+            groups = {"regression"},
+            description = "Upload and Download - Verify File Download")
     public void verifyFileDownload() {
         UploadDownloadPage page = new UploadDownloadPage(getDriver());
 

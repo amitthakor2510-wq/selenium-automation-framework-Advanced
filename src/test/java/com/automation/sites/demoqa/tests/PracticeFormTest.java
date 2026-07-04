@@ -59,7 +59,9 @@ public class PracticeFormTest extends BaseTest {
 
     // ── Tests ──────────────────────────────────────────────────────────────────
 
-    @Test(priority = 1, groups = {"smoke", "regression"})
+    @Test(priority = 1,
+            groups = {"smoke", "regression"},
+            description = "Practice Form - Submit With All Fields")
     public void verifyFormSubmissionWithAllFields() {
         PracticeFormPage page = openForm();
 
@@ -80,7 +82,9 @@ public class PracticeFormTest extends BaseTest {
         verifyModal(page, "Amit");
     }
 
-    @Test(priority = 2, groups = {"regression"})
+    @Test(priority = 2,
+            groups = {"regression"},
+            description = "Practice Form - Submit With Mandatory Fields Only")
     public void verifyFormSubmissionWithMandatoryFieldsOnly() {
         PracticeFormPage page = openForm();
 

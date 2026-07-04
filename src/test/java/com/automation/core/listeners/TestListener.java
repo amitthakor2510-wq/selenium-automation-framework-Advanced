@@ -20,7 +20,13 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestStart(ITestResult result) {
-        ExtentTest extentTest = extent.createTest(result.getName());
+        // Use description if provided, otherwise fall back to method name
+        String testName = result.getMethod().getDescription();
+        if (testName == null || testName.isEmpty()) {
+            testName = result.getName();
+        }
+
+        ExtentTest extentTest = extent.createTest(testName);
         test.set(extentTest);
     }
 

@@ -7,7 +7,8 @@ import org.testng.annotations.Test;
 
 public class TextBoxTest extends BaseTest {
 
-    @Test(groups = {"smoke", "regression"})
+    @Test(priority = 1, groups = {"smoke", "regression"},
+            description = "Text Box - Fill and Submit Form")
     public void fillTextBoxForm() {
         TextBoxPage textBoxPage = new TextBoxPage(getDriver());
 
