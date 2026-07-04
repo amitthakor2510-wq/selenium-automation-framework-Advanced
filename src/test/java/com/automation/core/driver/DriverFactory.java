@@ -89,9 +89,28 @@ public final class DriverFactory {
         WebDriverManager.edgedriver().setup();
 
         EdgeOptions options = new EdgeOptions();
+        options.addArguments("--disable-notifications");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+
+        // Same download preferences as Chrome
+        String downloadPath = System.getProperty("user.dir")
+                + File.separator + "target"
+                + File.separator + "downloads";
+        new File(downloadPath).mkdirs();
+
+        Map<String, Object> prefs = new HashMap<>();
+        prefs.put("download.default_directory", downloadPath);
+        prefs.put("download.prompt_for_download", false);
+        prefs.put("download.directory_upgrade", true);
+        options.setExperimentalOption("prefs", prefs);
+
         if (headless) {
             options.addArguments("--headless=new");
             options.addArguments("--window-size=1920,1080");
+        } else {
+            options.addArguments("--start-maximized");
         }
 
         return new EdgeDriver(options);
