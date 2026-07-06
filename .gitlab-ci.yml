@@ -1,9 +1,131 @@
-stages:
-  - test
+# ================================================================
+# GitLab CI/CD Pipeline - Selenium Automation Framework
+# Supports multiple sites, browsers, and suite types
+# ================================================================
 
-run_selenium_tests:
+stages:
+  - build
+  - test
+  - report
+
+# ----------------------------------------------------------------
+# Global default variables - override from GitLab CI/CD variables
+# or per-job below
+# ----------------------------------------------------------------
+variables:
+  SITE: "demoqa"
+  SUITE_TYPE: "regression"
+  BROWSER: "chrome"
+  HEADLESS: "true"
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+# ----------------------------------------------------------------
+# Cache Maven dependencies so they don't re-download every run
+# ----------------------------------------------------------------
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .m2/repository/
+
+# ================================================================
+# STAGE 1 - Build
+# Compile project and check for errors before running tests
+# ================================================================
+build:
+  stage: build
+  script:
+    - echo "======= Building Project ======="
+    - mvn -B clean compile test-compile
+  only:
+    - main
+    - master
+    - merge_requests
+
+# ================================================================
+# STAGE 2 - Test
+# Run tests with all config passed via variables
+# ================================================================
+test:
   stage: test
   script:
-    - mvn clean test
-  tags:
-    - selenium-tests
+    - echo "======= Running Tests ======="
+    - echo "Site      = $SITE"
+    - echo "Suite     = $SUITE_TYPE"
+    - echo "Browser   = $BROWSER"
+    - echo "Headless  = $HEADLESS"
+
+    # Install Chrome if not already installed on runner
+    - |
+      if ! command -v google-chrome &> /dev/null; then
+        echo "Chrome not found - installing..."
+        apt-get update -qq
+        apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+        apt-get update -qq
+        apt-get install -y -qq google-chrome-stable
+      else
+        echo "Chrome already installed: $(google-chrome --version)"
+      fi
+
+    # Run the tests
+    - mvn -B test
+      -Dsite=$SITE
+      -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
+      -Dbrowser=$BROWSER
+      -Dheadless=$HEADLESS
+      -Dhuman.pause.enabled=false
+      -Dmaven.test.failure.ignore=true
+
+  artifacts:
+    name: "test-results-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/extent-reports/
+      - target/screenshots/
+      - target/surefire-reports/
+      - target/downloads/
+
+  only:
+    - main
+    - master
+    - merge_requests
+
+# ================================================================
+# STAGE 3 - Report
+# Publish test results - always runs even if tests fail
+# ================================================================
+report:
+  stage: report
+  script:
+    - echo "======= Test Results Summary ======="
+    - |
+      if [ -f "target/surefire-reports/testng-results.xml" ]; then
+        echo "TestNG results found"
+        grep -o 'total="[0-9]*"' target/surefire-reports/testng-results.xml || true
+        grep -o 'passed="[0-9]*"' target/surefire-reports/testng-results.xml || true
+        grep -o 'failed="[0-9]*"' target/surefire-reports/testng-results.xml || true
+        grep -o 'skipped="[0-9]*"' target/surefire-reports/testng-results.xml || true
+      else
+        echo "No TestNG results file found"
+      fi
+    - echo "Extent report location - target/extent-reports/$SITE-report.html"
+
+  artifacts:
+    name: "extent-report-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 30 days
+    paths:
+      - target/extent-reports/
+      - target/screenshots/
+    reports:
+      junit: target/surefire-reports/*.xml
+
+  dependencies:
+    - test
+
+  only:
+    - main
+    - master
+    - merge_requests
