@@ -5,15 +5,38 @@
         <listener class-name="com.automation.core.listeners.TestListener"/>
     </listeners>
 
-    <test name="DemoQA Regression Tests">
+    <test name="DemoQA Regression Tests" preserve-order="true">
+
         <groups>
             <run>
                 <include name="regression"/>
             </run>
         </groups>
 
-        <packages>
-            <package name="com.automation.sites.demoqa.tests"/>
-        </packages>
+        <classes>
+            <!-- ── Elements Section ───────────────────────── -->
+            <class name="com.automation.sites.demoqa.tests.SampleTest"/>
+            <class name="com.automation.sites.demoqa.tests.TextBoxTest"/>
+            <class name="com.automation.sites.demoqa.tests.CheckBoxTest"/>
+            <class name="com.automation.sites.demoqa.tests.RadioButtonTest"/>
+            <class name="com.automation.sites.demoqa.tests.WebTablesCRUDTest"/>
+            <class name="com.automation.sites.demoqa.tests.ButtonsTest"/>
+            <class name="com.automation.sites.demoqa.tests.LinksTest"/>
+            <class name="com.automation.sites.demoqa.tests.BrokenLinksImagesTest"/>
+            <class name="com.automation.sites.demoqa.tests.UploadDownloadTest"/>
+            <class name="com.automation.sites.demoqa.tests.DynamicPropertiesTest"/>
+
+            <!-- ── Forms Section ──────────────────────────── -->
+            <class name="com.automation.sites.demoqa.tests.PracticeFormTest"/>
+
+            <!-- ── Alerts Frame Windows Section ───────────── -->
+            <class name="com.automation.sites.demoqa.tests.BrowserWindowsTest"/>
+            <class name="com.automation.sites.demoqa.tests.AlertsTest"/>
+            <class name="com.automation.sites.demoqa.tests.FramesTest"/>
+            <class name="com.automation.sites.demoqa.tests.NestedFramesTest"/>
+            <class name="com.automation.sites.demoqa.tests.ModalDialogsTest"/>
+        </classes>
+
     </test>
+
 </suite>

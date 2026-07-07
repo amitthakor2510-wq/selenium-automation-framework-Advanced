@@ -15,7 +15,7 @@ import org.testng.annotations.BeforeMethod;
 public class BaseTest {
 
     // Thread-safe driver for parallel execution
-    private static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    protected static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
     public void setUp() {
@@ -28,8 +28,12 @@ public class BaseTest {
     @AfterMethod(alwaysRun = true)
     public void tearDown() {
         if (getDriver() != null) {
-            getDriver().quit();
-            driver.remove(); // Important for memory cleanup
+            try {
+                getDriver().quit();
+            } catch (Exception ignored) {
+            } finally {
+                driver.remove(); // Important for memory cleanup
+            }
         }
     }
 

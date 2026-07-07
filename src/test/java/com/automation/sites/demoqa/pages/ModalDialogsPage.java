@@ -17,22 +17,24 @@ public class ModalDialogsPage {
     private final JavascriptExecutor js;
 
     // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By alertsFrameCard   = By.xpath("//h5[text()='Alerts, Frame & Windows']");
-    private final By modalDialogsMenu  = By.xpath("//span[text()='Modal Dialogs']");
+    private final By alertsFrameCard  = By.xpath("//h5[text()='Alerts, Frame & Windows']");
+    private final By modalDialogsMenu = By.xpath("//span[text()='Modal Dialogs']");
 
     // ── Buttons ────────────────────────────────────────────────────────────────
-    private final By smallModalButton  = By.id("showSmallModal");
-    private final By largeModalButton  = By.id("showLargeModal");
+    private final By smallModalButton = By.id("showSmallModal");
+    private final By largeModalButton = By.id("showLargeModal");
 
     // ── Small modal ────────────────────────────────────────────────────────────
-    private final By smallModalTitle   = By.id("example-modal-sizes-title-sm");
-    private final By smallModalBody    = By.cssSelector("#smallModal .modal-body");
-    private final By smallModalClose   = By.id("closeSmallModal");
+    private final By smallModalTitle  = By.id("example-modal-sizes-title-sm");
+    // Fixed - using direct modal-body class without ID prefix
+    private final By smallModalBody = By.cssSelector(".modal-body");
+    private final By smallModalClose  = By.id("closeSmallModal");
 
     // ── Large modal ────────────────────────────────────────────────────────────
-    private final By largeModalTitle   = By.id("example-modal-sizes-title-lg");
-    private final By largeModalBody    = By.cssSelector("#largeModal .modal-body");
-    private final By largeModalClose   = By.id("closeLargeModal");
+    private final By largeModalTitle  = By.id("example-modal-sizes-title-lg");
+    // Fixed - using direct modal-body class without ID prefix
+    private final By largeModalBody = By.cssSelector(".modal-body");
+    private final By largeModalClose  = By.id("closeLargeModal");
 
     public ModalDialogsPage(WebDriver driver) {
         this.driver = driver;
@@ -45,14 +47,22 @@ public class ModalDialogsPage {
     public void navigateToModalDialogs() {
         HumanActions.click(driver, alertsFrameCard);
         HumanActions.click(driver, modalDialogsMenu);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(smallModalButton));
+        wait.until(
+                ExpectedConditions.visibilityOfElementLocated(smallModalButton)
+        );
     }
 
     // ── Small modal ────────────────────────────────────────────────────────────
 
     public void openSmallModal() {
+        // Wait for any previous modal backdrop to clear
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                By.className("modal-backdrop")
+        ));
         HumanActions.click(driver, smallModalButton);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(smallModalTitle));
+        wait.until(
+                ExpectedConditions.visibilityOfElementLocated(smallModalTitle)
+        );
         HumanActions.pause();
     }
 
@@ -63,9 +73,11 @@ public class ModalDialogsPage {
     }
 
     public String getSmallModalBody() {
-        return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(smallModalBody)
-        ).getText();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(smallModalTitle));
+        HumanActions.pause();
+        String text = driver.findElement(smallModalBody).getText().trim();
+        System.out.println("Small modal body text: '" + text + "'");
+        return text;
     }
 
     public void closeSmallModal() {
@@ -77,16 +89,29 @@ public class ModalDialogsPage {
         );
         js.executeScript("arguments[0].click();", btn);
 
+        // Wait for modal AND backdrop to disappear
         wait.until(
                 ExpectedConditions.invisibilityOfElementLocated(smallModalTitle)
         );
+        wait.until(
+                ExpectedConditions.invisibilityOfElementLocated(
+                        By.className("modal-backdrop")
+                )
+        );
+        HumanActions.pause();
     }
 
     // ── Large modal ────────────────────────────────────────────────────────────
 
     public void openLargeModal() {
+        // Wait for any previous modal backdrop to clear
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                By.className("modal-backdrop")
+        ));
         HumanActions.click(driver, largeModalButton);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(largeModalTitle));
+        wait.until(
+                ExpectedConditions.visibilityOfElementLocated(largeModalTitle)
+        );
         HumanActions.pause();
     }
 
@@ -97,9 +122,11 @@ public class ModalDialogsPage {
     }
 
     public String getLargeModalBody() {
-        return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(largeModalBody)
-        ).getText();
+        wait.until(ExpectedConditions.visibilityOfElementLocated(largeModalTitle));
+        HumanActions.pause();
+        String text = driver.findElement(largeModalBody).getText().trim();
+        System.out.println("Large modal body text: '" + text + "'");
+        return text;
     }
 
     public void closeLargeModal() {
@@ -111,8 +138,15 @@ public class ModalDialogsPage {
         );
         js.executeScript("arguments[0].click();", btn);
 
+        // Wait for modal AND backdrop to disappear
         wait.until(
                 ExpectedConditions.invisibilityOfElementLocated(largeModalTitle)
         );
+        wait.until(
+                ExpectedConditions.invisibilityOfElementLocated(
+                        By.className("modal-backdrop")
+                )
+        );
+        HumanActions.pause();
     }
 }
