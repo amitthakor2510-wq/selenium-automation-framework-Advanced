@@ -73,9 +73,14 @@ public class ProgressBarPage {
      * Note: We assert a range (±3) not exact value
      * because the bar increments continuously and
      * Selenium may not click stop at the exact ms.
+     *
+     * IMPORTANT: The stop click deliberately bypasses HumanActions.click()
+     * because that method sleeps 400-1200ms before clicking (human-like delay).
+     * During that sleep the bar keeps running and overshoots the target,
+     * causing the assertion to fail. Direct click fires instantly.
      */
     public void startAndStopAtValue(int targetPercent) {
-        // Start the bar
+        // Start the bar (human-like click is fine here)
         HumanActions.click(driver, startStopButton);
 
         // Poll every 100ms until value reaches target
@@ -86,9 +91,8 @@ public class ProgressBarPage {
             int currentValue = Integer.parseInt(current);
 
             if (currentValue >= targetPercent) {
-                // Stop the bar
-                HumanActions.click(driver, startStopButton);
-                HumanActions.pause();
+                // Fire stop immediately — no human pause delay here
+                driver.findElement(startStopButton).click();
                 break;
             }
 
