@@ -35,6 +35,15 @@
             <class name="com.automation.sites.demoqa.tests.FramesTest"/>
             <class name="com.automation.sites.demoqa.tests.NestedFramesTest"/>
             <class name="com.automation.sites.demoqa.tests.ModalDialogsTest"/>
+            <class name="com.automation.sites.demoqa.tests.AccordianTest"/>
+            <class name="com.automation.sites.demoqa.tests.AutoCompleteTest"/>
+            <class name="com.automation.sites.demoqa.tests.DatePickerTest"/>
+            <class name="com.automation.sites.demoqa.tests.SliderTest"/>
+            <class name="com.automation.sites.demoqa.tests.ProgressBarTest"/>
+            <class name="com.automation.sites.demoqa.tests.TabsTest"/>
+            <class name="com.automation.sites.demoqa.tests.ToolTipsTest"/>
+            <class name="com.automation.sites.demoqa.tests.MenuTest"/>
+            <class name="com.automation.sites.demoqa.tests.SelectMenuTest"/>
         </classes>
 
     </test>

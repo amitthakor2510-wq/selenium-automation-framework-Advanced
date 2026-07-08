@@ -1,0 +1,60 @@
+package com.automation.sites.demoqa.tests;
+
+import com.automation.core.base.BaseTest;
+import com.automation.sites.demoqa.pages.AccordianPage;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+public class AccordianTest extends BaseTest {
+
+    @Test(priority = 1,
+            groups = {"smoke", "regression"},
+            description = "Accordian - Section 1 Is Open By Default")
+    public void verifySection1OpenByDefault() {
+        AccordianPage page = new AccordianPage(getDriver());
+
+        page.navigateToAccordian();
+
+        String header = page.getSection1HeaderText();
+        System.out.println("Section 1 header: " + header);
+
+        Assert.assertFalse(
+                header.isEmpty(),
+                "Section 1 header should have text"
+        );
+        Assert.assertFalse(
+                page.getSection1Content().isEmpty(),
+                "Section 1 content should be visible by default"
+        );
+    }
+
+    @Test(priority = 2,
+            groups = {"regression"},
+            description = "Accordian - Section 2 Opens On Click")
+    public void verifySection2OpensOnClick() {
+        AccordianPage page = new AccordianPage(getDriver());
+
+        page.navigateToAccordian();
+        page.openSection2();
+
+        Assert.assertFalse(
+                page.getSection2Content().isEmpty(),
+                "Section 2 content should be visible after click"
+        );
+    }
+
+    @Test(priority = 3,
+            groups = {"regression"},
+            description = "Accordian - Section 3 Opens On Click")
+    public void verifySection3OpensOnClick() {
+        AccordianPage page = new AccordianPage(getDriver());
+
+        page.navigateToAccordian();
+        page.openSection3();
+
+        Assert.assertFalse(
+                page.getSection3Content().isEmpty(),
+                "Section 3 content should be visible after click"
+        );
+    }
+}
