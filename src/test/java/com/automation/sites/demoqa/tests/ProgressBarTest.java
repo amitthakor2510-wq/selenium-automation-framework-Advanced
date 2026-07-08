@@ -51,4 +51,23 @@ public class ProgressBarTest extends BaseTest {
                 "Progress bar should reset to 0"
         );
     }
+
+    @Test(priority = 4,
+            groups = {"regression"},
+            description = "Progress Bar - Stop At Specific Value")
+    public void verifyProgressBarStopsAtValue() {
+        ProgressBarPage page = new ProgressBarPage(getDriver());
+
+        page.navigateToProgressBar();
+        page.startAndStopAtValue(68);
+
+        String value = page.getProgressValue();
+        System.out.println("Progress stopped at: " + value);
+
+        int actual = Integer.parseInt(value);
+        Assert.assertTrue(
+                actual >= 65 && actual <= 71,
+                "Progress bar should stop near 68%. Got: " + value
+        );
+    }
 }

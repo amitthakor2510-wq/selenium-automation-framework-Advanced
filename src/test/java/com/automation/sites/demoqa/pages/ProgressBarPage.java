@@ -64,4 +64,40 @@ public class ProgressBarPage {
         HumanActions.click(driver, resetButton);
         HumanActions.pause();
     }
+
+    /**
+     * Starts the progress bar then stops it when value
+     * reaches or passes the target percentage.
+     * Uses a polling loop checking every 100ms.
+     *
+     * Note: We assert a range (±3) not exact value
+     * because the bar increments continuously and
+     * Selenium may not click stop at the exact ms.
+     */
+    public void startAndStopAtValue(int targetPercent) {
+        // Start the bar
+        HumanActions.click(driver, startStopButton);
+
+        // Poll every 100ms until value reaches target
+        long deadline = System.currentTimeMillis() + 15000;
+        while (System.currentTimeMillis() < deadline) {
+            String current = driver.findElement(progressBar)
+                    .getAttribute("aria-valuenow");
+            int currentValue = Integer.parseInt(current);
+
+            if (currentValue >= targetPercent) {
+                // Stop the bar
+                HumanActions.click(driver, startStopButton);
+                HumanActions.pause();
+                break;
+            }
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
 }
