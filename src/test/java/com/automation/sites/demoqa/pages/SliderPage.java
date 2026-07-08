@@ -18,12 +18,12 @@ public class SliderPage {
     private final JavascriptExecutor js;
 
     // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard  = By.xpath("//h5[text()='Widgets']");
-    private final By sliderMenu   = By.xpath("//span[text()='Slider']");
+    private final By widgetsCard = By.xpath("//h5[text()='Widgets']");
+    private final By sliderMenu  = By.xpath("//span[text()='Slider']");
 
     // ── Slider ─────────────────────────────────────────────────────────────────
-    private final By sliderInput  = By.cssSelector("input[type='range']");
-    private final By sliderValue  = By.id("sliderValue");
+    private final By sliderInput = By.cssSelector("input[type='range']");
+    private final By sliderValue = By.id("sliderValue");
 
     public SliderPage(WebDriver driver) {
         this.driver = driver;
@@ -33,28 +33,32 @@ public class SliderPage {
 
     public void navigateToSlider() {
         HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, sliderMenu);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(sliderInput));
-    }
+        WebElement menuItem = wait.until(
+                ExpectedConditions.presenceOfElementLocated(sliderMenu)
+        );
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menuItem);
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", menuItem);
 
-    /**
-     * Sets the slider to a specific value using JavaScript.
-     * More reliable than Actions drag because the slider
-     * position depends on screen size when dragging.
-     *
-     * value → number between 0 and 100
-     */
-    public void setSliderValue(int value) {
+        // Wait for slider, then scroll it into view so the interaction is visible
         WebElement slider = wait.until(
                 ExpectedConditions.visibilityOfElementLocated(sliderInput)
         );
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", slider);
+        HumanActions.pause();
+    }
 
-        // Set value directly via JavaScript
+    public void setSliderValue(int value) {
+        WebElement slider = driver.findElement(sliderInput);
+
+        // Use React's native input setter — plain .value assignment is ignored
+        // by React's synthetic event system and the display stays at default (25)
         js.executeScript(
-                "arguments[0].value = arguments[1];" +
-                        "arguments[0].dispatchEvent(new Event('change'));" +
-                        "arguments[0].dispatchEvent(new Event('input'));",
-                slider, value
+                "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(" +
+                        "    window.HTMLInputElement.prototype, 'value').set;" +
+                        "nativeInputValueSetter.call(arguments[0], arguments[1]);" +
+                        "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
+                slider, String.valueOf(value)
         );
         HumanActions.pause();
     }

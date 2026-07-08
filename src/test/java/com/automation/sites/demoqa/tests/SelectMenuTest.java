@@ -24,6 +24,21 @@ public class SelectMenuTest extends BaseTest {
 
     @Test(priority = 2,
             groups = {"regression"},
+            description = "Select Menu - Select Value (react-select) Works")
+    public void verifySelectValue() {
+        SelectMenuPage page = new SelectMenuPage(getDriver());
+
+        page.navigateToSelectMenu();
+        page.selectValue("Group 1, option 1");
+
+        Assert.assertEquals(
+                page.getSelectValue(), "Group 1, option 1",
+                "Select Value dropdown should show selected option"
+        );
+    }
+
+    @Test(priority = 3,
+            groups = {"regression"},
             description = "Select Menu - Standard Multi Select Works")
     public void verifyStandardMultiSelect() {
         SelectMenuPage page = new SelectMenuPage(getDriver());
@@ -36,4 +51,4 @@ public class SelectMenuTest extends BaseTest {
                 "Multi select should show Volvo"
         );
     }
-}
+}   

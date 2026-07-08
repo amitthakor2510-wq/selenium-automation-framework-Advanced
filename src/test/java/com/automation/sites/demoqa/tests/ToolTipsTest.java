@@ -17,7 +17,8 @@ public class ToolTipsTest extends BaseTest {
         String tooltip = page.getButtonTooltipText();
 
         System.out.println("Button tooltip: " + tooltip);
-        Assert.assertEquals(tooltip, "You hovered over the Button");
+        Assert.assertEquals(tooltip, "You hovered over the Button",
+                "Button tooltip text mismatch");
     }
 
     @Test(priority = 2,
@@ -30,6 +31,7 @@ public class ToolTipsTest extends BaseTest {
         String tooltip = page.getTextFieldTooltipText();
 
         System.out.println("Text field tooltip: " + tooltip);
-        Assert.assertEquals(tooltip, "You hovered over the text field");
+        Assert.assertEquals(tooltip, "You hovered over the text field",
+                "Text field tooltip text mismatch");
     }
 }
