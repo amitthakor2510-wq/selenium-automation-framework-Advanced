@@ -1,179 +1,618 @@
 # Selenium Automation Framework
 
-Java + Selenium + TestNG + Maven, with a Jenkins CI/CD pipeline, a custom
-Extent HTML report, regression/smoke test groups, and a **multi-site**
-project layout so new sites can be added without restructuring anything.
+A production-ready, scalable Java + Selenium automation framework built for
+learning and real-world QA practice. Covers the complete demoqa.com test suite
+with Jenkins and GitLab CI/CD integration, custom Extent HTML reporting, and
+human-like interaction simulation.
 
 ---
 
-## 1. Project structure
+## Tech Stack
+
+| Tool | Version | Purpose |
+|---|---|---|
+| Java | 17 | Programming language |
+| Selenium | 4.21.0 | Browser automation |
+| TestNG | 7.9.0 | Test runner and reporting |
+| Maven | 3.9+ | Build and dependency management |
+| ExtentReports | 5.1.2 | Custom HTML test reports |
+| WebDriverManager | 6.1.0 | Automatic browser driver management |
+| Jenkins | Latest | CI/CD pipeline (local or server) |
+| GitLab CI | Latest | CI/CD pipeline |
+
+---
+
+## Project Structure
 
 ```
 selenium-automation-framework/
-├── Jenkinsfile                          # CI/CD pipeline (auto-discovers sites)
-├── pom.xml
-├── testng-suites/                       # one suite file per site x type
-│   ├── demoqa-smoke.xml
-│   └── demoqa-regression.xml
+│
+├── Jenkinsfile                          # Jenkins CI/CD pipeline
+├── .gitlab-ci.yml                       # GitLab CI/CD pipeline
+├── pom.xml                              # Maven dependencies and build config
+├── README.md                            # This file
+│
+├── testng-suites/                       # TestNG suite files
+│   ├── demoqa-smoke.xml                 # Quick sanity checks (smoke group)
+│   └── demoqa-regression.xml            # Full test suite (regression group)
+│
 └── src/test/
     ├── java/com/automation/
-    │   ├── core/                        # SITE-AGNOSTIC framework code
-    │   │   ├── base/BaseTest.java
-    │   │   ├── config/ConfigReader.java
-    │   │   ├── driver/DriverFactory.java
-    │   │   ├── listeners/TestListener.java
-    │   │   ├── report/ExtentManager.java
-    │   │   └── utils/{HumanActions,ScreenshotUtil}.java
-    │   └── sites/                       # ONE PACKAGE PER SITE PROJECT
+    │   │
+    │   ├── core/                        # SHARED framework — never site-specific
+    │   │   ├── base/
+    │   │   │   └── BaseTest.java        # Opens/closes browser per test
+    │   │   ├── config/
+    │   │   │   └── ConfigReader.java    # Reads layered config files
+    │   │   ├── driver/
+    │   │   │   └── DriverFactory.java   # Creates Chrome/Firefox/Edge driver
+    │   │   ├── listeners/
+    │   │   │   └── TestListener.java    # Connects results to Extent report
+    │   │   ├── report/
+    │   │   │   └── ExtentManager.java   # Creates HTML report (singleton)
+    │   │   └── utils/
+    │   │       ├── HumanActions.java    # Human-like delays on every action
+    │   │       └── ScreenshotUtil.java  # Captures screenshots on failure
+    │   │
+    │   └── sites/                       # SITE-SPECIFIC code
     │       └── demoqa/
-    │           ├── pages/
-    │           └── tests/
+    │           ├── pages/               # Page Objects (locators + actions)
+    │           └── tests/               # Test classes
+    │
     └── resources/config/
-        ├── global.properties            # defaults shared by all sites
-        ├── demoqa.properties            # demoqa overrides (mainly `url`)
-        └── _TEMPLATE.properties.example # copy this for a new site
+        ├── global.properties            # Shared defaults for all sites
+        ├── demoqa.properties            # demoqa-specific config (URL)
+        └── _TEMPLATE.properties.example # Copy this when adding a new site
 ```
 
-**Rule of thumb:** anything in `core/` is shared and should never mention a
-specific website. Anything site-specific (locators, page objects, test
-flows, URLs) lives under `sites/<siteName>/`.
+---
+
+## Core Files — What Each One Does
+
+### `BaseTest.java`
+Parent class that every test extends. Handles browser lifecycle automatically.
+```
+@BeforeMethod → opens browser, navigates to site URL
+@Test         → your test runs here
+@AfterMethod  → closes browser, cleans ThreadLocal
+```
+Uses `ThreadLocal<WebDriver>` so each test thread gets its own browser instance — required for parallel execution.
+
+### `ConfigReader.java`
+Reads config in three layers, each overriding the previous:
+```
+global.properties   → base defaults
+demoqa.properties   → site-specific overrides
+-Dkey=value         → command line wins over everything
+```
+Call anywhere: `ConfigReader.get("browser")`, `ConfigReader.getInt("timeout", 10)`
+
+### `DriverFactory.java`
+Single place that creates the browser. Reads `browser` and `headless` from config.
+Supports Chrome, Firefox, Edge. Sets download folder to `target/downloads` so
+downloads work on both local machine and Jenkins.
+
+### `HumanActions.java`
+Wraps every Selenium click and type with random delays. Makes automation look
+human. All timings come from config so they can be tuned or disabled.
+```java
+HumanActions.click(driver, locator)        // pause → click
+HumanActions.type(driver, locator, text)   // pause → type char by char
+HumanActions.pause()                       // random pause min-max ms
+HumanActions.postTestPause()              // longer pause after test ends
+```
+
+### `TestListener.java`
+TestNG calls this at key moments. Connects test results to the Extent report.
+```
+onTestStart   → creates entry in HTML report
+onTestSuccess → marks green
+onTestFailure → marks red, captures screenshot, attaches to report
+onFinish      → writes HTML file to disk
+```
+Registered in suite XML:
+```xml
+<listener class-name="com.automation.core.listeners.TestListener"/>
+```
+
+### `ExtentManager.java`
+Singleton that creates one shared HTML report per test run.
+Saves to `target/extent-reports/<site>-report.html`.
+
+### `ScreenshotUtil.java`
+Takes a PNG screenshot on test failure.
+Saves to `target/screenshots/TestName_timestamp.png`.
+Called automatically by `TestListener` — never call manually.
 
 ---
 
-## 2. Adding a new site project
+## Page Objects — Pattern Explained
 
-Say you want to add a site called `mysite`. You do **not** touch any core
-framework file:
+Every webpage has its own Java class. Locators and actions live in the page
+class. Tests only call page methods — no locators ever appear in test files.
 
-1. **Config**: copy `src/test/resources/config/_TEMPLATE.properties.example`
-   to `src/test/resources/config/mysite.properties`, set `url=` and any
-   overrides.
-2. **Pages**: create `src/test/java/com/automation/sites/mysite/pages/...`
-3. **Tests**: create `src/test/java/com/automation/sites/mysite/tests/...`,
-   extending `com.automation.core.base.BaseTest`, tagged with
-   `@Test(groups = {"smoke"})` and/or `@Test(groups = {"regression"})`.
-4. **Suite files**: copy `testng-suites/demoqa-regression.xml` and
-   `demoqa-smoke.xml` to `mysite-regression.xml` / `mysite-smoke.xml`,
-   changing only the `<package name="...">` line to
-   `com.automation.sites.mysite.tests`.
-5. Run it locally:
-   ```
-   mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
-   ```
-6. **That's it for Jenkins.** The pipeline auto-discovers any
-   `testng-suites/*-regression.xml` / `*-smoke.xml` file and runs it as its
-   own site - see `SITE=ALL` in section 4. No Jenkinsfile edit needed.
+```java
+// Page Object — knows HOW to interact with the page
+public class TextBoxPage {
+    private final By userName = By.id("userName");   // locator
+
+    public void fillForm(String name) {              // action
+        HumanActions.type(driver, userName, name);
+    }
+
+    public String getOutputName() {                  // getter
+        return driver.findElement(outputName).getText();
+    }
+}
+
+// Test — describes WHAT to verify
+public class TextBoxTest extends BaseTest {
+    @Test
+    public void fillTextBoxForm() {
+        TextBoxPage page = new TextBoxPage(getDriver());
+        page.fillForm("Amit");                        // no locators here
+        Assert.assertTrue(page.getOutputName().contains("Amit"));
+    }
+}
+```
+
+### Helpers in Page Objects
+Private methods that do repeated work so public methods stay clean:
+```java
+// Helper — private, called only inside this class
+private void scrollAndClick(By locator) {
+    js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
+    js.executeScript("arguments[0].click();", el);
+}
+
+// Public methods use helper — no duplication
+public void selectSports()  { scrollAndClick(sportsLabel);  }
+public void selectReading() { scrollAndClick(readingLabel); }
+```
+
+### Helpers in Test Classes
+Private methods that group related steps — makes tests shorter and readable:
+```java
+private PracticeFormPage openForm() {
+    PracticeFormPage page = new PracticeFormPage(getDriver());
+    page.navigateToPracticeForm();
+    return page;
+}
+
+private void fillPersonalDetails(PracticeFormPage page) {
+    page.enterFirstName("Amit");
+    page.enterLastName("Thakor");
+    page.selectGender("male");
+    page.enterMobile("9876543210");
+}
+
+@Test
+public void verifyFormSubmission() {
+    PracticeFormPage page = openForm();   // helper
+    fillPersonalDetails(page);            // helper
+    page.submitForm();
+}
+```
 
 ---
 
-## 3. Running locally
+## Test Coverage — demoqa.com
+
+### Elements Section
+| Page | Description | Groups |
+|---|---|---|
+| Text Box | Fill and submit form, verify output | smoke, regression |
+| Check Box | Expand tree, select Desktop checkbox | regression |
+| Radio Button | Select Yes option, verify result | regression |
+| Web Tables | Full CRUD — add, search, edit, delete | regression |
+| Buttons | Double click, right click, dynamic click | regression |
+| Links | Home link opens tab, API links return correct status codes | smoke, regression |
+| Broken Links - Images | Valid image loads, broken image fails, link navigation | smoke, regression |
+| Upload and Download | Upload file, download file to target folder | smoke, regression |
+| Dynamic Properties | Enable after delay, color change, appear after delay | smoke, regression |
+
+### Forms Section
+| Page | Description | Groups |
+|---|---|---|
+| Practice Form | Full form with all fields, mandatory fields only | smoke, regression |
+
+### Alerts, Frame and Windows Section
+| Page | Description | Groups |
+|---|---|---|
+| Browser Windows | New tab, new window, message window | smoke, regression |
+| Alerts | Simple alert, timer alert, confirm accept/dismiss, prompt | smoke, regression |
+| Frames | Read text from frame 1 and frame 2 | smoke, regression |
+| Nested Frames | Read parent frame text, child frame text | smoke, regression |
+| Modal Dialogs | Small modal title/body, large modal title/body | smoke, regression |
+
+### Widgets Section
+| Page | Description | Groups |
+|---|---|---|
+| Accordian | Section 1 default open, open section 2, open section 3 | smoke, regression |
+| Auto Complete | Multi color select, single color select | smoke, regression |
+| Date Picker | Select specific date from calendar | smoke, regression |
+| Slider | Set value to 50, set value to 75 | smoke, regression |
+| Progress Bar | Starts at 0, reaches 100, resets to 0 | smoke, regression |
+| Tabs | What tab content, origin tab, use tab | smoke, regression |
+| Tool Tips | Button tooltip on hover, text field tooltip on hover | smoke, regression |
+| Menu | Main item visible, sub item on hover, nested sub sub item | smoke, regression |
+| Select Menu | Old style select, standard multi select | smoke, regression |
+
+---
+
+## Running Tests Locally
+
+### Prerequisites
+- Java 17 — `java -version`
+- Maven 3.9+ — `mvn -version`
+- Chrome/Firefox/Edge browser installed
+
+### Commands
 
 ```bash
-# demoqa regression, visible Chrome
+# Smoke suite — quick sanity check
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+
+# Full regression suite
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 
-# demoqa smoke only, headless Firefox
-mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml -Dbrowser=firefox -Dheadless=true
+# Single test class only
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dtest=ButtonsTest
+
+# Different browser
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dbrowser=firefox
+
+# Headless — no browser window
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dheadless=true
+
+# Slow mode — watch every action clearly
+mvn test -Dhuman.pause.min=2000 -Dhuman.pause.max=3000 -Dtest=ButtonsTest
+
+# Fast mode — disable all pauses
+mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
 ```
 
-Reports/artifacts land in:
-- `target/extent-reports/<site>-report.html` - custom HTML report
-- `target/screenshots/` - failure screenshots
-- `target/surefire-reports/` - raw TestNG/Surefire XML (JUnit-format, for CI)
-
 ---
 
-## 4. Jenkins CI/CD pipeline
-
-The `Jenkinsfile` is a declarative pipeline with 4 build parameters:
-
-| Parameter    | Values                        | Purpose                                    |
-|--------------|--------------------------------|---------------------------------------------|
-| `SUITE_TYPE` | `regression` / `smoke`         | which suite family to run                  |
-| `SITE`       | `ALL` or a site name (`demoqa`)| run every discovered site, or just one     |
-| `BROWSER`    | `chrome` / `firefox` / `edge`  | forwarded to `DriverFactory`               |
-| `HEADLESS`   | `true` / `false`               | headless recommended for CI agents         |
-
-**How discovery works:** the pipeline lists
-`testng-suites/*-${SUITE_TYPE}.xml`, strips the suffix, and treats each
-remaining name as a site to run with `-Dsite=<name>`. Add a new site's
-suite file and the very next Jenkins build will include it under `SITE=ALL`
-- no pipeline changes required.
-
-**Setup required in Jenkins (one-time):**
-1. Manage Jenkins → Tools → add a JDK 17 installation named `JDK17`.
-2. Manage Jenkins → Tools → add a Maven installation named `Maven3`.
-3. Install the **HTML Publisher** plugin (renders the Extent report as a
-   build tab).
-4. Make sure Chrome/Firefox/Edge are installed on the agent if you ever run
-   `HEADLESS=false`; for headless runs a browser binary is still required,
-   just no display server.
-5. Create a Pipeline job pointing at this repo's `Jenkinsfile` (or a
-   Multibranch Pipeline, so PRs get tested automatically).
-
-**Build result:** if any site fails, the build is marked `UNSTABLE` (not a
-hard failure) so a broken third-party demo site doesn't block everything -
-adjust the `post { unstable { ... } }` block if you want stricter behavior.
-
----
-
-## 5. Human pause - how it actually works now
-
-Previously, a "human pause" existed but was only applied **after a whole
-test finished** (pass or fail) - individual clicks/typing inside a test had
-no consistent delay, and several tests instead used hardcoded
-`Thread.sleep(1500)` / `pause(1)` calls that ignored config entirely.
-
-That's fixed by `com.automation.core.utils.HumanActions`, which is now the
-single place pause behaviour lives:
-
-- `HumanActions.click(driver, locator)` - waits for the element, pauses a
-  random `human.pause.min`–`human.pause.max` ms, then clicks.
-- `HumanActions.type(driver, locator, text)` - same wait/pause, then types
-  **character by character** with a small random delay per keystroke
-  (`human.pause.typing.min/max`), instead of an instant `sendKeys(...)`.
-- `HumanActions.postTestPause()` - still called by `TestListener` after
-  each test finishes, using its own `human.pause.postTest.min/max` window.
-
-All demoqa page objects (`TextBoxPage`, `WebTablesPage`, `RadioButtonPage`,
-`CheckBoxPage`) now go through `HumanActions` instead of raw
-`WebElement.click()/sendKeys()` or `Thread.sleep(fixedNumber)`. The only
-remaining raw `Thread.sleep` calls are ones tied to a specific known app
-quirk (e.g. DemoQA's React table needing ~1s to re-filter after a search
-keystroke) and are commented as such - they are app-stability waits, not a
-substitute for human pause.
-
-**Config keys** (in `global.properties`, overridable per site or via `-D`):
+## Configuration — global.properties
 
 ```properties
-human.pause.enabled=true          # master on/off switch
-human.pause.min=400
-human.pause.max=1200
-human.pause.postTest.min=500
-human.pause.postTest.max=1500
-human.pause.typing.min=40
-human.pause.typing.max=120
+# ── Browser ────────────────────────────────────────────────────────
+browser=chrome          # chrome | firefox | edge
+headless=false          # true = no visible window (use true on CI/CD)
+
+# ── Timeouts ───────────────────────────────────────────────────────
+timeout=10              # seconds to wait for elements before failing
+
+# ── Human Pause ────────────────────────────────────────────────────
+human.pause.enabled=true       # false = skip all pauses for fast runs
+human.pause.min=400            # min ms before each click/type action
+human.pause.max=1200           # max ms before each click/type action
+human.pause.postTest.min=500   # min ms after each test finishes
+human.pause.postTest.max=1500  # max ms after each test finishes
+human.pause.typing.min=40      # min ms between keystrokes when typing
+human.pause.typing.max=120     # max ms between keystrokes when typing
 ```
 
-Set `human.pause.enabled=false` (or `-Dhuman.pause.enabled=false` in
-Jenkins) for a fast, pause-free smoke run when you just need a quick
-signal.
+Any key can be overridden at runtime:
+```bash
+mvn test -Dbrowser=edge -Dheadless=true -Dhuman.pause.enabled=false
+```
 
 ---
 
-## 6. Regression vs smoke
+## Test Reports
 
-- `@Test(groups = {"smoke"})` - fast, critical-path checks.
-- `@Test(groups = {"regression"})` - the fuller suite; a test can belong to
-  both groups (see `TextBoxTest`).
-- Each site gets its own `*-smoke.xml` and `*-regression.xml` TestNG suite
-  file under `testng-suites/`, both wired to the shared
-  `com.automation.core.listeners.TestListener`.
+```
+target/
+├── extent-reports/
+│   └── demoqa-report.html     # Custom HTML report — open in Chrome
+├── screenshots/
+│   └── TestName_20260704.png  # Auto-captured on failure
+└── surefire-reports/
+    └── *.xml                  # Raw XML consumed by Jenkins/GitLab
+```
+
+Open `target/extent-reports/demoqa-report.html` in Chrome to see:
+- Pass/fail per test with timestamps and duration
+- Failure screenshots embedded inline
+- System info: browser, site, headless mode
+- Summary charts showing overall pass/fail ratio
 
 ---
 
-## 7. Browser/driver support
+## Smoke vs Regression
 
-`DriverFactory` supports `chrome`, `firefox`, and `edge` via
-`-Dbrowser=<name>`, each with a `-Dheadless=true` option, using
-WebDriverManager so no manual driver binaries are needed.
+### Smoke — run first, fast
+Quick check that critical paths work. Run after every deployment.
+```bash
+mvn test -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+```
+
+### Regression — run for full coverage
+Complete suite. Run nightly or before submitting a report.
+```bash
+mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
+```
+
+### How groups are assigned in code
+```java
+@Test(groups = {"smoke"})               // smoke only
+@Test(groups = {"regression"})          // regression only
+@Test(groups = {"smoke", "regression"}) // both suites
+```
+
+---
+
+## Jenkins CI/CD Setup
+
+### One-time setup
+1. `Manage Jenkins → Tools` → Add JDK named exactly `JDK17`
+2. `Manage Jenkins → Tools` → Add Maven named exactly `Maven3`
+3. Install **HTML Publisher** plugin
+4. Create Pipeline job → SCM: Git → Script Path: `Jenkinsfile`
+
+### Build parameters
+| Parameter | Options | Default | Purpose |
+|---|---|---|---|
+| `SUITE_TYPE` | regression / smoke | regression | Which suite type to run |
+| `SITE` | ALL / site name | ALL | Run all sites or one specific |
+| `BROWSER` | chrome / firefox / edge | chrome | Browser to use |
+| `HEADLESS` | true / false | true | Show browser or not |
+
+### After build — where to look
+```
+Job → Build #N
+├── Console Output      → full Maven logs, errors, test output
+├── Test Results        → pass/fail count, failed test names
+├── Extent Test Report  → custom HTML report tab
+└── Artifacts           → download screenshots and HTML report
+```
+
+### Fix report styling in Jenkins
+Jenkins blocks external CSS by default — report appears unstyled.
+
+Quick fix (resets on restart) — run in Script Console:
+```groovy
+System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "")
+```
+
+Permanent fix — systemd override:
+```bash
+sudo systemctl edit jenkins
+# Add these lines:
+[Service]
+Environment="JAVA_OPTS=-Dhudson.model.DirectoryBrowserSupport.CSP="
+# Save, then:
+sudo systemctl daemon-reload
+sudo systemctl restart jenkins
+```
+
+---
+
+## GitLab CI/CD Pipeline
+
+### Pipeline stages
+```
+build  → mvn compile — catches syntax errors before wasting time on tests
+test   → mvn test with all -D flags — installs Chrome if missing on runner
+report → publishes JUnit XML, archives HTML report and screenshots
+```
+
+### Variables you can override per run
+```
+SITE        = demoqa     (or ALL)
+SUITE_TYPE  = regression (or smoke)
+BROWSER     = chrome     (or firefox, edge)
+HEADLESS    = true       (always true on CI)
+```
+
+### View report after pipeline
+```
+GitLab Job → Browse Artifacts → target/extent-reports/demoqa-report.html
+```
+Download and open in Chrome — full styling works when opened locally.
+
+---
+
+## Adding a New Site — 4 Steps
+
+Zero changes to core framework files. Jenkins and GitLab auto-discover the
+new suite files on next run.
+
+### Step 1 — Config
+```
+Copy:  src/test/resources/config/_TEMPLATE.properties.example
+To:    src/test/resources/config/mysite.properties
+Set:   url=https://mysite.com
+```
+
+### Step 2 — Page Objects
+```
+Create: src/test/java/com/automation/sites/mysite/pages/MyPage.java
+```
+
+### Step 3 — Test Classes
+```
+Create: src/test/java/com/automation/sites/mysite/tests/MyTest.java
+```
+```java
+public class MyTest extends BaseTest {
+    @Test(priority = 1, groups = {"regression"}, description = "My test")
+    public void verifyMyFeature() {
+        MyPage page = new MyPage(getDriver());
+        page.navigate();
+        Assert.assertTrue(page.isLoaded());
+    }
+}
+```
+
+### Step 4 — Suite Files
+```
+Copy:   testng-suites/demoqa-regression.xml → testng-suites/mysite-regression.xml
+Copy:   testng-suites/demoqa-smoke.xml      → testng-suites/mysite-smoke.xml
+Change: <package name="com.automation.sites.mysite.tests"/>
+```
+
+### Run
+```bash
+mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
+```
+
+---
+
+## Key Selenium Concepts Used
+
+### Locator types
+```java
+By.id("userName")                          // fastest, most reliable
+By.xpath("//h5[text()='Elements']")        // flexible, finds by text
+By.cssSelector(".modal-body")              // CSS class/attribute
+By.className("text-success")              // single class only
+By.linkText("Click Here")                 // exact link text
+By.xpath("//a[normalize-space()='Menu']") // trims whitespace before matching
+```
+
+### Wait strategies
+```java
+// Wait for element to be visible (exists AND displayed)
+wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+
+// Wait for element to be clickable (visible AND enabled)
+wait.until(ExpectedConditions.elementToBeClickable(locator));
+
+// Wait for element to disappear
+wait.until(ExpectedConditions.invisibilityOfElementLocated(locator));
+
+// Wait for custom condition using lambda
+wait.until(d -> d.findElement(locator).getAttribute("aria-valuenow").equals("100"));
+
+// Wait for number of windows/tabs
+wait.until(ExpectedConditions.numberOfWindowsToBe(2));
+
+// Wait for JS alert to appear
+wait.until(ExpectedConditions.alertIsPresent());
+```
+
+### JavaScript execution
+```java
+JavascriptExecutor js = (JavascriptExecutor) driver;
+
+js.executeScript("arguments[0].click();", element);                        // JS click — bypasses ad banner
+js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);   // scroll to center
+js.executeScript("window.scrollTo(0, 0)");                                 // scroll to top
+js.executeScript("arguments[0].value=arguments[1];", el, 50);             // set value directly
+js.executeScript("arguments[0].dispatchEvent(new Event('input'));", el);   // fire React event
+```
+
+### Actions class — advanced mouse/keyboard
+```java
+// Hover
+new Actions(driver).moveToElement(element).perform();
+
+// Hover with pause (required for CSS menus)
+new Actions(driver).moveToElement(element).pause(Duration.ofMillis(1000)).perform();
+
+// Double click
+new Actions(driver).doubleClick(element).perform();
+
+// Right click
+new Actions(driver).contextClick(element).perform();
+```
+
+### Alert handling
+```java
+Alert alert = wait.until(ExpectedConditions.alertIsPresent());
+String message = alert.getText();   // read alert text
+alert.accept();                     // click OK
+alert.dismiss();                    // click Cancel
+alert.sendKeys("Amit");             // type into prompt input
+```
+
+### Frame switching
+```java
+driver.switchTo().frame(frameElement);  // enter iframe — now find elements inside
+driver.switchTo().defaultContent();     // back to main page from any depth
+
+// Nested frames — must go through parent to reach child
+driver.switchTo().frame(parentFrame);
+driver.switchTo().frame(childFrame);
+driver.switchTo().defaultContent();     // one call gets all the way back
+```
+
+### Window/tab switching
+```java
+Set<String> before = driver.getWindowHandles();   // handles before click
+// click something that opens new window
+for (String handle : driver.getWindowHandles()) {
+    if (!before.contains(handle)) {
+        driver.switchTo().window(handle);          // switch to new window
+        break;
+    }
+}
+// do work in new window
+driver.close();                                    // close new window
+String remaining = driver.getWindowHandles().iterator().next();
+driver.switchTo().window(remaining);               // switch back
+```
+
+### Select class — plain HTML dropdowns only
+```java
+Select dropdown = new Select(driver.findElement(By.id("oldSelectMenu")));
+dropdown.selectByVisibleText("Blue");         // by visible text
+dropdown.selectByValue("blue");               // by value attribute
+dropdown.selectByIndex(2);                    // by position (0-based)
+dropdown.getFirstSelectedOption().getText();  // read selected value
+```
+
+### ARIA attributes — used by progress bars, sliders
+```java
+element.getAttribute("aria-valuenow")   // current value
+element.getAttribute("aria-valuemin")   // minimum value
+element.getAttribute("aria-valuemax")   // maximum value
+element.getAttribute("aria-expanded")   // true/false — is expanded
+element.getAttribute("aria-selected")   // true/false — is selected
+```
+
+---
+
+## Common Errors and Fixes
+
+| Error | Cause | Fix |
+|---|---|---|
+| `ElementClickInterceptedException` | Ad banner covering element | Use `js.executeScript("arguments[0].click()", el)` |
+| `TimeoutException` | Element not found in time | Check locator in DevTools, verify page loaded |
+| `NoSuchWindowException` | Window already closed | Wrap `driver.close()` in try-catch |
+| `StaleElementReferenceException` | Page reloaded, element gone | Re-find element after page action |
+| `InvalidSelectorException: Compound class names` | Space in `By.className()` | Use `By.cssSelector(".class1.class2")` instead |
+| `Keys to send should be not null` | Variable is null | Check `@BeforeMethod` runs before `@Test` |
+| `NoSuchElementException` | Wrong locator or inside iframe | Check locator in DevTools, switch frame first |
+| `NoSuchWindowException on close()` | Message window closed itself | Wrap in try-catch, window already gone |
+| `ElementNotInteractableException` | Element hidden or disabled | Use `presenceOfElementLocated`, then JS click |
+
+---
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| Page Object Model | Design pattern — one Java class per webpage |
+| Helper method | Private method inside a class that does repeated work |
+| Locator | How Selenium finds an element — `By.id`, `By.xpath`, etc. |
+| WebDriverWait | Tells Selenium to keep retrying until condition is true or timeout |
+| ThreadLocal | Variable where each thread gets its own independent copy |
+| TestNG groups | Tags on tests — `smoke` or `regression` — for selective running |
+| Extent Report | Custom HTML test report with charts and embedded screenshots |
+| HumanActions | Framework utility adding random delays to simulate human typing/clicking |
+| Actions class | Selenium class for hover, drag-drop, double-click, keyboard shortcuts |
+| Alert | JavaScript browser popup — not part of webpage HTML |
+| Frame / iframe | HTML element that embeds one webpage inside another |
+| Window handle | Unique ID assigned to each open browser tab or window |
+| ARIA attribute | Accessibility HTML attribute readable by automation tools |
+| JS click | Clicking via JavaScript — bypasses overlay/banner interception |
+| Singleton | Design pattern — only one instance of a class ever created |
+| CSP | Content Security Policy — Jenkins setting that blocks external CSS in reports |
+| Smoke test | Quick sanity check — is it working at all? |
+| Regression test | Full suite — did anything break? |
+| ThreadLocal | Each thread gets its own driver — needed for parallel test runs |
+| dispatchEvent | JavaScript command to fire browser events that React/Vue listens to |

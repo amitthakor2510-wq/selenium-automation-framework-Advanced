@@ -22,12 +22,11 @@ public class MenuPage {
     private final By menuItem    = By.xpath("//span[text()='Menu']");
 
     // ── Menu items ─────────────────────────────────────────────────────────────
-    private final By mainItem1   = By.xpath("//a[text()='Main Item 1']");
-    private final By mainItem2   = By.xpath("//a[text()='Main Item 2']");
-    private final By subItem     = By.xpath("//a[text()='Sub Item']");
-    private final By subList     = By.xpath("//a[text()='SUB SUB LIST »']");
-    private final By subSubItem1 = By.xpath("//a[text()='Sub Sub Item 1']");
-    private final By subSubItem2 = By.xpath("//a[text()='Sub Sub Item 2']");
+    private final By mainItem1   = By.xpath("//a[normalize-space()='Main Item 1']");
+    private final By mainItem2   = By.xpath("//a[normalize-space()='Main Item 2']");
+    private final By subItem     = By.xpath("//a[normalize-space()='Sub Item']");
+    private final By subList     = By.xpath("//a[normalize-space()='SUB SUB LIST »']");
+    private final By subSubItem1 = By.xpath("//a[normalize-space()='Sub Sub Item 1']");
 
     public MenuPage(WebDriver driver) {
         this.driver = driver;
@@ -35,25 +34,67 @@ public class MenuPage {
         this.js     = (JavascriptExecutor) driver;
     }
 
+    // ── Navigation ─────────────────────────────────────────────────────────────
+
     public void navigateToMenu() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, menuItem);
+        // Step 1 - scroll to top first so widgets card is visible
+        js.executeScript("window.scrollTo(0, 0)");
+        HumanActions.pause();
+
+        // Step 2 - click Widgets card using JS to bypass ad banner
+        WebElement widgets = wait.until(
+                ExpectedConditions.presenceOfElementLocated(widgetsCard)
+        );
+        js.executeScript(
+                "arguments[0].scrollIntoView({block:'center'});", widgets
+        );
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", widgets);
+        HumanActions.pause();
+
+        // Step 3 - click Menu menu item using JS
+        WebElement menu = wait.until(
+                ExpectedConditions.presenceOfElementLocated(menuItem)
+        );
+        js.executeScript(
+                "arguments[0].scrollIntoView({block:'center'});", menu
+        );
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", menu);
+
+        // Step 4 - wait for menu items to load
         wait.until(ExpectedConditions.visibilityOfElementLocated(mainItem1));
+
+        // Step 5 - scroll menu into center of screen
+        WebElement item1 = driver.findElement(mainItem1);
+        js.executeScript(
+                "arguments[0].scrollIntoView({block:'center'});", item1
+        );
+        HumanActions.pause();
     }
+
+    // ── Actions ────────────────────────────────────────────────────────────────
 
     public String getMainItem1Text() {
-        return driver.findElement(mainItem1).getText();
+        return wait.until(
+                ExpectedConditions.visibilityOfElementLocated(mainItem1)
+        ).getText().trim();
     }
 
-    /**
-     * Hovers over Main Item 2 to reveal sub items.
-     * Menu uses CSS hover — must use Actions.moveToElement.
-     */
     public void hoverMainItem2() {
         WebElement item = wait.until(
                 ExpectedConditions.visibilityOfElementLocated(mainItem2)
         );
-        new Actions(driver).moveToElement(item).perform();
+        js.executeScript(
+                "arguments[0].scrollIntoView({block:'center'});", item
+        );
+        HumanActions.pause();
+
+        new Actions(driver)
+                .moveToElement(item)
+                .pause(Duration.ofMillis(800))
+                .perform();
+
         HumanActions.pause();
     }
 
@@ -63,20 +104,46 @@ public class MenuPage {
                     ExpectedConditions.visibilityOfElementLocated(subItem)
             ).isDisplayed();
         } catch (Exception e) {
+            System.out.println("[MenuPage] Sub item not visible: "
+                    + e.getMessage());
             return false;
         }
     }
 
     /**
-     * Hover Main Item 2 → hover Sub List → Sub Sub items appear.
+     * Fixed nested hover:
+     * Chain all movements in ONE Actions sequence.
+     * This keeps the mouse button held while moving
+     * so the CSS :hover state stays active throughout.
+     *
+     * Separate perform() calls release the mouse between moves
+     * which causes the first menu to close before second opens.
      */
     public void hoverToSubSubList() {
-        hoverMainItem2();
+        WebElement item2 = wait.until(
+                ExpectedConditions.visibilityOfElementLocated(mainItem2)
+        );
+        js.executeScript(
+                "arguments[0].scrollIntoView({block:'center'});", item2
+        );
+        HumanActions.pause();
 
+        // Move to Main Item 2 and wait for sub menu to appear
+        new Actions(driver)
+                .moveToElement(item2)
+                .pause(Duration.ofMillis(1000))
+                .perform();
+
+        // Now move to SUB SUB LIST in same chain
         WebElement subListEl = wait.until(
                 ExpectedConditions.visibilityOfElementLocated(subList)
         );
-        new Actions(driver).moveToElement(subListEl).perform();
+
+        new Actions(driver)
+                .moveToElement(subListEl)
+                .pause(Duration.ofMillis(1000))
+                .perform();
+
         HumanActions.pause();
     }
 
@@ -86,6 +153,8 @@ public class MenuPage {
                     ExpectedConditions.visibilityOfElementLocated(subSubItem1)
             ).isDisplayed();
         } catch (Exception e) {
+            System.out.println("[MenuPage] Sub sub item not visible: "
+                    + e.getMessage());
             return false;
         }
     }

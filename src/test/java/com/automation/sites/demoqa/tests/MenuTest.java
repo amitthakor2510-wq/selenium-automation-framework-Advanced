@@ -14,10 +14,10 @@ public class MenuTest extends BaseTest {
         MenuPage page = new MenuPage(getDriver());
 
         page.navigateToMenu();
+        String text = page.getMainItem1Text();
 
-        Assert.assertEquals(
-                page.getMainItem1Text(), "Main Item 1"
-        );
+        System.out.println("Main item 1 text: " + text);
+        Assert.assertEquals(text, "Main Item 1");
     }
 
     @Test(priority = 2,
