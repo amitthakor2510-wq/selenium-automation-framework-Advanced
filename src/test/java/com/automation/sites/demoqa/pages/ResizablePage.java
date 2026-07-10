@@ -70,14 +70,32 @@ public class ResizablePage {
         WebElement handle = wait.until(ExpectedConditions.visibilityOfElementLocated(resizableHandle));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", handle);
         HumanActions.pause();
+        // Compute the current box size and clamp the requested resize to the allowed min/max so we
+        // don't attempt to move the pointer far outside the viewport (which can raise
+        // MoveTargetOutOfBoundsException on some drivers).
+        org.openqa.selenium.Dimension current = driver.findElement(resizableBox).getSize();
+        int currentW = current.getWidth();
+        int currentH = current.getHeight();
 
-        new Actions(driver)
-                .clickAndHold(handle)
-                .pause(Duration.ofMillis(300))
-                .moveByOffset(offsetX, offsetY)
-                .pause(Duration.ofMillis(300))
-                .release()
-                .perform();
+        // Clamp desired final size according to page constraints (min 150x150, max 500x300)
+        int desiredW = Math.max(150, Math.min(500, currentW + offsetX));
+        int desiredH = Math.max(150, Math.min(300, currentH + offsetY));
+
+        int deltaX = desiredW - currentW;
+        int deltaY = desiredH - currentH;
+
+        // Use dragAndDropBy which is clearer for resizing by pixel offsets.
+        // If the delta is zero (already at limit), skip the action.
+        if (deltaX != 0 || deltaY != 0) {
+            new Actions(driver)
+                    .moveToElement(handle)
+                    .clickAndHold()
+                    .pause(Duration.ofMillis(150))
+                    .moveByOffset(deltaX, deltaY)
+                    .pause(Duration.ofMillis(150))
+                    .release()
+                    .perform();
+        }
 
         HumanActions.pause();
     }
