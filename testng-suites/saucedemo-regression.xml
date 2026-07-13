@@ -1,12 +1,12 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="DemoQA Regression Suite" parallel="none">
+<suite name="SauceDemo Regression Suite" parallel="none">
 
     <listeners>
         <listener class-name="com.automation.core.listeners.TestListener"/>
         <listener class-name="com.automation.core.listeners.RetryListener"/>
     </listeners>
 
-    <test name="DemoQA Regression Tests" preserve-order="true">
+    <test name="SauceDemo Regression Tests" preserve-order="true">
         <groups>
             <run>
                 <include name="regression"/>
@@ -14,7 +14,7 @@
         </groups>
 
         <packages>
-            <package name="com.automation.sites.demoqa.tests"/>
+            <package name="com.automation.sites.saucedemo.tests"/>
         </packages>
 
     </test>

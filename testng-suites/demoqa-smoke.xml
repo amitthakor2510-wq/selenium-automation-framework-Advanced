@@ -3,29 +3,18 @@
 
     <listeners>
         <listener class-name="com.automation.core.listeners.TestListener"/>
-
     </listeners>
 
     <test name="DemoQA Smoke Tests" preserve-order="true">
-
         <groups>
             <run>
                 <include name="smoke"/>
             </run>
         </groups>
 
-        <classes>
-            <class name="com.automation.sites.demoqa.tests.SampleTest"/>
-            <class name="com.automation.sites.demoqa.tests.TextBoxTest"/>
-            <class name="com.automation.sites.demoqa.tests.LinksTest"/>
-            <class name="com.automation.sites.demoqa.tests.BrokenLinksImagesTest"/>
-            <class name="com.automation.sites.demoqa.tests.UploadDownloadTest"/>
-            <class name="com.automation.sites.demoqa.tests.DynamicPropertiesTest"/>
-            <class name="com.automation.sites.demoqa.tests.PracticeFormTest"/>
-            <class name="com.automation.sites.demoqa.tests.BrowserWindowsTest"/>
-            <class name="com.automation.sites.demoqa.tests.AlertsTest"/>
-            <class name="com.automation.sites.demoqa.tests.ModalDialogsTest"/>
-        </classes>
+        <packages>
+            <package name="com.automation.sites.demoqa.tests"/>
+        </packages>
 
     </test>
 

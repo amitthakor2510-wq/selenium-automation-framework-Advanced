@@ -12,6 +12,7 @@ variables:
   SUITE_TYPE: "regression"
   BROWSER: "chrome"
   HEADLESS: "true"
+  RETRY_COUNT: "0"
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
 
 cache:

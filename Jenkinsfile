@@ -37,6 +37,12 @@ pipeline {
                 defaultValue: true,
                 description: 'Run browser headless (recommended for CI)'
         )
+
+        string(
+                name: 'RETRY_COUNT',
+                defaultValue: '0',
+                description: 'Number of retries for failed tests. 0 = disabled for CI speed.'
+        )
     }
 
     options {
