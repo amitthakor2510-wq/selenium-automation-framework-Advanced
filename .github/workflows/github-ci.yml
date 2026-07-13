@@ -59,8 +59,8 @@ jobs:
             echo "Chrome not found - installing..."
             sudo apt-get update -qq
             sudo apt-get install -y -qq wget gnupg
-            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            wget -q -O - https://google.com | sudo apt-key add -
+            echo "deb [arch=amd64] http://google.com stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
             sudo apt-get update -qq
             sudo apt-get install -y -qq google-chrome-stable
           else
@@ -83,7 +83,7 @@ jobs:
             -Dhuman.pause.enabled=false \
             -Dmaven.test.failure.ignore=true
 
-      - name: Upload Test Raw Artifacts
+      - name: Upload Test Raw Artifacts (Backup ZIP)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -96,12 +96,14 @@ jobs:
           retention-days: 7
 
   # ================================================================
-  # STAGE 3 - Report
+  # STAGE 3 - Report & Deploy to GitHub Pages
   # ================================================================
   report:
     needs: test
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Crucial: Allows the runner to publish to the gh-pages branch
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -126,11 +128,8 @@ jobs:
           fi
           echo "Extent report location - target/extent-reports/${{ env.SITE }}-report.html"
 
-      - name: Upload Final Extent Report
-        uses: actions/upload-artifact@v4
+      - name: Deploy Unzipped HTML Report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: extent-report-${{ github.ref_name }}
-          path: |
-            target/extent-reports/
-            target/screenshots/
-          retention-days: 30
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/extent-reports

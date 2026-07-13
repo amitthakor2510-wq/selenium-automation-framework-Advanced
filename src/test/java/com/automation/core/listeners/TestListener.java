@@ -45,15 +45,20 @@ public class TestListener implements ITestListener {
 
         if (driver != null) {
             try {
-                String screenshotPath = ScreenshotUtil.captureScreenshot(driver, result.getName());
+                // 1. Capture the screenshot natively as a Base64 text string
+                String base64Data = ScreenshotUtil.captureScreenshotAsBase64(driver);
 
                 if (test.get() != null) {
                     test.get().fail("Test Failed");
                     test.get().fail(result.getThrowable());
-                    test.get().addScreenCaptureFromPath(screenshotPath);
+
+                    // 2. Embed the Base64 image directly inside the Extent HTML report markup
+                    if (base64Data != null && !base64Data.isEmpty()) {
+                        test.get().addScreenCaptureFromBase64String("data:image/png;base64," + base64Data);
+                    }
                 }
             } catch (Exception e) {
-                System.out.println("Could not capture screenshot: " + e.getMessage());
+                System.out.println("Could not capture cloud screenshot: " + e.getMessage());
             }
         }
 
