@@ -12,7 +12,7 @@ import org.testng.annotations.BeforeMethod;
  * -Dsite=<siteName> (see ConfigReader); the driver navigates to
  * whatever "url" resolves to for that site's config file.
  */
-public class BaseTest {
+public class BaseTest implements DriverProvider {
 
     // Thread-safe driver for parallel execution
     protected static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();

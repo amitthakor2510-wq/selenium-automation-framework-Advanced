@@ -1,6 +1,6 @@
 package com.automation.core.listeners;
 
-import com.automation.core.base.BaseTest;
+import com.automation.core.base.DriverProvider;
 import com.automation.core.report.ExtentManager;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -42,8 +42,8 @@ public class TestListener implements ITestListener {
     @Override
     public void onTestFailure(ITestResult result) {
         Object testInstance = result.getInstance();
-        WebDriver driver = (testInstance instanceof BaseTest)
-                ? ((BaseTest) testInstance).getDriver()
+        WebDriver driver = (testInstance instanceof DriverProvider)
+                ? ((DriverProvider) testInstance).getDriver()
                 : null;
 
         if (driver != null) {

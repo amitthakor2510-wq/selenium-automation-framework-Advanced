@@ -1,41 +1,54 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
-import org.openqa.selenium.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
-import java.util.List;
 
 public class WebTablesPage {
 
     private final WebDriver driver;
     private final WebDriverWait wait;
+    private final JavascriptExecutor js;
+    private final String baseUrl;
+
+    // ── Navigation ──────────────────────────────────────────────────────────────
+    private final By elementsCard  = By.xpath("//h5[text()='Elements']");
+    private final By webTablesMenu = By.xpath("//span[text()='Web Tables']");
+
+    // ── Table controls ──────────────────────────────────────────────────────────
+    private final By addButton      = By.id("addNewRecordButton");
+    private final By searchBox      = By.id("searchBox");
+
+    // ── Registration form ───────────────────────────────────────────────────────
+    private final By firstNameInput = By.id("firstName");
+    private final By lastNameInput  = By.id("lastName");
+    private final By emailInput     = By.id("userEmail");
+    private final By ageInput       = By.id("age");
+    private final By salaryInput    = By.id("salary");
+    private final By departmentInput= By.id("department");
+    private final By submitButton   = By.id("submit");
+
+    // ── Table rows ──────────────────────────────────────────────────────────────
+    private final By tableRows      = By.cssSelector(".rt-tr-group");
+    private final By deleteButtons  = By.cssSelector("span[title='Delete']");
+    private final By editButtons    = By.cssSelector("span[title='Edit']");
 
     public WebTablesPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        this.driver  = driver;
+        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(10));
+        this.js      = (JavascriptExecutor) driver;
+        this.baseUrl = ConfigReader.get("url");
     }
 
-    // ---------------- LOCATORS ----------------
-
-    private final By addButton = By.id("addNewRecordButton");
-
-    private final By firstNameField = By.id("firstName");
-    private final By lastNameField = By.id("lastName");
-    private final By emailField = By.id("userEmail");
-    private final By ageField = By.id("age");
-    private final By salaryField = By.id("salary");
-    private final By departmentField = By.id("department");
-    private final By submitButton = By.id("submit");
-
-    private final By searchBox = By.id("searchBox");
-
-    // ---------------- PAGE ACTIONS ----------------
-
-    public void openPage() {
-        driver.get("https://demoqa.com/webtables");
+    public void navigateToWebTables() {
+        driver.get(baseUrl + "/webtables");
         wait.until(ExpectedConditions.visibilityOfElementLocated(addButton));
     }
 
@@ -43,126 +56,42 @@ public class WebTablesPage {
         HumanActions.click(driver, addButton);
     }
 
-    public void addRecord(String firstName,
-                          String lastName,
-                          String email,
-                          String age,
-                          String salary,
-                          String department) {
+    public void fillRegistrationForm(String firstName, String lastName,
+                                     String email, String age,
+                                     String salary, String department) {
+        HumanActions.type(driver, firstNameInput, firstName);
+        HumanActions.type(driver, lastNameInput, lastName);
+        HumanActions.type(driver, emailInput, email);
+        HumanActions.type(driver, ageInput, age);
+        HumanActions.type(driver, salaryInput, salary);
+        HumanActions.type(driver, departmentInput, department);
+    }
 
-        HumanActions.type(driver, firstNameField, firstName);
-        HumanActions.type(driver, lastNameField, lastName);
-        HumanActions.type(driver, emailField, email);
-        HumanActions.type(driver, ageField, age);
-        HumanActions.type(driver, salaryField, salary);
-        HumanActions.type(driver, departmentField, department);
-
+    public void submitForm() {
         HumanActions.click(driver, submitButton);
-
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(submitButton));
     }
 
     public void searchRecord(String keyword) {
-        WebElement search = wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
-
-        HumanActions.pause();
-        search.clear();
-        HumanActions.typeHumanLike(search, keyword);
-
-        // Give the React table time to filter results
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        HumanActions.type(driver, searchBox, keyword);
     }
 
-    // ---------------- VALIDATION ----------------
-
-    public boolean isRecordPresent(String value) {
-
-        try {
-            searchRecord(value);
-
-            long end = System.currentTimeMillis() + 4000;
-            while (System.currentTimeMillis() < end) {
-                List<WebElement> cells = driver.findElements(By.cssSelector(".rt-td"));
-                for (WebElement cell : cells) {
-                    try {
-                        if (cell.isDisplayed() && cell.getText().contains(value)) {
-                            return true;
-                        }
-                    } catch (StaleElementReferenceException ignored) {
-                    }
-                }
-
-                List<WebElement> matches = driver.findElements(By.xpath("//*[contains(normalize-space(.),'" + value + "')]"));
-                for (WebElement el : matches) {
-                    try {
-                        if (!el.getTagName().equalsIgnoreCase("input") && el.isDisplayed()) {
-                            return true;
-                        }
-                    } catch (StaleElementReferenceException ignored) {
-                    }
-                }
-
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
+    public int getRowCount() {
+        return (int) driver.findElements(tableRows).stream()
+                .filter(row -> !row.getText().trim().isEmpty())
+                .count();
     }
 
-    // ---------------- DELETE ----------------
-
-    public void deleteRecord(String firstName) {
-        searchRecord(firstName);
-
-        List<WebElement> deleteButtons = driver.findElements(By.cssSelector("span[title='Delete']"));
-
-        if (!deleteButtons.isEmpty()) {
-            HumanActions.click(driver, deleteButtons.get(0));
-
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        } else {
-            throw new RuntimeException("Delete button not found for record: " + firstName);
-        }
+    public void deleteFirstRecord() {
+        WebElement deleteBtn = wait.until(
+                ExpectedConditions.elementToBeClickable(deleteButtons));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", deleteBtn);
+        js.executeScript("arguments[0].click();", deleteBtn);
     }
 
-    // ---------------- EDIT ----------------
-
-    public void updateRecord(String firstName, String newDepartment) {
-        searchRecord(firstName);
-
-        List<WebElement> editButtons = driver.findElements(By.cssSelector("span[title='Edit']"));
-
-        if (!editButtons.isEmpty()) {
-            HumanActions.click(driver, editButtons.get(0));
-
-            WebElement deptField = wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(By.id("department"))
-            );
-
-            HumanActions.pause();
-            deptField.clear();
-            HumanActions.typeHumanLike(deptField, newDepartment);
-
-            HumanActions.click(driver, By.id("submit"));
-
-            wait.until(ExpectedConditions.invisibilityOfElementLocated(By.id("submit")));
-        } else {
-            throw new RuntimeException("Edit button not found for record: " + firstName);
-        }
+    public void editFirstRecord() {
+        WebElement editBtn = wait.until(
+                ExpectedConditions.elementToBeClickable(editButtons));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", editBtn);
+        js.executeScript("arguments[0].click();", editBtn);
     }
 }
