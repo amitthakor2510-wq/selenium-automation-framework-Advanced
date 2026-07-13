@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
+import com.automation.core.base.DriverProvider;
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.demoqa.pages.BookStoreApplicationPage;
 import com.automation.sites.demoqa.pages.RegistrationPage;
@@ -43,7 +44,7 @@ import java.util.UUID;
  *   @AfterClass closes it after Test 11.
  *   Tests 6–11 reuse the logged-in cookie from Test 5.
  */
-public class BookStoreApplicationTest {
+public class BookStoreApplicationTest implements DriverProvider {
 
     // ── Auto-generated credentials (unique per run) ──────────────────────────────
     private static final String UNIQUE_ID          = UUID.randomUUID().toString().substring(0, 8);
@@ -56,6 +57,11 @@ public class BookStoreApplicationTest {
     private WebDriver driver;
     private BookStoreApplicationPage bookStorePage;
     private RegistrationPage registrationPage;
+
+    @Override
+    public WebDriver getDriver() {
+        return driver;
+    }
 
     @BeforeClass(alwaysRun = true)
     public void openBrowser() {

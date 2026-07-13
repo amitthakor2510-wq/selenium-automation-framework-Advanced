@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -12,11 +13,9 @@ public class RegistrationPage {
     private final WebDriver driver;
     private final WebDriverWait wait;
     private final JavascriptExecutor js;
-
-    private static final String REGISTER_URL = "https://demoqa.com/register";
+    private final String baseUrl;
 
     // IDs verified from compiled RegistrationPage.class:
-    // firstname, lastname, userName, email, password, register, back
     private final By firstNameInput  = By.id("firstname");
     private final By lastNameInput   = By.id("lastname");
     private final By userNameInput   = By.id("userName");
@@ -26,27 +25,19 @@ public class RegistrationPage {
     private final By backToLoginLink = By.id("gotologin");
 
     public RegistrationPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js     = (JavascriptExecutor) driver;
+        this.driver  = driver;
+        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(15));
+        this.js      = (JavascriptExecutor) driver;
+        this.baseUrl = ConfigReader.get("url");
     }
 
     public void navigateToRegistration() {
-        driver.get(REGISTER_URL);
+        driver.get(baseUrl + "/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
         sleep(1500);
         System.out.println("  Navigated to registration page");
     }
 
-    /**
-     * Fills one field:
-     *  - JS scrollIntoView → fully visible
-     *  - JS click → focus without overlay intercept
-     *  - Ctrl+A + Delete → clear without React re-render side-effects
-     *  - typeHumanLike → char-by-char (same as original compiled class)
-     *  - NO TAB → TAB was jumping to reCAPTCHA and hiding the email field
-     *  - Reads back value and logs it for debugging
-     */
     private void fillField(By locator, String value, String fieldName) {
         WebElement el = wait.until(
                 ExpectedConditions.visibilityOfElementLocated(locator));
@@ -65,7 +56,6 @@ public class RegistrationPage {
         HumanActions.typeHumanLike(el, value);
         sleep(300);
 
-        // Read back what actually got typed — crucial for debugging
         String actual = el.getAttribute("value");
         System.out.println("  " + fieldName + ": typed='" + value
                 + "' actual='" + actual + "'");
@@ -129,7 +119,7 @@ public class RegistrationPage {
             System.out.println("  On /login ✓");
         } catch (Exception e) {
             System.out.println("  Navigating to /login directly");
-            driver.get("https://demoqa.com/login");
+            driver.get(baseUrl + "/login");
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userName")));
         }
     }

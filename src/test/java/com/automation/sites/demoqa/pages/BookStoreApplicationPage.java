@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -14,19 +15,13 @@ public class BookStoreApplicationPage {
     private final WebDriver driver;
     private final WebDriverWait wait;
     private final JavascriptExecutor js;
-
-    private static final String LOGIN_URL    = "https://demoqa.com/login";
-    private static final String BOOKS_URL    = "https://demoqa.com/books";
-    private static final String REGISTER_URL = "https://demoqa.com/register";
-    private static final String PROFILE_URL  = "https://demoqa.com/profile";
+    private final String baseUrl;
 
     // ── Login ───────────────────────────────────────────────────────────────────
     private final By usernameField = By.id("userName");
     private final By passwordField = By.id("password");
     private final By loginButton   = By.id("login");
     private final By loginError    = By.id("output");
-    // Original compiled class used: //span[contains(@id, 'userName')]
-    // This matches the welcome label on both /profile and /books pages
     private final By loggedInLabel = By.xpath("//span[contains(@id,'userName')]");
     private final By newUserButton = By.id("newUser");
 
@@ -35,8 +30,6 @@ public class BookStoreApplicationPage {
 
     // ── Book store ──────────────────────────────────────────────────────────────
     private final By searchBox = By.id("searchBox");
-    // XPath from the original compiled class — matches every <a href> inside the table
-    // This works whether the user is logged in or not
     private final By bookLinks = By.xpath("//div[@role='table']//a[@href]");
     private final By noDataDiv = By.cssSelector(".rt-noData");
 
@@ -44,39 +37,32 @@ public class BookStoreApplicationPage {
     private final By backToStoreBtn = By.id("addNewRecordButton");
 
     public BookStoreApplicationPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js     = (JavascriptExecutor) driver;
+        this.driver  = driver;
+        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(15));
+        this.js      = (JavascriptExecutor) driver;
+        this.baseUrl = ConfigReader.get("url");
     }
 
     // ── Navigation ──────────────────────────────────────────────────────────────
 
     public void navigateToLogin() {
-        driver.get(LOGIN_URL);
+        driver.get(baseUrl + "/login");
         wait.until(ExpectedConditions.visibilityOfElementLocated(usernameField));
     }
 
     public void navigateToRegister() {
-        driver.get(REGISTER_URL);
+        driver.get(baseUrl + "/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("firstname")));
     }
 
     public void navigateToBookStore() {
-        driver.get(BOOKS_URL);
+        driver.get(baseUrl + "/books");
 
-        // Step 1: wait for the search box — page skeleton is ready
         wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
 
-        // Step 2: wait for the role="table" element to exist in the DOM —
-        //         this is the React table wrapper that always renders first
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector("[role='table']")));
 
-        // Step 3: fixed pause — gives React time to populate rows inside the table.
-        //         The lambda-based wait failed because demoqa's book rows render
-        //         text AFTER the <a> elements are in the DOM, so the stream check
-        //         on getText() never returned true within the 15s window.
-        //         A flat 2-second wait is simple and reliable here.
         try { Thread.sleep(2000); } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -85,7 +71,7 @@ public class BookStoreApplicationPage {
     }
 
     public void navigateToProfile() {
-        driver.get(PROFILE_URL);
+        driver.get(baseUrl + "/profile");
         wait.until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
     }
 
@@ -96,12 +82,10 @@ public class BookStoreApplicationPage {
         HumanActions.type(driver, usernameField, username);
         HumanActions.type(driver, passwordField, password);
 
-        // JS click avoids sticky footer interception on login button
         WebElement btn = driver.findElement(loginButton);
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         js.executeScript("arguments[0].click();", btn);
 
-        // Wait for redirect to profile (success) or error message (fail)
         wait.until(d ->
                 d.getCurrentUrl().contains("/profile") ||
                         !d.findElements(loginError).isEmpty()
@@ -148,7 +132,6 @@ public class BookStoreApplicationPage {
                 ExpectedConditions.visibilityOfElementLocated(searchBox));
         box.clear();
         box.sendKeys(keyword);
-        // Wait for React filter to apply
         try { Thread.sleep(800); } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -190,7 +173,6 @@ public class BookStoreApplicationPage {
     }
 
     public void clickBookByTitle(String title) {
-        // Scoped inside role='table' — same root as bookLinks locator
         By link = By.xpath(
                 "//div[@role='table']//a[contains(text(),'" + title + "')]");
         WebElement el = wait.until(ExpectedConditions.elementToBeClickable(link));

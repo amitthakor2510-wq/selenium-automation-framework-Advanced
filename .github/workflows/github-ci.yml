@@ -1,12 +1,4 @@
-env:
-  SITE: "demoqa"
-  SUITE_TYPE: "regression"
-  BROWSER: "chrome"
-  HEADLESS: "true"
-  RETRY_COUNT: "0"
-  MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
-
-  name: GitHub Actions Pipeline - Selenium Automation Framework
+name: GitHub Actions Pipeline - Selenium Automation Framework
 
 on:
   push:
@@ -19,6 +11,7 @@ env:
   SUITE_TYPE: "regression"
   BROWSER: "chrome"
   HEADLESS: "true"
+  RETRY_COUNT: "0"
   MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
 
 jobs:
