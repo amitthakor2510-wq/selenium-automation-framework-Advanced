@@ -1,20 +1,10 @@
 // =============================================================
-// Jenkins CI/CD pipeline for the Selenium + Java + TestNG +
-// Maven automation framework.
-//
-// SCALABILITY:
-// Site projects are auto-discovered from testng-suites/*-<TYPE>.xml
-// (e.g. demoqa-regression.xml -> site "demoqa"). Adding a new site
-// project (new package under src/test/java/com/automation/sites/<name>,
-// a config/<name>.properties file, and a testng-suites/<name>-regression.xml
-// suite) is picked up automatically on the next run - no Jenkinsfile
-// edits required.
-//
-// Requires on the Jenkins controller/agent:
-//   - JDK 17            (Manage Jenkins > Tools > JDK installations, name: "JDK17")
-//   - Maven 3.9+         (Manage Jenkins > Tools > Maven installations, name: "Maven3")
-//   - HTML Publisher plugin (for the Extent report)
-//   - Chrome / Firefox / Edge installed on the agent if not running headless
+// Jenkins CI/CD pipeline - Selenium + Java + TestNG + Maven
+// Requires:
+//   - JDK 17            (Tools > JDK, name: "JDK17")
+//   - Maven 3.9+        (Tools > Maven, name: "Maven3")
+//   - Allure Plugin     (Manage Jenkins > Plugins > Allure)
+//   - HTML Publisher    (Manage Jenkins > Plugins > HTML Publisher)
 // =============================================================
 
 pipeline {
@@ -28,24 +18,24 @@ pipeline {
 
     parameters {
         choice(
-            name: 'SUITE_TYPE',
-            choices: ['regression', 'smoke'],
-            description: 'Which suite to run for each discovered site'
+                name: 'SUITE_TYPE',
+                choices: ['regression', 'smoke'],
+                description: 'Which suite to run for each discovered site'
         )
         string(
-            name: 'SITE',
-            defaultValue: 'ALL',
-            description: 'Site to test, e.g. "demoqa". Use "ALL" to run every site project found under testng-suites/'
+                name: 'SITE',
+                defaultValue: 'ALL',
+                description: 'Site to test, e.g. "demoqa". Use "ALL" to run every discovered site'
         )
         choice(
-            name: 'BROWSER',
-            choices: ['chrome', 'firefox', 'edge'],
-            description: 'Browser to run against'
+                name: 'BROWSER',
+                choices: ['chrome', 'firefox', 'edge'],
+                description: 'Browser to run against'
         )
         booleanParam(
-            name: 'HEADLESS',
-            defaultValue: true,
-            description: 'Run browser headless (recommended for CI agents)'
+                name: 'HEADLESS',
+                defaultValue: true,
+                description: 'Run browser headless (recommended for CI)'
         )
     }
 
@@ -72,12 +62,12 @@ pipeline {
             steps {
                 script {
                     def suiteFiles = sh(
-                        script: "ls testng-suites/*-${params.SUITE_TYPE}.xml 2>/dev/null || true",
-                        returnStdout: true
+                            script: "ls testng-suites/*-${params.SUITE_TYPE}.xml 2>/dev/null || true",
+                            returnStdout: true
                     ).trim()
 
                     if (!suiteFiles) {
-                        error "No testng-suites/*-${params.SUITE_TYPE}.xml files found. Nothing to run."
+                        error "No testng-suites/*-${params.SUITE_TYPE}.xml files found."
                     }
 
                     def allSites = suiteFiles.split('\n').collect { path ->
@@ -86,11 +76,11 @@ pipeline {
                     }
 
                     env.SITES_TO_RUN = (params.SITE == 'ALL')
-                        ? allSites.join(',')
-                        : params.SITE
+                            ? allSites.join(',')
+                            : params.SITE
 
                     echo "Sites discovered: ${allSites.join(', ')}"
-                    echo "Sites this run will execute: ${env.SITES_TO_RUN}"
+                    echo "Sites this run: ${env.SITES_TO_RUN}"
                 }
             }
         }
@@ -103,20 +93,20 @@ pipeline {
 
                     sites.each { site ->
                         def suiteFile = "testng-suites/${site}-${params.SUITE_TYPE}.xml"
-
-                        echo "==== Running ${params.SUITE_TYPE} suite for site: ${site} ===="
+                        echo "==== Running ${params.SUITE_TYPE} for site: ${site} ===="
 
                         int exitCode = sh(
-                            script: """
+                                script: """
                                 mvn -B -ntp test \
                                     -Dsite=${site} \
                                     -DsuiteXmlFile=${suiteFile} \
                                     -Dbrowser=${params.BROWSER} \
-                                    -Dheadless=${params.HEADLESS}
+                                    -Dheadless=${params.HEADLESS} \
+                                    -Dhuman.pause.enabled=false \
+                                    -Dmaven.test.failure.ignore=true
                             """,
-                            returnStatus: true
+                                returnStatus: true
                         )
-
                         testResults[site] = exitCode
                     }
 
@@ -132,30 +122,42 @@ pipeline {
 
     post {
         always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            // ── JUnit results ─────────────────────────────────────────
+            junit allowEmptyResults: true,
+                    testResults: 'target/surefire-reports/*.xml'
 
-            archiveArtifacts allowEmptyArchive: true,
-                artifacts: 'target/extent-reports/**, target/screenshots/**',
-                fingerprint: true
+            // ── Allure Report ─────────────────────────────────────────
+            allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'target/allure-results']]
+            ])
 
+            // ── Extent Report (HTML Publisher) ────────────────────────
             script {
                 if (fileExists('target/extent-reports')) {
                     publishHTML(target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'target/extent-reports',
-                        reportFiles: '*.html',
-                        reportName: 'Extent Test Report'
+                            allowMissing         : true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll              : true,
+                            reportDir            : 'target/extent-reports',
+                            reportFiles          : '*.html',
+                            reportName           : 'Extent Test Report'
                     ])
                 }
             }
+
+            // ── Archive raw artifacts ─────────────────────────────────
+            archiveArtifacts allowEmptyArchive: true,
+                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**',
+                    fingerprint: true
         }
+
         unstable {
-            echo 'Build finished UNSTABLE: one or more sites had test failures. See Extent report(s) and JUnit results for details.'
+            echo 'UNSTABLE: one or more sites had test failures. Check Allure and Extent reports.'
         }
         failure {
-            echo 'Build FAILED: check the "Build" or "Discover Site Projects" stage logs.'
+            echo 'FAILED: check Build or Discover stage logs.'
         }
     }
 }

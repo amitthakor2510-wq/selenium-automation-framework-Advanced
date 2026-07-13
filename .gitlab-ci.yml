@@ -1,17 +1,12 @@
 # ================================================================
 # GitLab CI/CD Pipeline - Selenium Automation Framework
-# Supports multiple sites, browsers, and suite types
+# Allure report published via GitLab Pages
 # ================================================================
-
 stages:
   - build
   - test
   - report
 
-# ----------------------------------------------------------------
-# Global default variables - override from GitLab CI/CD variables
-# or per-job below
-# ----------------------------------------------------------------
 variables:
   SITE: "demoqa"
   SUITE_TYPE: "regression"
@@ -19,9 +14,6 @@ variables:
   HEADLESS: "true"
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
 
-# ----------------------------------------------------------------
-# Cache Maven dependencies so they don't re-download every run
-# ----------------------------------------------------------------
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
@@ -29,7 +21,6 @@ cache:
 
 # ================================================================
 # STAGE 1 - Build
-# Compile project and check for errors before running tests
 # ================================================================
 build:
   stage: build
@@ -43,21 +34,15 @@ build:
 
 # ================================================================
 # STAGE 2 - Test
-# Run tests with all config passed via variables
 # ================================================================
 test:
   stage: test
   script:
     - echo "======= Running Tests ======="
-    - echo "Site      = $SITE"
-    - echo "Suite     = $SUITE_TYPE"
-    - echo "Browser   = $BROWSER"
-    - echo "Headless  = $HEADLESS"
-
-    # Install Chrome if not already installed on runner
+    - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
     - |
       if ! command -v google-chrome &> /dev/null; then
-        echo "Chrome not found - installing..."
+        echo "Installing Chrome..."
         apt-get update -qq
         apt-get install -y -qq wget gnupg
         wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
@@ -65,10 +50,8 @@ test:
         apt-get update -qq
         apt-get install -y -qq google-chrome-stable
       else
-        echo "Chrome already installed: $(google-chrome --version)"
+        echo "Chrome: $(google-chrome --version)"
       fi
-
-    # Run the tests
     - mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
@@ -76,17 +59,17 @@ test:
       -Dheadless=$HEADLESS
       -Dhuman.pause.enabled=false
       -Dmaven.test.failure.ignore=true
-
   artifacts:
     name: "test-results-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 7 days
     paths:
+      - target/allure-results/
       - target/extent-reports/
       - target/screenshots/
       - target/surefire-reports/
-      - target/downloads/
-
+    reports:
+      junit: target/surefire-reports/*.xml
   only:
     - main
     - master
@@ -94,38 +77,54 @@ test:
 
 # ================================================================
 # STAGE 3 - Report
-# Publish test results - always runs even if tests fail
+# Allure → GitLab Pages  |  Extent → artifact
 # ================================================================
 report:
   stage: report
   script:
+    - echo "======= Generating Allure Report ======="
+    - |
+      # Install Allure CLI
+      apt-get update -qq && apt-get install -y -qq default-jre wget unzip
+      wget -q https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+      tar -zxf allure-2.27.0.tgz -C /opt/
+      export PATH=$PATH:/opt/allure-2.27.0/bin
+    - allure generate target/allure-results --clean -o public/allure-report
     - echo "======= Test Results Summary ======="
     - |
       if [ -f "target/surefire-reports/testng-results.xml" ]; then
-        echo "TestNG results found"
         grep -o 'total="[0-9]*"' target/surefire-reports/testng-results.xml || true
         grep -o 'passed="[0-9]*"' target/surefire-reports/testng-results.xml || true
         grep -o 'failed="[0-9]*"' target/surefire-reports/testng-results.xml || true
         grep -o 'skipped="[0-9]*"' target/surefire-reports/testng-results.xml || true
-      else
-        echo "No TestNG results file found"
       fi
-    - echo "Extent report location - target/extent-reports/$SITE-report.html"
-
   artifacts:
-    name: "extent-report-$CI_COMMIT_REF_SLUG"
+    name: "allure-report-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 30 days
     paths:
+      - public/
       - target/extent-reports/
       - target/screenshots/
     reports:
       junit: target/surefire-reports/*.xml
-
   dependencies:
     - test
-
   only:
     - main
     - master
-    - merge_requests
+
+# GitLab Pages — serves public/ folder automatically at
+# https://<group>.gitlab.io/<project>/allure-report
+pages:
+  stage: report
+  script:
+    - echo "Publishing to GitLab Pages"
+  artifacts:
+    paths:
+      - public/
+  dependencies:
+    - report
+  only:
+    - main
+    - master

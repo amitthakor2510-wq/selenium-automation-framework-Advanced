@@ -44,6 +44,12 @@
             <class name="com.automation.sites.demoqa.tests.ToolTipsTest"/>
             <class name="com.automation.sites.demoqa.tests.MenuTest"/>
             <class name="com.automation.sites.demoqa.tests.SelectMenuTest"/>
+            <class name="com.automation.sites.demoqa.tests.BookStoreApplicationTest"/>
+            <class name="com.automation.sites.demoqa.tests.DraggableTest"/>
+            <class name="com.automation.sites.demoqa.tests.DroppableTest"/>
+            <class name="com.automation.sites.demoqa.tests.ResizableTest"/>
+            <class name="com.automation.sites.demoqa.tests.SelectableTest"/>
+            <class name="com.automation.sites.demoqa.tests.SortableTest"/>
         </classes>
 
     </test>

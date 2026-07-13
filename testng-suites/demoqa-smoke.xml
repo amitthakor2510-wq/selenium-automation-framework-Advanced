@@ -3,6 +3,7 @@
 
     <listeners>
         <listener class-name="com.automation.core.listeners.TestListener"/>
+
     </listeners>
 
     <test name="DemoQA Smoke Tests" preserve-order="true">

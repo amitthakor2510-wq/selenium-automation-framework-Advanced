@@ -52,15 +52,14 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Verify and Setup Chrome Browser
+      - name: Setup Chrome Browser
         run: |
           echo "======= Setting Up Browser ======="
           if ! command -v google-chrome &> /dev/null; then
             echo "Chrome not found - installing..."
             sudo apt-get update -qq
-            sudo apt-get install -y -qq wget gnupg
-            wget -q -O - https://google.com | sudo apt-key add -
-            echo "deb [arch=amd64] http://google.com stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
             sudo apt-get update -qq
             sudo apt-get install -y -qq google-chrome-stable
           else
@@ -70,11 +69,6 @@ jobs:
       - name: Run Tests
         run: |
           echo "======= Running Tests ======="
-          echo "Site      = ${{ env.SITE }}"
-          echo "Suite     = ${{ env.SUITE_TYPE }}"
-          echo "Browser   = ${{ env.BROWSER }}"
-          echo "Headless  = ${{ env.HEADLESS }}"
-          
           mvn -B test \
             -Dsite=${{ env.SITE }} \
             -DsuiteXmlFile=testng-suites/${{ env.SITE }}-${{ env.SUITE_TYPE }}.xml \
@@ -83,11 +77,19 @@ jobs:
             -Dhuman.pause.enabled=false \
             -Dmaven.test.failure.ignore=true
 
-      - name: Upload Test Raw Artifacts (Backup ZIP)
+      - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-test-${{ github.ref_name }}
+          name: allure-results
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Extent + Surefire Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.ref_name }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -96,40 +98,66 @@ jobs:
           retention-days: 7
 
   # ================================================================
-  # STAGE 3 - Report & Deploy to GitHub Pages
+  # STAGE 3 - Allure Report
   # ================================================================
-  report:
+  allure-report:
     needs: test
     if: always()
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Crucial: Allows the runner to publish to the gh-pages branch
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Test Raw Artifacts
+      - name: Download Allure Results
         uses: actions/download-artifact@v4
         with:
-          name: test-results-test-${{ github.ref_name }}
-          path: target/
+          name: allure-results
+          path: target/allure-results/
 
-      - name: Process Test Results Summary
+      - name: Load Previous Allure History
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Copy Previous History for Trend Graph
+        continue-on-error: true
         run: |
-          echo "======= Test Results Summary ======="
-          if [ -f "target/surefire-reports/testng-results.xml" ]; then
-            echo "TestNG results found"
-            grep -o 'total="[0-9]*"' target/surefire-reports/testng-results.xml || true
-            grep -o 'passed="[0-9]*"' target/surefire-reports/testng-results.xml || true
-            grep -o 'failed="[0-9]*"' target/surefire-reports/testng-results.xml || true
-            grep -o 'skipped="[0-9]*"' target/surefire-reports/testng-results.xml || true
+          if [ -d "gh-pages/allure-report/history" ]; then
+            mkdir -p target/allure-results/history
+            cp -r gh-pages/allure-report/history/. target/allure-results/history/
+            echo "History copied for trend graph"
           else
-            echo "No TestNG results file found"
+            echo "No previous history found - first run"
           fi
-          echo "Extent report location - target/extent-reports/${{ env.SITE }}-report.html"
 
-      - name: Deploy Unzipped HTML Report to GitHub Pages
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: target/allure-results
+          allure_report: target/allure-report
+          allure_history: allure-history
+          keep_reports: 20
+
+      - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/extent-reports
+          publish_dir: target/allure-report
+          destination_dir: allure-report
+
+      - name: Deploy Extent Report to GitHub Pages
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-${{ github.ref_name }}
+          path: target/
+
+      - name: Publish Extent Report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: target/extent-reports
+          destination_dir: extent-report

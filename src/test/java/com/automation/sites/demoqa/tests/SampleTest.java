@@ -11,6 +11,6 @@ public class SampleTest extends BaseTest {
     public void verifyTitle() {
         String actualTitle = getDriver().getTitle();
         System.out.println("Page Title: " + actualTitle);
-        Assert.assertEquals(actualTitle, "demosite");
+        Assert.assertEquals(actualTitle, "DEMOQA");
     }
 }

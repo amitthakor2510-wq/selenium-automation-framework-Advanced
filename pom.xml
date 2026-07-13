@@ -13,16 +13,29 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- ============================================================
-             Defaults for run-time properties. Override on the command
-             line, e.g.:
-             mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dbrowser=chrome -Dheadless=true
-             ============================================================ -->
+        <!-- Run-time defaults — override on CLI e.g. -Dsite=demoqa -Dbrowser=chrome -->
         <site>demoqa</site>
         <suiteXmlFile>testng-suites/demoqa-regression.xml</suiteXmlFile>
         <browser>chrome</browser>
         <headless>false</headless>
+
+        <!-- Allure + AspectJ versions -->
+        <allure.version>2.27.0</allure.version>
+        <aspectj.version>1.9.25</aspectj.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Allure BOM — keeps all allure module versions in sync automatically -->
+            <dependency>
+                <groupId>io.qameta.allure</groupId>
+                <artifactId>allure-bom</artifactId>
+                <version>${allure.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
 
@@ -33,6 +46,7 @@
             <version>4.21.0</version>
         </dependency>
 
+        <!-- SLF4J (logging backend for WebDriverManager etc.) -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -61,6 +75,13 @@
             <version>5.1.2</version>
         </dependency>
 
+        <!-- Allure TestNG — auto-captures pass/fail/skip from TestNG lifecycle -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -73,19 +94,39 @@
                     <suiteXmlFiles>
                         <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
                     </suiteXmlFiles>
-                    <!-- Forward these to the forked test JVM so ConfigReader/
-                         DriverFactory can see them. Command-line -D values
-                         override these defaults automatically. -->
                     <systemPropertyVariables>
                         <site>${site}</site>
                         <browser>${browser}</browser>
                         <headless>${headless}</headless>
                     </systemPropertyVariables>
-                    <!-- Let Jenkins report ALL results across a multi-site
-                         run instead of stopping the whole mvn process. -->
                     <testFailureIgnore>true</testFailureIgnore>
+                    <!-- AspectJ weaver is required for @Step and @Attachment annotations to work -->
+                    <argLine>
+                        -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
+                    </argLine>
+                </configuration>
+                <dependencies>
+                    <!-- AspectJ weaver must be on surefire's own classpath so it can instrument @Step -->
+                    <dependency>
+                        <groupId>org.aspectj</groupId>
+                        <artifactId>aspectjweaver</artifactId>
+                        <version>${aspectj.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <!-- Allure Maven plugin — lets you run: mvn allure:serve or mvn allure:report -->
+            <plugin>
+                <groupId>io.qameta.allure</groupId>
+                <artifactId>allure-maven</artifactId>
+                <version>2.12.0</version>
+                <configuration>
+                    <reportVersion>${allure.version}</reportVersion>
+                    <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
+                    <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
                 </configuration>
             </plugin>
+
         </plugins>
     </build>
 </project>
