@@ -1,0 +1,136 @@
+name: GitHub Actions Pipeline - Selenium Automation Framework
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+env:
+  SITE: "demoqa"
+  SUITE_TYPE: "regression"
+  BROWSER: "chrome"
+  HEADLESS: "true"
+  MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
+
+jobs:
+  # ================================================================
+  # STAGE 1 - Build
+  # ================================================================
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build Project
+        run: |
+          echo "======= Building Project ======="
+          mvn -B clean compile test-compile
+
+  # ================================================================
+  # STAGE 2 - Test
+  # ================================================================
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Verify and Setup Chrome Browser
+        run: |
+          echo "======= Setting Up Browser ======="
+          if ! command -v google-chrome &> /dev/null; then
+            echo "Chrome not found - installing..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq wget gnupg
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq google-chrome-stable
+          else
+            echo "Chrome already installed: $(google-chrome --version)"
+          fi
+
+      - name: Run Tests
+        run: |
+          echo "======= Running Tests ======="
+          echo "Site      = ${{ env.SITE }}"
+          echo "Suite     = ${{ env.SUITE_TYPE }}"
+          echo "Browser   = ${{ env.BROWSER }}"
+          echo "Headless  = ${{ env.HEADLESS }}"
+          
+          mvn -B test \
+            -Dsite=${{ env.SITE }} \
+            -DsuiteXmlFile=testng-suites/${{ env.SITE }}-${{ env.SUITE_TYPE }}.xml \
+            -Dbrowser=${{ env.BROWSER }} \
+            -Dheadless=${{ env.HEADLESS }} \
+            -Dhuman.pause.enabled=false \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload Test Raw Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-test-${{ github.ref_name }}
+          path: |
+            target/extent-reports/
+            target/screenshots/
+            target/surefire-reports/
+            target/downloads/
+          retention-days: 7
+
+  # ================================================================
+  # STAGE 3 - Report
+  # ================================================================
+  report:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Test Raw Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-test-${{ github.ref_name }}
+          path: target/
+
+      - name: Process Test Results Summary
+        run: |
+          echo "======= Test Results Summary ======="
+          if [ -f "target/surefire-reports/testng-results.xml" ]; then
+            echo "TestNG results found"
+            grep -o 'total="[0-9]*"' target/surefire-reports/testng-results.xml || true
+            grep -o 'passed="[0-9]*"' target/surefire-reports/testng-results.xml || true
+            grep -o 'failed="[0-9]*"' target/surefire-reports/testng-results.xml || true
+            grep -o 'skipped="[0-9]*"' target/surefire-reports/testng-results.xml || true
+          else
+            echo "No TestNG results file found"
+          fi
+          echo "Extent report location - target/extent-reports/${{ env.SITE }}-report.html"
+
+      - name: Upload Final Extent Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-report-${{ github.ref_name }}
+          path: |
+            target/extent-reports/
+            target/screenshots/
+          retention-days: 30
