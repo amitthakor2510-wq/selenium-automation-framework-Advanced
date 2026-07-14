@@ -109,8 +109,8 @@ public final class HumanActions {
     }
 
     private static WebElement waitFor(WebDriver driver, By locator) {
-        int timeoutSeconds = ConfigReader.getInt("timeout", 10);
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds));
+        WebDriverWait wait = new WebDriverWait(driver,
+                Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
         return wait.until(ExpectedConditions.elementToBeClickable(locator));
     }
 }

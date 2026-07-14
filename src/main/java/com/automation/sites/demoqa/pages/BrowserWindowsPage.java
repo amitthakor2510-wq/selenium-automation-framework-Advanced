@@ -59,79 +59,81 @@ public class BrowserWindowsPage extends BasePage {
 
         boolean newWindowOpened = false;
         int beforeSize = beforeClick.size();
+        String text = null;
         for (int i = 0; i < 50; i++) {
             if (driver.getWindowHandles().size() > beforeSize) {
                 newWindowOpened = true;
                 break;
             }
-            try { Thread.sleep(100); } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            HumanActions.pause();
+
+            if (!newWindowOpened) {
+                return "Knowledge of window opening confirmed";
             }
-        }
 
-        if (!newWindowOpened) {
-            return "Knowledge of window opening confirmed";
-        }
-
-        String newHandle = null;
-        for (String handle : driver.getWindowHandles()) {
-            if (!beforeClick.contains(handle)) {
-                newHandle = handle;
-                break;
-            }
-        }
-
-        driver.switchTo().window(newHandle);
-        HumanActions.pause();
-
-        String text = "Knowledge of window opening confirmed";
-
-        if (buttonLocator.equals(newWindowMsgButton)) {
-            try {
-                if (driver.getWindowHandles().contains(newHandle)) {
-                    driver.close();
-                }
-            } catch (Exception ignored) {}
-        } else {
-            try {
-                new WebDriverWait(driver, Duration.ofSeconds(5))
-                        .until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
-                text = driver.findElement(By.tagName("body")).getText().trim();
-            } catch (Exception e) {
-                text = "Knowledge of window opening confirmed";
-            }
-            try { driver.close(); } catch (Exception ignored) {}
-        }
-
-        boolean switchedBack = false;
-        for (int i = 0; i < 10; i++) {
-            try {
-                int handles = driver.getWindowHandles().size();
-                if (handles == 1) {
-                    driver.switchTo().window(driver.getWindowHandles().iterator().next());
-                    switchedBack = true;
+            String newHandle = null;
+            for (String handle : driver.getWindowHandles()) {
+                if (!beforeClick.contains(handle)) {
+                    newHandle = handle;
                     break;
-                } else if (handles == 0) {
+                }
+            }
+
+            driver.switchTo().window(newHandle);
+            HumanActions.pause();
+
+            text = "Knowledge of window opening confirmed";
+
+            if (buttonLocator.equals(newWindowMsgButton)) {
+                try {
+                    if (driver.getWindowHandles().contains(newHandle)) {
+                        driver.close();
+                    }
+                } catch (Exception ignored) {
+                }
+            } else {
+                try {
+                    new WebDriverWait(driver, Duration.ofSeconds(5))
+                            .until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+                    text = driver.findElement(By.tagName("body")).getText().trim();
+                } catch (Exception e) {
+                    text = "Knowledge of window opening confirmed";
+                }
+                try {
+                    driver.close();
+                } catch (Exception ignored) {
+                }
+            }
+
+            boolean switchedBack = false;
+            for (i = 0; i < 10; i++) {
+                try {
+                    int handles = driver.getWindowHandles().size();
+                    if (handles == 1) {
+                        driver.switchTo().window(driver.getWindowHandles().iterator().next());
+                        switchedBack = true;
+                        break;
+                    } else if (handles == 0) {
+                        return text;
+                    }
+                } catch (Exception e) {
                     return text;
                 }
-            } catch (Exception e) {
-                return text;
+                HumanActions.pause();
             }
-            try { Thread.sleep(300); } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
 
-        if (!switchedBack) {
-            try {
-                Set<String> handles = driver.getWindowHandles();
-                if (!handles.isEmpty()) {
-                    driver.switchTo().window(handles.iterator().next());
+            if (!switchedBack) {
+                try {
+                    Set<String> handles = driver.getWindowHandles();
+                    if (!handles.isEmpty()) {
+                        driver.switchTo().window(handles.iterator().next());
+                    }
+                } catch (Exception ignored) {
                 }
-            } catch (Exception ignored) {}
-        }
+            }
 
-        HumanActions.pause();
+            HumanActions.pause();
+            return text;
+        }
         return text;
-    }
-}
+    }}

@@ -20,7 +20,13 @@ public class BaseTest implements DriverProvider {
 
     @BeforeMethod(alwaysRun = true)
     public void setUp() {
-        ConfigReader.reset();
+        // Only reset if the site actually changed (multi-site runs).
+        // For single-site runs (the normal case) ConfigReader stays loaded.
+        String currentSite = ConfigReader.getActiveSite();
+        String requestedSite = System.getProperty("site", "demoqa");
+        if (currentSite == null || !currentSite.equals(requestedSite)) {
+            ConfigReader.reset();
+        }
         WebDriver webDriver = DriverFactory.createDriver();
         driver.set(webDriver);
         getDriver().get(ConfigReader.get("url"));

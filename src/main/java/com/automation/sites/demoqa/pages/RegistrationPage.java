@@ -25,10 +25,9 @@ public class RegistrationPage extends BasePage {
     }
 
     public void navigateToRegistration() {
-        String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + "/register");
+        navigateTo("/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
-        sleep(1500);
+        //sleep(1500);
         System.out.println("  Navigated to registration page");
     }
 
@@ -37,18 +36,12 @@ public class RegistrationPage extends BasePage {
                 ExpectedConditions.visibilityOfElementLocated(locator));
 
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-        sleep(300);
-
         js.executeScript("arguments[0].click();", el);
-        sleep(300);
 
         el.sendKeys(Keys.chord(Keys.CONTROL, "a"));
-        sleep(100);
         el.sendKeys(Keys.DELETE);
-        sleep(100);
 
         HumanActions.typeHumanLike(el, value);
-        sleep(300);
 
         String actual = el.getAttribute("value");
         System.out.println("  " + fieldName + ": typed='" + value
@@ -64,13 +57,14 @@ public class RegistrationPage extends BasePage {
         fillField(userNameInput,  userName,   "Username");
         fillField(emailInput,     email,      "Email");
         fillField(passwordInput,  password,   "Password");
+        wait.until(ExpectedConditions.elementToBeClickable(registerButton));
 
-        sleep(600);
+        //sleep(600);
 
         WebElement btn = wait.until(
                 ExpectedConditions.presenceOfElementLocated(registerButton));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
-        sleep(400);
+        //sleep(400);
         js.executeScript("arguments[0].click();", btn);
         System.out.println("  Register clicked");
 
@@ -113,8 +107,7 @@ public class RegistrationPage extends BasePage {
             System.out.println("  On /login ✓");
         } catch (Exception e) {
             System.out.println("  Navigating to /login directly");
-            String baseUrl = ConfigReader.get("url");
-            driver.get(baseUrl + "/login");
+            navigateTo("/login");
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userName")));
         }
     }

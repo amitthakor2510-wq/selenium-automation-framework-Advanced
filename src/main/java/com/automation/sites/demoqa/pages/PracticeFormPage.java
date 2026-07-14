@@ -278,7 +278,7 @@ public class PracticeFormPage extends BasePage {
         try {
             WebElement closeBtn = driver.findElement(modalCloseButton);
             js.executeScript("arguments[0].click();", closeBtn);
-            Thread.sleep(1000);
+            HumanActions.pause();
 
             // Check if modal disappeared
             if (driver.findElements(modalTitle).isEmpty()
@@ -292,7 +292,7 @@ public class PracticeFormPage extends BasePage {
             try {
                 driver.findElement(By.tagName("body"))
                         .sendKeys(Keys.ESCAPE);
-                Thread.sleep(1000);
+                HumanActions.pause();
 
                 if (driver.findElements(modalTitle).isEmpty()
                         || !driver.findElement(modalTitle).isDisplayed()) {
@@ -307,7 +307,7 @@ public class PracticeFormPage extends BasePage {
                 js.executeScript(
                         "document.querySelector('.modal-backdrop').click();"
                 );
-                Thread.sleep(1000);
+                HumanActions.pause();
             } catch (Exception ignored) {}
         }
 
