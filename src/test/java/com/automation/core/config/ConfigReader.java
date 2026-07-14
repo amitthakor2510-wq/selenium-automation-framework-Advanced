@@ -36,6 +36,18 @@ public class ConfigReader {
         initialized = true;
     }
 
+
+    /**
+     * Call this before switching to a different site in the same JVM.
+     * Clears all loaded properties so the next ConfigReader.get() call
+     * reloads config for the new site.
+     */
+    public static synchronized void reset() {
+        properties.clear();
+        initialized = false;
+        activeSite  = null;
+    }
+
     private static void loadFromClasspath(String path, boolean required) {
         try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream(path)) {
             if (input == null) {

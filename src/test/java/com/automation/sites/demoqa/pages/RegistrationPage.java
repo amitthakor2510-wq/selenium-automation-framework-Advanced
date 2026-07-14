@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.*;
@@ -8,12 +9,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class RegistrationPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
-    private final String baseUrl;
+public class RegistrationPage extends BasePage {
 
     // IDs verified from compiled RegistrationPage.class:
     private final By firstNameInput  = By.id("firstname");
@@ -25,13 +21,11 @@ public class RegistrationPage {
     private final By backToLoginLink = By.id("gotologin");
 
     public RegistrationPage(WebDriver driver) {
-        this.driver  = driver;
-        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js      = (JavascriptExecutor) driver;
-        this.baseUrl = ConfigReader.get("url");
+        super(driver);
     }
 
     public void navigateToRegistration() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
         sleep(1500);
@@ -119,6 +113,7 @@ public class RegistrationPage {
             System.out.println("  On /login ✓");
         } catch (Exception e) {
             System.out.println("  Navigating to /login directly");
+            String baseUrl = ConfigReader.get("url");
             driver.get(baseUrl + "/login");
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userName")));
         }

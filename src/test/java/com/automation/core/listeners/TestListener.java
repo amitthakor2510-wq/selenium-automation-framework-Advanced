@@ -23,11 +23,11 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestStart(ITestResult result) {
-        String testName = result.getMethod().getDescription();
-        if (testName == null || testName.isEmpty()) {
-            testName = result.getName();
+        String testName = result.getMethod().getMethodName();
+        ExtentTest extentTest;
+        synchronized (extent) {
+            extentTest = extent.createTest(testName);
         }
-        ExtentTest extentTest = extent.createTest(testName);
         test.set(extentTest);
     }
 

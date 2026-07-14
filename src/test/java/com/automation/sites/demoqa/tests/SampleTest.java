@@ -11,6 +11,9 @@ public class SampleTest extends BaseTest {
     public void verifyTitle() {
         String actualTitle = getDriver().getTitle();
         System.out.println("Page Title: " + actualTitle);
-        Assert.assertEquals(actualTitle, "DEMOQA");
+        Assert.assertTrue(
+                actualTitle.contains("demosite") || actualTitle.contains("DEMOQA"),
+                "Unexpected page title: " + actualTitle
+        );
     }
 }

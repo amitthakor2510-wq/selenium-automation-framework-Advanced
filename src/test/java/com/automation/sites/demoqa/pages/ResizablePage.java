@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
@@ -12,11 +13,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class ResizablePage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class ResizablePage extends BasePage {
 
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
     private final By resizableMenu    = By.xpath("//span[text()='Resizable']");
@@ -24,9 +21,7 @@ public class ResizablePage {
     private final By resizableHandle  = By.cssSelector("#resizableBoxWithRestriction .react-resizable-handle");
 
     public ResizablePage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(10));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver);
     }
 
     public void navigateToResizable() {
