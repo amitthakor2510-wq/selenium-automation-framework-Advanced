@@ -14,7 +14,7 @@ public class ExtentManager {
         if (extent == null) {
 
             String site = ConfigReader.getActiveSite();
-            String reportPath = "target/extent-reports/" + site + "-report.html";
+            String reportPath = "target/extent-reports/index.html";
 
             ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
             spark.config().setTheme(Theme.STANDARD);
