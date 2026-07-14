@@ -103,13 +103,14 @@ pipeline {
 
                         int exitCode = sh(
                                 script: """
-                                mvn -B -ntp test \
-                                    -Dsite=${site} \
-                                    -DsuiteXmlFile=${suiteFile} \
-                                    -Dbrowser=${params.BROWSER} \
-                                    -Dheadless=${params.HEADLESS} \
-                                    -Dhuman.pause.enabled=false \
-                                    -Dmaven.test.failure.ignore=true
+                               mvn -B -ntp test \\
+                                  -Dsite=${site} \\
+                                  -DsuiteXmlFile=${suiteFile} \\
+                                  -Dbrowser=${params.BROWSER} \\
+                                  -Dheadless=${params.HEADLESS} \\
+                                  -Dhuman.pause.enabled=false \\
+                                  -Dretry.count=${params.RETRY_COUNT} \\
+                                  -Dmaven.test.failure.ignore=true
                             """,
                                 returnStatus: true
                         )

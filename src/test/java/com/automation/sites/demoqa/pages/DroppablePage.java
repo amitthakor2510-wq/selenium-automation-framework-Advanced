@@ -1,8 +1,8 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Point;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -12,11 +12,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class DroppablePage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class DroppablePage extends BasePage {
 
     // ── Navigation ──────────────────────────────────────────────
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
@@ -54,18 +50,16 @@ public class DroppablePage {
     private final By revertDropText = By.cssSelector("#droppableExample-tabpane-revertable #droppable p");
 
     public DroppablePage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver); // BasePage sets driver, wait (from config), js
     }
 
     // ── Navigation ───────────────────────────────────────────────
 
     public void navigateToDroppable() {
         WebElement card = wait.until(ExpectedConditions.presenceOfElementLocated(interactionsCard));
-        scrollAndClick(card);
+        scrollAndJsClick(card);
         WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(droppableMenu));
-        scrollAndClick(menu);
+        scrollAndJsClick(menu);
         wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDrag));
     }
 
@@ -74,7 +68,7 @@ public class DroppablePage {
     public void dragToDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDrop));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
 
         int attempts = 0;
         boolean success = false;
@@ -105,8 +99,6 @@ public class DroppablePage {
     public void clickAcceptTab() {
         WebElement tab = wait.until(ExpectedConditions.elementToBeClickable(acceptTab));
         js.executeScript("arguments[0].click();", tab);
-
-        // Wait for Bootstrap to fully apply active + show classes (animation complete)
         wait.until(d -> {
             WebElement pane = d.findElement(By.id("droppableExample-tabpane-accept"));
             String cls = pane.getAttribute("class");
@@ -118,7 +110,7 @@ public class DroppablePage {
     public void dragAcceptableToDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptableDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDrop));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver).dragAndDrop(drag, drop).build().perform();
         HumanActions.pause();
     }
@@ -126,14 +118,14 @@ public class DroppablePage {
     public void dragNotAcceptableToDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(notAcceptableDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDrop));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver).dragAndDrop(drag, drop).build().perform();
         HumanActions.pause();
     }
 
     public void dragAcceptableAwayFromDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptableDrag));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver)
                 .clickAndHold(drag)
                 .moveByOffset(300, 0)
@@ -153,8 +145,6 @@ public class DroppablePage {
     public void clickPreventPropTab() {
         WebElement tab = wait.until(ExpectedConditions.elementToBeClickable(preventPropTab));
         js.executeScript("arguments[0].click();", tab);
-
-        // Wait for Bootstrap to fully apply active + show classes (animation complete)
         wait.until(d -> {
             WebElement pane = d.findElement(By.id("droppableExample-tabpane-preventPropogation"));
             String cls = pane.getAttribute("class");
@@ -167,7 +157,7 @@ public class DroppablePage {
     public void dragToInnerNotGreedy() {
         WebElement drag  = wait.until(ExpectedConditions.visibilityOfElementLocated(preventDrag));
         WebElement inner = wait.until(ExpectedConditions.visibilityOfElementLocated(innerNotGreedy));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver)
                 .clickAndHold(drag)
                 .moveToElement(inner)
@@ -182,7 +172,7 @@ public class DroppablePage {
     public void dragToInnerGreedy() {
         WebElement drag  = wait.until(ExpectedConditions.visibilityOfElementLocated(preventDrag));
         WebElement inner = wait.until(ExpectedConditions.visibilityOfElementLocated(innerGreedy));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver)
                 .clickAndHold(drag)
                 .moveToElement(inner)
@@ -194,23 +184,19 @@ public class DroppablePage {
     }
 
     public String getOuterNotGreedyText() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(outerNotGreedyText))
-                .getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(outerNotGreedyText)).getText().trim();
     }
 
     public String getInnerNotGreedyText() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(innerNotGreedyText))
-                .getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(innerNotGreedyText)).getText().trim();
     }
 
     public String getOuterGreedyText() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(outerGreedyText))
-                .getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(outerGreedyText)).getText().trim();
     }
 
     public String getInnerGreedyText() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(innerGreedyText))
-                .getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(innerGreedyText)).getText().trim();
     }
 
     // ── Revert Draggable tab ─────────────────────────────────────
@@ -218,8 +204,6 @@ public class DroppablePage {
     public void clickRevertDraggableTab() {
         WebElement tab = wait.until(ExpectedConditions.elementToBeClickable(revertDraggableTab));
         js.executeScript("arguments[0].click();", tab);
-
-        // Wait for Bootstrap to fully apply active + show classes (animation complete)
         wait.until(d -> {
             WebElement pane = d.findElement(By.id("droppableExample-tabpane-revertable"));
             String cls = pane.getAttribute("class");
@@ -232,7 +216,7 @@ public class DroppablePage {
     public void dragWillRevertToDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(willRevertDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(revertDrop));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
 
         int attempts = 0;
         boolean success = false;
@@ -253,7 +237,7 @@ public class DroppablePage {
     public void dragNotRevertToDropZone() {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(notRevertDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(revertDrop));
-        scrollIntoView(drag);
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
 
         int attempts = 0;
         boolean success = false;
@@ -272,8 +256,7 @@ public class DroppablePage {
     }
 
     public String getRevertDropText() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(revertDropText))
-                .getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(revertDropText)).getText().trim();
     }
 
     public Point getWillRevertBoxLocation() {
@@ -282,17 +265,5 @@ public class DroppablePage {
 
     public Point getNotRevertBoxLocation() {
         return driver.findElement(notRevertDrag).getLocation();
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────
-
-    private void scrollIntoView(WebElement el) {
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
-        HumanActions.pause();
-    }
-
-    private void scrollAndClick(WebElement el) {
-        scrollIntoView(el);
-        js.executeScript("arguments[0].click();", el);
     }
 }

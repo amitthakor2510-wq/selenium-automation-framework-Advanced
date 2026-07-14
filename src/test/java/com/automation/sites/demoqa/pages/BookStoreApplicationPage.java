@@ -1,15 +1,14 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.*;
 
 public class BookStoreApplicationPage extends BasePage {
 
@@ -28,6 +27,7 @@ public class BookStoreApplicationPage extends BasePage {
     private final By searchBox = By.id("searchBox");
     private final By bookLinks = By.xpath("//div[@role='table']//a[@href]");
     private final By noDataDiv = By.cssSelector(".rt-noData");
+    private final By tableRows = By.cssSelector(".rt-tr-group");
 
     // ── Detail ──────────────────────────────────────────────────────────────────
     private final By backToStoreBtn = By.id("addNewRecordButton");
@@ -39,36 +39,30 @@ public class BookStoreApplicationPage extends BasePage {
     // ── Navigation ──────────────────────────────────────────────────────────────
 
     public void navigateToLogin() {
-        String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + "/login");
+        navigateTo("/login");
         wait.until(ExpectedConditions.visibilityOfElementLocated(usernameField));
     }
 
     public void navigateToRegister() {
-        String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + "/register");
+        navigateTo("/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("firstname")));
     }
 
     public void navigateToBookStore() {
-        String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + "/books");
-
+        navigateTo("/books");
         wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("[role='table']")));
 
-        wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.cssSelector("[role='table']")));
-
-        try { Thread.sleep(2000); } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // Wait for React to populate rows instead of raw Thread.sleep
+        wait.until(d -> !d.findElements(tableRows).isEmpty()
+                && d.findElements(tableRows).stream()
+                .anyMatch(r -> !r.getText().trim().isEmpty()));
 
         HumanActions.pause();
     }
 
     public void navigateToProfile() {
-        String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + "/profile");
+        navigateTo("/profile");
         wait.until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
     }
 
@@ -129,9 +123,16 @@ public class BookStoreApplicationPage extends BasePage {
                 ExpectedConditions.visibilityOfElementLocated(searchBox));
         box.clear();
         box.sendKeys(keyword);
-        try { Thread.sleep(800); } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+
+        // Wait for filter to apply instead of raw Thread.sleep
+        HumanActions.pause();
+        wait.until(d -> {
+            List<WebElement> rows = d.findElements(tableRows);
+            return rows.stream().anyMatch(r -> {
+                try { return !r.getText().trim().isEmpty(); }
+                catch (StaleElementReferenceException e) { return false; }
+            });
+        });
     }
 
     public int getVisibleBookCount() {
@@ -151,7 +152,7 @@ public class BookStoreApplicationPage extends BasePage {
                     catch (StaleElementReferenceException ex) { return ""; }
                 })
                 .filter(t -> !t.isEmpty())
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     public void clickFirstBook() {
@@ -161,7 +162,7 @@ public class BookStoreApplicationPage extends BasePage {
                     catch (StaleElementReferenceException ex) { return false; }
                 })
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("No books found"));
+                .orElseThrow(() -> new RuntimeException("No books found in store"));
 
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", first);
         HumanActions.pause();
