@@ -2,8 +2,8 @@
 // Jenkins CI/CD pipeline - Selenium + Java + TestNG + Maven
 // Requires:
 //   - JDK 17            (Tools > JDK, name: "JDK17")
-//   - Maven 3.9+        (Tools > Maven, name: "Maven3")
-//   - Allure Plugin     (Manage Jenkins > Plugins > Allure)
+//   - Maven             (Tools > Maven, name: "Maven installations")
+//   - Allure Tool       (Tools > Allure Commandline, name: "allure")
 //   - HTML Publisher    (Manage Jenkins > Plugins > HTML Publisher)
 // =============================================================
 
@@ -13,7 +13,8 @@ pipeline {
 
     tools {
         jdk 'JDK17'
-        maven 'Maven3'
+        maven 'Maven installations'  // Matches your global configuration name exactly
+        allure 'allure'             // Injects the configured allure command-line runner
     }
 
     parameters {
