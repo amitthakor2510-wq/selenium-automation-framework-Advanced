@@ -1,6 +1,6 @@
 package com.automation.sites.saucedemo.tests;
 
-import com.automation.core.base.BaseTest;
+import com.automation.sites.core.BaseTest;
 import com.automation.sites.saucedemo.pages.LoginPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;

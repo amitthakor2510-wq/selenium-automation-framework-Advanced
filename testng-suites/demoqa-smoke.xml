@@ -2,8 +2,8 @@
 <suite name="DemoQA Smoke Suite" parallel="none">
 
     <listeners>
-        <listener class-name="com.automation.core.listeners.TestListener"/>
-        <listener class-name="com.automation.core.listeners.RetryListener"/>
+        <listener class-name="com.automation.sites.listeners.TestListener"/>
+        <listener class-name="com.automation.sites.listeners.RetryListener"/>
     </listeners>
 
     <test name="DemoQA Smoke Tests" preserve-order="true">
