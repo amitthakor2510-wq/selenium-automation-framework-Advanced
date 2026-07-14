@@ -1,42 +1,34 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
-import java.time.Duration;
 import java.util.List;
 
-public class AutoCompletePage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class AutoCompletePage extends BasePage {
 
     // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard       = By.xpath("//h5[text()='Widgets']");
-    private final By autoCompleteMenu  = By.xpath("//span[text()='Auto Complete']");
+    private final By widgetsCard      = By.xpath("//h5[text()='Widgets']");
+    private final By autoCompleteMenu = By.xpath("//span[text()='Auto Complete']");
 
     // ── Multi color input ──────────────────────────────────────────────────────
-    private final By multiInput        = By.id("autoCompleteMultipleInput");
-    private final By multiValues       = By.cssSelector(".auto-complete__multi-value__label");
+    private final By multiInput  = By.id("autoCompleteMultipleInput");
+    private final By multiValues = By.cssSelector(".auto-complete__multi-value__label");
 
     // ── Single color input ─────────────────────────────────────────────────────
-    private final By singleInput       = By.id("autoCompleteSingleInput");
-    private final By singleValue       = By.cssSelector(".auto-complete__single-value");
+    private final By singleInput = By.id("autoCompleteSingleInput");
+    private final By singleValue = By.cssSelector(".auto-complete__single-value");
 
     // ── Dropdown options ───────────────────────────────────────────────────────
-    private final By dropdownOption    = By.cssSelector(".auto-complete__option");
+    private final By dropdownOption = By.cssSelector(".auto-complete__option");
 
     public AutoCompletePage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(10));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver);
     }
 
     public void navigateToAutoComplete() {
@@ -45,20 +37,10 @@ public class AutoCompletePage {
         wait.until(ExpectedConditions.visibilityOfElementLocated(multiInput));
     }
 
-    // ── Multi input ────────────────────────────────────────────────────────────
-
-    /**
-     * Types a colour name into the multi input.
-     * Waits for dropdown to appear.
-     * Presses Enter to select first match.
-     */
     public void typeMultiColor(String color) {
-        WebElement input = wait.until(
-                ExpectedConditions.elementToBeClickable(multiInput)
-        );
+        WebElement input = wait.until(ExpectedConditions.elementToBeClickable(multiInput));
         HumanActions.pause();
         input.sendKeys(color);
-
         wait.until(ExpectedConditions.visibilityOfElementLocated(dropdownOption));
         HumanActions.pause();
         input.sendKeys(Keys.ENTER);
@@ -72,23 +54,17 @@ public class AutoCompletePage {
         return getMultiSelectedValues().size();
     }
 
-    // ── Single input ───────────────────────────────────────────────────────────
-
     public void typeSingleColor(String color) {
-        WebElement input = wait.until(
-                ExpectedConditions.elementToBeClickable(singleInput)
-        );
+        WebElement input = wait.until(ExpectedConditions.elementToBeClickable(singleInput));
         HumanActions.pause();
         input.sendKeys(color);
-
         wait.until(ExpectedConditions.visibilityOfElementLocated(dropdownOption));
         HumanActions.pause();
         input.sendKeys(Keys.ENTER);
     }
 
     public String getSingleSelectedValue() {
-        return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(singleValue)
-        ).getText().trim();
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(singleValue))
+                .getText().trim();
     }
 }

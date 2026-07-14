@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
@@ -11,12 +12,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class WebTablesPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
-    private final String baseUrl;
+public class WebTablesPage extends BasePage {
 
     // ── Navigation ──────────────────────────────────────────────────────────────
     private final By elementsCard  = By.xpath("//h5[text()='Elements']");
@@ -41,13 +37,11 @@ public class WebTablesPage {
     private final By editButtons    = By.cssSelector("span[title='Edit']");
 
     public WebTablesPage(WebDriver driver) {
-        this.driver  = driver;
-        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(10));
-        this.js      = (JavascriptExecutor) driver;
-        this.baseUrl = ConfigReader.get("url");
+        super(driver);
     }
 
     public void navigateToWebTables() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/webtables");
         wait.until(ExpectedConditions.visibilityOfElementLocated(addButton));
     }

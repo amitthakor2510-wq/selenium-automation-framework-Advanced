@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -10,10 +11,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.io.File;
 import java.time.Duration;
 
-public class UploadDownloadPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
+public class UploadDownloadPage extends BasePage {
 
     // ── Navigation ─────────────────────────────────────────────────────────────
     private final By elementsCard      = By.xpath("//h5[text()='Elements']");
@@ -27,8 +25,7 @@ public class UploadDownloadPage {
     private final By uploadedFilePath  = By.id("uploadedFilePath");
 
     public UploadDownloadPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(10));
+        super(driver);
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────

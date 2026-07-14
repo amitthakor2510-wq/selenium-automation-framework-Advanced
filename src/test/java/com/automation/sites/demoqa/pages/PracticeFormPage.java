@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -12,11 +13,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class PracticeFormPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class PracticeFormPage extends BasePage {
 
     // ── Navigation ─────────────────────────────────────────────────────────────
     private final By formsCard        = By.xpath("//h5[text()='Forms']");
@@ -63,9 +60,7 @@ public class PracticeFormPage {
     private final By modalCloseButton = By.id("closeLargeModal");
 
     public PracticeFormPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver);
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────

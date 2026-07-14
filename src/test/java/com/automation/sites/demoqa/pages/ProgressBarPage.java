@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -9,11 +10,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 
-public class ProgressBarPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class ProgressBarPage extends BasePage {
 
     // ── Navigation ─────────────────────────────────────────────────────────────
     private final By widgetsCard      = By.xpath("//h5[text()='Widgets']");
@@ -25,9 +22,7 @@ public class ProgressBarPage {
     private final By progressBar      = By.cssSelector(".progress-bar");
 
     public ProgressBarPage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver);
     }
 
     public void navigateToProgressBar() {

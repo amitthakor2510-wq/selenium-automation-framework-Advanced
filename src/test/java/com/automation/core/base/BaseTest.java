@@ -19,9 +19,9 @@ public class BaseTest implements DriverProvider {
 
     @BeforeMethod(alwaysRun = true)
     public void setUp() {
+        ConfigReader.reset();
         WebDriver webDriver = DriverFactory.createDriver();
         driver.set(webDriver);
-
         getDriver().get(ConfigReader.get("url"));
     }
 

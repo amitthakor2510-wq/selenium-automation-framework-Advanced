@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -14,11 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SelectablePage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
+public class SelectablePage extends BasePage {
 
     private final By interactionsCard  = By.xpath("//h5[text()='Interactions']");
     private final By selectableMenu    = By.xpath("//span[text()='Selectable']");
@@ -30,9 +27,7 @@ public class SelectablePage {
     private final By activeGridItems   = By.cssSelector("#demo-tabpane-grid .list-group-item.active");
 
     public SelectablePage(WebDriver driver) {
-        this.driver = driver;
-        this.wait   = new WebDriverWait(driver, Duration.ofSeconds(10));
-        this.js     = (JavascriptExecutor) driver;
+        super(driver);
     }
 
     public void navigateToSelectable() {

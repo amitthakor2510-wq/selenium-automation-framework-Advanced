@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import com.automation.core.base.BasePage;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.*;
@@ -10,12 +11,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class BookStoreApplicationPage {
-
-    private final WebDriver driver;
-    private final WebDriverWait wait;
-    private final JavascriptExecutor js;
-    private final String baseUrl;
+public class BookStoreApplicationPage extends BasePage {
 
     // ── Login ───────────────────────────────────────────────────────────────────
     private final By usernameField = By.id("userName");
@@ -37,25 +33,25 @@ public class BookStoreApplicationPage {
     private final By backToStoreBtn = By.id("addNewRecordButton");
 
     public BookStoreApplicationPage(WebDriver driver) {
-        this.driver  = driver;
-        this.wait    = new WebDriverWait(driver, Duration.ofSeconds(15));
-        this.js      = (JavascriptExecutor) driver;
-        this.baseUrl = ConfigReader.get("url");
+        super(driver);
     }
 
     // ── Navigation ──────────────────────────────────────────────────────────────
 
     public void navigateToLogin() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/login");
         wait.until(ExpectedConditions.visibilityOfElementLocated(usernameField));
     }
 
     public void navigateToRegister() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("firstname")));
     }
 
     public void navigateToBookStore() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/books");
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
@@ -71,6 +67,7 @@ public class BookStoreApplicationPage {
     }
 
     public void navigateToProfile() {
+        String baseUrl = ConfigReader.get("url");
         driver.get(baseUrl + "/profile");
         wait.until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
     }
