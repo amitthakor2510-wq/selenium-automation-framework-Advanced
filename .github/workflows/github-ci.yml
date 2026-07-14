@@ -76,6 +76,7 @@ jobs:
             -Dbrowser=${{ env.BROWSER }} \
             -Dheadless=${{ env.HEADLESS }} \
             -Dhuman.pause.enabled=false \
+            -Dretry.count=${{ env.RETRY_COUNT }} \
             -Dmaven.test.failure.ignore=true
 
       - name: Upload Allure Results

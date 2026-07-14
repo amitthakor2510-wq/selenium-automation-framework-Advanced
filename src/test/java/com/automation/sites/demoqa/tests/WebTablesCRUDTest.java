@@ -8,10 +8,11 @@ import org.testng.annotations.Test;
 public class WebTablesCRUDTest extends BaseTest {
 
     @Test(priority = 1, groups = {"regression"},
-            description = "Web Tables - Full CRUD Add Edit Delete Record")
+            description = "Web Tables - Full CRUD: Add, Edit, Delete a record")
     public void verifyFullCRUDOperation() {
         WebTablesPage page = new WebTablesPage(getDriver());
 
+        // Navigate
         page.openPage();
 
         // ADD
@@ -20,16 +21,19 @@ public class WebTablesCRUDTest extends BaseTest {
                 "30", "50000", "QA");
 
         page.searchRecord("Amit");
-        Assert.assertTrue(page.isRecordPresent("Amit"));
+        Assert.assertTrue(page.isRecordPresent("Amit"),
+                "Record 'Amit' should be present after adding");
 
         // UPDATE
         page.updateRecord("Amit", "Automation");
         page.searchRecord("Amit");
-        Assert.assertTrue(page.isRecordPresent("Automation"));
+        Assert.assertTrue(page.isRecordPresent("Automation"),
+                "Department should be updated to 'Automation'");
 
         // DELETE
         page.deleteRecord("Amit");
         page.searchRecord("Amit");
-        Assert.assertFalse(page.isRecordPresent("Amit"));
+        Assert.assertFalse(page.isRecordPresent("Amit"),
+                "Record 'Amit' should be gone after deleting");
     }
 }

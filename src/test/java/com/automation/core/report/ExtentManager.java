@@ -30,4 +30,12 @@ public class ExtentManager {
 
         return extent;
     }
+
+    /** Call this before starting a new test run in the same JVM. */
+    public static synchronized void reset() {
+        if (extent != null) {
+            extent.flush();
+        }
+        extent = null;
+    }
 }

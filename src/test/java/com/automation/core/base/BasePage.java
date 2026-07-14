@@ -23,7 +23,17 @@ public abstract class BasePage {
         this.js     = (JavascriptExecutor) driver;
     }
 
-    // ── Shared helpers used across most pages ──────────────────────────────────
+    /**
+     * Navigates to a path relative to the site's base URL.
+     * e.g. navigateTo("/webtables") → driver.get("https://demoqa.com/webtables")
+     * e.g. navigateTo("")           → driver.get("https://demoqa.com")
+     */
+    protected void navigateTo(String path) {
+        String baseUrl = ConfigReader.get("url");
+        driver.get(baseUrl + (path.startsWith("/") ? path : "/" + path));
+    }
+
+    // ── Shared helpers ─────────────────────────────────────────────────────────
 
     protected void scrollAndJsClick(WebElement el) {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
