@@ -59,15 +59,15 @@ public class DraggablePage extends BasePage {
         int stepY = totalY / steps;
 
         new Actions(driver).clickAndHold(element).perform();
-        try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        HumanActions.pause();
 
         for (int i = 0; i < steps; i++) {
             new Actions(driver).moveByOffset(stepX, stepY).perform();
-            try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            HumanActions.pause();
         }
 
         new Actions(driver).release().perform();
-        try { Thread.sleep(300); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        HumanActions.pause();
     }
 
     // ── Simple tab ──────────────────────────────────────────────────────────────

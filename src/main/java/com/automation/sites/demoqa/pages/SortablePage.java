@@ -112,7 +112,7 @@ public class SortablePage extends BasePage {
                     .moveByOffset(deltaX + 5, deltaY + 5)
                     .release()
                     .perform();
-            try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+            HumanActions.pause();
         }
         HumanActions.pause();
     }
@@ -220,7 +220,7 @@ public class SortablePage extends BasePage {
                     .moveByOffset(deltaX + 5, deltaY + 5)
                     .release()
                     .perform();
-            try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+            HumanActions.pause();
         }
         HumanActions.pause();
     }

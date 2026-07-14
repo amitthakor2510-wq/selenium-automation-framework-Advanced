@@ -12,7 +12,7 @@ public class ExtentManager {
     public static synchronized ExtentReports getInstance() {
 
         if (extent == null) {
-
+            ConfigReader.init();
             String site = ConfigReader.getActiveSite();
             String reportPath = "target/extent-reports/index.html";
 
