@@ -13,7 +13,7 @@ pipeline {
 
     tools {
         jdk 'JDK17'
-        maven 'Maven installations'  // Matches your global configuration name exactly
+        maven 'Maven3'  // Matches your global configuration name exactly
         allure 'allure'             // Injects the configured allure command-line runner
     }
 
