@@ -1,6 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
-import com.automation.core.base.BaseTest;
+import com.automation.sites.core.BaseTest;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.demoqa.pages.BookStoreApplicationPage;

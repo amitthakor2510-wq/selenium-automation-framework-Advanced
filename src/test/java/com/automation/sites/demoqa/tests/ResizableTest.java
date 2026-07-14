@@ -1,6 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
-import com.automation.core.base.BaseTest;
+import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.ResizablePage;
 import org.openqa.selenium.Dimension;
 import org.testng.Assert;

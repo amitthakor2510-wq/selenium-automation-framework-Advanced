@@ -111,8 +111,10 @@ onTestFailure → marks red, captures screenshot, attaches to report
 onFinish      → writes HTML file to disk
 ```
 Registered in suite XML:
+
 ```xml
-<listener class-name="com.automation.core.listeners.TestListener"/>
+
+<listener class-name="com.automation.sites.listeners.TestListener"/>
 ```
 
 ### `ExtentManager.java`

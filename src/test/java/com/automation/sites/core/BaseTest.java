@@ -1,5 +1,6 @@
-package com.automation.core.base;
+package com.automation.sites.core;
 
+import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.core.utils.HumanActions;

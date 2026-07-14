@@ -1,6 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
-import com.automation.core.base.BaseTest;
+import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DraggablePage;
 import org.openqa.selenium.Point;
 import org.testng.Assert;

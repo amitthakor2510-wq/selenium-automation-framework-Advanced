@@ -1,4 +1,4 @@
-package com.automation.core.listeners;
+package com.automation.sites.listeners;
 
 import com.automation.core.config.ConfigReader;
 import org.testng.IRetryAnalyzer;
