@@ -27,7 +27,6 @@ public class RegistrationPage extends BasePage {
     public void navigateToRegistration() {
         navigateTo("/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
-        //sleep(1500);
         System.out.println("  Navigated to registration page");
     }
 
@@ -59,12 +58,10 @@ public class RegistrationPage extends BasePage {
         fillField(passwordInput,  password,   "Password");
         wait.until(ExpectedConditions.elementToBeClickable(registerButton));
 
-        //sleep(600);
 
         WebElement btn = wait.until(
                 ExpectedConditions.presenceOfElementLocated(registerButton));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
-        //sleep(400);
         js.executeScript("arguments[0].click();", btn);
         System.out.println("  Register clicked");
 
@@ -110,10 +107,5 @@ public class RegistrationPage extends BasePage {
             navigateTo("/login");
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userName")));
         }
-    }
-
-    private void sleep(int ms) {
-        try { Thread.sleep(ms); }
-        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 }

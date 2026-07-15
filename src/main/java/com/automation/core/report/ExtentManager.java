@@ -26,6 +26,9 @@ public class ExtentManager {
             extent.setSystemInfo("Site", site);
             extent.setSystemInfo("Browser", ConfigReader.get("browser", "chrome"));
             extent.setSystemInfo("Headless", ConfigReader.get("headless", "false"));
+            extent.setSystemInfo("OS",       System.getProperty("os.name"));
+            extent.setSystemInfo("Java",     System.getProperty("java.version"));
+            extent.setSystemInfo("Retry",    ConfigReader.get("retry.count", "0"));
         }
 
         return extent;
@@ -38,4 +41,7 @@ public class ExtentManager {
         }
         extent = null;
     }
+
+    private static final java.util.logging.Logger logger =
+            java.util.logging.Logger.getLogger(ExtentManager.class.getName());
 }
