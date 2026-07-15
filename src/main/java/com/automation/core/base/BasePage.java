@@ -30,7 +30,11 @@ public abstract class BasePage {
      */
     protected void navigateTo(String path) {
         String baseUrl = ConfigReader.get("url");
-        driver.get(baseUrl + (path.startsWith("/") ? path : "/" + path));
+        if (path == null || path.isEmpty()) {
+            driver.get(baseUrl);
+        } else {
+            driver.get(baseUrl + (path.startsWith("/") ? path : "/" + path));
+        }
     }
 
     // ── Shared helpers ─────────────────────────────────────────────────────────
@@ -51,5 +55,18 @@ public abstract class BasePage {
 
     protected WebElement waitClickable(By locator) {
         return wait.until(ExpectedConditions.elementToBeClickable(locator));
+    }
+
+    protected String getText(By locator) {
+        return waitVisible(locator).getText().trim();
+    }
+
+    protected boolean isDisplayed(By locator) {
+        try {
+            return !driver.findElements(locator).isEmpty()
+                    && driver.findElement(locator).isDisplayed();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -5,6 +5,8 @@ import com.automation.sites.demoqa.pages.PracticeFormPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+
 public class PracticeFormTest extends BaseTest {
 
     // ── Helper ─────────────────────────────────────────────────────────────────
@@ -62,20 +64,20 @@ public class PracticeFormTest extends BaseTest {
     @Test(priority = 1,
             groups = {"smoke", "regression"},
             description = "Practice Form - Submit With All Fields")
-    public void verifyFormSubmissionWithAllFields() {
+    public void verifyFormSubmissionWithAllFields() throws IOException {
         PracticeFormPage page = openForm();
 
         fillPersonalDetails(page);
         fillAdditionalDetails(page);
 
         // Upload picture - change path to a real file on your system
-        String picturePath = "/home/bisagn/test-image.jpg";
+        String picturePath = System.getProperty("user.dir") + "/target/test-upload.txt";
         java.io.File pictureFile = new java.io.File(picturePath);
-        if (pictureFile.exists()) {
-            page.uploadPicture(picturePath);
-        } else {
-            System.out.println("Skipping upload - file not found: " + picturePath);
+        if (!pictureFile.exists()) {
+            pictureFile.getParentFile().mkdirs();
+            try { pictureFile.createNewFile(); } catch (java.io.IOException ignored) {}
         }
+        page.uploadPicture(picturePath);
 
         fillAddressAndLocation(page);
         page.submitForm();
@@ -85,7 +87,7 @@ public class PracticeFormTest extends BaseTest {
     @Test(priority = 2,
             groups = {"regression"},
             description = "Practice Form - Submit With Mandatory Fields Only")
-    public void verifyFormSubmissionWithMandatoryFieldsOnly() {
+    public void verifyFormSubmissionWithMandatoryFieldsOnly() throws IOException {
         PracticeFormPage page = openForm();
 
         // Only mandatory fields - first name, last name, gender, mobile

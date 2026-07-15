@@ -14,7 +14,7 @@ public class RetryListener implements IAnnotationTransformer {
                           Constructor testConstructor,
                           Method testMethod) {
         // Only set if no retryAnalyzer is already explicitly declared
-        if (annotation.getRetryAnalyzer() == null) {
+        if (annotation.getRetryAnalyzerClass() == null) {
             annotation.setRetryAnalyzer(RetryAnalyzer.class);
         }
     }

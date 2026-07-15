@@ -1,0 +1,4 @@
+username,password,expected,notes
+standard_user,secret_sauce,success,Valid login
+locked_out_user,secret_sauce,error,Locked account
+invalid_user,wrongpass,error,Bad credentials

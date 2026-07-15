@@ -19,6 +19,8 @@ public class ConfigReader {
     private static final Properties properties = new Properties();
     private static volatile boolean initialized = false;
     private static String activeSite;
+    private static final java.util.logging.Logger logger =
+            java.util.logging.Logger.getLogger(ConfigReader.class.getName());
 
     private ConfigReader() {
     }
@@ -54,7 +56,7 @@ public class ConfigReader {
                 if (required) {
                     throw new RuntimeException("Required config file missing on classpath: " + path);
                 }
-                System.out.println("[ConfigReader] Optional config not found: " + path);
+                logger.info("[ConfigReader] Optional config not found: " + path);
                 return;
             }
             properties.load(input);

@@ -45,8 +45,6 @@ public final class DriverFactory {
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
-      //options.addArguments("--headless=new");
-      //options.addArguments("--window-size=1920,1080");
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-extensions");
         options.addArguments("--remote-allow-origins=*");
@@ -54,10 +52,7 @@ public final class DriverFactory {
         options.addArguments("--disable-dev-shm-usage");
 
         // Download directory — matches what UploadDownloadTest uses
-        String downloadPath = System.getProperty("user.dir")
-                + File.separator + "target"
-                + File.separator + "downloads";
-        new File(downloadPath).mkdirs();
+        String downloadPath = getDownloadPath();
 
         Map<String, Object> prefs = new HashMap<>();
         prefs.put("download.default_directory", downloadPath);
@@ -80,8 +75,14 @@ public final class DriverFactory {
         WebDriverManager.firefoxdriver().setup();
 
         FirefoxOptions options = new FirefoxOptions();
+        options.addPreference("browser.download.folderList", 2);
+        options.addPreference("browser.download.dir", getDownloadPath());
+        options.addPreference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream");
+
         if (headless) {
             options.addArguments("-headless");
+            options.addArguments("--width=1920");
+            options.addArguments("--height=1080");
         }
 
         return new FirefoxDriver(options);
@@ -97,10 +98,7 @@ public final class DriverFactory {
         options.addArguments("--disable-dev-shm-usage");
 
         // Same download preferences as Chrome
-        String downloadPath = System.getProperty("user.dir")
-                + File.separator + "target"
-                + File.separator + "downloads";
-        new File(downloadPath).mkdirs();
+        String downloadPath = getDownloadPath();
 
         Map<String, Object> prefs = new HashMap<>();
         prefs.put("download.default_directory", downloadPath);
@@ -116,5 +114,13 @@ public final class DriverFactory {
         }
 
         return new EdgeDriver(options);
+    }
+
+    private static String getDownloadPath() {
+        String path = System.getProperty("user.dir")
+                + File.separator + "target"
+                + File.separator + "downloads";
+        new File(path).mkdirs();
+        return path;
     }
 }

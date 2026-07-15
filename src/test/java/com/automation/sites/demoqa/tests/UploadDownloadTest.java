@@ -16,8 +16,13 @@ public class UploadDownloadTest extends BaseTest {
     private static String uploadFilePath;
     private static String downloadFolderPath;
 
+    @Override
     @BeforeMethod(alwaysRun = true)
-    public void prepareFiles() {
+    public void setUp() {
+        super.setUp();       // ← creates the driver first
+        prepareFiles();      // ← then create the files
+    }
+    private void prepareFiles() {
 
         // ── Upload file ────────────────────────────────────────────────────
         try {

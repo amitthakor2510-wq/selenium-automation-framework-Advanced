@@ -6,9 +6,7 @@ import com.automation.core.driver.DriverFactory;
 import com.automation.sites.demoqa.pages.BookStoreApplicationPage;
 import com.automation.sites.demoqa.pages.RegistrationPage;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -83,9 +81,11 @@ public class BookStoreApplicationTest extends BaseTest {
 
     // Suppress per-method driver creation — this class owns the session
     @Override
+    @BeforeMethod(alwaysRun = true)
     public void setUp() { /* intentionally blank */ }
 
     @Override
+    @AfterMethod(alwaysRun = true)
     public void tearDown() { /* intentionally blank */ }
 
     // ════════════════════════════════════════════════════════════════════════════
