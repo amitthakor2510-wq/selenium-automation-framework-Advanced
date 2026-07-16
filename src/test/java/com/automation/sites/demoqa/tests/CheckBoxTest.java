@@ -7,7 +7,7 @@ import org.testng.annotations.Test;
 
 public class CheckBoxTest extends BaseTest {
 
-    @Test(priority = 1, groups = {"regression"},
+    @Test(priority = 1, groups = {"smoke","regression"},
             description = "Check Box - Expand Tree and Select Desktop")
     public void verifyDesktopCheckboxSelection() {
         CheckBoxPage page = new CheckBoxPage(getDriver());
