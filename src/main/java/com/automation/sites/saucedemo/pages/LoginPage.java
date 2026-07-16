@@ -27,7 +27,15 @@ public class LoginPage extends BasePage {
         HumanActions.click(driver, loginButton);
     }
 
+    private final By errorMessage = By.cssSelector("[data-test='error']");
+
     public boolean isErrorDisplayed() {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("h3[data-test='error']"))).isDisplayed();
+        try {
+            return wait.until(ExpectedConditions
+                            .visibilityOfElementLocated(errorMessage))
+                    .isDisplayed();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
