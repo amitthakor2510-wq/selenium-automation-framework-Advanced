@@ -18,8 +18,7 @@ public class RadioButtonPage extends BasePage {
     }
 
     public void navigateToRadioButton() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, radioButtonMenu);
+        navigateTo("/radio-button");
     }
 
     public void selectYes() {

@@ -31,8 +31,7 @@ public class LinksPage extends BasePage {
     }
 
     public void navigateToLinks() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, linksMenu);
+        navigateTo("/links");
         wait.until(ExpectedConditions.visibilityOfElementLocated(homeLink));
     }
 

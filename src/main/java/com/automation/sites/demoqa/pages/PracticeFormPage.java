@@ -14,10 +14,6 @@ import java.time.Duration;
 
 public class PracticeFormPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By formsCard        = By.xpath("//h5[text()='Forms']");
-    private final By practiceFormMenu = By.xpath("//span[text()='Practice Form']");
-
     // ── Text fields ────────────────────────────────────────────────────────────
     private final By firstName      = By.id("firstName");
     private final By lastName       = By.id("lastName");
@@ -65,9 +61,9 @@ public class PracticeFormPage extends BasePage {
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     public void navigateToPracticeForm() {
-        HumanActions.click(driver, formsCard);
-        HumanActions.click(driver, practiceFormMenu);
+        navigateTo("/automation-practice-form");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstName));
+        HumanActions.pause();
     }
 
     // ── Text fields ────────────────────────────────────────────────────────────

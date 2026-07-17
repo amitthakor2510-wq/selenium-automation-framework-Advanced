@@ -29,8 +29,7 @@ public class UploadDownloadPage extends BasePage {
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     public void navigateToUploadDownload() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, uploadDownloadMenu);
+        navigateTo("/upload-download");
         wait.until(ExpectedConditions.visibilityOfElementLocated(downloadButton));
     }
 

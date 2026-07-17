@@ -37,19 +37,8 @@ public class DraggablePage extends BasePage {
     }
 
     public void navigateToDraggable() {
-        WebElement card = wait.until(ExpectedConditions.presenceOfElementLocated(interactionsCard));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", card);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", card);
-
-        WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(draggableMenu));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menu);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menu);
-
+        navigateTo("/draggable");
         wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDragBox));
-        WebElement box = driver.findElement(simpleDragBox);
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
         HumanActions.pause();
     }
 

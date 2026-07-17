@@ -8,23 +8,22 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class TextBoxPage extends BasePage {
 
-    private final By elementsCard = By.xpath("//h5[text()='Elements']");
-    private final By textBoxMenu = By.xpath("//span[text()='Text Box']");
-    private final By userName = By.id("userName");
-    private final By userEmail = By.id("userEmail");
-    private final By currentAddress = By.id("currentAddress");
+    // Navigate directly — avoids ad-banner interception from clicking Elements card on home
+    private final By userName         = By.id("userName");
+    private final By userEmail        = By.id("userEmail");
+    private final By currentAddress   = By.id("currentAddress");
     private final By permanentAddress = By.id("permanentAddress");
-    private final By submitButton = By.id("submit");
-    private final By outputName = By.id("name");
+    private final By submitButton     = By.id("submit");
+    private final By outputName       = By.id("name");
 
     public TextBoxPage(WebDriver driver) {
         super(driver);
     }
 
     public void navigateToTextBox() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, textBoxMenu);
+        navigateTo("/text-box");
         wait.until(ExpectedConditions.visibilityOfElementLocated(userName));
+        HumanActions.pause();
     }
 
     public void fillForm(String name, String email, String currAddr, String permAddr) {
@@ -32,7 +31,7 @@ public class TextBoxPage extends BasePage {
         HumanActions.type(driver, userEmail, email);
         HumanActions.type(driver, currentAddress, currAddr);
         HumanActions.type(driver, permanentAddress, permAddr);
-        HumanActions.click(driver, submitButton);
+        scrollAndJsClick(submitButton);
     }
 
     public String getOutputName() {

@@ -28,21 +28,8 @@ public class ToolTipsPage extends BasePage {
     }
 
     public void navigateToToolTips() {
-        HumanActions.click(driver, widgetsCard);  // widgetsCard is fine, it's at top of page
-
-        // "Tool Tips" sidebar item is blocked by the sticky footer at y=902
-        // Must scroll into center then JS click to bypass the <footer> overlay
-        WebElement menuItem = wait.until(
-                ExpectedConditions.presenceOfElementLocated(toolTipsMenu)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menuItem);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menuItem);  // <-- line 39 fix
-
-        WebElement button = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(hoverButton)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", button);
+        navigateTo("/tool-tips");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(hoverButton));
         HumanActions.pause();
     }
 

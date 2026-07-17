@@ -22,8 +22,7 @@ public class FramesPage extends BasePage {
     }
 
     public void navigateToFrames() {
-        HumanActions.click(driver, alertsFrameCard);
-        HumanActions.click(driver, framesMenu);
+        navigateTo("/frames");
         wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(frame1));
         driver.switchTo().defaultContent();
     }

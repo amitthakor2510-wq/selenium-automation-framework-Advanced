@@ -8,11 +8,9 @@ import java.util.Properties;
  *
  *   1. config/global.properties        - defaults shared by all sites
  *   2. config/{site}.properties         - site-specific overrides
- *   3. -Dkey=value JVM system properties - run-time overrides (Jenkins params)
+ *   3. -Dkey=value JVM system properties - run-time overrides (Jenkins/CLI)
  *
  * The active site is chosen with -Dsite=<siteName> (defaults to "demoqa").
- * Adding a new site project = drop a new config/<site>.properties file
- * next to demoqa.properties, no code changes required here.
  */
 public class ConfigReader {
 
@@ -26,36 +24,24 @@ public class ConfigReader {
     }
 
     public static synchronized void init() {
-        if (initialized) {
-            return;
-        }
+        if (initialized) return;
 
         activeSite = System.getProperty("site", "demoqa");
-
         loadFromClasspath("config/global.properties", true);
         loadFromClasspath("config/" + activeSite + ".properties", false);
-
         initialized = true;
     }
 
-
-    /**
-     * Call this before switching to a different site in the same JVM.
-     * Clears all loaded properties so the next ConfigReader.get() call
-     * reloads config for the new site.
-     */
     public static synchronized void reset() {
         properties.clear();
         initialized = false;
-        activeSite  = null;
+        activeSite = null;
     }
 
     private static void loadFromClasspath(String path, boolean required) {
         try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream(path)) {
             if (input == null) {
-                if (required) {
-                    throw new RuntimeException("Required config file missing on classpath: " + path);
-                }
+                if (required) throw new RuntimeException("Required config file missing: " + path);
                 logger.info("[ConfigReader] Optional config not found: " + path);
                 return;
             }
@@ -66,44 +52,49 @@ public class ConfigReader {
     }
 
     /**
-     * Returns the resolved value for a key, checking JVM system properties
-     * first (so Jenkins/CLI can override anything), then the loaded
-     * properties files.
+     * Resolve a key: system property wins, then properties file, then throws.
+     * Use this only when the key is guaranteed to exist (e.g. "url").
      */
     public static String get(String key) {
         init();
-        String systemOverride = System.getProperty(key);
-        if (systemOverride != null && !systemOverride.isEmpty()) {
-            return systemOverride;
-        }
-        String value = properties.getProperty(key);
-        if (value == null) {
-            throw new RuntimeException("Missing config key: " + key);
-        }
-        return value;
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) return sys;
+        String val = properties.getProperty(key);
+        if (val == null) throw new RuntimeException("Missing config key: " + key);
+        return val;
     }
 
+    /**
+     * Resolve a key with a fallback default.
+     * System property wins → properties file → defaultValue.
+     * Never throws.
+     */
     public static String get(String key, String defaultValue) {
         init();
-        String systemOverride = System.getProperty(key);
-        if (systemOverride != null && !systemOverride.isEmpty()) {
-            return systemOverride;
-        }
+        String sys = System.getProperty(key);
+        if (sys != null && !sys.isEmpty()) return sys;
         return properties.getProperty(key, defaultValue);
     }
 
+    /**
+     * Integer helper. Falls back to defaultValue if key is absent or not a number.
+     */
     public static int getInt(String key, int defaultValue) {
-        String value = get(key);
+        String value = get(key, String.valueOf(defaultValue));
         try {
-            return (value != null) ? Integer.parseInt(value.trim()) : defaultValue;
+            return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
             return defaultValue;
         }
     }
 
+    /**
+     * Boolean helper. Falls back to defaultValue if key is absent.
+     * -Dheadless=false or headless=false in .properties both work correctly.
+     */
     public static boolean getBoolean(String key, boolean defaultValue) {
-        String value = get(key);
-        return (value != null) ? Boolean.parseBoolean(value.trim()) : defaultValue;
+        String value = get(key, String.valueOf(defaultValue));
+        return Boolean.parseBoolean(value.trim());
     }
 
     public static String getActiveSite() {

@@ -11,10 +11,6 @@ import org.openqa.selenium.support.ui.Select;
 
 public class DatePickerPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard    = By.xpath("//h5[text()='Widgets']");
-    private final By datePickerMenu = By.xpath("//span[text()='Date Picker']");
-
     // ── Date picker ────────────────────────────────────────────────────────────
     private final By dateInput   = By.id("datePickerMonthYearInput");
     private final By monthSelect = By.className("react-datepicker__month-select");
@@ -30,9 +26,9 @@ public class DatePickerPage extends BasePage {
     }
 
     public void navigateToDatePicker() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, datePickerMenu);
+        navigateTo("/date-picker");
         wait.until(ExpectedConditions.visibilityOfElementLocated(dateInput));
+        HumanActions.pause();
     }
 
     public void selectDate(String month, String year, String day) {

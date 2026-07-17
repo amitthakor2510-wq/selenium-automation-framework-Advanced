@@ -56,11 +56,9 @@ public class DroppablePage extends BasePage {
     // ── Navigation ───────────────────────────────────────────────
 
     public void navigateToDroppable() {
-        WebElement card = wait.until(ExpectedConditions.presenceOfElementLocated(interactionsCard));
-        scrollAndJsClick(card);
-        WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(droppableMenu));
-        scrollAndJsClick(menu);
+        navigateTo("/droppable");
         wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDrag));
+        HumanActions.pause();
     }
 
     // ── Simple tab ───────────────────────────────────────────────

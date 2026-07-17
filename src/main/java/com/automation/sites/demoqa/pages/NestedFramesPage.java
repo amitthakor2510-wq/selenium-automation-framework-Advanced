@@ -23,8 +23,7 @@ public class NestedFramesPage extends BasePage {
     // ── Navigation ─────────────────────────────────────────────────────────────
 
     public void navigateToNestedFrames() {
-        HumanActions.click(driver, alertsFrameCard);
-        HumanActions.click(driver, nestedFramesMenu);
+        navigateTo("/nestedframes");
         wait.until(ExpectedConditions.frameToBeAvailableAndSwitchToIt(parentFrame));
         driver.switchTo().defaultContent();
     }

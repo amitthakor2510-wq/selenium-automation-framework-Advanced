@@ -9,10 +9,6 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class AlertsPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By alertsFrameCard = By.xpath("//h5[text()='Alerts, Frame & Windows']");
-    private final By alertsMenu      = By.xpath("//span[text()='Alerts']");
-
     // ── Alert buttons ──────────────────────────────────────────────────────────
     private final By alertButton      = By.id("alertButton");
     private final By timerAlertButton = By.id("timerAlertButton");
@@ -28,9 +24,9 @@ public class AlertsPage extends BasePage {
     }
 
     public void navigateToAlerts() {
-        HumanActions.click(driver, alertsFrameCard);
-        HumanActions.click(driver, alertsMenu);
+        navigateTo("/alerts");
         wait.until(ExpectedConditions.visibilityOfElementLocated(alertButton));
+        HumanActions.pause();
     }
 
     public String clickAlertAndGetText() {
@@ -44,7 +40,10 @@ public class AlertsPage extends BasePage {
 
     public String clickTimerAlertAndGetText() {
         HumanActions.click(driver, timerAlertButton);
-        Alert alert = wait.until(ExpectedConditions.alertIsPresent());
+        // Timer alert appears after 5 seconds — need a longer wait
+        Alert alert = new org.openqa.selenium.support.ui.WebDriverWait(driver,
+                java.time.Duration.ofSeconds(15))
+                .until(ExpectedConditions.alertIsPresent());
         HumanActions.pause();
         String text = alert.getText();
         alert.accept();

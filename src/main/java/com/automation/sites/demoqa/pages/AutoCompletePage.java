@@ -12,10 +12,6 @@ import java.util.List;
 
 public class AutoCompletePage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard      = By.xpath("//h5[text()='Widgets']");
-    private final By autoCompleteMenu = By.xpath("//span[text()='Auto Complete']");
-
     // ── Multi color input ──────────────────────────────────────────────────────
     private final By multiInput  = By.id("autoCompleteMultipleInput");
     private final By multiValues = By.cssSelector(".auto-complete__multi-value__label");
@@ -32,9 +28,9 @@ public class AutoCompletePage extends BasePage {
     }
 
     public void navigateToAutoComplete() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, autoCompleteMenu);
+        navigateTo("/auto-complete");
         wait.until(ExpectedConditions.visibilityOfElementLocated(multiInput));
+        HumanActions.pause();
     }
 
     public void typeMultiColor(String color) {
