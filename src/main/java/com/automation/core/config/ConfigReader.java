@@ -76,15 +76,20 @@ public class ConfigReader {
         if (systemOverride != null && !systemOverride.isEmpty()) {
             return systemOverride;
         }
-        if (!properties.containsKey(key)) {
+        String value = properties.getProperty(key);
+        if (value == null) {
             throw new RuntimeException("Missing config key: " + key);
         }
-        return systemOverride;
+        return value;
     }
 
     public static String get(String key, String defaultValue) {
-        String value = get(key);
-        return (value != null) ? value : defaultValue;
+        init();
+        String systemOverride = System.getProperty(key);
+        if (systemOverride != null && !systemOverride.isEmpty()) {
+            return systemOverride;
+        }
+        return properties.getProperty(key, defaultValue);
     }
 
     public static int getInt(String key, int defaultValue) {
