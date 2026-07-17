@@ -10,10 +10,6 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class ButtonsPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By elementsCard = By.xpath("//h5[text()='Elements']");
-    private final By buttonsMenu  = By.xpath("//span[text()='Buttons']");
-
     // ── Buttons ────────────────────────────────────────────────────────────────
     private final By doubleClickBtn  = By.id("doubleClickBtn");
     private final By rightClickBtn   = By.id("rightClickBtn");
@@ -29,13 +25,14 @@ public class ButtonsPage extends BasePage {
     }
 
     public void navigateToButtons() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, buttonsMenu);
+        navigateTo("/buttons");
         wait.until(ExpectedConditions.visibilityOfElementLocated(doubleClickBtn));
+        HumanActions.pause();
     }
 
     public void performDoubleClick() {
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(doubleClickBtn));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         HumanActions.pause();
         new Actions(driver).doubleClick(btn).perform();
         HumanActions.pause();
@@ -43,13 +40,18 @@ public class ButtonsPage extends BasePage {
 
     public void performRightClick() {
         WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(rightClickBtn));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         HumanActions.pause();
         new Actions(driver).contextClick(btn).perform();
         HumanActions.pause();
     }
 
     public void performDynamicClick() {
-        HumanActions.click(driver, dynamicClickBtn);
+        // Dynamic click button can be intercepted by ads — scroll and JS click
+        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(dynamicClickBtn));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", btn);
         HumanActions.pause();
     }
 

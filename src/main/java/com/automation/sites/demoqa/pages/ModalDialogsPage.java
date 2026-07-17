@@ -32,8 +32,7 @@ public class ModalDialogsPage extends BasePage {
     }
 
     public void navigateToModalDialogs() {
-        HumanActions.click(driver, alertsFrameCard);
-        HumanActions.click(driver, modalDialogsMenu);
+        navigateTo("/modal-dialogs");
         wait.until(ExpectedConditions.visibilityOfElementLocated(smallModalButton));
     }
 

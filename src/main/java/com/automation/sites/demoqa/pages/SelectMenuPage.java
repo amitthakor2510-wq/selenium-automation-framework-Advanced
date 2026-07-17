@@ -10,10 +10,6 @@ import org.openqa.selenium.support.ui.Select;
 
 public class SelectMenuPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard    = By.xpath("//h5[text()='Widgets']");
-    private final By selectMenuMenu = By.xpath("//span[text()='Select Menu']");
-
     // ── Select Value (react-select) ────────────────────────────────────────────
     // Target by the input ID we know is correct, then walk up to the control div
     private final By selectValueInput   = By.id("react-select-2-input");
@@ -33,18 +29,9 @@ public class SelectMenuPage extends BasePage {
     }
 
     public void navigateToSelectMenu() {
-        HumanActions.click(driver, widgetsCard);
-
-        // DemoQA sticky ad banner intercepts normal clicks on sidebar items.
-        // Scroll into center then JS click to bypass the overlay.
-        WebElement menuItem = wait.until(
-                ExpectedConditions.presenceOfElementLocated(selectMenuMenu)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menuItem);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menuItem);
-
+        navigateTo("/select-menu");
         wait.until(ExpectedConditions.presenceOfElementLocated(oldStyleSelect));
+        HumanActions.pause();
     }
 
     // ── Select Value ───────────────────────────────────────────────────────────

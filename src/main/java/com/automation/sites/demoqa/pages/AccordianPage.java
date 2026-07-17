@@ -9,55 +9,32 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class AccordianPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By widgetsCard   = By.xpath("//h5[text()='Widgets']");
-    private final By accordianMenu = By.xpath("//span[text()='Accordian']");
+    // ✅ CORRECT locators for DemoQA Accordion
+    // Section headers (the clickable part)
+    private final By section1Header = By.id("section1Heading");
+    private final By section2Header = By.id("section2Heading");
+    private final By section3Header = By.id("section3Heading");
 
-    // ── Section headers ────────────────────────────────────────────────────────
-    private final By section1Header = By.xpath(
-            "//h2[contains(@class,'accordion-header')][1]//button"
-    );
-    private final By section2Header = By.xpath(
-            "/html/body/div/div/div/div/div[2]/div[1]/div/div[2]/h2/button"
-    );
-    private final By section3Header = By.xpath(
-            "/html/body/div/div/div/div/div[2]/div[1]/div/div[3]/h2/button"
-    );
+    // Section content divs (the expandable content)
+    private final By section1Content = By.id("section1Content");
+    private final By section2Content = By.id("section2Content");
+    private final By section3Content = By.id("section3Content");
 
-    // ── Section content ────────────────────────────────────────────────────────
-    private final By section1Content = By.xpath(
-            "//div[contains(@class,'accordion-collapse') and contains(@class,'show')]//p"
-    );
-    private final By section2Content = By.xpath(
-            "//div[@id='section2Content']//p | " +
-                    "//div[contains(@class,'accordion-collapse')][2]//p"
-    );
-    private final By section3Content = By.xpath(
-            "//div[@id='section3Content']//p | " +
-                    "//div[contains(@class,'accordion-collapse')][3]//p"
-    );
-
-    private final By firstHeading = By.xpath(
-            "//h2[contains(@class,'accordion')]//button | " +
-                    "//div[contains(@class,'accordion-button')] | " +
-                    "//div[@id='accordianWrapper']"
-    );
-
+    // Constructor
     public AccordianPage(WebDriver driver) {
         super(driver);
     }
 
+    // Navigate to Accordian page
     public void navigateToAccordian() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, accordianMenu);
-        wait.until(ExpectedConditions.urlContains("accordian"));
-        wait.until(ExpectedConditions.visibilityOfElementLocated(
-                By.xpath("//div[contains(@class,'accordion')]")
-        ));
+        navigateTo("/accordian");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(section1Header));
         HumanActions.pause();
     }
 
-    // ── Section 1 ─────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // Section 1 Methods
+    // ═══════════════════════════════════════════════════════════════════════
 
     public String getSection1HeaderText() {
         return wait.until(
@@ -66,64 +43,111 @@ public class AccordianPage extends BasePage {
     }
 
     public String getSection1Content() {
-        return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(section1Content)
-        ).getText().trim();
+        try {
+            WebElement content = wait.until(
+                    ExpectedConditions.visibilityOfElementLocated(section1Content)
+            );
+            return content.getText().trim();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
-    // ── Section 2 ─────────────────────────────────────────────────────────────
+    public boolean isSection1ContentVisible() {
+        try {
+            WebElement element = driver.findElement(section1Content);
+            return element.isDisplayed() && element.getAttribute("class").contains("show");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void clickSection1Header() {
+        scrollAndJsClick(section1Header);
+        HumanActions.pause();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Section 2 Methods
+    // ═══════════════════════════════════════════════════════════════════════
 
     public void openSection2() {
-        WebElement header = wait.until(
-                ExpectedConditions.presenceOfElementLocated(section2Header)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", header);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", header);
-        wait.until(d ->
-                !d.findElements(By.xpath(
-                        "/html/body/div/div/div/div/div[2]/div[1]/div/div[2]/h2/button"
-                )).isEmpty()
+        scrollAndJsClick(section2Header);
+        wait.until(ExpectedConditions.attributeContains(
+                driver.findElement(section2Content), "class", "show")
         );
         HumanActions.pause();
     }
 
     public String getSection2Content() {
+        try {
+            return wait.until(
+                    ExpectedConditions.visibilityOfElementLocated(section2Content)
+            ).getText().trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public boolean isSection2ContentVisible() {
+        try {
+            WebElement element = driver.findElement(section2Content);
+            return element.isDisplayed() && element.getAttribute("class").contains("show");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void clickSection2Header() {
+        scrollAndJsClick(section2Header);
+        HumanActions.pause();
+    }
+
+    public String getSection2HeaderText() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(
-                        By.xpath(
-                                "//div[contains(@class,'accordion-collapse') " +
-                                        "and contains(@class,'show')]//p"
-                        )
-                )
+                ExpectedConditions.visibilityOfElementLocated(section2Header)
         ).getText().trim();
     }
 
-    // ── Section 3 ─────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // Section 3 Methods
+    // ═══════════════════════════════════════════════════════════════════════
 
     public void openSection3() {
-        WebElement header = wait.until(
-                ExpectedConditions.presenceOfElementLocated(section3Header)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", header);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", header);
-        wait.until(d ->
-                !d.findElements(By.xpath(
-                        "/html/body/div/div/div/div/div[2]/div[1]/div/div[3]/h2/button"
-                )).isEmpty()
+        scrollAndJsClick(section3Header);
+        wait.until(ExpectedConditions.attributeContains(
+                driver.findElement(section3Content), "class", "show")
         );
         HumanActions.pause();
     }
 
     public String getSection3Content() {
+        try {
+            return wait.until(
+                    ExpectedConditions.visibilityOfElementLocated(section3Content)
+            ).getText().trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public boolean isSection3ContentVisible() {
+        try {
+            WebElement element = driver.findElement(section3Content);
+            return element.isDisplayed() && element.getAttribute("class").contains("show");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void clickSection3Header() {
+        scrollAndJsClick(section3Header);
+        HumanActions.pause();
+    }
+
+    public String getSection3HeaderText() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(
-                        By.xpath(
-                                "//div[contains(@class,'accordion-collapse') " +
-                                        "and contains(@class,'show')]//p"
-                        )
-                )
+                ExpectedConditions.visibilityOfElementLocated(section3Header)
         ).getText().trim();
     }
 }

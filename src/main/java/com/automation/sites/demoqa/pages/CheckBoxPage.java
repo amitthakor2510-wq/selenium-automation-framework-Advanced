@@ -11,14 +11,11 @@ import java.util.List;
 
 public class CheckBoxPage extends BasePage {
 
-    private final By elementsCard    = By.xpath("//h5[text()='Elements']");
-    private final By checkBoxMenu    = By.xpath("//span[text()='Check Box']");
-    private final By toggleButtons   = By.cssSelector(
-            "#root > div > div > div > div.col-12.mt-4.col-md-6.col-xl-7 > " +
-                    "div.check-box-tree-wrapper > div > div.rc-tree-list > div > div > " +
-                    "div > div > span.rc-tree-switcher.rc-tree-switcher_close");
-    private final By desktopCheckbox = By.xpath(
-            "//*[@id=\"root\"]/div/div/div/div[2]/div[1]/div/div[3]/div/div/div/div[2]/span[3]");
+    // Expand toggle (root node collapse/expand arrow)
+    private final By expandToggle    = By.cssSelector(".rct-collapse.rct-collapse-btn");
+    // Desktop node label (text-based, stable)
+    private final By desktopLabel    = By.xpath("//span[@class='rct-title' and text()='Desktop']");
+    // Result section
     private final By resultSection   = By.id("result");
 
     public CheckBoxPage(WebDriver driver) {
@@ -26,24 +23,35 @@ public class CheckBoxPage extends BasePage {
     }
 
     public void navigateToCheckBox() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, checkBoxMenu);
+        navigateTo("/checkbox");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(expandToggle));
+        HumanActions.pause();
     }
 
     public void expandTree() {
-        wait.until(ExpectedConditions.visibilityOfElementLocated(toggleButtons));
-        List<WebElement> toggles = driver.findElements(toggleButtons);
-        if (!toggles.isEmpty()) {
-            HumanActions.pause();
-            js.executeScript("arguments[0].click();", toggles.get(0));
-        }
-        wait.until(ExpectedConditions.visibilityOfElementLocated(desktopCheckbox));
+        WebElement toggle = wait.until(
+                ExpectedConditions.elementToBeClickable(expandToggle));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", toggle);
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", toggle);
+        // Wait for Desktop node to appear after expanding
+        wait.until(ExpectedConditions.visibilityOfElementLocated(desktopLabel));
+        HumanActions.pause();
     }
 
     public void selectDesktop() {
-        wait.until(ExpectedConditions.visibilityOfElementLocated(desktopCheckbox));
+        // Click the checkbox icon next to the Desktop label
+        // The checkbox icon is the sibling span before the label span
+        By desktopCheckbox = By.xpath(
+                "//span[@class='rct-title' and text()='Desktop']" +
+                "//ancestor::li[1]//span[contains(@class,'rct-checkbox')]"
+        );
+        WebElement cb = wait.until(
+                ExpectedConditions.elementToBeClickable(desktopCheckbox));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", cb);
         HumanActions.pause();
-        js.executeScript("arguments[0].click();", driver.findElement(desktopCheckbox));
+        js.executeScript("arguments[0].click();", cb);
+        HumanActions.pause();
     }
 
     public boolean isResultDisplayed() {

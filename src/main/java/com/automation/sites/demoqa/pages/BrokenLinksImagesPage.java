@@ -26,8 +26,7 @@ public class BrokenLinksImagesPage extends BasePage {
     }
 
     public void navigateToBrokenLinksImages() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, brokenLinksMenu);
+        navigateTo("/broken");
         wait.until(ExpectedConditions.visibilityOfElementLocated(validImage));
     }
 

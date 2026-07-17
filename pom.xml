@@ -18,12 +18,27 @@
         <suiteXmlFile>testng-suites/demoqa-regression.xml</suiteXmlFile>
         <browser>chrome</browser>
         <headless>false</headless>
-        <human.pause.enabled>false</human.pause.enabled>
+        <human.pause.enabled>true</human.pause.enabled>
         <retry.count>0</retry.count>
 
         <!-- Allure + AspectJ versions -->
         <allure.version>2.27.0</allure.version>
         <aspectj.version>1.9.25</aspectj.version>
+
+        <!-- WebDriverManager — cache drivers so they are not re-downloaded every run.
+             These must live here (not just in systemPropertyVariables) so they take
+             effect before the forked test JVM spins up. -->
+        <wdm.cachePath>${user.home}/.wdm</wdm.cachePath>
+        <wdm.forceDownload>false</wdm.forceDownload>
+
+        <!-- Firefox binary path. Leave empty to let geckodriver auto-detect Firefox.
+             Override on CLI: -Dfirefox.binary=/usr/bin/firefox
+             Common paths:
+               Linux apt:   /usr/bin/firefox
+               Linux snap:  /snap/bin/firefox
+               macOS:       /Applications/Firefox.app/Contents/MacOS/firefox
+               Windows:     C:\Program Files\Mozilla Firefox\firefox.exe        -->
+        <firefox.binary></firefox.binary>
     </properties>
 
     <dependencyManagement>
@@ -129,7 +144,7 @@
                 </plugin>
             </plugins>
         </pluginManagement>
-        
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -145,8 +160,11 @@
                         <headless>${headless}</headless>
                         <human.pause.enabled>${human.pause.enabled}</human.pause.enabled>
                         <retry.count>${retry.count}</retry.count>
-                        <wdm.cachePath>${user.home}/.wdm</wdm.cachePath>
-                        <wdm.forceDownload>false</wdm.forceDownload>
+                        <!-- WDM cache — prevents re-downloading drivers on every run -->
+                        <wdm.cachePath>${wdm.cachePath}</wdm.cachePath>
+                        <wdm.forceDownload>${wdm.forceDownload}</wdm.forceDownload>
+                        <!-- Firefox binary path (empty = auto-detect) -->
+                        <firefox.binary>${firefox.binary}</firefox.binary>
                     </systemPropertyVariables>
                     <testFailureIgnore>true</testFailureIgnore>
                     <!-- AspectJ weaver is required for @Step and @Attachment annotations to work -->

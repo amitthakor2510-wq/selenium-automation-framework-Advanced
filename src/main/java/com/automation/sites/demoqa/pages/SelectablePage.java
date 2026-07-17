@@ -29,19 +29,8 @@ public class SelectablePage extends BasePage {
     }
 
     public void navigateToSelectable() {
-        WebElement card = wait.until(ExpectedConditions.presenceOfElementLocated(interactionsCard));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", card);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", card);
-
-        WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(selectableMenu));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menu);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menu);
-
-        wait.until(ExpectedConditions.visibilityOfElementLocated(listItems));
-        WebElement first = driver.findElement(listItems);
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", first);
+        navigateTo("/selectable");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(listTab));
         HumanActions.pause();
     }
 

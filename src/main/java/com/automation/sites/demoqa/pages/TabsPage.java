@@ -28,8 +28,7 @@ public class TabsPage extends BasePage {
     }
 
     public void navigateToTabs() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, tabsMenu);
+        navigateTo("/tabs");
         wait.until(ExpectedConditions.visibilityOfElementLocated(whatTab));
     }
 

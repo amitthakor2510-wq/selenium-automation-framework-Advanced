@@ -22,8 +22,7 @@ public class ProgressBarPage extends BasePage {
     }
 
     public void navigateToProgressBar() {
-        HumanActions.click(driver, widgetsCard);
-        HumanActions.click(driver, progressBarMenu);
+        navigateTo("/progress-bar");
         wait.until(ExpectedConditions.visibilityOfElementLocated(startStopButton));
     }
 

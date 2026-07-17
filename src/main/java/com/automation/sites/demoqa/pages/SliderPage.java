@@ -22,19 +22,8 @@ public class SliderPage extends BasePage {
     }
 
     public void navigateToSlider() {
-        HumanActions.click(driver, widgetsCard);
-        WebElement menuItem = wait.until(
-                ExpectedConditions.presenceOfElementLocated(sliderMenu)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menuItem);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menuItem);
-
-        // Wait for slider, then scroll it into view so the interaction is visible
-        WebElement slider = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(sliderInput)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", slider);
+        navigateTo("/slider");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(sliderInput));
         HumanActions.pause();
     }
 

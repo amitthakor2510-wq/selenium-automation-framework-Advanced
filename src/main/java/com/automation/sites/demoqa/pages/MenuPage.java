@@ -28,23 +28,8 @@ public class MenuPage extends BasePage {
     }
 
     public void navigateToMenu() {
-        js.executeScript("window.scrollTo(0, 0)");
-        HumanActions.pause();
-
-        WebElement widgets = wait.until(ExpectedConditions.presenceOfElementLocated(widgetsCard));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", widgets);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", widgets);
-        HumanActions.pause();
-
-        WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(menuItem));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menu);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menu);
-
+        navigateTo("/menu");
         wait.until(ExpectedConditions.visibilityOfElementLocated(mainItem1));
-        WebElement item1 = driver.findElement(mainItem1);
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", item1);
         HumanActions.pause();
     }
 

@@ -23,19 +23,8 @@ public class ResizablePage extends BasePage {
     }
 
     public void navigateToResizable() {
-        WebElement card = wait.until(ExpectedConditions.presenceOfElementLocated(interactionsCard));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", card);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", card);
-
-        WebElement menu = wait.until(ExpectedConditions.presenceOfElementLocated(resizableMenu));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", menu);
-        HumanActions.pause();
-        js.executeScript("arguments[0].click();", menu);
-
+        navigateTo("/resizable");
         wait.until(ExpectedConditions.visibilityOfElementLocated(resizableBox));
-        WebElement box = driver.findElement(resizableBox);
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
         HumanActions.pause();
     }
 

@@ -22,8 +22,9 @@ public class AccordianTest extends BaseTest {
                 header.isEmpty(),
                 "Section 1 header should have text"
         );
-        Assert.assertFalse(
-                page.getSection1Content().isEmpty(),
+
+        Assert.assertTrue(
+                page.isSection1ContentVisible(),
                 "Section 1 content should be visible by default"
         );
     }
@@ -37,8 +38,8 @@ public class AccordianTest extends BaseTest {
         page.navigateToAccordian();
         page.openSection2();
 
-        Assert.assertFalse(
-                page.getSection2Content().isEmpty(),
+        Assert.assertTrue(
+                page.isSection2ContentVisible(),
                 "Section 2 content should be visible after click"
         );
     }
@@ -52,9 +53,53 @@ public class AccordianTest extends BaseTest {
         page.navigateToAccordian();
         page.openSection3();
 
-        Assert.assertFalse(
-                page.getSection3Content().isEmpty(),
+        Assert.assertTrue(
+                page.isSection3ContentVisible(),
                 "Section 3 content should be visible after click"
         );
+    }
+
+    @Test(priority = 4,
+            groups = {"regression"},
+            description = "Accordian - Only One Section Open At A Time")
+    public void verifyOnlyOneSectionOpenAtTime() {
+        AccordianPage page = new AccordianPage(getDriver());
+
+        page.navigateToAccordian();
+
+        // Section 1 is open by default
+        Assert.assertTrue(page.isSection1ContentVisible(),
+                "Section 1 should be visible by default");
+
+        // Open Section 2
+        page.openSection2();
+        Assert.assertTrue(page.isSection2ContentVisible(),
+                "Section 2 should be visible after click");
+        Assert.assertFalse(page.isSection1ContentVisible(),
+                "Section 1 should be collapsed when Section 2 opens");
+
+        // Open Section 3
+        page.openSection3();
+        Assert.assertTrue(page.isSection3ContentVisible(),
+                "Section 3 should be visible after click");
+        Assert.assertFalse(page.isSection2ContentVisible(),
+                "Section 2 should be collapsed when Section 3 opens");
+    }
+
+    @Test(priority = 5,
+            groups = {"regression"},
+            description = "Accordian - Section Closes When Clicked Again")
+    public void verifySectionToggles() {
+        AccordianPage page = new AccordianPage(getDriver());
+
+        page.navigateToAccordian();
+        page.openSection2();
+
+        Assert.assertTrue(page.isSection2ContentVisible(),
+                "Section 2 should be visible after first click");
+
+        page.clickSection2Header();
+        Assert.assertFalse(page.isSection2ContentVisible(),
+                "Section 2 should be hidden after second click");
     }
 }

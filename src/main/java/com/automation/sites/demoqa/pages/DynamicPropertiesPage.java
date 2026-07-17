@@ -31,8 +31,7 @@ public class DynamicPropertiesPage extends BasePage {
     }
 
     public void navigateToDynamicProperties() {
-        HumanActions.click(driver, elementsCard);
-        HumanActions.click(driver, dynamicPropertiesMenu);
+        navigateTo("/dynamic-properties");
         wait.until(ExpectedConditions.visibilityOfElementLocated(enableAfterBtn));
     }
 
