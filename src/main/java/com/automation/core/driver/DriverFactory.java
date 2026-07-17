@@ -72,12 +72,33 @@ public final class DriverFactory {
     }
 
     private static WebDriver createFirefoxDriver(boolean headless) {
-        WebDriverManager.firefoxdriver().setup();
+        String geckodriverPath = System.getProperty("user.home")
+                + "/Downloads/geckodriver-v0.36.0-linux64/geckodriver";
+
+        File geckodriverFile = new File(geckodriverPath);
+        if (geckodriverFile.exists()) {
+            System.setProperty("webdriver.gecko.driver", geckodriverPath);
+            System.out.println("[DriverFactory] Using cached geckodriver: " + geckodriverPath);
+        } else {
+            WebDriverManager.firefoxdriver().setup();
+            System.out.println("[DriverFactory] Cached geckodriver not found, falling back to WDM");
+        }
+
+        // disable sandbox — required on Ubuntu with Firefox 152 ESR
+        System.setProperty("MOZ_DISABLE_CONTENT_SANDBOX", "1");
 
         FirefoxOptions options = new FirefoxOptions();
+        options.setBinary("/usr/lib/firefox/firefox");
+
+        // pass sandbox disable as environment variable to Firefox process
+        options.addPreference("security.sandbox.content.level", 0);
+        options.addPreference("security.sandbox.gpu.level", 0);
+        options.addPreference("security.sandbox.media.level", 0);
+
         options.addPreference("browser.download.folderList", 2);
         options.addPreference("browser.download.dir", getDownloadPath());
-        options.addPreference("browser.helperApps.neverAsk.saveToDisk", "application/octet-stream");
+        options.addPreference("browser.helperApps.neverAsk.saveToDisk",
+                "application/octet-stream");
 
         if (headless) {
             options.addArguments("-headless");

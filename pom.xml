@@ -18,6 +18,8 @@
         <suiteXmlFile>testng-suites/demoqa-regression.xml</suiteXmlFile>
         <browser>chrome</browser>
         <headless>false</headless>
+        <human.pause.enabled>false</human.pause.enabled>
+        <retry.count>0</retry.count>
 
         <!-- Allure + AspectJ versions -->
         <allure.version>2.27.0</allure.version>
@@ -103,6 +105,13 @@
             <version>2.17.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.appium</groupId>
+            <artifactId>java-client</artifactId>
+            <version>9.2.3</version>
+        </dependency>
+
+
     </dependencies>
 
     <build>
@@ -134,12 +143,22 @@
                         <site>${site}</site>
                         <browser>${browser}</browser>
                         <headless>${headless}</headless>
+                        <human.pause.enabled>${human.pause.enabled}</human.pause.enabled>
+                        <retry.count>${retry.count}</retry.count>
+                        <wdm.cachePath>${user.home}/.wdm</wdm.cachePath>
+                        <wdm.forceDownload>false</wdm.forceDownload>
                     </systemPropertyVariables>
                     <testFailureIgnore>true</testFailureIgnore>
                     <!-- AspectJ weaver is required for @Step and @Attachment annotations to work -->
                     <argLine>
-                        -javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
+                        -javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar
+                        -Xms256m
+                        -Xmx1024m
+                        -XX:+UseG1GC
                     </argLine>
+                    <environmentVariables>
+                        <MOZ_DISABLE_CONTENT_SANDBOX>1</MOZ_DISABLE_CONTENT_SANDBOX>
+                    </environmentVariables>
                 </configuration>
                 <dependencies>
                     <!-- AspectJ weaver must be on surefire's own classpath so it can instrument @Step -->
