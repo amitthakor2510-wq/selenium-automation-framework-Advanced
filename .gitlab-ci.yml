@@ -44,13 +44,9 @@ test:
     - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
     - |
       if ! command -v google-chrome &> /dev/null; then
-        echo "Installing Chrome..."
-        apt-get update -qq
-        apt-get install -y -qq wget gnupg
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-        apt-get update -qq
-        apt-get install -y -qq google-chrome-stable
+        echo "Chrome not found — install it on the runner machine manually"
+        echo "Run: sudo apt-get install -y google-chrome-stable"
+        exit 1
       else
         echo "Chrome: $(google-chrome --version)"
       fi
@@ -87,11 +83,24 @@ report:
   script:
     - echo "======= Generating Allure Report ======="
     - |
-      # Install Allure CLI
-      apt-get update -qq && apt-get install -y -qq default-jre wget unzip
-      wget -q https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-      tar -zxf allure-2.27.0.tgz -C /opt/
-      export PATH=$PATH:/opt/allure-2.27.0/bin
+      if [ ! -d "target/allure-results" ] || [ -z "$(ls -A target/allure-results 2>/dev/null)" ]; then
+        echo "WARNING: target/allure-results is missing or empty — test job produced no allure results."
+        mkdir -p target/allure-results
+      fi
+    - |
+      if ! wget -q -O allure-2.27.0.tgz https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz; then
+        echo "ERROR: failed to download Allure CLI (check runner internet access / DNS / proxy)."
+        exit 1
+      fi
+    - |
+      if [ ! -s allure-2.27.0.tgz ]; then
+        echo "ERROR: downloaded Allure CLI archive is empty (likely blocked/rate-limited)."
+        exit 1
+      fi
+    - mkdir -p allure-cli
+    - tar -xzf allure-2.27.0.tgz -C allure-cli --strip-components=1
+    - export PATH="$PWD/allure-cli/bin:$PATH"
+    - mkdir -p public/allure-report
     - allure generate target/allure-results --clean -o public/allure-report
     - echo "======= Test Results Summary ======="
     - |
@@ -116,9 +125,6 @@ report:
   only:
     - main
     - master
-
-# GitLab Pages — serves public/ folder automatically at
-# https://<group>.gitlab.io/<project>/allure-report
 pages:
   stage: pages  # ← was "report"
   script:
