@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -26,8 +27,9 @@ public class DynamicPropertiesPage extends BasePage {
 
     public DynamicPropertiesPage(WebDriver driver) {
         super(driver);
-        // 15 seconds: enough for the 5-second delay plus buffer
-        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        // FIX #8e: reads from config — set timeout.long=15 in global.properties
+        this.longWait = new WebDriverWait(driver,
+                Duration.ofSeconds(ConfigReader.getInt("timeout.long", 15)));
     }
 
     public void navigateToDynamicProperties() {

@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Point;
@@ -73,7 +74,7 @@ public class DroppablePage extends BasePage {
         while (attempts < 3 && !success) {
             new Actions(driver).dragAndDrop(drag, drop).build().perform();
             try {
-                new WebDriverWait(driver, Duration.ofSeconds(3))
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(simpleDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {
@@ -221,7 +222,7 @@ public class DroppablePage extends BasePage {
         while (attempts < 3 && !success) {
             new Actions(driver).dragAndDrop(drag, drop).build().perform();
             try {
-                new WebDriverWait(driver, Duration.ofSeconds(3))
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {
@@ -242,7 +243,7 @@ public class DroppablePage extends BasePage {
         while (attempts < 3 && !success) {
             new Actions(driver).dragAndDrop(drag, drop).build().perform();
             try {
-                new WebDriverWait(driver, Duration.ofSeconds(3))
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {

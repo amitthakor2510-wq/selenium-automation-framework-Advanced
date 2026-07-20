@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -58,7 +59,8 @@ public class BrowserWindowsPage extends BasePage {
         js.executeScript("arguments[0].click();", btn);
 
         // Wait up to 10s for a new window/tab handle to appear
-        WebDriverWait longWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebDriverWait longWait = new WebDriverWait(driver,
+                Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
         try {
             longWait.until(d -> d.getWindowHandles().size() > beforeHandles.size());
         } catch (Exception e) {
@@ -89,7 +91,7 @@ public class BrowserWindowsPage extends BasePage {
             text = "This is a sample page";
         } else {
             try {
-                new WebDriverWait(driver, Duration.ofSeconds(5))
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
                 text = driver.findElement(By.tagName("body")).getText().trim();
             } catch (Exception e) {

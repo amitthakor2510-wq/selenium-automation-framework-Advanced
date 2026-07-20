@@ -134,10 +134,14 @@ public class TestListener implements ITestListener {
         onTestFailure(result);
     }
 
+    // AFTER
     @Override
     public void onFinish(ITestContext context) {
         extent.flush();
-        // ThreadLocal cleanup now happens per-thread in onTestSuccess/
-        // onTestFailure/onTestSkipped above, so nothing to remove here.
+        // FIX #3: Reset the ExtentManager singleton after each suite finishes.
+        // Without this, if two sites run sequentially in the same JVM (e.g. a
+        // future single-mvn multi-site run), the second site inherits the first
+        // site's report name, system info, and output path — corrupting both reports.
+        ExtentManager.reset();
     }
 }

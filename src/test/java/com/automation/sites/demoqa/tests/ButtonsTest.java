@@ -18,7 +18,7 @@ public class ButtonsTest extends BaseTest {
         Assert.assertEquals(page.getDoubleClickMessage(), "You have done a double click");
     }
 
-    @Test(priority = 2, groups = {"smoke", "regression"},
+    @Test(priority = 2, groups = {"regression"},
             description = "Buttons - Verify Right Click")
     public void verifyRightClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
@@ -29,7 +29,7 @@ public class ButtonsTest extends BaseTest {
         Assert.assertEquals(page.getRightClickMessage(), "You have done a right click");
     }
 
-    @Test(priority = 3, groups = {"smoke", "regression"},
+    @Test(priority = 3, groups = {"regression"},
             description = "Buttons - Verify Dynamic Click")
     public void verifyDynamicClick() {
         ButtonsPage page = new ButtonsPage(getDriver());

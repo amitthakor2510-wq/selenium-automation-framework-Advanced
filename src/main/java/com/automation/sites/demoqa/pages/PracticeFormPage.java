@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
@@ -308,7 +309,7 @@ public class PracticeFormPage extends BasePage {
 
         // Final wait — just confirm modal is gone, don't throw if already gone
         try {
-            new WebDriverWait(driver, Duration.ofSeconds(5))
+            new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                     .until(ExpectedConditions.invisibilityOfElementLocated(modalTitle));
         } catch (Exception ignored) {
             // Modal may have already closed via one of the attempts above

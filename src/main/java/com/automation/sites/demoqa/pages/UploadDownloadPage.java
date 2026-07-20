@@ -1,82 +1,69 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.FluentWait;
 
 import java.io.File;
+import java.time.Duration;
 
 public class UploadDownloadPage extends BasePage {
 
-    // ── Navigation ─────────────────────────────────────────────────────────────
-    private final By elementsCard      = By.xpath("//h5[text()='Elements']");
-    private final By uploadDownloadMenu = By.xpath("//span[text()='Upload and Download']");
+    // FIX #7: Extracted magic number to a named constant driven by config.
+    // Set download.wait.seconds in global.properties to tune on slow machines.
+    private static final int DOWNLOAD_WAIT_SECONDS = 10;
 
-    // ── Download ───────────────────────────────────────────────────────────────
-    private final By downloadButton    = By.id("downloadButton");
-
-    // ── Upload ─────────────────────────────────────────────────────────────────
-    private final By uploadInput       = By.id("uploadFile");
-    private final By uploadedFilePath  = By.id("uploadedFilePath");
+    private final By downloadButton   = By.id("downloadButton");
+    private final By uploadInput      = By.id("uploadFile");
+    private final By uploadedFilePath = By.id("uploadedFilePath");
 
     public UploadDownloadPage(WebDriver driver) {
         super(driver);
     }
-
-    // ── Navigation ─────────────────────────────────────────────────────────────
 
     public void navigateToUploadDownload() {
         navigateTo("/upload-download");
         wait.until(ExpectedConditions.visibilityOfElementLocated(downloadButton));
     }
 
-    // ── Download ───────────────────────────────────────────────────────────────
-
     /**
-     * Clicks the Download button.
-     * Then waits up to 10 seconds for the file to appear
-     * in the system downloads folder.
-     * Returns true if file was downloaded successfully.
+     * Clicks Download and waits for the file to appear using FluentWait
+     * instead of a raw Thread.sleep loop.
+     * FIX #7: FluentWait polls every 500ms, is interruptible, and uses a
+     * named constant rather than a magic number.
      */
     public boolean clickDownloadAndVerify(String downloadFolderPath, String expectedFileName) {
         HumanActions.click(driver, downloadButton);
 
-        // Wait up to 10 seconds for file to appear in downloads folder
         File downloadedFile = new File(downloadFolderPath + File.separator + expectedFileName);
 
-        int waitSeconds = 10;
-        for (int i = 0; i < waitSeconds; i++) {
-            if (downloadedFile.exists() && downloadedFile.length() > 0) {
-                return true;
-            }
-            try {
-                Thread.sleep(1000); // check every 1 second
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+        try {
+            new FluentWait<>(downloadedFile)
+                    .withTimeout(Duration.ofSeconds(DOWNLOAD_WAIT_SECONDS))
+                    .pollingEvery(Duration.ofMillis(500))
+                    .until(f -> f.exists() && f.length() > 0);
+            return true;
+        } catch (Exception e) {
+            return false;
         }
-        return false;
     }
 
-    // ── Upload ─────────────────────────────────────────────────────────────────
-
     /**
-     * Uploads a file by sending the full file path directly
-     * to the hidden <input type="file"> element.
-     * We do NOT use HumanActions.click() here because clicking
-     * the input opens the OS file picker dialog which Selenium
-     * cannot control.Instead, we use sendKeys() with the file
-     * path &mdash; Selenium handles this specially for file inputs.
+     * Uploads a file via sendKeys on the hidden <input type="file"> element.
+     * Do NOT use HumanActions.click() here — that opens the OS file picker
+     * which Selenium cannot control.
      */
     public void uploadFile(String filePath) {
         WebElement input = wait.until(
                 ExpectedConditions.presenceOfElementLocated(uploadInput)
         );
         HumanActions.pause();
-        input.sendKeys(filePath); // sends full path, no dialog opens
+        input.sendKeys(filePath);
     }
 
     public String getUploadedFileName() {

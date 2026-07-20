@@ -42,7 +42,8 @@ public class AlertsPage extends BasePage {
         HumanActions.click(driver, timerAlertButton);
         // Timer alert appears after 5 seconds — need a longer wait
         Alert alert = new org.openqa.selenium.support.ui.WebDriverWait(driver,
-                java.time.Duration.ofSeconds(15))
+                java.time.Duration.ofSeconds(
+                        com.automation.core.config.ConfigReader.getInt("timeout.long", 15)))
                 .until(ExpectedConditions.alertIsPresent());
         HumanActions.pause();
         String text = alert.getText();

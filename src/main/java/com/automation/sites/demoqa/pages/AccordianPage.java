@@ -11,9 +11,9 @@ public class AccordianPage extends BasePage {
 
     // ✅ CORRECT locators for DemoQA Accordion
     // Section headers (the clickable part)
-    private final By section1Header = By.id("section1Heading");
-    private final By section2Header = By.id("section2Heading");
-    private final By section3Header = By.id("section3Heading");
+    private final By section1Header = By.cssSelector("#accordianContainer > div > div:nth-child(1) > h2 > button");
+    private final By section2Header = By.cssSelector("#accordianContainer > div > div:nth-child(2) > h2 > button");
+    private final By section3Header = By.cssSelector("#accordianContainer > div > div:nth-child(3) > h2 > button");
 
     // Section content divs (the expandable content)
     private final By section1Content = By.id("section1Content");
