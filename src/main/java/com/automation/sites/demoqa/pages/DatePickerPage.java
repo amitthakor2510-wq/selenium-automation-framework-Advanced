@@ -3,7 +3,6 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -11,15 +10,10 @@ import org.openqa.selenium.support.ui.Select;
 
 public class DatePickerPage extends BasePage {
 
-    // ── Date picker ────────────────────────────────────────────────────────────
     private final By dateInput   = By.id("datePickerMonthYearInput");
     private final By monthSelect = By.className("react-datepicker__month-select");
     private final By yearSelect  = By.className("react-datepicker__year-select");
-
-    // ── Date and time picker ───────────────────────────────────────────────────
     private final By dateTimeInput = By.id("dateAndTimePickerInput");
-    private final By timeList      = By.className("react-datepicker__time-list");
-    private final By timeListItem  = By.cssSelector(".react-datepicker__time-list-item");
 
     public DatePickerPage(WebDriver driver) {
         super(driver);
@@ -55,16 +49,46 @@ public class DatePickerPage extends BasePage {
         return driver.findElement(dateInput).getAttribute("value");
     }
 
-    public void selectDateTime(String dateTimeValue) {
+    /**
+     * Sets the date-time by directly typing the full date-time string into the input.
+     * The input field accepts the format: "mmm dd, yyyy hh:mm AM/PM"
+     * Example: "May 15, 1999 10:30 PM"
+     *
+     * This bypasses the flaky date-time picker UI and directly sets the value
+     * that the application expects, which is the most reliable approach for
+     * automated testing of React form components.
+     */
+    public void selectDateTime(String month, String year, String day, String time) {
+        System.out.println("[DatePickerPage] Selecting date-time: " + month + " " + day + ", " + year + " @ " + time);
+
         WebElement input = wait.until(ExpectedConditions.elementToBeClickable(dateTimeInput));
+
+        // Build the date-time string in format the input expects
+        String dateTimeStr = month + " " + day + ", " + year + " " + time;
+        System.out.println("[DatePickerPage] Setting input to: \"" + dateTimeStr + "\"");
+
+        // Clear the input and type the new value
+        input.clear();
         HumanActions.pause();
-        input.sendKeys(Keys.CONTROL + "a");
-        input.sendKeys(dateTimeValue);
-        input.sendKeys(Keys.ENTER);
+        input.sendKeys(dateTimeStr);
         HumanActions.pause();
+
+        // Trigger React's change handlers
+        js.executeScript(
+                "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));" +
+                        "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+                input
+        );
+
+        HumanActions.pause();
+
+        String result = driver.findElement(dateTimeInput).getAttribute("value");
+        System.out.println("[DatePickerPage] After selection, input value: \"" + result + "\"");
     }
 
     public String getSelectedDateTime() {
-        return driver.findElement(dateTimeInput).getAttribute("value");
+        String value = driver.findElement(dateTimeInput).getAttribute("value");
+        System.out.println("[DatePickerPage] getSelectedDateTime() returning: \"" + value + "\"");
+        return value;
     }
 }

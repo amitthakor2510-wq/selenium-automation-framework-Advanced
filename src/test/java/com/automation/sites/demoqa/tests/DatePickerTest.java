@@ -24,4 +24,27 @@ public class DatePickerTest extends BaseTest {
                 "Date should be 05/15/1999. Got: " + selected
         );
     }
+
+    @Test(priority = 2,
+            groups = {"smoke", "regression"},
+            description = "Date Picker - Select Specific Date and Time")
+    public void verifyDateTimeSelection() {
+        DatePickerPage page = new DatePickerPage(getDriver());
+
+        page.navigateToDatePicker();
+        page.selectDateTime("May", "1999", "15", "10:30 PM");
+
+        String selected = page.getSelectedDateTime();
+        System.out.println("Selected date-time: " + selected);
+
+        // Verify that the date and time components are in the result
+        Assert.assertTrue(
+                selected.toLowerCase().contains("may") || selected.contains("05") || selected.contains("1999"),
+                "Date portion should contain May, 05, or 1999. Got: " + selected
+        );
+        Assert.assertTrue(
+                selected.contains("10:30") && selected.toUpperCase().contains("PM"),
+                "Time portion should be 10:30 PM. Got: " + selected
+        );
+    }
 }
