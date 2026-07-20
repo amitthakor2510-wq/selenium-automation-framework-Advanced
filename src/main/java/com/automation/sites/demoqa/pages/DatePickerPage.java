@@ -45,7 +45,6 @@ public class DatePickerPage extends BasePage {
         By dayLocator = By.xpath(
                 "//div[contains(@class,'react-datepicker__day')" +
                         " and not(contains(@class,'outside-month'))" +
-                        " and not(contains(@class,'keyboard-selected'))" +
                         " and text()='" + day + "']"
         );
         wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
