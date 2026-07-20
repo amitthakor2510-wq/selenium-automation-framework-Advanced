@@ -12,16 +12,18 @@ import java.io.IOException;
 
 public class UploadDownloadTest extends BaseTest {
 
-    // static so value is shared across all instances and methods
-    private static String uploadFilePath;
-    private static String downloadFolderPath;
+    // FIX #1: Was 'private static' — changed to instance fields so each
+    // thread gets its own copy. Static + parallel execution = race condition.
+    private String uploadFilePath;
+    private String downloadFolderPath;
 
     @Override
     @BeforeMethod(alwaysRun = true)
     public void setUp() {
-        super.setUp();       // ← creates the driver first
-        prepareFiles();      // ← then create the files
+        super.setUp();
+        prepareFiles();
     }
+
     private void prepareFiles() {
 
         // ── Upload file ────────────────────────────────────────────────────

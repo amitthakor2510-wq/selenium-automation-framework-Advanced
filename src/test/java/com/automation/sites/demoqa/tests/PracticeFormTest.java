@@ -5,8 +5,6 @@ import com.automation.sites.demoqa.pages.PracticeFormPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 public class PracticeFormTest extends BaseTest {
 
     // ── Helper ─────────────────────────────────────────────────────────────────
@@ -64,7 +62,7 @@ public class PracticeFormTest extends BaseTest {
     @Test(priority = 1,
             groups = {"smoke", "regression"},
             description = "Practice Form - Submit With All Fields")
-    public void verifyFormSubmissionWithAllFields() throws IOException {
+    public void verifyFormSubmissionWithAllFields() {
         PracticeFormPage page = openForm();
 
         fillPersonalDetails(page);
@@ -87,7 +85,7 @@ public class PracticeFormTest extends BaseTest {
     @Test(priority = 2,
             groups = {"regression"},
             description = "Practice Form - Submit With Mandatory Fields Only")
-    public void verifyFormSubmissionWithMandatoryFieldsOnly() throws IOException {
+    public void verifyFormSubmissionWithMandatoryFieldsOnly() {
         PracticeFormPage page = openForm();
 
         // Only mandatory fields - first name, last name, gender, mobile

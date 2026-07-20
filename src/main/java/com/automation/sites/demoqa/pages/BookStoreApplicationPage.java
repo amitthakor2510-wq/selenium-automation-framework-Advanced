@@ -169,9 +169,10 @@ public class BookStoreApplicationPage extends BasePage {
         wait.until(ExpectedConditions.urlContains("/books?book="));
     }
 
+    // AFTER — uses double-quotes inside XPath so single quotes in title don't break it
     public void clickBookByTitle(String title) {
         By link = By.xpath(
-                "//div[@role='table']//a[contains(text(),'" + title + "')]");
+                "//div[@role='table']//a[contains(text(),\"" + title + "\")]");
         WebElement el = wait.until(ExpectedConditions.elementToBeClickable(link));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
         HumanActions.pause();

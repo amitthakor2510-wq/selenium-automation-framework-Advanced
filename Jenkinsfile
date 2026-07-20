@@ -2,7 +2,7 @@
 // Jenkins CI/CD pipeline - Selenium + Java + TestNG + Maven
 // Requires:
 //   - JDK 17            (Tools > JDK, name: "JDK17")
-//   - Maven             (Tools > Maven, name: "Maven installations")
+//   - Maven             (Tools > Maven, name: "Maven3")
 //   - Allure Tool       (Tools > Allure Commandline, name: "allure")
 //   - HTML Publisher    (Manage Jenkins > Plugins > HTML Publisher)
 // =============================================================
