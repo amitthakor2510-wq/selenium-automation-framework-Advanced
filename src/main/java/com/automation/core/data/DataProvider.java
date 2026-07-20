@@ -8,6 +8,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.logging.Logger;
@@ -180,7 +181,13 @@ public class DataProvider {
     private static List<DataRow> readCsv(File file) {
         List<DataRow> rows = new ArrayList<>();
 
-        try (CSVReader reader = new CSVReader(new FileReader(file))) {
+        // Read explicitly as UTF-8 instead of relying on the JVM's platform
+        // default charset (new FileReader(file)), which corrupts non-ASCII
+        // data (accented names, currency symbols, etc.) on machines whose
+        // default charset isn't UTF-8 (e.g. some Windows CI agents).
+        try (CSVReader reader = new CSVReader(
+                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+
             List<String[]> all = reader.readAll();
             if (all.isEmpty()) return rows;
 
@@ -258,7 +265,15 @@ public class DataProvider {
 
         try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
             ZipEntry entry;
-            int rowOffset = 0;
+
+            // Running counter for globally-unique row indices across all files
+            // in the zip. NOTE: previously this used an accumulated
+            // "rowOffset += rows.size()", which is wrong whenever a source
+            // file skips blank rows — getRowIndex() reflects the row's real
+            // position in its sheet/CSV, so adding a row *count* (not the max
+            // index actually consumed) can produce duplicate/misleading row
+            // numbers across files. A simple running counter avoids that.
+            int runningIndex = 0;
 
             while ((entry = zis.getNextEntry()) != null) {
                 String entryName = entry.getName().toLowerCase();
@@ -279,11 +294,10 @@ public class DataProvider {
                 File tempFile = extractToTemp(zis, entry.getName());
                 List<DataRow> rows = read(tempFile.getAbsolutePath());
 
-                // Offset row indices to avoid duplicates across files
                 for (DataRow row : rows) {
-                    allRows.add(new DataRow(row.toMap(), row.getRowIndex() + rowOffset));
+                    runningIndex++;
+                    allRows.add(new DataRow(row.toMap(), runningIndex));
                 }
-                rowOffset += rows.size();
 
                 tempFile.deleteOnExit();
                 zis.closeEntry();

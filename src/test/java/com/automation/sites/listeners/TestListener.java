@@ -48,68 +48,84 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestSuccess(ITestResult result) {
-        // ── Extent: pass log only — no screenshot on success ─────────────────
-        if (test.get() != null) {
-            test.get().pass("Test Passed");
-        }
+        try {
+            // ── Extent: pass log only — no screenshot on success ─────────────────
+            if (test.get() != null) {
+                test.get().pass("Test Passed");
+            }
 
-        // ── Allure: attach success screenshot ────────────────────────────────
-        WebDriver driver = getDriver(result);
-        byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
-        if (bytes.length > 0) {
-            Allure.addAttachment(
-                    "Pass Screenshot — " + result.getMethod().getMethodName(),
-                    "image/png",
-                    new ByteArrayInputStream(bytes),
-                    "png"
-            );
-        }
+            // ── Allure: attach success screenshot ────────────────────────────────
+            WebDriver driver = getDriver(result);
+            byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
+            if (bytes.length > 0) {
+                Allure.addAttachment(
+                        "Pass Screenshot — " + result.getMethod().getMethodName(),
+                        "image/png",
+                        new ByteArrayInputStream(bytes),
+                        "png"
+                );
+            }
 
-        HumanActions.postTestPause();
+            HumanActions.postTestPause();
+        } finally {
+            // Clean up this thread's ThreadLocal entry right here, rather than
+            // relying solely on onFinish() — onFinish() only runs on whichever
+            // single thread happens to call it, so with parallel="methods" or
+            // parallel="classes" every OTHER worker thread's ExtentTest entry
+            // would otherwise leak for the life of the JVM.
+            test.remove();
+        }
     }
 
     @Override
     public void onTestFailure(ITestResult result) {
-        WebDriver driver = getDriver(result);
-        byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
+        try {
+            WebDriver driver = getDriver(result);
+            byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
 
-        // ── Extent: log failure + embed screenshot ───────────────────────────
-        if (test.get() != null) {
-            test.get().fail("Test Failed");
-            test.get().fail(result.getThrowable());
+            // ── Extent: log failure + embed screenshot ───────────────────────────
+            if (test.get() != null) {
+                test.get().fail("Test Failed");
+                test.get().fail(result.getThrowable());
 
-            if (bytes.length > 0)  {
-                test.get().addScreenCaptureFromBase64String(
-                        "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
-                        "Failure Screenshot"
+                if (bytes.length > 0)  {
+                    test.get().addScreenCaptureFromBase64String(
+                            "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
+                            "Failure Screenshot"
+                    );
+                }
+            }
+
+            // ── Allure: attach failure screenshot ────────────────────────────────
+            if (bytes.length > 0) {
+                Allure.addAttachment(
+                        "Failure Screenshot — " + result.getMethod().getMethodName(),
+                        "image/png",
+                        new ByteArrayInputStream(bytes),
+                        "png"
                 );
             }
-        }
 
-        // ── Allure: attach failure screenshot ────────────────────────────────
-        if (bytes.length > 0) {
-            Allure.addAttachment(
-                    "Failure Screenshot — " + result.getMethod().getMethodName(),
-                    "image/png",
-                    new ByteArrayInputStream(bytes),
-                    "png"
-            );
+            HumanActions.postTestPause();
+        } finally {
+            test.remove();
         }
-
-        HumanActions.postTestPause();
     }
 
     @Override
     public void onTestSkipped(ITestResult result) {
-        // ── Extent: mark skipped + log reason ───────────────────────────────
-        if (test.get() != null) {
-            test.get().skip("Test Skipped");
-            if (result.getThrowable() != null) {
-                test.get().skip(result.getThrowable());
+        try {
+            // ── Extent: mark skipped + log reason ───────────────────────────────
+            if (test.get() != null) {
+                test.get().skip("Test Skipped");
+                if (result.getThrowable() != null) {
+                    test.get().skip(result.getThrowable());
+                }
             }
+            // ── Allure: no screenshot on skip ────────────────────────────────────
+        } finally {
+            test.remove();
         }
-
-        // ── Allure: no screenshot on skip ────────────────────────────────────
     }
 
     @Override
@@ -121,6 +137,7 @@ public class TestListener implements ITestListener {
     @Override
     public void onFinish(ITestContext context) {
         extent.flush();
-        test.remove(); // clean up ThreadLocal to prevent memory leaks
+        // ThreadLocal cleanup now happens per-thread in onTestSuccess/
+        // onTestFailure/onTestSkipped above, so nothing to remove here.
     }
 }

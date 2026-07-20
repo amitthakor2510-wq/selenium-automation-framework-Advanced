@@ -94,6 +94,9 @@ public class WebTablesPage extends BasePage {
     // ── Read / assert ───────────────────────────────────────────────────────────
 
     public int getRowCount() {
+        if (!driver.findElements(By.cssSelector(".rt-noData")).isEmpty()) {
+            return 0;
+        }
         return (int) driver.findElements(tableRows).stream()
                 .filter(row -> !row.getText().trim().isEmpty())
                 .count();

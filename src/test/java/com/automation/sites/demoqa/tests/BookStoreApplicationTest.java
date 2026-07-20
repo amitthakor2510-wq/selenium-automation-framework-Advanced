@@ -177,6 +177,14 @@ public class BookStoreApplicationTest extends BaseTest {
                 bookStorePage.isLoggedIn(),
                 "Should NOT be logged in with invalid credentials"
         );
+        Assert.assertFalse(
+                errorMsg.isEmpty(),
+                "Expected an error message for invalid login but got none"
+        );
+        Assert.assertTrue(
+                errorMsg.toLowerCase().contains("invalid") || errorMsg.toLowerCase().contains("incorrect"),
+                "Unexpected error message text: " + errorMsg
+        );
         System.out.println("✓ Test 4 PASS — Invalid login correctly rejected");
     }
 

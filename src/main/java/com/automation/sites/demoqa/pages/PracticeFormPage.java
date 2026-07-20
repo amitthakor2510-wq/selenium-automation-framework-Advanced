@@ -120,11 +120,10 @@ public class PracticeFormPage extends BasePage {
         new Select(driver.findElement(yearSelect)).selectByVisibleText(year);
         HumanActions.pause();
 
-        // Click the correct day - exclude days from other months
+        // Click the correct day - exclude only days from other months
         By dayLocator = By.xpath(
                 "//div[contains(@class,'react-datepicker__day')" +
                         " and not(contains(@class,'outside-month'))" +
-                        " and not(contains(@class,'keyboard-selected'))" +
                         " and text()='" + day + "']"
         );
         wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
