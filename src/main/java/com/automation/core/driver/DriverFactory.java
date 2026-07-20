@@ -2,6 +2,7 @@ package com.automation.core.driver;
 
 import com.automation.core.config.ConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -99,6 +100,13 @@ public final class DriverFactory {
     /** Shared ChromeOptions used by both Chrome and Brave */
     private static ChromeOptions buildChromeOptions(boolean headless) {
         ChromeOptions options = new ChromeOptions();
+        // Default (NORMAL) blocks driver.get() until the browser's full 'load'
+        // event fires — on demoqa that means waiting for every ad/tracker script
+        // too, not just the page's own content, which is what was making every
+        // navigation take ~30s. EAGER returns once the DOM is parsed; our own
+        // explicit waits (visibilityOfElementLocated etc.) already gate on the
+        // specific elements each page actually needs before touching them.
+        options.setPageLoadStrategy(PageLoadStrategy.EAGER);
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-extensions");
         options.addArguments("--remote-allow-origins=*");
@@ -145,6 +153,7 @@ public final class DriverFactory {
         }
 
         FirefoxOptions options = new FirefoxOptions();
+        options.setPageLoadStrategy(PageLoadStrategy.EAGER);
 
         if (firefoxBinary != null) {
             options.setBinary(firefoxBinary);
@@ -221,6 +230,7 @@ public final class DriverFactory {
         WebDriverManager.edgedriver().setup();
 
         EdgeOptions options = new EdgeOptions();
+        options.setPageLoadStrategy(PageLoadStrategy.EAGER);
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-extensions");
         options.addArguments("--no-sandbox");

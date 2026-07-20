@@ -118,10 +118,16 @@ public class BookStoreApplicationTest extends BaseTest {
             dependsOnMethods = "verifyRegisterPageLoads"
     )
     public void registerNewUser() {
-        String alertText = registrationPage.registerUser(REGISTERED_FNAME, REGISTERED_LNAME,
-                REGISTERED_USERNAME, REGISTERED_EMAIL, REGISTERED_PASSWORD);
+        registrationPage.registerUser(
+                REGISTERED_FNAME,
+                REGISTERED_LNAME,
+                REGISTERED_USERNAME,
+                REGISTERED_EMAIL,
+                REGISTERED_PASSWORD
+        );
 
-        Assert.assertTrue(registrationPage.isRegistrationSuccessful(alertText),
+        Assert.assertTrue(
+                registrationPage.isRegistrationSuccessful(),
                 "Registration did not succeed. URL: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 2 PASS — Registered user: " + REGISTERED_USERNAME);
@@ -188,7 +194,7 @@ public class BookStoreApplicationTest extends BaseTest {
 
     @Test(
             priority         = 5,
-            groups           = {"regression"},
+            groups           = {"smoke", "regression"},
             description      = "Book Store - Login with registered user succeeds",
             dependsOnMethods = "verifyInvalidLogin"
     )
@@ -211,7 +217,7 @@ public class BookStoreApplicationTest extends BaseTest {
 
     @Test(
             priority         = 6,
-            groups           = {"regression"},
+            groups           = {"smoke", "regression"},
             description      = "Book Store - Store page loads and displays books",
             dependsOnMethods = "verifyValidLogin"
     )

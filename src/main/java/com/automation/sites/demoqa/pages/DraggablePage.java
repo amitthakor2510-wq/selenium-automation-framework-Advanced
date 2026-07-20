@@ -37,7 +37,7 @@ public class DraggablePage extends BasePage {
     }
 
     public void navigateToDraggable() {
-        navigateTo("/draggable");
+        navigateTo("/dragabble");
         wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDragBox));
         HumanActions.pause();
     }
