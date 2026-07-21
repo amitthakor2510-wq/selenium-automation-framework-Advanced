@@ -1,0 +1,12 @@
+target/
+.git/
+.idea/
+*.iml
+.vscode/
+*.log
+target/downloads/
+target/debug-dumps/
+target/allure-results/
+target/allure-report/
+target/extent-reports/
+target/surefire-reports/

@@ -1,0 +1,94 @@
+version: "3.9"
+
+# =============================================================================
+# selenium-automation-framework — Docker Selenium Grid
+#
+# Usage:
+#   docker compose up -d selenium-hub chrome firefox edge   # start the grid
+#   docker compose run --rm tests                           # run demoqa smoke on chrome (defaults)
+#   docker compose run --rm -e BROWSER=firefox -e SITE=saucedemo -e SUITE=testng-suites/saucedemo-regression.xml tests
+#   open http://localhost:4444/ui to watch the grid / live VNC view per node
+#   docker compose down -v                                  # tear everything down
+# =============================================================================
+
+services:
+
+  selenium-hub:
+    image: selenium/hub:4.21.0
+    container_name: selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  chrome:
+    image: selenium/node-chrome:4.21.0
+    container_name: selenium-chrome
+    shm_size: 2gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=2
+    ports:
+      - "7900:7900"   # noVNC — watch the browser live at http://localhost:7900 (pwd: secret)
+
+  firefox:
+    image: selenium/node-firefox:4.21.0
+    container_name: selenium-firefox
+    shm_size: 2gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=2
+    ports:
+      - "7901:7900"
+
+  edge:
+    image: selenium/node-edge:4.21.0
+    container_name: selenium-edge
+    shm_size: 2gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=2
+    ports:
+      - "7902:7900"
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: selenium-tests
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SITE=demoqa
+      - BROWSER=chrome
+      - HEADLESS=true
+      - GRID_ENABLED=true
+      - GRID_URL=http://selenium-hub:4444/wd/hub
+      - SUITE=testng-suites/demoqa-smoke.xml
+    volumes:
+      # Persist reports/screenshots/allure-results back to the host after the run
+      - ./target/allure-results:/workspace/target/allure-results
+      - ./target/extent-reports:/workspace/target/extent-reports
+      - ./target/surefire-reports:/workspace/target/surefire-reports
+      - ./target/debug-dumps:/workspace/target/debug-dumps
