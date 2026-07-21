@@ -1,4 +1,92 @@
-# Selenium Automation Framework
+# 🤖 Selenium Automation Framework — Advanced Edition
+
+> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 4 file formats, human-like interaction simulation, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
+
+<p align="left">
+  <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
+  <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.21.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
+  <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.9.0-orange?style=flat-square">
+  <img alt="Maven" src="https://img.shields.io/badge/Maven-Build-C71A36?style=flat-square&logo=apachemaven&logoColor=white">
+  <img alt="Allure" src="https://img.shields.io/badge/Allure-2.27.0-FF5252?style=flat-square">
+  <img alt="Extent Reports" src="https://img.shields.io/badge/Extent%20Reports-5.1.2-blue?style=flat-square">
+  <img alt="CI" src="https://img.shields.io/badge/CI-Jenkins%20%7C%20GitHub%20Actions%20%7C%20GitLab-2088FF?style=flat-square&logo=githubactions&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square">
+</p>
+
+### ⚡ At a Glance
+
+| | |
+|---|---|
+| 🧱 **Language / Build** | Java 17 · Maven |
+| 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
+| 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave) |
+| 📄 **Design Pattern** | Page Object Model — 42 page-object files |
+| 🧩 **Sites Covered** | demoqa.com (34 test classes) · saucedemo.com |
+| 📊 **Data-Driven Formats** | Excel · CSV · JSON · ZIP |
+| 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
+| 🔁 **Resilience** | Auto-retry on failure, human-like pacing, auto screenshot |
+| 🔄 **CI/CD** | Jenkinsfile · GitHub Actions · GitLab CI (all three included) |
+
+---
+
+## 📋 Table of Contents
+
+- [🧠 What Is This? (From Scratch)](#-what-is-this-from-scratch)
+- [🗂️ Project Structure](#️-project-structure)
+- [⚙️ Tech Stack & Dependencies](#️-tech-stack--dependencies)
+- [🏗️ Architecture — How Everything Connects](#️-architecture--how-everything-connects)
+- [🔑 Core Layer — Deep Dive](#-core-layer--deep-dive)
+  - [DriverFactory.java](#1-driverfactoryjava---browser-creation-engine)
+  - [ConfigReader.java](#2-configreaderjava---3-layer-config-system)
+  - [BasePage.java](#3-basepagejava---the-parent-of-all-pages)
+  - [BaseTest.java](#4-basetestjava---the-parent-of-all-tests)
+  - [HumanActions.java](#5-humanactionsjava---human-like-interaction-engine)
+  - [DataProvider.java](#6-dataproviderjava---multi-format-data-engine)
+  - [DataRow.java](#7-datarowjava---one-row-of-test-data)
+  - [DataProviderFactory.java](#8-dataproviderfactoryjava---convenience-wrapper)
+  - [ScreenshotUtil.java](#9-screenshotutiljava---screenshot-capture)
+  - [ExtentManager.java](#10-extentmanagerjava---html-report-generator)
+- [🎧 Listeners — The Hidden Automation Engine](#-listeners--the-hidden-automation-engine)
+  - [TestListener.java](#testlistenerjava)
+  - [RetryAnalyzer.java](#retryanalyzerjava)
+  - [RetryListener.java](#retrylistenerjava)
+- [📄 Page Object Model — Design Pattern Explained](#-page-object-model--design-pattern-explained)
+- [🧪 Test Classes — How To Write Tests](#-test-classes--how-to-write-tests)
+- [📊 Data-Driven Testing — 4 Formats](#-data-driven-testing--4-formats)
+- [🔧 Configuration Files Explained](#-configuration-files-explained)
+- [📁 Full Config File Reference (every file, every key)](#-full-config-file-reference-every-file-every-key)
+- [📑 TestNG Suite XMLs Explained](#-testng-suite-xmls-explained)
+- [🚀 How To Run Tests](#-how-to-run-tests)
+- [🔄 Jenkins CI/CD Pipeline — Full Flow](#-jenkinscicd-pipeline--full-flow)
+- [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
+- [🦊 GitLab CI Pipeline](#-gitlab-ci-pipeline)
+- [⚖️ CI/CD Platform Comparison](#️-cicd-platform-comparison)
+- [📈 Reports — Allure & Extent](#-reports--allure--extent)
+- [🌐 Multi-Site Architecture](#-multi-site-architecture)
+- [🆕 Scaffolding a New Site with `new-site.sh`](#-scaffolding-a-new-site-with-new-sitesh)
+- [🧩 Test Coverage — All 25 DemoQA Tests](#-test-coverage--all-25-demoqa-tests)
+- [🩹 Troubleshooting](#-troubleshooting)
+- [📜 License](#-license)
+
+---
+
+## 🧠 What Is This? (From Scratch)
+
+### 🔰 What is Selenium?
+Selenium is a **browser automation library**. It lets your Java code control a real browser — open URLs, click buttons, fill forms, read text — exactly like a human would.
+
+```
+Your Java Code  →  Selenium WebDriver  →  ChromeDriver  →  Chrome Browser  →  Website
+```
+
+### 🔰 What is TestNG?
+TestNG is a **test runner** for Java. It finds your `@Test` methods, runs them in order, tracks pass/fail, and generates reports.
+
+### 🔰 What is Maven?
+Maven is a **build tool**. It downloads your dependencies (Selenium, TestNG…) from the internet, compiles your code, and runs your tests — all with one command.
+
+### 🔰 What is the Page Object Model (POM)?
+POM is a **design pattern**: every web page gets its own Java class. The class knows how to interact with that page. Tests call the page class — they never interact with the browser directly. This keeps code clean and reusable.
 
 A production-ready, scalable Java + Selenium automation framework built for
 learning and real-world QA practice. Covers the complete demoqa.com test suite
