@@ -37,6 +37,18 @@ public class LoginDataDrivenTest extends BaseTest {
         return DataProviderFactory.fromFile("src/test/resources/testdata/login.zip");
     }
 
+    @DataProvider(name = "loginFromYaml")
+    public Object[][] loginFromYaml() {
+        return DataProviderFactory.fromFile("src/test/resources/testdata/login.yaml");
+    }
+
+    // Ignores -Ddata.tags and the execute column — every row in the file,
+    // including ones normally skipped. Handy for a one-off audit run.
+    @DataProvider(name = "loginFromYamlUnfiltered")
+    public Object[][] loginFromYamlUnfiltered() {
+        return DataProviderFactory.fromFileUnfiltered("src/test/resources/testdata/login.yaml");
+    }
+
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     @Test(
@@ -72,6 +84,25 @@ public class LoginDataDrivenTest extends BaseTest {
             description   = "SauceDemo - Login with data from ZIP"
     )
     public void verifyLoginFromZip(DataRow row) {
+        runLoginTest(row);
+    }
+
+    @Test(
+            dataProvider  = "loginFromYaml",
+            groups        = {"regression", "data-driven"},
+            description   = "SauceDemo - Login with data from YAML (execute/tags filters applied)"
+    )
+    public void verifyLoginFromYaml(DataRow row) {
+        runLoginTest(row);
+    }
+
+    @Test(
+            dataProvider  = "loginFromYamlUnfiltered",
+            groups        = {"regression", "data-driven", "data-audit"},
+            description   = "SauceDemo - Login with every YAML row, including execute=no ones",
+            enabled       = false // flip on for a one-off audit run; skipped rows are real known-issue data
+    )
+    public void auditAllLoginRows(DataRow row) {
         runLoginTest(row);
     }
 
