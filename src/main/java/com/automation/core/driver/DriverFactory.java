@@ -10,8 +10,12 @@ import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
+import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +24,13 @@ import java.util.Map;
  * Supports chrome / firefox / edge / brave, and a headless=true/false
  * config flag so Jenkins can run headless while local dev
  * runs with a visible browser.
+ *
+ * DOCKER / SELENIUM GRID:
+ * When grid.enabled=true (or -Dgrid.enabled=true), the browser is not
+ * launched locally — instead a RemoteWebDriver session is opened against
+ * the Selenium Grid hub at grid.url (default: http://localhost:4444/wd/hub).
+ * This is how the framework runs inside docker-compose, where the browsers
+ * live in separate selenium/node-* containers. See docker-compose.yml.
  */
 public final class DriverFactory {
 
@@ -29,6 +40,10 @@ public final class DriverFactory {
     public static WebDriver createDriver() {
         String browser = ConfigReader.get("browser", "chrome").toLowerCase();
         boolean headless = ConfigReader.getBoolean("headless", false);
+
+        if (ConfigReader.getBoolean("grid.enabled", false)) {
+            return createRemoteDriver(browser, headless);
+        }
 
         switch (browser) {
             case "chrome":
@@ -42,6 +57,54 @@ public final class DriverFactory {
             default:
                 throw new RuntimeException("Browser not supported: " + browser
                         + ". Supported: chrome, firefox, edge, brave");
+        }
+    }
+
+    // ── Selenium Grid / Docker (RemoteWebDriver) ────────────────────────────────
+
+    private static WebDriver createRemoteDriver(String browser, boolean headless) {
+        String gridUrl = ConfigReader.get("grid.url", "http://localhost:4444/wd/hub");
+
+        Object options;
+        switch (browser) {
+            case "chrome":
+            case "brave":
+                options = buildChromeOptions(headless);
+                break;
+            case "firefox":
+                FirefoxOptions ffOptions = new FirefoxOptions();
+                ffOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+                if (headless) {
+                    ffOptions.addArguments("-headless");
+                }
+                options = ffOptions;
+                break;
+            case "edge":
+                EdgeOptions edgeOptions = new EdgeOptions();
+                edgeOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+                if (headless) {
+                    edgeOptions.addArguments("--headless=new");
+                }
+                options = edgeOptions;
+                break;
+            default:
+                throw new RuntimeException("Browser not supported on grid: " + browser
+                        + ". Supported: chrome, firefox, edge, brave");
+        }
+
+        try {
+            URL hubUrl = URI.create(gridUrl).toURL();
+            System.out.println("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
+                    + " (browser=" + browser + ", headless=" + headless + ")");
+            if (options instanceof ChromeOptions co) {
+                return new RemoteWebDriver(hubUrl, co);
+            } else if (options instanceof FirefoxOptions fo) {
+                return new RemoteWebDriver(hubUrl, fo);
+            } else {
+                return new RemoteWebDriver(hubUrl, (EdgeOptions) options);
+            }
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("[DriverFactory] Invalid grid.url: " + gridUrl, e);
         }
     }
 

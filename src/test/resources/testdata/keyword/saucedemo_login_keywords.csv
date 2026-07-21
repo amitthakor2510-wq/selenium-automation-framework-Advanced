@@ -1,0 +1,22 @@
+testCase,stepNo,keyword,locatorKey,testData,expected,description
+TC01_ValidLogin,1,NAVIGATE,,,,Go to saucedemo home/login page
+TC01_ValidLogin,2,TYPE,saucedemo.login.username,standard_user,,Enter valid username
+TC01_ValidLogin,3,TYPE,saucedemo.login.password,secret_sauce,,Enter valid password
+TC01_ValidLogin,4,CLICK,saucedemo.login.submitButton,,,Submit login form
+TC01_ValidLogin,5,VERIFY_URL_CONTAINS,,,inventory,Should land on inventory page
+TC01_ValidLogin,6,VERIFY_DISPLAYED,saucedemo.inventory.title,,,Inventory title should be visible
+TC01_ValidLogin,7,VERIFY_TEXT,saucedemo.inventory.title,,Products,Inventory title text should read Products
+
+TC02_InvalidLogin,1,NAVIGATE,,,,Go to saucedemo home/login page
+TC02_InvalidLogin,2,TYPE,saucedemo.login.username,locked_out_user,,Enter locked-out username
+TC02_InvalidLogin,3,TYPE,saucedemo.login.password,secret_sauce,,Enter password
+TC02_InvalidLogin,4,CLICK,saucedemo.login.submitButton,,,Submit login form
+TC02_InvalidLogin,5,VERIFY_DISPLAYED,saucedemo.login.errorMessage,,,Error banner should be visible
+TC02_InvalidLogin,6,VERIFY_TEXT,saucedemo.login.errorMessage,,locked out,Error text should mention the account is locked
+
+TC03_KeyboardOnlyLogin,1,NAVIGATE,,,,Go to saucedemo home/login page
+TC03_KeyboardOnlyLogin,2,SET_TEXT,saucedemo.login.username,standard_user,,Enter username (no mouse click needed to type)
+TC03_KeyboardOnlyLogin,3,PRESS_KEY,saucedemo.login.username,TAB,,Tab from username to password - no mouse
+TC03_KeyboardOnlyLogin,4,TYPE,saucedemo.login.password,secret_sauce,,Enter password via keyboard
+TC03_KeyboardOnlyLogin,5,PRESS_KEY,saucedemo.login.password,ENTER,,Submit the form with Enter instead of clicking the button
+TC03_KeyboardOnlyLogin,6,VERIFY_URL_CONTAINS,,,inventory,Should land on inventory page using keyboard only

@@ -6,6 +6,9 @@ import com.opencsv.CSVReader;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.yaml.snakeyaml.Yaml;
+
+import com.automation.core.config.ConfigReader;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -16,19 +19,38 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Reads test data from Excel (.xlsx/.xls), CSV, JSON, or ZIP files.
+ * Reads test data from Excel (.xlsx/.xls), CSV, JSON, YAML, or ZIP files.
  *
  * Usage:
  *   List<DataRow> rows = DataProvider.read("src/test/resources/testdata/login.xlsx");
  *   List<DataRow> rows = DataProvider.read("src/test/resources/testdata/login.csv");
  *   List<DataRow> rows = DataProvider.read("src/test/resources/testdata/login.json");
+ *   List<DataRow> rows = DataProvider.read("src/test/resources/testdata/login.yaml");
  *   List<DataRow> rows = DataProvider.read("src/test/resources/testdata/login.zip");
  *
  * For Excel with multiple sheets, use:
  *   List<DataRow> rows = DataProvider.readSheet("path/to/file.xlsx", "Sheet2");
  *
- * First row is always treated as the header row.
- * Empty rows are automatically skipped.
+ * First row is always treated as the header row (Excel/CSV). JSON/YAML are
+ * lists of flat objects, one object per test data row.
+ *
+ * ── ROW FILTERING (DDT enhancement) ─────────────────────────────────────────
+ * Every read()/readSheet() call automatically applies two optional filters,
+ * driven by columns in the data file itself so QA can turn rows on/off or
+ * target a subset without touching Java code:
+ *
+ *   execute  — column named by config key `data.execute.column` (default
+ *              "execute"). Rows where this resolves to no/false/0/skip
+ *              (case-insensitive) are excluded and logged, not sent to the
+ *              test. Missing column or blank value = row runs.
+ *
+ *   tags     — column named "tags" (comma/pipe separated, e.g. "smoke,regression").
+ *              When -Ddata.tags=smoke,sanity is set (or data.tags in a
+ *              properties file), only rows whose tags intersect that set
+ *              run. Rows with no tags column, or run when data.tags is blank.
+ *
+ * Use readAll(filePath) if you need the unfiltered rows (e.g. to report on
+ * how many were skipped).
  */
 public class DataProvider {
 
@@ -39,13 +61,23 @@ public class DataProvider {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * Auto-detects file type by extension and reads all rows.
+     * Auto-detects file type by extension, reads all rows, and applies the
+     * execute/tags filters described above.
      * For ZIP files, reads all supported files inside the archive.
      * For Excel, reads the first sheet.
      *
      * @param filePath absolute or relative path to the data file
      */
     public static List<DataRow> read(String filePath) {
+        return filterRows(readAll(filePath));
+    }
+
+    /**
+     * Same as read(filePath) but skips the execute/tags filtering — returns
+     * every row exactly as stored in the file. Useful for auditing data
+     * files or when a caller wants to apply its own filtering logic.
+     */
+    public static List<DataRow> readAll(String filePath) {
         File file = resolveFile(filePath);
         String name = file.getName().toLowerCase();
 
@@ -57,25 +89,45 @@ public class DataProvider {
             return readCsv(file);
         } else if (name.endsWith(".json")) {
             return readJson(file);
+        } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+            return readYaml(file);
         } else if (name.endsWith(".zip")) {
             return readZip(file);
         } else {
             throw new RuntimeException(
                     "[DataProvider] Unsupported file type: " + name
-                            + ". Supported: .xlsx, .xls, .csv, .json, .zip"
+                            + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
             );
         }
     }
 
     /**
-     * Read a specific sheet from an Excel file.
+     * Read a specific sheet from an Excel file (execute/tags filters applied).
      *
      * @param filePath  path to .xlsx or .xls file
      * @param sheetName exact sheet name (case-sensitive)
      */
     public static List<DataRow> readSheet(String filePath, String sheetName) {
         File file = resolveFile(filePath);
-        return readExcel(file, sheetName);
+        return filterRows(readExcel(file, sheetName));
+    }
+
+    /**
+     * Read rows and keep only those matching an explicit tag set, ignoring
+     * whatever -Ddata.tags is currently set to. Useful for calling the same
+     * data file from two different tests that need different subsets.
+     *
+     * @param filePath path to the data file
+     * @param tags     tags to match against each row's "tags" column (OR match)
+     */
+    public static List<DataRow> readWithTags(String filePath, String... tags) {
+        Set<String> wanted = new HashSet<>();
+        for (String t : tags) wanted.add(t.trim().toLowerCase());
+        List<DataRow> rows = new ArrayList<>();
+        for (DataRow row : filterExecuteOnly(readAll(filePath))) {
+            if (rowMatchesTags(row, wanted)) rows.add(row);
+        }
+        return rows;
     }
 
     /**
@@ -254,6 +306,54 @@ public class DataProvider {
         return rows;
     }
 
+    // ── YAML Reader ───────────────────────────────────────────────────────────
+
+    /**
+     * Expects a YAML list of flat mappings, e.g.:
+     *
+     * - username: john
+     *   password: pass123
+     *   expected: success
+     *   tags: smoke, regression
+     * - username: locked
+     *   password: pass123
+     *   expected: error
+     *   execute: "no"
+     */
+    @SuppressWarnings("unchecked")
+    private static List<DataRow> readYaml(File file) {
+        List<DataRow> rows = new ArrayList<>();
+
+        try (InputStream is = new FileInputStream(file)) {
+            Yaml yaml = new Yaml();
+            Object loaded = yaml.load(is);
+
+            if (!(loaded instanceof List)) {
+                throw new RuntimeException(
+                        "[DataProvider] YAML root must be a list of rows: " + file.getName());
+            }
+
+            List<Object> list = (List<Object>) loaded;
+            for (int i = 0; i < list.size(); i++) {
+                Object entry = list.get(i);
+                if (!(entry instanceof Map)) continue;
+
+                Map<String, String> rowData = new LinkedHashMap<>();
+                ((Map<Object, Object>) entry).forEach((k, v) ->
+                        rowData.put(String.valueOf(k), v == null ? "" : String.valueOf(v)));
+
+                rows.add(new DataRow(rowData, i + 1));
+            }
+
+            logger.info("[DataProvider] Read " + rows.size() + " rows from YAML: " + file.getName());
+
+        } catch (IOException e) {
+            throw new RuntimeException("[DataProvider] Failed to read YAML: " + file.getPath(), e);
+        }
+
+        return rows;
+    }
+
     // ── ZIP Reader ────────────────────────────────────────────────────────────
 
     /**
@@ -292,7 +392,7 @@ public class DataProvider {
 
                 // Extract entry to a temp file
                 File tempFile = extractToTemp(zis, entry.getName());
-                List<DataRow> rows = read(tempFile.getAbsolutePath());
+                List<DataRow> rows = readAll(tempFile.getAbsolutePath());
 
                 for (DataRow row : rows) {
                     runningIndex++;
@@ -323,6 +423,70 @@ public class DataProvider {
             }
         }
         return tempFile;
+    }
+
+    // ── Row filtering (DDT: execute column + tag selection) ─────────────────────
+
+    private static final Set<String> FALSY = Set.of("no", "false", "0", "skip", "n");
+
+    private static List<DataRow> filterRows(List<DataRow> rows) {
+        List<DataRow> byExecute = filterExecuteOnly(rows);
+
+        Set<String> requestedTags = requestedTags();
+        if (requestedTags.isEmpty()) return byExecute;
+
+        List<DataRow> byTags = new ArrayList<>();
+        for (DataRow row : byExecute) {
+            if (rowMatchesTags(row, requestedTags)) byTags.add(row);
+        }
+        logger.info("[DataProvider] Tag filter " + requestedTags + " matched "
+                + byTags.size() + "/" + byExecute.size() + " rows");
+        return byTags;
+    }
+
+    private static List<DataRow> filterExecuteOnly(List<DataRow> rows) {
+        String executeColumn = ConfigReader.get("data.execute.column", "execute");
+        List<DataRow> kept = new ArrayList<>();
+        int skipped = 0;
+
+        for (DataRow row : rows) {
+            if (row.has(executeColumn)) {
+                String value = row.get(executeColumn).trim().toLowerCase();
+                if (!value.isEmpty() && FALSY.contains(value)) {
+                    skipped++;
+                    logger.info("[DataProvider] Skipping row " + row.getRowIndex()
+                            + " (" + executeColumn + "=" + value + ")");
+                    continue;
+                }
+            }
+            kept.add(row);
+        }
+
+        if (skipped > 0) {
+            logger.info("[DataProvider] Excluded " + skipped + " row(s) via '"
+                    + executeColumn + "' column");
+        }
+        return kept;
+    }
+
+    private static Set<String> requestedTags() {
+        String raw = ConfigReader.get("data.tags", "");
+        Set<String> tags = new HashSet<>();
+        if (raw == null || raw.trim().isEmpty()) return tags;
+        for (String t : raw.split(",")) {
+            if (!t.trim().isEmpty()) tags.add(t.trim().toLowerCase());
+        }
+        return tags;
+    }
+
+    private static boolean rowMatchesTags(DataRow row, Set<String> wanted) {
+        if (wanted.isEmpty()) return true;
+        if (!row.has("tags")) return false;
+        String raw = row.get("tags");
+        for (String candidate : raw.split("[,|]")) {
+            if (wanted.contains(candidate.trim().toLowerCase())) return true;
+        }
+        return false;
     }
 
     // ── Path resolution ───────────────────────────────────────────────────────

@@ -1,0 +1,31 @@
+# SauceDemo login test data — YAML source.
+# Read via: DataProviderFactory.fromFile("src/test/resources/testdata/login.yaml")
+#
+# Supported control columns (see DataProvider row filtering):
+#   execute — "no"/"false"/"0"/"skip" excludes the row (default: runs)
+#   tags    — comma-separated; combine with -Ddata.tags=smoke to run a subset
+
+- username: standard_user
+  password: secret_sauce
+  expected: success
+  notes: Valid login
+  tags: smoke, regression
+
+- username: locked_out_user
+  password: secret_sauce
+  expected: error
+  notes: Locked account
+  tags: regression
+
+- username: invalid_user
+  password: wrongpass
+  expected: error
+  notes: Bad credentials
+  tags: regression
+
+- username: problem_user
+  password: secret_sauce
+  expected: success
+  notes: Known UI-glitch account — kept for reference, not run by default
+  tags: regression, known-issue
+  execute: "no"
