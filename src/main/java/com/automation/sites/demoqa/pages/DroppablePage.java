@@ -5,6 +5,7 @@ import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Point;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
@@ -54,6 +55,82 @@ public class DroppablePage extends BasePage {
         super(driver); // BasePage sets driver, wait (from config), js
     }
 
+    /**
+     * Drags {@code source} onto {@code target} using real native mouse
+     * input ({@code Actions}), after disabling text selection on the page.
+     * <p>
+     * The underlying problem was never "incremental vs. direct movement" —
+     * it was the browser's default text-selection drag hijacking a real
+     * mousedown+move (visible as blue-highlighted text instead of an
+     * actual drag). Switching to JS-dispatched synthetic events avoided
+     * the selection hijack, but those events carry no real position state,
+     * so the box never visually moved and "Dropped!" only registered when
+     * a listener happened to fire regardless — which is exactly why
+     * Accept/Greedy passed or failed inconsistently between runs.
+     * <p>
+     * The correct fix is to keep using real native input (so the page's
+     * own drag logic runs normally and the box actually moves) but
+     * suppress text selection first, so the browser can no longer
+     * intercept the mousedown+move as a selection instead of a drag.
+     */
+    private void smoothDragToElement(WebElement source, WebElement target) {
+        js.executeScript(
+                "document.body.style.userSelect = 'none';" +
+                        "document.body.style.webkitUserSelect = 'none';" +
+                        "document.onselectstart = function() { return false; };" +
+                        "window.getSelection().removeAllRanges();"
+        );
+
+        int steps = 15;
+        Point sourceLoc = source.getLocation();
+        Point targetLoc = target.getLocation();
+        int totalX = targetLoc.getX() - sourceLoc.getX();
+        int totalY = targetLoc.getY() - sourceLoc.getY();
+        int stepX = totalX / steps;
+        int stepY = totalY / steps;
+
+        new Actions(driver).moveToElement(source).clickAndHold().perform();
+        HumanActions.pause();
+
+        for (int i = 0; i < steps; i++) {
+            new Actions(driver).moveByOffset(stepX, stepY).perform();
+            HumanActions.pause();
+        }
+
+        new Actions(driver).moveToElement(target).perform();
+        HumanActions.pause();
+        new Actions(driver).release().perform();
+        HumanActions.pause();
+
+        js.executeScript(
+                "window.getSelection().removeAllRanges();" +
+                        "document.onselectstart = null;"
+        );
+    }
+
+    /**
+     * Polls (rather than blindly sleeping) until the element found by
+     * {@code locator} reaches {@code target}'s location or the timeout elapses.
+     * <p>
+     * jQuery UI's {@code revert: true} option snaps a draggable back to its
+     * start position via an animated transition after drag-stop. A fixed
+     * pause can race that animation and read the position mid-flight; this
+     * waits for the actual end-state instead of guessing a sleep duration.
+     * Silently returns on timeout so the caller's own assertion reports
+     * whatever the final (possibly still-wrong) position turns out to be.
+     */
+    private void waitForLocationToStabilizeNear(By locator, Point target, Duration timeout) {
+        try {
+            new WebDriverWait(driver, timeout, Duration.ofMillis(100))
+                    .until(d -> {
+                        Point current = d.findElement(locator).getLocation();
+                        return current.getX() == target.getX() && current.getY() == target.getY();
+                    });
+        } catch (TimeoutException ignored) {
+            // Let the caller's own assertion report the mismatch.
+        }
+    }
+
     // ── Navigation ───────────────────────────────────────────────
 
     public void navigateToDroppable() {
@@ -72,7 +149,9 @@ public class DroppablePage extends BasePage {
         int attempts = 0;
         boolean success = false;
         while (attempts < 3 && !success) {
-            new Actions(driver).dragAndDrop(drag, drop).build().perform();
+            drag = driver.findElement(simpleDrag);
+            drop = driver.findElement(simpleDrop);
+            smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(simpleDropText, "Dropped!"));
@@ -83,7 +162,7 @@ public class DroppablePage extends BasePage {
             }
         }
         if (!success) {
-            new Actions(driver).dragAndDrop(drag, drop).build().perform();
+            smoothDragToElement(driver.findElement(simpleDrag), driver.findElement(simpleDrop));
             HumanActions.pause();
         }
     }
@@ -110,7 +189,10 @@ public class DroppablePage extends BasePage {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptableDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDrop));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
-        new Actions(driver).dragAndDrop(drag, drop).build().perform();
+        HumanActions.pause();
+        drag = driver.findElement(acceptableDrag);
+        drop = driver.findElement(acceptDrop);
+        smoothDragToElement(drag, drop);
         HumanActions.pause();
     }
 
@@ -118,7 +200,10 @@ public class DroppablePage extends BasePage {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(notAcceptableDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDrop));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
-        new Actions(driver).dragAndDrop(drag, drop).build().perform();
+        HumanActions.pause();
+        drag = driver.findElement(notAcceptableDrag);
+        drop = driver.findElement(acceptDrop);
+        smoothDragToElement(drag, drop);
         HumanActions.pause();
     }
 
@@ -156,14 +241,13 @@ public class DroppablePage extends BasePage {
     public void dragToInnerNotGreedy() {
         WebElement drag  = wait.until(ExpectedConditions.visibilityOfElementLocated(preventDrag));
         WebElement inner = wait.until(ExpectedConditions.visibilityOfElementLocated(innerNotGreedy));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
-        new Actions(driver)
-                .clickAndHold(drag)
-                .moveToElement(inner)
-                .pause(Duration.ofMillis(150))
-                .release()
-                .build()
-                .perform();
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", inner);
+        HumanActions.pause();
+
+        drag  = driver.findElement(preventDrag);
+        inner = driver.findElement(innerNotGreedy);
+        smoothDragToElement(drag, inner);
+
         wait.until(ExpectedConditions.textToBe(innerNotGreedyText, "Dropped!"));
         wait.until(ExpectedConditions.textToBe(outerNotGreedyText, "Dropped!"));
     }
@@ -171,14 +255,13 @@ public class DroppablePage extends BasePage {
     public void dragToInnerGreedy() {
         WebElement drag  = wait.until(ExpectedConditions.visibilityOfElementLocated(preventDrag));
         WebElement inner = wait.until(ExpectedConditions.visibilityOfElementLocated(innerGreedy));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
-        new Actions(driver)
-                .clickAndHold(drag)
-                .moveToElement(inner)
-                .pause(Duration.ofMillis(150))
-                .release()
-                .build()
-                .perform();
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", inner);
+        HumanActions.pause();
+
+        drag  = driver.findElement(preventDrag);
+        inner = driver.findElement(innerGreedy);
+        smoothDragToElement(drag, inner);
+
         wait.until(ExpectedConditions.textToBe(innerGreedyText, "Dropped!"));
     }
 
@@ -216,11 +299,16 @@ public class DroppablePage extends BasePage {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(willRevertDrag));
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(revertDrop));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
+        HumanActions.pause();
+
+        Point originalLocation = driver.findElement(willRevertDrag).getLocation();
 
         int attempts = 0;
         boolean success = false;
         while (attempts < 3 && !success) {
-            new Actions(driver).dragAndDrop(drag, drop).build().perform();
+            drag = driver.findElement(willRevertDrag);
+            drop = driver.findElement(revertDrop);
+            smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
@@ -230,6 +318,11 @@ public class DroppablePage extends BasePage {
                 HumanActions.pause();
             }
         }
+
+        // The drop succeeding just means jQuery UI registered the drop event —
+        // the revert:true animation back to originalLocation runs afterward and
+        // takes a moment, so poll for it instead of guessing a sleep duration.
+        waitForLocationToStabilizeNear(willRevertDrag, originalLocation, Duration.ofSeconds(5));
         HumanActions.pause();
     }
 
@@ -241,7 +334,9 @@ public class DroppablePage extends BasePage {
         int attempts = 0;
         boolean success = false;
         while (attempts < 3 && !success) {
-            new Actions(driver).dragAndDrop(drag, drop).build().perform();
+            drag = driver.findElement(notRevertDrag);
+            drop = driver.findElement(revertDrop);
+            smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
                         .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));

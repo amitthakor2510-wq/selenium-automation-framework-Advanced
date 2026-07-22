@@ -2,6 +2,7 @@ package com.automation.sites.demoqa.tests;
 
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DraggablePage;
+import org.openqa.selenium.By;
 import org.openqa.selenium.Point;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -88,44 +89,87 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 5, groups = {"regression"},
+            description = "Draggable - Contained-Within-Parent Box Stays Within Its Immediate Parent")
+    public void verifyContainedWithinParentRestriction() {
+        DraggablePage page = new DraggablePage(getDriver());
+        page.navigateToDraggable();
+        page.clickContainerTab();
+
+        // Distinct from #containmentWrapper — this box is constrained to its own
+        // immediate parent element, not the wrapper used by verifyContainerRestriction.
+        page.dragContainedWithinParentBoxBy(200, 150);
+
+        Point boxPos       = page.getContainedWithinParentLocation();
+        int   parentRight  = page.getContainedWithinParentBoundaryRightEdge();
+        int   parentBottom = page.getContainedWithinParentBoundaryBottomEdge();
+
+        System.out.println("Parent-contained box position: " + boxPos);
+        System.out.println("Parent right edge:  " + parentRight);
+        System.out.println("Parent bottom edge: " + parentBottom);
+
+        Assert.assertTrue(boxPos.getX() <= parentRight,
+                "Box left edge should not exceed its parent's right edge");
+        Assert.assertTrue(boxPos.getY() <= parentBottom,
+                "Box top edge should not exceed its parent's bottom edge");
+    }
+
+    @Test(priority = 6, groups = {"regression"},
             description = "Draggable - Cursor Center Box Drags Right")
     public void verifyCursorCenter() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
         page.clickCursorStyleTab();
 
-        String cursor = page.getCursorStyle(page.getCursorCenterLocator());
+        By locator = page.getCursorCenterLocator();
+        String cursor = page.getCursorStyle(locator);
         System.out.println("Cursor Center style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
-        page.dragCursorBox(page.getCursorCenterLocator(), 150, 0);   // → right
+        Point before = page.getCursorBoxLocation(locator);
+        page.dragCursorBox(locator, 150, 0);   // → right
+        Point after = page.getCursorBoxLocation(locator);
+        System.out.println("Cursor Center before/after: " + before + " -> " + after);
+
+        Assert.assertNotEquals(before, after, "Cursor Center box should move after drag");
     }
 
-    @Test(priority = 6, groups = {"regression"},
+    @Test(priority = 7, groups = {"regression"},
             description = "Draggable - Cursor TopLeft Box Drags Diagonally")
     public void verifyCursorTopLeft() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
         page.clickCursorStyleTab();
 
-        String cursor = page.getCursorStyle(page.getCursorTopLeftLocator());
+        By locator = page.getCursorTopLeftLocator();
+        String cursor = page.getCursorStyle(locator);
         System.out.println("Cursor TopLeft style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
-        page.dragCursorBox(page.getCursorTopLeftLocator(), 100, 80);  // → diagonal down-right
+        Point before = page.getCursorBoxLocation(locator);
+        page.dragCursorBox(locator, 100, 80);  // → diagonal down-right
+        Point after = page.getCursorBoxLocation(locator);
+        System.out.println("Cursor TopLeft before/after: " + before + " -> " + after);
+
+        Assert.assertNotEquals(before, after, "Cursor TopLeft box should move after drag");
     }
 
-    @Test(priority = 7, groups = {"regression"},
+    @Test(priority = 8, groups = {"regression"},
             description = "Draggable - Cursor Bottom Box Drags Down")
     public void verifyCursorBottom() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
         page.clickCursorStyleTab();
 
-        String cursor = page.getCursorStyle(page.getCursorBottomLocator());
+        By locator = page.getCursorBottomLocator();
+        String cursor = page.getCursorStyle(locator);
         System.out.println("Cursor Bottom style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
-        page.dragCursorBox(page.getCursorBottomLocator(), 0, 100);    // ↓ straight down
+        Point before = page.getCursorBoxLocation(locator);
+        page.dragCursorBox(locator, 0, 100);    // ↓ straight down
+        Point after = page.getCursorBoxLocation(locator);
+        System.out.println("Cursor Bottom before/after: " + before + " -> " + after);
+
+        Assert.assertNotEquals(before, after, "Cursor Bottom box should move after drag");
     }
 }

@@ -59,6 +59,34 @@ public class DraggablePage extends BasePage {
         HumanActions.pause();
     }
 
+    /**
+     * Scrolls to the located element, drags it, and VERIFIES the element's
+     * location actually changed afterward.
+     * <p>
+     * DemoQA's draggable boxes occasionally do not respond to the very first
+     * clickAndHold/move sequence issued right after a fresh page load or tab
+     * switch (the jQuery UI draggable() binding appears to miss the initial
+     * mousedown) even though the exact same drag mechanics work correctly on
+     * every subsequent attempt. Rather than papering over this with extra
+     * blind pauses, we re-locate the element and retry the drag once if its
+     * position did not change.
+     */
+    private void dragWithRetry(By locator, int totalX, int totalY) {
+        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
+        HumanActions.pause();
+
+        Point before = box.getLocation();
+        smoothDrag(box, totalX, totalY);
+        Point after = driver.findElement(locator).getLocation();
+
+        boolean expectedMovement = (totalX != 0 || totalY != 0);
+        if (expectedMovement && after.equals(before)) {
+            WebElement retryBox = driver.findElement(locator);
+            smoothDrag(retryBox, totalX, totalY);
+        }
+    }
+
     // ── Simple tab ──────────────────────────────────────────────────────────────
 
     public Point getDragBoxLocation() {
@@ -66,10 +94,7 @@ public class DraggablePage extends BasePage {
     }
 
     public void dragSimpleBoxBy(int offsetX, int offsetY) {
-        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDragBox));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
-        HumanActions.pause();
-        smoothDrag(box, offsetX, offsetY);
+        dragWithRetry(simpleDragBox, offsetX, offsetY);
     }
 
     // ── Axis restriction tab ────────────────────────────────────────────────────
@@ -81,17 +106,11 @@ public class DraggablePage extends BasePage {
     }
 
     public void dragXOnlyBox(int offsetX) {
-        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(onlyXBox));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
-        HumanActions.pause();
-        smoothDrag(box, offsetX, 50);
+        dragWithRetry(onlyXBox, offsetX, 50);
     }
 
     public void dragYOnlyBox(int offsetY) {
-        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(onlyYBox));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
-        HumanActions.pause();
-        smoothDrag(box, 50, offsetY);
+        dragWithRetry(onlyYBox, 50, offsetY);
     }
 
     public Point getXOnlyBoxLocation() { return driver.findElement(onlyXBox).getLocation(); }
@@ -109,10 +128,7 @@ public class DraggablePage extends BasePage {
     }
 
     public void dragContainedBoxBy(int offsetX, int offsetY) {
-        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(containedBox));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
-        HumanActions.pause();
-        smoothDrag(box, offsetX, offsetY);
+        dragWithRetry(containedBox, offsetX, offsetY);
     }
 
     public int getContainmentWrapperRightEdge() {
@@ -126,6 +142,34 @@ public class DraggablePage extends BasePage {
     }
 
     public Point getContainedBoxLocation() { return driver.findElement(containedBox).getLocation(); }
+
+    // "I'm contained within my parent" is a SEPARATE draggable on this same tab —
+    // it is a sibling of #containmentWrapper, not a child of it, and jQuery UI's
+    // ui-draggable classes are applied to its <span> handle rather than a wrapping
+    // div. It is constrained to its own immediate parent element, not to
+    // #containmentWrapper. No selector previously existed for it.
+    private final By containedWithinParentBox =
+            By.xpath("//span[normalize-space()=\"I'm contained within my parent\"]");
+
+    public void dragContainedWithinParentBoxBy(int offsetX, int offsetY) {
+        dragWithRetry(containedWithinParentBox, offsetX, offsetY);
+    }
+
+    public Point getContainedWithinParentLocation() {
+        return driver.findElement(containedWithinParentBox).getLocation();
+    }
+
+    public int getContainedWithinParentBoundaryRightEdge() {
+        WebElement box = driver.findElement(containedWithinParentBox);
+        WebElement parent = (WebElement) js.executeScript("return arguments[0].parentElement;", box);
+        return parent.getLocation().getX() + parent.getSize().getWidth();
+    }
+
+    public int getContainedWithinParentBoundaryBottomEdge() {
+        WebElement box = driver.findElement(containedWithinParentBox);
+        WebElement parent = (WebElement) js.executeScript("return arguments[0].parentElement;", box);
+        return parent.getLocation().getY() + parent.getSize().getHeight();
+    }
 
     // ── Cursor style tab ────────────────────────────────────────────────────────
 
@@ -152,10 +196,11 @@ public class DraggablePage extends BasePage {
     public By getCursorTopLeftLocator() { return cursorTopLeftBox; }
     public By getCursorBottomLocator()  { return cursorBottomBox; }
 
+    public Point getCursorBoxLocation(By locator) {
+        return driver.findElement(locator).getLocation();
+    }
+
     public void dragCursorBox(By locator, int offsetX, int offsetY) {
-        WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
-        HumanActions.pause();
-        smoothDrag(box, offsetX, offsetY);
+        dragWithRetry(locator, offsetX, offsetY);
     }
 }
