@@ -12,7 +12,7 @@ public class SampleTest extends BaseTest {
         String actualTitle = getDriver().getTitle();
         System.out.println("Page Title: " + actualTitle);
         Assert.assertTrue(
-                actualTitle.contains("ToolsQA"),
+                actualTitle.contains("demosite"),
                 "Unexpected page title: " + actualTitle
         );
     }

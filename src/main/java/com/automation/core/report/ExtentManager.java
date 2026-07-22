@@ -14,7 +14,12 @@ public class ExtentManager {
         if (extent == null) {
             ConfigReader.init();
             String site = ConfigReader.getActiveSite();
-            String reportPath = "target/extent-reports/index.html";
+            // Jenkins runs one "mvn test" per site in a loop without an
+            // intermediate "mvn clean" (see Jenkinsfile "Run Tests Per Site"
+            // stage), so a fixed file name here means each site's run just
+            // overwrites the previous site's report. Name it per site instead;
+            // publishHTML/archiveArtifacts already glob target/extent-reports/*.html.
+            String reportPath = "target/extent-reports/" + site + "-index.html";
 
             ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
             spark.config().setTheme(Theme.STANDARD);
