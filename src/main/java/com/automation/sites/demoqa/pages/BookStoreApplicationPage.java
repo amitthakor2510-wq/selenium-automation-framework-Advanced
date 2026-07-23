@@ -2,9 +2,12 @@ package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
+import com.automation.core.utils.ScreenshotUtil;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.time.Duration;
 import java.util.List;
 
 import static java.util.stream.Collectors.*;
@@ -16,20 +19,34 @@ public class BookStoreApplicationPage extends BasePage {
     private final By passwordField = By.id("password");
     private final By loginButton   = By.id("login");
     private final By loginError    = By.id("output");
-    private final By loggedInLabel = By.xpath("//span[contains(@id,'userName')]");
+    private final By loggedInLabel = By.id("userName-value");
     private final By newUserButton = By.id("newUser");
 
     // ── Logout ──────────────────────────────────────────────────────────────────
     private final By logoutButton  = By.id("submit");
 
     // ── Book store ──────────────────────────────────────────────────────────────
+    // DemoQA's book store page now renders a plain semantic <table>/<tr>/<td>
+    // instead of the old react-table div grid — confirmed gone from the live
+    // DOM (target/debug-dumps/bookstablenotfound-*.html), same redesign
+    // already confirmed and fixed in WebTablesPage. Book title links live in
+    // "table tbody a[href]"; there's no separate "no data" element in the
+    // confirmed markup (noDataDiv kept as a defensive no-op in case demoqa
+    // adds one back for empty results).
     private final By searchBox = By.id("searchBox");
-    private final By bookLinks = By.xpath("//div[@role='table']//a[@href]");
+    private final By bookLinks = By.cssSelector("table tbody a[href]");
     private final By noDataDiv = By.cssSelector(".rt-noData");
-    private final By tableRows = By.cssSelector(".rt-tr-group");
+    private final By tableRows = By.cssSelector("table tbody tr");
 
     // ── Detail ──────────────────────────────────────────────────────────────────
-    private final By backToStoreBtn = By.id("addNewRecordButton");
+    // CONFIRMED from live markup (target/debug-dumps/bookdetailvalueISBN-*.html):
+    // "Back To Book Store" and "Add To Your Collection" are BOTH present on
+    // the detail page at once, and both buttons share the same duplicate
+    // id="addNewRecordButton". By.id() always resolves to the first DOM
+    // match ("Back To Book Store"), so a shared id locator can never reach
+    // "Add To Your Collection" — the two need separate, text-based locators.
+    private final By backToStoreBtn      = By.xpath("//button[normalize-space()='Back To Book Store']");
+    private final By addToCollectionBtn  = By.xpath("//button[normalize-space()='Add To Your Collection']");
 
     public BookStoreApplicationPage(WebDriver driver) {
         super(driver);
@@ -50,14 +67,43 @@ public class BookStoreApplicationPage extends BasePage {
     public void navigateToBookStore() {
         navigateTo("/books");
         wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("[role='table']")));
 
-        // Wait for React to populate rows instead of raw Thread.sleep
-        wait.until(d -> !d.findElements(tableRows).isEmpty()
-                && d.findElements(tableRows).stream()
-                .anyMatch(r -> !r.getText().trim().isEmpty()));
+        // NOTE: previously also waited on presenceOfElementLocated([role='table'])
+        // before this, then on .rt-tr-group / .rt-noData. Both guesses timed
+        // out even though the table visibly renders on screen — demoqa's
+        // react-table markup has apparently changed and neither selector
+        // matches current DOM. Rather than guess a third time, dump the real
+        // page source on timeout so the locators can be fixed from actual
+        // markup instead of another guess.
+        try {
+            wait.until(d -> !d.findElements(noDataDiv).isEmpty()
+                    || (!d.findElements(tableRows).isEmpty()
+                    && d.findElements(tableRows).stream()
+                    .anyMatch(r -> !r.getText().trim().isEmpty())));
+        } catch (TimeoutException e) {
+            dumpPageForDebugging("books-table-not-found");
+            throw e;
+        }
 
         HumanActions.pause();
+    }
+
+    // Writes the full page source to target/debug-dumps so a failing,
+    // never-before-verified locator can be fixed from real markup instead
+    // of another guess. Same pattern used in CheckBoxPage.
+    private void dumpPageForDebugging(String label) {
+        try {
+            java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
+            java.nio.file.Files.createDirectories(dir);
+            String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
+                    + "-" + System.currentTimeMillis() + ".html";
+            java.nio.file.Path file = dir.resolve(fileName);
+            java.nio.file.Files.writeString(file, driver.getPageSource());
+            System.out.println("  DEBUG full page source written to: " + file.toAbsolutePath());
+        } catch (Exception writeEx) {
+            System.out.println("  DEBUG could not write page source dump: " + writeEx.getMessage());
+        }
+        System.out.println("  DEBUG current URL: " + driver.getCurrentUrl());
     }
 
     public void navigateToProfile() {
@@ -69,8 +115,15 @@ public class BookStoreApplicationPage extends BasePage {
 
     public void login(String username, String password) {
         wait.until(ExpectedConditions.visibilityOfElementLocated(usernameField));
-        HumanActions.type(driver, usernameField, username);
-        HumanActions.type(driver, passwordField, password);
+
+        // HumanActions.type() has no read-back/retry — it just sends keys once.
+        // DemoQA's React-controlled inputs occasionally drop or truncate
+        // keystrokes under fast/automated typing (the same behavior already
+        // worked around in RegistrationPage.fillField), which is why the
+        // username field previously submitted a truncated value even though
+        // registration itself succeeded. Verify-and-retry here the same way.
+        typeVerified(usernameField, username, "Username");
+        typeVerified(passwordField, password, "Password");
 
         WebElement btn = driver.findElement(loginButton);
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
@@ -80,14 +133,100 @@ public class BookStoreApplicationPage extends BasePage {
                 d.getCurrentUrl().contains("/profile") ||
                         !d.findElements(loginError).isEmpty()
         );
+
+        if (!driver.getCurrentUrl().contains("/profile")) {
+            String error = getLoginErrorMessage();
+            System.out.println("  Login did not reach /profile. Error text: '" + error + "'");
+        }
+    }
+
+    /**
+     * Types into a login field and verifies the field actually contains what
+     * was typed, retrying up to 3 times. Mirrors RegistrationPage.fillField —
+     * needed because a plain sendKeys can silently under-deliver characters
+     * into DemoQA's React-controlled inputs.
+     */
+    private void typeVerified(By locator, String value, String fieldName) {
+        final int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            WebElement el = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+
+            js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
+            js.executeScript("arguments[0].click();", el);
+
+            el.sendKeys(Keys.chord(Keys.CONTROL, "a"));
+            el.sendKeys(Keys.DELETE);
+
+            HumanActions.typeHumanLike(el, value);
+
+            String actual;
+            try {
+                actual = el.getAttribute("value");
+            } catch (StaleElementReferenceException e) {
+                actual = null;
+            }
+
+            if (value.equals(actual)) {
+                return;
+            }
+            System.out.println("  " + fieldName + ": typed='" + value
+                    + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ") — retrying");
+        }
+
+        throw new IllegalStateException(
+                fieldName + " field still didn't contain the expected value after "
+                        + maxAttempts + " attempts — page may be unstable");
     }
 
     public boolean isLoggedIn() {
         try {
-            return !driver.findElements(loggedInLabel).isEmpty()
-                    && driver.findElement(loggedInLabel).isDisplayed();
-        } catch (Exception e) {
+            new WebDriverWait(driver, Duration.ofSeconds(5))
+                    .until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
+            return true;
+        } catch (TimeoutException e) {
+            dumpLoggedInDiagnostics();
             return false;
+        }
+    }
+
+    /**
+     * Runs only when isLoggedIn() times out waiting for loggedInLabel
+     * (By.xpath("//span[contains(@id,'userName')]")). 5 seconds already rules
+     * out a simple render race, so this surfaces what's ACTUALLY on the page
+     * instead of guessing further: current URL, every element whose id
+     * contains "userName" (case-insensitive) with its tag/text/visibility,
+     * and a screenshot.
+     */
+    private void dumpLoggedInDiagnostics() {
+        try {
+            System.out.println("  --- Diagnostics: isLoggedIn() timed out ---");
+            System.out.println("  URL: " + driver.getCurrentUrl());
+
+            @SuppressWarnings("unchecked")
+            List<Object> matches = (List<Object>) js.executeScript(
+                    "var out = []; " +
+                            "document.querySelectorAll('[id]').forEach(function(el) { " +
+                            "  if (el.id.toLowerCase().indexOf('username') !== -1) { " +
+                            "    out.push({tag: el.tagName, id: el.id, text: el.textContent, " +
+                            "              visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)}); " +
+                            "  } " +
+                            "}); " +
+                            "return out;");
+
+            if (matches == null || matches.isEmpty()) {
+                System.out.println("  No element anywhere on the page has an id containing 'userName' (case-insensitive).");
+            } else {
+                for (Object m : matches) {
+                    System.out.println("  Match: " + m);
+                }
+            }
+
+            String screenshotPath = ScreenshotUtil.captureScreenshot(driver, "login_not_detected");
+            System.out.println("  Screenshot saved: " + screenshotPath);
+            System.out.println("  --- End diagnostics ---");
+        } catch (Exception e) {
+            System.out.println("  isLoggedIn diagnostics capture failed: " + e.getMessage());
         }
     }
 
@@ -166,25 +305,54 @@ public class BookStoreApplicationPage extends BasePage {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", first);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", first);
-        wait.until(ExpectedConditions.urlContains("/books?book="));
+        // Confirmed from live markup: book links now go to /books?search=<isbn>
+        // (was /books?book=<isbn> under the old react-table version).
+        try {
+            wait.until(ExpectedConditions.urlContains("/books?search="));
+        } catch (TimeoutException e) {
+            dumpPageForDebugging("book-detail-url-not-reached");
+            throw e;
+        }
     }
 
     public void clickBookByTitle(String title) {
-        By link = By.xpath(
-                "//div[@role='table']//a[contains(text(),'" + title + "')]");
-        WebElement el = wait.until(ExpectedConditions.elementToBeClickable(link));
+        By link = By.cssSelector("table tbody a[href]");
+        WebElement el = wait.until(d -> d.findElements(link).stream()
+                .filter(e -> {
+                    try { return e.getText().trim().equalsIgnoreCase(title); }
+                    catch (StaleElementReferenceException ex) { return false; }
+                })
+                .findFirst().orElse(null));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", el);
-        wait.until(ExpectedConditions.urlContains("/books?book="));
+        try {
+            wait.until(ExpectedConditions.urlContains("/books?search="));
+        } catch (TimeoutException e) {
+            dumpPageForDebugging("book-detail-url-not-reached-by-title");
+            throw e;
+        }
     }
 
     public String getBookDetailValue(String label) {
-        By locator = By.xpath(
-                "//label[normalize-space(text())='" + label
-                        + "']/following-sibling::label[1]");
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator))
-                .getText().trim();
+        // Confirmed from live markup (target/debug-dumps/bookdetailvalueISBN-*.html):
+        // each field is a <div id="{field}-wrapper"> containing a name label
+        // and, in a sibling ".col-md-9" div, the value label. Every value
+        // label reuses id="userName-value" (duplicate IDs on the real page),
+        // so matching by that id is useless — scope by the wrapper instead.
+        // Wrapper id casing is inconsistent: "ISBN-wrapper" keeps ISBN
+        // uppercase, everything else is lowercase ("author-wrapper", etc).
+        String wrapperId = "ISBN".equalsIgnoreCase(label)
+                ? "ISBN-wrapper"
+                : label.toLowerCase() + "-wrapper";
+        By valueLocator = By.cssSelector("#" + wrapperId + " .col-md-9 label");
+        try {
+            return wait.until(ExpectedConditions.visibilityOfElementLocated(valueLocator))
+                    .getText().trim();
+        } catch (TimeoutException e) {
+            dumpPageForDebugging("book-detail-value-" + label);
+            throw e;
+        }
     }
 
     public void clickBackToBookStore() {
@@ -194,5 +362,31 @@ public class BookStoreApplicationPage extends BasePage {
         HumanActions.pause();
         js.executeScript("arguments[0].click();", btn);
         wait.until(ExpectedConditions.visibilityOfElementLocated(searchBox));
+    }
+
+    /**
+     * Clicks "Add To Your Collection" on the book detail page. CONFIRMED
+     * both this button and "Back To Book Store" are present at the same
+     * time and share a duplicate id — see addToCollectionBtn/backToStoreBtn
+     * comment above for why this must use the text-based locator, not id.
+     *
+     * CONFIRMED: the click triggers a native JS alert ("Book added to your
+     * collection.") that must be accepted before any further driver call.
+     * CONFIRMED (from a real run): accepting the alert does NOT navigate
+     * anywhere — the book is added silently and the driver stays on this
+     * same book detail page. Callers must navigate to /profile themselves
+     * afterward if they need to see the updated collection.
+     */
+    public void addBookToCollection() {
+        WebElement btn = wait.until(
+                ExpectedConditions.elementToBeClickable(addToCollectionBtn));
+        js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
+        HumanActions.pause();
+        js.executeScript("arguments[0].click();", btn);
+
+        wait.until(ExpectedConditions.alertIsPresent());
+        String alertText = driver.switchTo().alert().getText();
+        System.out.println("  [BookStoreApplicationPage] Alert: " + alertText);
+        driver.switchTo().alert().accept();
     }
 }
