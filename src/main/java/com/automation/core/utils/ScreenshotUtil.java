@@ -60,7 +60,9 @@ public class ScreenshotUtil {
     }
     @SuppressWarnings("unused")
     public static byte[] captureScreenshotAsBytes(WebDriver driver) {
-        if (driver == null) return new byte[0];
+        if (driver == null) {
+            return new byte[0];
+        }
         try {
             return ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
         } catch (Exception e) {
@@ -71,7 +73,9 @@ public class ScreenshotUtil {
 
     @SuppressWarnings("unused")
     public static String toBase64(byte[] bytes) {
-        if (bytes == null) return "";
+        if (bytes == null) {
+            return "";
+        }
         return java.util.Base64.getEncoder().encodeToString(bytes);
     }
 }
