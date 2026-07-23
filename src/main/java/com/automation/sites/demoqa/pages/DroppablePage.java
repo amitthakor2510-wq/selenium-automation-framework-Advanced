@@ -75,10 +75,10 @@ public class DroppablePage extends BasePage {
      */
     private void smoothDragToElement(WebElement source, WebElement target) {
         js.executeScript(
-                "document.body.style.userSelect = 'none';" +
-                        "document.body.style.webkitUserSelect = 'none';" +
-                        "document.onselectstart = function() { return false; };" +
-                        "window.getSelection().removeAllRanges();"
+            "document.body.style.userSelect = 'none';" +
+                "document.body.style.webkitUserSelect = 'none';" +
+                "document.onselectstart = function() { return false; };" +
+                "window.getSelection().removeAllRanges();"
         );
 
         int steps = 15;
@@ -103,8 +103,8 @@ public class DroppablePage extends BasePage {
         HumanActions.pause();
 
         js.executeScript(
-                "window.getSelection().removeAllRanges();" +
-                        "document.onselectstart = null;"
+            "window.getSelection().removeAllRanges();" +
+                "document.onselectstart = null;"
         );
     }
 
@@ -122,10 +122,10 @@ public class DroppablePage extends BasePage {
     private void waitForLocationToStabilizeNear(By locator, Point target, Duration timeout) {
         try {
             new WebDriverWait(driver, timeout, Duration.ofMillis(100))
-                    .until(d -> {
-                        Point current = d.findElement(locator).getLocation();
-                        return current.getX() == target.getX() && current.getY() == target.getY();
-                    });
+                .until(d -> {
+                    Point current = d.findElement(locator).getLocation();
+                    return current.getX() == target.getX() && current.getY() == target.getY();
+                });
         } catch (TimeoutException ignored) {
             // Let the caller's own assertion report the mismatch.
         }
@@ -154,7 +154,7 @@ public class DroppablePage extends BasePage {
             smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                        .until(ExpectedConditions.textToBe(simpleDropText, "Dropped!"));
+                    .until(ExpectedConditions.textToBe(simpleDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {
                 attempts++;
@@ -169,7 +169,7 @@ public class DroppablePage extends BasePage {
 
     public String getSimpleDropText() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(simpleDropText))
-                .getText().trim();
+            .getText().trim();
     }
 
     // ── Accept tab ───────────────────────────────────────────────
@@ -190,10 +190,31 @@ public class DroppablePage extends BasePage {
         WebElement drop = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDrop));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         HumanActions.pause();
-        drag = driver.findElement(acceptableDrag);
-        drop = driver.findElement(acceptDrop);
-        smoothDragToElement(drag, drop);
-        HumanActions.pause();
+
+        // Every other drag-and-drop method in this file retries + verifies
+        // (dragToDropZone, dragWillRevertToDropZone, dragNotRevertToDropZone)
+        // because a single native-mouse drag on this site is known to miss
+        // intermittently. This one was doing a single unverified attempt —
+        // bring it in line with the rest.
+        int attempts = 0;
+        boolean success = false;
+        while (attempts < 3 && !success) {
+            drag = driver.findElement(acceptableDrag);
+            drop = driver.findElement(acceptDrop);
+            smoothDragToElement(drag, drop);
+            try {
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
+                    .until(ExpectedConditions.textToBe(acceptDropText, "Dropped!"));
+                success = true;
+            } catch (Exception e) {
+                attempts++;
+                HumanActions.pause();
+            }
+        }
+        if (!success) {
+            smoothDragToElement(driver.findElement(acceptableDrag), driver.findElement(acceptDrop));
+            HumanActions.pause();
+        }
     }
 
     public void dragNotAcceptableToDropZone() {
@@ -211,17 +232,17 @@ public class DroppablePage extends BasePage {
         WebElement drag = wait.until(ExpectedConditions.visibilityOfElementLocated(acceptableDrag));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", drag);
         new Actions(driver)
-                .clickAndHold(drag)
-                .moveByOffset(300, 0)
-                .release()
-                .build()
-                .perform();
+            .clickAndHold(drag)
+            .moveByOffset(300, 0)
+            .release()
+            .build()
+            .perform();
         HumanActions.pause();
     }
 
     public String getAcceptDropText() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(acceptDropText))
-                .getText().trim();
+            .getText().trim();
     }
 
     // ── Prevent Propagation tab ─────────────────────────────────
@@ -311,7 +332,7 @@ public class DroppablePage extends BasePage {
             smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                        .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
+                    .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {
                 attempts++;
@@ -339,7 +360,7 @@ public class DroppablePage extends BasePage {
             smoothDragToElement(drag, drop);
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                        .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
+                    .until(ExpectedConditions.textToBe(revertDropText, "Dropped!"));
                 success = true;
             } catch (Exception e) {
                 attempts++;

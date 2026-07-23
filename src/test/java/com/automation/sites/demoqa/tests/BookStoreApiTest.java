@@ -55,18 +55,18 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 1, groups = {"smoke", "regression", "api"},
-            description = "API - Create a new account returns userId + username")
+        description = "API - Create a new account returns userId + username")
     public void createAccount_ShouldReturnUserIdAndUsername() {
         Response response = given()
-                .contentType("application/json")
-                .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
-                .when()
-                .post("/Account/v1/User")
-                .then()
-                .statusCode(201)
-                .body("username", equalTo(API_USERNAME))
-                .body("userID", not(emptyString()))
-                .extract().response();
+            .contentType("application/json")
+            .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
+            .when()
+            .post("/Account/v1/User")
+            .then()
+            .statusCode(201)
+            .body("username", equalTo(API_USERNAME))
+            .body("userID", not(emptyString()))
+            .extract().response();
 
         userId = response.jsonPath().getString("userID");
         System.out.println("✓ Test 1 PASS — Created userId: " + userId);
@@ -77,19 +77,19 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 2, groups = {"smoke", "regression", "api"},
-            description = "API - Generate an auth token for the new account",
-            dependsOnMethods = "createAccount_ShouldReturnUserIdAndUsername")
+        description = "API - Generate an auth token for the new account",
+        dependsOnMethods = "createAccount_ShouldReturnUserIdAndUsername")
     public void generateToken_ShouldReturnValidToken() {
         Response response = given()
-                .contentType("application/json")
-                .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
-                .when()
-                .post("/Account/v1/GenerateToken")
-                .then()
-                .statusCode(200)
-                .body("status", equalTo("Success"))
-                .body("token", not(emptyString()))
-                .extract().response();
+            .contentType("application/json")
+            .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
+            .when()
+            .post("/Account/v1/GenerateToken")
+            .then()
+            .statusCode(200)
+            .body("status", equalTo("Success"))
+            .body("token", not(emptyString()))
+            .extract().response();
 
         authToken = response.jsonPath().getString("token");
         System.out.println("✓ Test 2 PASS — Token generated (len=" + authToken.length() + ")");
@@ -100,17 +100,17 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 3, groups = {"regression", "api"},
-            description = "API - Authorized endpoint confirms valid credentials",
-            dependsOnMethods = "generateToken_ShouldReturnValidToken")
+        description = "API - Authorized endpoint confirms valid credentials",
+        dependsOnMethods = "generateToken_ShouldReturnValidToken")
     public void isAuthorized_ShouldReturnTrueForValidCredentials() {
         given()
-                .contentType("application/json")
-                .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
-                .when()
-                .post("/Account/v1/Authorized")
-                .then()
-                .statusCode(200)
-                .body(equalTo("true"));
+            .contentType("application/json")
+            .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
+            .when()
+            .post("/Account/v1/Authorized")
+            .then()
+            .statusCode(200)
+            .body(equalTo("true"));
 
         System.out.println("✓ Test 3 PASS — Account reports authorized=true");
     }
@@ -120,15 +120,15 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 4, groups = {"smoke", "regression", "api"},
-            description = "API - Book catalogue is non-empty; capture an ISBN for later tests")
+        description = "API - Book catalogue is non-empty; capture an ISBN for later tests")
     public void getBooksList_ShouldReturnNonEmptyCatalogue() {
         Response response = given()
-                .when()
-                .get("/BookStore/v1/Books")
-                .then()
-                .statusCode(200)
-                .body("books", not(empty()))
-                .extract().response();
+            .when()
+            .get("/BookStore/v1/Books")
+            .then()
+            .statusCode(200)
+            .body("books", not(empty()))
+            .extract().response();
 
         List<String> isbns = response.jsonPath().getList("books.isbn", String.class);
         sampleIsbn = isbns.get(0);
@@ -140,17 +140,17 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 5, groups = {"regression", "api"},
-            description = "API - Fetch a single book by ISBN returns matching data",
-            dependsOnMethods = "getBooksList_ShouldReturnNonEmptyCatalogue")
+        description = "API - Fetch a single book by ISBN returns matching data",
+        dependsOnMethods = "getBooksList_ShouldReturnNonEmptyCatalogue")
     public void getBookByIsbn_ShouldReturnMatchingBook() {
         given()
-                .queryParam("ISBN", sampleIsbn)
-                .when()
-                .get("/BookStore/v1/Book")
-                .then()
-                .statusCode(200)
-                .body("isbn", equalTo(sampleIsbn))
-                .body("title", not(emptyString()));
+            .queryParam("ISBN", sampleIsbn)
+            .when()
+            .get("/BookStore/v1/Book")
+            .then()
+            .statusCode(200)
+            .body("isbn", equalTo(sampleIsbn))
+            .body("title", not(emptyString()));
 
         System.out.println("✓ Test 5 PASS — Book detail matches ISBN: " + sampleIsbn);
     }
@@ -160,21 +160,21 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 6, groups = {"smoke", "regression", "api"},
-            description = "API - Add the sample book to the account's collection",
-            dependsOnMethods = {"generateToken_ShouldReturnValidToken", "getBookByIsbn_ShouldReturnMatchingBook"})
+        description = "API - Add the sample book to the account's collection",
+        dependsOnMethods = {"generateToken_ShouldReturnValidToken", "getBookByIsbn_ShouldReturnMatchingBook"})
     public void addBookToUserCollection_ShouldSucceed() {
         given()
-                .contentType("application/json")
-                .header("Authorization", "Bearer " + authToken)
-                .body(Map.of(
-                        "userId", userId,
-                        "collectionOfIsbns", List.of(Map.of("isbn", sampleIsbn))
-                ))
-                .when()
-                .post("/BookStore/v1/Books")
-                .then()
-                .statusCode(201)
-                .body("books.isbn", hasItem(sampleIsbn));
+            .contentType("application/json")
+            .header("Authorization", "Bearer " + authToken)
+            .body(Map.of(
+                "userId", userId,
+                "collectionOfIsbns", List.of(Map.of("isbn", sampleIsbn))
+            ))
+            .when()
+            .post("/BookStore/v1/Books")
+            .then()
+            .statusCode(201)
+            .body("books.isbn", hasItem(sampleIsbn));
 
         System.out.println("✓ Test 6 PASS — Book added to collection: " + sampleIsbn);
     }
@@ -184,17 +184,17 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 7, groups = {"regression", "api"},
-            description = "API - User detail endpoint lists the added book",
-            dependsOnMethods = "addBookToUserCollection_ShouldSucceed")
+        description = "API - User detail endpoint lists the added book",
+        dependsOnMethods = "addBookToUserCollection_ShouldSucceed")
     public void getUserDetails_ShouldIncludeAddedBook() {
         given()
-                .header("Authorization", "Bearer " + authToken)
-                .when()
-                .get("/Account/v1/User/" + userId)
-                .then()
-                .statusCode(200)
-                .body("username", equalTo(API_USERNAME))
-                .body("books.isbn", hasItem(sampleIsbn));
+            .header("Authorization", "Bearer " + authToken)
+            .when()
+            .get("/Account/v1/User/" + userId)
+            .then()
+            .statusCode(200)
+            .body("username", equalTo(API_USERNAME))
+            .body("books.isbn", hasItem(sampleIsbn));
 
         System.out.println("✓ Test 7 PASS — User's collection contains: " + sampleIsbn);
     }
@@ -204,25 +204,45 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 8, groups = {"regression", "api"},
-            description = "API - Delete the book from the account's collection",
-            dependsOnMethods = "getUserDetails_ShouldIncludeAddedBook")
+        description = "API - Delete the book from the account's collection",
+        dependsOnMethods = "getUserDetails_ShouldIncludeAddedBook")
     public void deleteBookFromCollection_ShouldSucceed() {
         given()
-                .contentType("application/json")
-                .header("Authorization", "Bearer " + authToken)
-                .body(Map.of("isbn", sampleIsbn, "userId", userId))
-                .when()
-                .delete("/BookStore/v1/Book")
-                .then()
-                .statusCode(204);
+            .contentType("application/json")
+            .header("Authorization", "Bearer " + authToken)
+            .body(Map.of("isbn", sampleIsbn, "userId", userId))
+            .when()
+            .delete("/BookStore/v1/Book")
+            .then()
+            .statusCode(204);
 
-        given()
+        // A single immediate GET here occasionally still shows the book —
+        // the DELETE response and the account record aren't guaranteed to
+        // be consistent on the very next read. Poll briefly instead of
+        // asserting once, same defensive pattern used for the UI's
+        // eventual-consistency waits elsewhere in this project.
+        List<String> remainingIsbns = List.of();
+        boolean removed = false;
+        for (int attempt = 1; attempt <= 3 && !removed; attempt++) {
+            remainingIsbns = given()
                 .header("Authorization", "Bearer " + authToken)
                 .when()
                 .get("/Account/v1/User/" + userId)
                 .then()
                 .statusCode(200)
-                .body("books.isbn", not(hasItem(sampleIsbn)));
+                .extract().response()
+                .jsonPath().getList("books.isbn", String.class);
+            removed = !remainingIsbns.contains(sampleIsbn);
+            if (!removed && attempt < 3) {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        Assert.assertFalse(remainingIsbns.contains(sampleIsbn),
+            "Book " + sampleIsbn + " should be removed from collection after 3 checks");
 
         System.out.println("✓ Test 8 PASS — Book removed from collection: " + sampleIsbn);
     }
@@ -232,15 +252,15 @@ public class BookStoreApiTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(priority = 9, groups = {"regression", "api"},
-            description = "API - Delete the account used by this test class",
-            dependsOnMethods = "deleteBookFromCollection_ShouldSucceed", alwaysRun = true)
+        description = "API - Delete the account used by this test class",
+        dependsOnMethods = "deleteBookFromCollection_ShouldSucceed", alwaysRun = true)
     public void deleteUserAccount_ShouldCleanUp() {
         given()
-                .header("Authorization", "Bearer " + authToken)
-                .when()
-                .delete("/Account/v1/User/" + userId)
-                .then()
-                .statusCode(200);
+            .header("Authorization", "Bearer " + authToken)
+            .when()
+            .delete("/Account/v1/User/" + userId)
+            .then()
+            .statusCode(200);
 
         System.out.println("✓ Test 9 PASS — Account deleted: " + userId);
         System.out.println("=== All 9 Book Store API tests completed ===");
