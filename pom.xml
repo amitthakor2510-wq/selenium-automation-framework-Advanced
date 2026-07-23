@@ -19,7 +19,20 @@
     <browser>chrome</browser>
     <headless>false</headless>
     <human.pause.enabled>true</human.pause.enabled>
-    <retry.count>0</retry.count>
+    <!-- Default is 2 to match src/test/resources/config/global.properties'
+         retry.count=2 — this value is ALWAYS injected into the forked test
+         JVM as -Dretry.count=... by surefire below (see
+         systemPropertyVariables), even when nobody passes -Dretry.count on
+         the CLI. ConfigReader checks System.getProperty() before the
+         properties file, so whatever sits here always wins over
+         global.properties' value, not just overrides it when explicitly
+         set. Leaving this at 0 was why RetryAnalyzer.retry() always
+         returned false immediately (count(0) < maxRetry(0) is false) even
+         after RetryListener was correctly registered as an annotation
+         transformer — the retry count itself was silently zeroed before
+         RetryAnalyzer ever got a chance to run. Override per-run with
+         -Dretry.count=N; this is only the fallback default. -->
+    <retry.count>2</retry.count>
 
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
@@ -234,8 +247,14 @@
                java.util.logging.config.file points at src/test/resources/logging.properties,
                which silences Selenium's own harmless "Unable to find CDP implementation
                matching <version>" warnings that fire whenever the installed Chrome is newer
-               than this Selenium release's bundled CDP command classes. -->
+               than this Selenium release's bundled CDP command classes. @{jacocoArgLine} is
+               populated by the jacoco-maven-plugin's prepare-agent execution below — it must
+               come from that property (not the default "argLine") because this whole element
+               is a literal, hardcoded <argLine>, not a reference to @{argLine}; using the
+               default property name would have silently replaced everything below instead
+               of adding to it. -->
           <argLine>
+            @{jacocoArgLine}
             "-javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
             "-Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties"
             -Xms256m
@@ -272,6 +291,70 @@
             <phase>test</phase>
             <goals>
               <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- JaCoCo — code coverage. prepare-agent writes its runtime agent
+           flags into the jacocoArgLine property instead of the usual
+           argLine, because surefire above already hardcodes a literal
+           <argLine> (aspectj weaver + JUL config + heap flags) rather than
+           referencing @{argLine} — using the default property name would
+           silently overwrite that instead of appending to it. Report is
+           bound to the test phase (like Allure above) so `mvn test`
+           produces target/site/jacoco/index.html without needing a
+           separate `mvn verify`. -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.12</version>
+        <executions>
+          <execution>
+            <id>jacoco-prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+            <configuration>
+              <propertyName>jacocoArgLine</propertyName>
+            </configuration>
+          </execution>
+          <execution>
+            <id>jacoco-report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Checkstyle — enforces checkstyle.xml (project root), which
+           mirrors what .idea/checkstyle-idea.xml already checks in the
+           IDE. Bound to the verify phase rather than test: `mvn test`
+           (the command used everywhere else in this project — CI included)
+           stays exactly as fast and unblocked as it is today; `mvn verify`
+           is the opt-in gate. violationSeverity=warning + failsOnError
+           means it fails the verify build on real problems (unused
+           imports, missing braces, etc.) without demanding full Javadoc
+           coverage. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration>
+          <configLocation>checkstyle.xml</configLocation>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>true</failsOnError>
+          <violationSeverity>warning</violationSeverity>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>checkstyle-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>

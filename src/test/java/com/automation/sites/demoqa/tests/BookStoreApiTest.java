@@ -260,7 +260,7 @@ public class BookStoreApiTest {
             .when()
             .delete("/Account/v1/User/" + userId)
             .then()
-            .statusCode(200);
+            .statusCode(204);
 
         System.out.println("✓ Test 9 PASS — Account deleted: " + userId);
         System.out.println("=== All 9 Book Store API tests completed ===");

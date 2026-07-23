@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  checkstyle.xml — root-level ruleset referenced by pom.xml's
+  maven-checkstyle-plugin (bound to the `verify` phase, so `mvn test`
+  is unaffected and `mvn verify` is the opt-in gate).
+
+  Scope, per the pom's own comment: catch real problems (unused
+  imports, missing braces, duplicate/dead code, obvious equals/hashCode
+  bugs) without demanding full Javadoc coverage or nitpicking layout.
+  Deliberately does NOT include LineLength, Indentation, or naming
+  conventions — this project mixes generated Swagger-style URLs and
+  long fluent Rest-Assured/Selenium chains, and those rules would
+  produce noise unrelated to actual bugs.
+
+  Severity is set to "warning" at both the module default and the
+  individual rules below to match the pom's <violationSeverity>warning</violationSeverity>.
+-->
+<module name="Checker">
+
+    <property name="severity" value="warning"/>
+    <property name="charset" value="UTF-8"/>
+
+    <!-- Catches tab characters — this codebase is space-indented throughout. -->
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <!-- Every file must end with a newline. -->
+    <module name="NewlineAtEndOfFile"/>
+
+    <module name="TreeWalker">
+
+        <!-- ============================================================ -->
+        <!-- Imports                                                       -->
+        <!-- ============================================================ -->
+        <module name="UnusedImports">
+            <property name="processJavadoc" value="false"/>
+        </module>
+        <module name="RedundantImport"/>
+        <module name="AvoidStarImport">
+            <!-- org.testng.annotations.* and static Hamcrest/RestAssured
+                 matcher imports are used deliberately throughout the test
+                 layer — don't flag those two. -->
+            <property name="excludes" value="org.testng.annotations,io.restassured.RestAssured"/>
+            <property name="allowStaticMemberImports" value="true"/>
+        </module>
+
+        <!-- ============================================================ -->
+        <!-- Blocks / braces                                               -->
+        <!-- ============================================================ -->
+        <module name="NeedBraces"/>
+        <module name="EmptyBlock">
+            <property name="option" value="text"/>
+            <property name="tokens" value="LITERAL_TRY, LITERAL_CATCH, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE"/>
+        </module>
+        <module name="AvoidNestedBlocks"/>
+
+        <!-- ============================================================ -->
+        <!-- Common bug patterns                                           -->
+        <!-- ============================================================ -->
+        <module name="EqualsHashCode"/>
+        <module name="CovariantEquals"/>
+        <module name="StringLiteralEquality"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="FallThrough"/>
+        <module name="MultipleVariableDeclarations"/>
+        <module name="OneStatementPerLine"/>
+        <module name="EmptyStatement"/>
+        <module name="RedundantModifier"/>
+
+        <!-- ============================================================ -->
+        <!-- Whitespace basics (kept minimal on purpose)                   -->
+        <!-- ============================================================ -->
+        <module name="WhitespaceAfter">
+            <property name="tokens" value="COMMA, SEMI"/>
+        </module>
+
+    </module>
+
+</module>
