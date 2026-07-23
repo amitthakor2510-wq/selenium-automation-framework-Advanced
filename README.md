@@ -3,12 +3,16 @@
 > **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 4 file formats, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
 
 <p align="left">
+  <img alt="CI Status" src="https://github.com/amitthakor2510-wq/selenium-automation-framework-Advanced/actions/workflows/github-ci.yml/badge.svg">
   <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
   <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.21.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
   <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.9.0-orange?style=flat-square">
   <img alt="Maven" src="https://img.shields.io/badge/Maven-Build-C71A36?style=flat-square&logo=apachemaven&logoColor=white">
   <img alt="Allure" src="https://img.shields.io/badge/Allure-2.27.0-FF5252?style=flat-square">
   <img alt="Extent Reports" src="https://img.shields.io/badge/Extent%20Reports-5.1.2-blue?style=flat-square">
+  <img alt="Rest Assured" src="https://img.shields.io/badge/Rest%20Assured-5.4.0-25A162?style=flat-square">
+  <img alt="JaCoCo" src="https://img.shields.io/badge/Coverage-JaCoCo%200.8.12-C4A000?style=flat-square">
+  <img alt="Checkstyle" src="https://img.shields.io/badge/Code%20Style-Checkstyle-6DB33F?style=flat-square">
   <img alt="Docker" src="https://img.shields.io/badge/Docker-Selenium%20Grid-2496ED?style=flat-square&logo=docker&logoColor=white">
   <img alt="CI" src="https://img.shields.io/badge/CI-Jenkins%20%7C%20GitHub%20Actions%20%7C%20GitLab-2088FF?style=flat-square&logo=githubactions&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square">
@@ -22,9 +26,12 @@
 | 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
 | 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave) |
 | 📄 **Design Pattern** | Page Object Model |
-| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store Application) |
+| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) |
 | 📊 **Data-Driven Formats** | Excel · CSV · JSON · ZIP |
+| 🌐 **API Testing** | Rest-Assured — pure-HTTP Book Store flow (`BookStoreApiTest`), independent of the browser tests |
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
+| 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
+| 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
 | 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
 | 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is) |
@@ -59,10 +66,14 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 - [🔁 Retry & Resilience](#-retry--resilience)
 - [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
 - [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
+- [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)
+- [🧵 Keyword-Driven & Data-Driven Testing (saucedemo)](#-keyword-driven--data-driven-testing-saucedemo)
 - [🚀 Running Tests Locally](#-running-tests-locally)
 - [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid)
 - [🔧 Configuration — `global.properties`](#-configuration--globalproperties)
 - [📈 Test Reports](#-test-reports)
+- [📊 Code Coverage — JaCoCo](#-code-coverage--jacoco)
+- [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)
 - [🚦 Smoke vs Regression](#-smoke-vs-regression)
 - [🔄 Jenkins CI/CD Setup](#-jenkins-cicd-setup)
 - [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
@@ -73,6 +84,7 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 - [🩹 Common Errors and Fixes](#-common-errors-and-fixes)
 - [🗺️ Suggestions & Roadmap](#️-suggestions--roadmap)
 - [📖 Glossary](#-glossary)
+- [🤝 Contributing](#-contributing)
 - [📜 License](#-license)
 
 ---
@@ -103,49 +115,49 @@ A production-ready, scalable Java + Selenium automation framework built for lear
 
 ```mermaid
 flowchart TD
-    A["Run the tests<br/>(pick a site + browser)"] --> B["testng-suites/*.xml<br/>decides which tests to run"]
-    B --> C["ConfigReader<br/>loads all the settings"]
-    C --> ONCE["TestListener<br/>first test of the run only"]
-    ONCE -.-> ENV["AllureEnvironmentWriter<br/>saves run info for the report"]
+    A(["🏁 Run the tests<br/>pick a site + browser"]) --> B("📋 testng-suites/*.xml<br/>decides which tests to run")
+    B --> C("⚙️ ConfigReader<br/>loads all the settings")
+    C --> ONCE("🗂️ TestListener<br/>first test of the run only")
+    ONCE -.-> ENV[/"📝 AllureEnvironmentWriter<br/>saves run info for the report"/]
 
-    C --> D["BaseTest<br/>opens a browser"]
-    D --> E["DriverFactory<br/>creates and configures it"]
-    E --> F["TestListener<br/>starts tracking this test"]
-    F --> G["The test itself"]
+    C --> D("🌐 BaseTest<br/>opens a browser")
+    D --> E("🔧 DriverFactory<br/>creates and configures it")
+    E --> F("▶️ TestListener<br/>starts tracking this test")
+    F --> G("🧪 The test itself")
 
-    G -- "a required earlier test failed" --> SK["TestListener<br/>marks it skipped"]
+    G -- "⏭️ a required earlier test failed" --> SK("🚧 TestListener<br/>marks it skipped")
 
-    G --> H["Page Object + HumanActions<br/>drives the site, human-like pacing"]
-    H --> I["Assertion<br/>pass or fail check"]
-    I --> J{"Passed?"}
+    G --> H("🖱️ Page Object + HumanActions<br/>drives the site, human-like pacing")
+    H --> I("✅ Assertion<br/>pass or fail check")
+    I --> J{"🎯 Passed?"}
 
-    J -- "No — can retry" --> RT["RetryAnalyzer<br/>runs the test again"]
+    J -- "🔁 No — can retry" --> RT("♻️ RetryAnalyzer<br/>runs the test again")
     RT --> G
 
-    J -- "No — out of retries" --> L["TestListener<br/>records the failure"]
-    L --> L1["ScreenshotUtil + FailureDiagnostics<br/>capture screenshot, page, browser logs"]
+    J -- "❌ No — out of retries" --> L("🔴 TestListener<br/>records the failure")
+    L --> L1("📸 ScreenshotUtil + 🩺 FailureDiagnostics<br/>capture screenshot, page, browser logs")
 
-    J -- "Yes" --> M["TestListener<br/>records the pass"]
-    M --> M1["ScreenshotUtil<br/>captures a screenshot"]
+    J -- "✅ Yes" --> M("🟢 TestListener<br/>records the pass")
+    M --> M1("📸 ScreenshotUtil<br/>captures a screenshot")
 
-    L1 --> N["BaseTest<br/>closes the browser"]
+    L1 --> N("🔒 BaseTest<br/>closes the browser")
     M1 --> N
     SK --> N
 
-    N --> P{"More tests<br/>left to run?"}
+    N --> P{"🔄 More tests<br/>left to run?"}
     P -- "Yes" --> D
-    P -- "No" --> Q["TestListener<br/>wraps up the run"]
-    Q --> R["ExtentManager report file<br/>+ Allure result files"]
+    P -- "No" --> Q("🏆 TestListener<br/>wraps up the run")
+    Q --> R[/"📊 ExtentManager report file<br/>+ Allure result files"/]
     ENV -.-> R
 
-    classDef start fill:#1E5FAE,stroke:#0B3C74,stroke-width:2px,color:#FFFFFF,font-weight:bold
-    classDef step fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33
-    classDef decision fill:#FFD666,stroke:#B8860B,stroke-width:2px,color:#1A1300,font-weight:bold
-    classDef pass fill:#2E9E5B,stroke:#1B6B3C,stroke-width:2px,color:#FFFFFF,font-weight:bold
-    classDef fail fill:#D64545,stroke:#8C1D1D,stroke-width:2px,color:#FFFFFF,font-weight:bold
-    classDef retry fill:#FFA94D,stroke:#B85C00,stroke-width:2px,color:#1A1300,font-weight:bold
-    classDef report fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33,font-style:italic
-    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic
+    classDef start fill:#0EA5A5,stroke:#065F5F,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:20,ry:20
+    classDef step fill:#EEF4FF,stroke:#3B6FD6,stroke-width:1.5px,color:#12233F,rx:8,ry:8
+    classDef decision fill:#FFC94D,stroke:#B8770A,stroke-width:2.5px,color:#2B1B00,font-weight:bold
+    classDef pass fill:#22B36B,stroke:#0F6B3D,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:8,ry:8
+    classDef fail fill:#E14F4F,stroke:#8E1F1F,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:8,ry:8
+    classDef retry fill:#FF9F40,stroke:#B85C00,stroke-width:2.5px,color:#2B1300,font-weight:bold,rx:8,ry:8
+    classDef report fill:#8B5CF6,stroke:#5B21B6,stroke-width:2px,color:#FFFFFF,font-style:italic,font-weight:bold
+    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic,rx:8,ry:8
 
     class A start
     class B,C,D,E,F,G,H,I,N step
@@ -153,7 +165,7 @@ flowchart TD
     class M,M1 pass
     class L,L1,SK fail
     class RT retry
-    class R report
+    class R,Q report
     class ONCE,ENV once
 ```
 
@@ -180,6 +192,9 @@ For the full breakdown of what happens after step 5 — which files get written 
 | Maven | 3.9+ | Build and dependency management |
 | Allure | 2.27.0 | Interactive test report with history/trends |
 | ExtentReports | 5.1.2 | Self-contained HTML test report |
+| Rest-Assured | 5.4.0 | Pure-HTTP API testing (Book Store REST flow) |
+| JaCoCo | 0.8.12 | Code coverage instrumentation + HTML report |
+| Checkstyle | 3.5.0 (plugin) | Static analysis quality gate, opt-in via `mvn verify` |
 | WebDriverManager | 6.1.0 | Automatic browser driver download/version match |
 | Docker / Selenium Grid | 4.21.0 images | Optional containerized Chrome/Firefox/Edge nodes |
 | Jenkins | Latest | CI/CD pipeline (local or server) |
@@ -199,46 +214,87 @@ selenium-automation-framework/
 ├── docker-compose.yml                   # Selenium Grid (hub + chrome/firefox/edge nodes) + test runner
 ├── Dockerfile                           # Image the `tests` service in docker-compose builds
 ├── pom.xml                              # Maven dependencies and build config
+├── checkstyle.xml                       # Code-quality ruleset, enforced by `mvn verify`
+├── KEYWORD_DRIVEN_TESTING.md            # Deep-dive on the keyword-driven engine (see below)
+├── DOCKER.md                            # Selenium Grid setup in detail
 ├── README.md                            # This file
 │
 ├── Scripts/
 │   └── new-site.sh                      # Scaffolds config + suite XMLs for a new site in one command
 │
 ├── testng-suites/                       # TestNG suite files
-│   ├── demoqa-smoke.xml                 # Quick sanity checks (smoke group)
-│   └── demoqa-regression.xml            # Full test suite (regression group)
+│   ├── demoqa-smoke.xml                 # demoqa — quick sanity checks (smoke group)
+│   ├── demoqa-regression.xml            # demoqa — full test suite (regression group)
+│   ├── saucedemo-smoke.xml              # saucedemo — quick sanity checks
+│   └── saucedemo-regression.xml         # saucedemo — full test suite
 │
-└── src/test/
-    ├── java/com/automation/
+└── src/
+    │
+    ├── main/java/com/automation/        # PRODUCTION code — Page Objects + shared framework
     │   │
     │   ├── core/                        # SHARED framework — never site-specific
     │   │   ├── base/
-    │   │   │   └── BaseTest.java        # Opens/closes browser per test
+    │   │   │   ├── BasePage.java        # Parent of every Page Object — shared driver/wait helpers
+    │   │   │   └── DriverProvider.java  # Thread-safe accessor Page Objects use to reach the active WebDriver
     │   │   ├── config/
     │   │   │   └── ConfigReader.java    # Reads layered config files
     │   │   ├── driver/
     │   │   │   └── DriverFactory.java   # Creates Chrome/Firefox/Edge driver
+    │   │   ├── data/                    # Data-driven testing (Excel/CSV/JSON/YAML/ZIP)
+    │   │   │   ├── DataProvider.java        # TestNG @DataProvider — reads any supported format
+    │   │   │   ├── DataProviderFactory.java # Picks the right file-format reader
+    │   │   │   └── DataRow.java             # One row of test data as a typed object
+    │   │   ├── keyword/                 # Keyword-driven engine — see KEYWORD_DRIVEN_TESTING.md
+    │   │   │   ├── Keyword.java             # Enum of supported actions (CLICK, TYPE, VERIFY_*, ...)
+    │   │   │   ├── KeywordStep.java         # One script row: testCase, step, keyword, locator, data
+    │   │   │   ├── ObjectRepository.java    # Loads `type:value` locators from a .properties file
+    │   │   │   ├── KeywordReader.java       # Reads a script file into ordered steps per test case
+    │   │   │   └── KeywordEngine.java       # Executes a List<KeywordStep> against a live WebDriver
     │   │   ├── report/
-    │   │   │   └── ExtentManager.java   # Creates HTML report (singleton)
+    │   │   │   ├── ExtentManager.java           # Creates HTML report (singleton)
+    │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json
     │   │   └── utils/
-    │   │       ├── HumanActions.java    # Human-like delays on every action
-    │   │       └── ScreenshotUtil.java  # Captures screenshots on failure
+    │   │       ├── HumanActions.java        # Human-like delays on every action
+    │   │       ├── ScreenshotUtil.java       # Captures screenshots on pass/failure
+    │   │       └── FailureDiagnostics.java   # Page-source + browser console dump on failure
     │   │
-    │   └── sites/
-    │       ├── listeners/                # SHARED TestNG listeners
-    │       │   ├── TestListener.java     # Connects results to Extent report
-    │       │   ├── RetryAnalyzer.java    # Retries a failed test up to retry.count times
-    │       │   └── RetryListener.java    # Auto-attaches RetryAnalyzer to every @Test
-    │       │
-    │       └── demoqa/                   # SITE-SPECIFIC code
-    │           ├── pages/                # Page Objects (locators + actions)
-    │           └── tests/                # Test classes
+    │   └── sites/                       # SITE-SPECIFIC Page Objects only
+    │       ├── demoqa/pages/            # 35+ Page Objects — Elements, Forms, Widgets, Interactions, Book Store
+    │       └── saucedemo/pages/
+    │           └── LoginPage.java       # Login page — used by 3 different test styles (see below)
     │
-    └── resources/config/
-        ├── global.properties            # Shared defaults for all sites
-        ├── demoqa.properties            # demoqa-specific config (URL, timeout override)
-        └── _TEMPLATE.properties.example # Copy this when adding a new site
+    └── test/
+        ├── java/com/automation/sites/
+        │   ├── core/
+        │   │   ├── BaseTest.java            # Opens/closes browser per test
+        │   │   └── KeywordTestBase.java     # extends BaseTest — adds runKeywordTestCase(...)
+        │   ├── listeners/                   # SHARED TestNG listeners
+        │   │   ├── TestListener.java        # Connects results to Extent + Allure
+        │   │   ├── RetryAnalyzer.java        # Retries a failed test up to retry.count times
+        │   │   └── RetryListener.java        # Auto-attaches RetryAnalyzer to every @Test
+        │   ├── demoqa/tests/                 # 35+ test classes, incl. BookStoreApiTest (REST) and
+        │   │                                 # BookStoreApplicationTest (full UI E2E)
+        │   └── saucedemo/tests/
+        │       ├── LoginTest.java            # Classic hardcoded-values UI test
+        │       ├── LoginDataDrivenTest.java  # Same flow, values sourced from DataProvider
+        │       └── KeywordDrivenLoginTest.java # Same flow again, scripted as keyword rows (no Java per case)
+        │
+        └── resources/
+            ├── logging.properties            # Silences noisy Selenium/CDP warnings
+            ├── allure.properties
+            ├── config/
+            │   ├── global.properties             # Shared defaults for all sites
+            │   ├── demoqa.properties             # demoqa-specific overrides (URL, timeout)
+            │   ├── saucedemo.properties          # saucedemo-specific overrides
+            │   └── _TEMPLATE.properties.example  # Copy this when adding a new site
+            ├── objectrepository/
+            │   └── saucedemo.properties      # Keyword-engine locators: `saucedemo.login.username=id:user-name`
+            └── testdata/
+                ├── login.csv / .json / .xlsx / .yaml / .zip   # Same data, 5 formats — DataProvider reads any
+                └── keyword/saucedemo_login_keywords.csv       # Scripted test cases for the keyword engine
 ```
+
+> **Two sites live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST). `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. See [Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing-saucedemo) below.
 
 ---
 
@@ -252,6 +308,12 @@ Parent class that every test extends. Handles browser lifecycle automatically.
 @AfterMethod  → closes browser, cleans ThreadLocal
 ```
 Uses `ThreadLocal<WebDriver>` so each test thread gets its own browser instance — required for parallel execution. Test classes that manage a single shared session across many `@Test` methods (e.g. a full E2E flow that stays logged in) override `setUp()`/`tearDown()` to no-ops and drive the browser from `@BeforeClass`/`@AfterClass` instead — see `BookStoreApplicationTest` for the pattern.
+
+### `BasePage.java`
+Parent class every Page Object extends. Holds the shared `WebDriver`/`WebDriverWait` plumbing (via `DriverProvider`) and common helpers — explicit-wait wrappers, safe-click/safe-type variants — so individual page classes only need to declare locators and page-specific actions, not re-implement wait boilerplate 35 times over.
+
+### `DriverProvider.java`
+The bridge between `BaseTest` (which owns the `WebDriver` lifecycle) and Page Objects (which need to *use* that driver without owning it). Page Objects call into `DriverProvider` rather than taking a `WebDriver` constructor argument directly, keeping the thread-local browser instance a single source of truth.
 
 ### `ConfigReader.java`
 Reads config in three layers, each overriding the previous:
@@ -274,6 +336,12 @@ HumanActions.pause()                       // random pause min-max ms
 HumanActions.postTestPause()               // longer pause after test ends
 ```
 `click()`/`type()` are annotated `@Step`, so every Page Object call — across all 35+ page classes, with zero per-page edits — shows up as its own expandable, timestamped step in the Allure report. See [📈 Test Reports](#-test-reports).
+
+### `DataProvider.java` / `DataProviderFactory.java` / `DataRow.java`
+The data-driven trio behind `@Test(dataProvider = ...)` methods. `DataProviderFactory` picks the right reader for whichever file extension it's handed (`.csv`, `.json`, `.xlsx`, `.yaml`, or a `.zip` bundling several); `DataProvider` exposes the TestNG-facing `Object[][]`; `DataRow` is the typed wrapper each test method actually receives, so a test doesn't need to know or care which file format backed it. See `LoginDataDrivenTest` for the pattern in use, and [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing-saucedemo) below.
+
+### `Keyword.java` / `KeywordStep.java` / `ObjectRepository.java` / `KeywordReader.java` / `KeywordEngine.java` / `KeywordTestBase.java`
+The keyword-driven engine — write new test *cases* as data-file rows instead of new Java methods. `Keyword` enumerates supported actions (`CLICK`, `TYPE`, `VERIFY_DISPLAYED`, `SWITCH_TO_FRAME`, ...); `ObjectRepository` loads locators from a `.properties` file (`type:value` pairs) kept separate from both the script and the test; `KeywordReader` groups a script file's rows into ordered `KeywordStep`s per test case; `KeywordEngine` executes that list against the live `WebDriver`; `KeywordTestBase` (extends `BaseTest`) gives test classes the one method they need — `runKeywordTestCase(objectRepo, scriptPath, testCase)`. Full walkthrough, including how to add a new scenario with zero new Java: **[`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md)**.
 
 ### `TestListener.java`
 TestNG calls this at key moments. Drives **both** report engines from one place — Extent (always) and Allure (via the `allure-testng` SPI listener, which auto-registers itself; this class supplies the extra detail Allure doesn't capture on its own).
@@ -469,6 +537,52 @@ public void verifyFormSubmission() {
 
 ---
 
+## 🌐 Book Store REST API Tests
+
+`BookStoreApiTest` covers the same Book Store domain as the UI flow above, but hits `demoqa.com`'s REST endpoints directly with Rest-Assured — no browser, no Selenium, independent of every other test class. It runs a single account through 9 sequential, dependency-chained tests (`dependsOnMethods`) using one shared `userId`/`authToken`/`sampleIsbn`:
+
+| # | Test | Endpoint |
+|---|---|---|
+| 1 | Create account | `POST /Account/v1/User` |
+| 2 | Generate token | `POST /Account/v1/GenerateToken` |
+| 3 | Confirm authorized | `POST /Account/v1/Authorized` |
+| 4 | Book catalogue non-empty (captures an ISBN) | `GET /BookStore/v1/Books` |
+| 5 | Fetch that book by ISBN | `GET /BookStore/v1/Book?ISBN=...` |
+| 6 | Add book to account | `POST /BookStore/v1/Books` |
+| 7 | Book shows up on the user | `GET /Account/v1/User/{UUID}` |
+| 8 | Remove book from account | `DELETE /BookStore/v1/Book` |
+| 9 | Delete the account (cleanup, `alwaysRun`) | `DELETE /Account/v1/User/{UUID}` |
+
+Two eventual-consistency details worth knowing if you're extending this class:
+
+- **Test 8** polls up to 3 times (with a short sleep) after the delete before asserting the book is gone — a single immediate `GET` right after `DELETE` occasionally still shows the stale collection.
+- **Test 9 expects `204`, not `200`.** DemoQA's own Swagger docs list `200` for `DELETE /Account/v1/User/{UUID}`, but the live API actually returns `204 No Content` — the docs don't match the real response. Asserting `200` here fails every run; this is the one endpoint in the class where the documented contract and the actual behavior disagree.
+
+Run it on its own:
+```bash
+mvn test -Dtest=BookStoreApiTest
+```
+
+---
+
+## 🧵 Keyword-Driven & Data-Driven Testing (saucedemo)
+
+The second site in this framework, `saucedemo` (saucedemo.com's login page), exists specifically to demonstrate three different ways to write the *same* test, so a new project can pick whichever style fits:
+
+| Test class | Style | Where the values live |
+|---|---|---|
+| `LoginTest` | Classic | Hardcoded in the Java method |
+| `LoginDataDrivenTest` | Data-driven | `testdata/login.{csv,json,xlsx,yaml,zip}` via `@Test(dataProvider = ...)` — same test method, 5 interchangeable file formats |
+| `KeywordDrivenLoginTest` | Keyword-driven | `testdata/keyword/saucedemo_login_keywords.csv` — each row is a step (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_DISPLAYED`, ...); locators come from `objectrepository/saucedemo.properties`, not the test |
+
+The keyword-driven style is the one worth understanding if the goal is letting non-Java teammates add coverage: a new scenario is a new block of CSV rows, no Java compile required, unless it needs an assertion outside the existing `Keyword` enum. Full details, including the exact CSV schema and a worked example of adding a new scenario, live in **[`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md)**.
+
+```bash
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml
+```
+
+---
+
 ## 🚀 Running Tests Locally
 
 ### Prerequisites
@@ -590,47 +704,49 @@ target/
 
 ```mermaid
 flowchart TD
-    A["Test finishes<br/>pass / fail / skip"] --> B["TestListener<br/>handles the result"]
+    A(["🏁 Test finishes<br/>pass / fail / skip"]) --> B("📋 TestListener<br/>handles the result")
 
-    B --> C["ExtentManager<br/>updates the HTML report"]
-    B --> D["Allure<br/>records the result"]
+    B --> C("📄 ExtentManager<br/>updates the HTML report")
+    B --> D("🎨 Allure<br/>records the result")
 
-    C --> C1["Pass → green"]
-    C --> C2["Fail → red + screenshot shown inline"]
-    C --> C3["Skip → grey + reason"]
-    C1 --> EXT["Extent report file"]
+    C --> C1("🟢 Pass → green")
+    C --> C2("🔴 Fail → red + screenshot shown inline")
+    C --> C3("⚪ Skip → grey + reason")
+    C1 --> EXT[/"📊 Extent report file"/]
     C2 --> EXT
     C3 --> EXT
 
-    D --> D1{"Outcome?"}
-    D1 -- "Pass" --> P1["ScreenshotUtil<br/>captures a screenshot"]
-    D1 -- "Fail" --> F1["ScreenshotUtil<br/>captures a screenshot"]
-    F1 --> F2["FailureDiagnostics<br/>captures the page and browser logs"]
-    D1 -- "Skip" --> S1["Nothing captured"]
+    D --> D1{"🎯 Outcome?"}
+    D1 -- "✅ Pass" --> P1("📸 ScreenshotUtil<br/>captures a screenshot")
+    D1 -- "❌ Fail" --> F1("📸 ScreenshotUtil<br/>captures a screenshot")
+    F1 --> F2("🩺 FailureDiagnostics<br/>captures the page and browser logs")
+    D1 -- "⏭️ Skip" --> S1("🚫 Nothing captured")
 
-    P1 --> ALR["Allure result files"]
+    P1 --> ALR[/"🗃️ Allure result files"/]
     F2 --> ALR
     S1 --> ALR
 
-    ONCE["TestListener<br/>first test of the run"] -.-> ENV["AllureEnvironmentWriter<br/>saves run info and failure categories"]
+    ONCE("🗂️ TestListener<br/>first test of the run") -.-> ENV[/"📝 AllureEnvironmentWriter<br/>saves run info and failure categories"/]
     ENV -.-> ALR
 
-    ALR --> UI["Interactive Allure report"]
+    ALR --> UI(["🖥️ Interactive Allure report"])
 
-    classDef step fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33
-    classDef decision fill:#FFD666,stroke:#B8860B,stroke-width:2px,color:#1A1300,font-weight:bold
-    classDef pass fill:#2E9E5B,stroke:#1B6B3C,stroke-width:2px,color:#FFFFFF,font-weight:bold
-    classDef fail fill:#D64545,stroke:#8C1D1D,stroke-width:2px,color:#FFFFFF,font-weight:bold
-    classDef report fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33,font-style:italic
-    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic
+    classDef step fill:#EEF4FF,stroke:#3B6FD6,stroke-width:1.5px,color:#12233F,rx:8,ry:8
+    classDef decision fill:#FFC94D,stroke:#B8770A,stroke-width:2.5px,color:#2B1B00,font-weight:bold
+    classDef pass fill:#22B36B,stroke:#0F6B3D,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:8,ry:8
+    classDef fail fill:#E14F4F,stroke:#8E1F1F,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:8,ry:8
+    classDef report fill:#8B5CF6,stroke:#5B21B6,stroke-width:2px,color:#FFFFFF,font-style:italic,font-weight:bold
+    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic,rx:8,ry:8
+    classDef finish fill:#0EA5A5,stroke:#065F5F,stroke-width:2.5px,color:#FFFFFF,font-weight:bold,rx:20,ry:20
 
     class A,B step
     class D1 decision
     class C1,P1 pass
     class C2,F1,F2 fail
     class C3,S1 step
-    class EXT,ALR,UI report
+    class EXT,ALR report
     class ONCE,ENV once
+    class UI finish
 ```
 
 **Reading it, in plain terms:** every test result goes down two paths at once — Extent (a single self-contained HTML file, good for a quick pass/fail skim) and Allure (result files that get rendered into an interactive site). On the very first test of a run, `TestListener` also has `AllureEnvironmentWriter` save two extra files so the eventual report knows what environment it ran in and how to auto-categorize failures. A failing test gets more captured than a passing one — a screenshot plus the full page and browser logs — so most failures can be triaged from the report alone, without re-running the test locally.
@@ -663,6 +779,47 @@ What you get that Extent doesn't have:
 | ✅ Pass | Pass log | Screenshot |
 | ❌ Fail | Fail log + stack trace + screenshot (inline) | Screenshot + page source (HTML) + browser console logs + Failed URL parameter |
 | ⏭️ Skip | Skip log + reason | *(no attachment)* |
+
+---
+
+## 📊 Code Coverage — JaCoCo
+
+Every `mvn test` run also produces a coverage report — no separate command needed:
+
+```bash
+mvn test
+open target/site/jacoco/index.html   # macOS
+# or: xdg-open target/site/jacoco/index.html   # Linux
+```
+
+`jacoco-maven-plugin` runs in two steps, both bound to the `test` phase:
+1. **`prepare-agent`** attaches a Java agent at JVM startup that records which lines/branches actually execute while TestNG runs.
+2. **`report`** turns that recorded data into the HTML report above — line/branch coverage per package and class, down to which specific lines a given test hit.
+
+One wiring detail if you ever touch Surefire's config: this project's `<argLine>` is a literal, hardcoded block (AspectJ weaver + logging config + heap flags), not a reference to the default `@{argLine}` property. JaCoCo's `prepare-agent` is configured to write its instrumentation flags into a separate `jacocoArgLine` property instead — using the default property name there would have silently overwritten the whole hardcoded block instead of adding to it. If you add more Surefire config later, keep referencing `@{jacocoArgLine}` explicitly rather than switching back to `@{argLine}`.
+
+There's currently no minimum-coverage threshold enforced — the report is informational only, not a build gate. Adding a `jacoco:check` execution with a minimum (e.g. 50% line coverage on `core`) is on the [roadmap](#️-suggestions--roadmap).
+
+---
+
+## 🧹 Code Quality — Checkstyle
+
+A static-analysis gate, separate from and unrelated to running tests — Checkstyle scans `.java` source for style/bug patterns without compiling or executing anything. It's bound to the `verify` phase, not `test`, so it's opt-in:
+
+```bash
+mvn test     # compiles + runs everything — Checkstyle does NOT run
+mvn verify   # runs everything `test` does, PLUS Checkstyle
+```
+
+Maven's lifecycle is sequential — `verify` includes every phase before it, so this only adds a gate on top; it never replaces the test run. Ruleset lives in `checkstyle.xml` (project root) and deliberately stays practical rather than exhaustive:
+
+| Catches | Skips on purpose |
+|---|---|
+| Unused/duplicate imports, star imports (with test-annotation exceptions) | Line length / indentation — this project's Rest-Assured chains and Swagger URLs run long by design |
+| Missing braces, empty blocks, nested blocks | Full Javadoc coverage |
+| `equals`/`hashCode` bugs, `==` on Strings, empty/duplicate `switch` defaults | Naming conventions |
+
+Configured as `violationSeverity=warning` with `failsOnError=true` — real problems fail `mvn verify`, but the ruleset isn't strict enough to demand a rewrite for cosmetic drift.
 
 ---
 
@@ -975,6 +1132,7 @@ element.getAttribute("aria-selected")   // true/false — is selected
 | `NoSuchWindowException on close()` | Message window closed itself | Wrap in try-catch, window already gone |
 | `ElementNotInteractableException` | Element hidden or disabled | Use `presenceOfElementLocated`, then JS click |
 | `Cannot resolve symbol 'Step'` (IDE) in `src/main/java` code | `allure-testng` (which transitively brings `@Step`) is declared `scope=test`, invisible to main code | Add `io.qameta.allure:allure-java-commons` as its own dependency with the default (compile) scope — already done in this pom |
+| `Expected status code <200> but was <204>` on `DELETE /Account/v1/User/{UUID}` | DemoQA's Swagger docs say `200`; the live endpoint actually returns `204 No Content` | Assert `204`, not the documented `200` — already fixed in `BookStoreApiTest` |
 
 ---
 
@@ -983,12 +1141,15 @@ element.getAttribute("aria-selected")   // true/false — is selected
 Ideas for where this framework could go next, roughly ordered by effort-to-value:
 
 - [ ] **Parallel execution** — TestNG is already parallel-ready (`ThreadLocal<WebDriver>`); flipping `parallel="methods"`/`"classes"` in the suite XMLs plus a `thread-count` would cut regression runtime significantly, especially combined with the Docker Grid's multi-session nodes.
-- [ ] **API-layer assertions alongside UI** — the Book Store has a documented REST API (`/BookStore/v1/Books`); seeding/verifying state via API calls before/after UI actions would make tests faster and less coupled to fragile UI state.
+- [x] ~~**API-layer assertions alongside UI**~~ — done via `BookStoreApiTest` (Rest-Assured, see [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)). Next step here: have the UI flow *consume* the API for setup/teardown (seed a book via API before a UI test, verify cleanup via API after) rather than the two staying fully independent.
 - [ ] **Visual regression** — a lightweight screenshot-diff step (Applitools, or even a simple pixel-diff) would have caught the demoqa table redesign automatically instead of via a cascade of locator failures.
-- [ ] **Checkstyle/PMD enforcement in CI** — `.idea/checkstyle-idea.xml` suggests Checkstyle is already configured locally; wiring the same ruleset into the Maven build (and failing CI on violations) would catch style drift before review.
+- [x] ~~**Checkstyle/PMD enforcement in CI**~~ — done: `checkstyle.xml` + `maven-checkstyle-plugin` bound to `verify` (see [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)). Still open: none of the three CI pipelines actually run `mvn verify` yet, only `mvn test` — wiring Checkstyle into CI (and deciding whether a violation should fail the build or just annotate the PR) is the remaining step.
+- [ ] **Coverage threshold gate** — JaCoCo (see [📊 Code Coverage — JaCoCo](#-code-coverage--jacoco)) currently only reports; a `jacoco:check` execution with a minimum line-coverage percentage would give it real enforcement teeth.
 - [ ] **Parameterize the GitHub Actions workflow** — currently `SITE`/`BROWSER`/`SUITE_TYPE` are hardcoded in the `env:` block; converting to `workflow_dispatch` inputs (matching what Jenkins already exposes as build parameters) would let one workflow file cover the same flexibility as the Jenkinsfile.
 - [ ] **Multi-browser matrix in CI** — all three browsers are already supported locally and via the Docker Grid; a GitHub Actions matrix (`chrome`, `firefox`, `edge`) would catch browser-specific regressions automatically.
 - [ ] **Contract test for the debug-dump pattern** — now that three page objects (`BookStoreApplicationPage`, `ProfilePage`, `CheckBoxPage`) each hand-roll a near-identical `dumpPageForDebugging` method, it's a good candidate to promote into `core/utils` as a shared utility so future page objects get it for free.
+- [ ] **Secret-scanning in CI** — a `gitleaks`/`trufflehog` step on every PR would catch a credential accidentally committed in a config file or remote URL before it ever reaches `main`, rather than relying on manual review to spot it.
+- [x] ~~**Automated dependency updates**~~ — already handled: Dependabot is active on this repo (see the `dependabot/maven/*` and `dependabot/github_actions/*` branches) and keeps Selenium, TestNG, Jackson, and the GitHub Actions themselves current automatically.
 
 ---
 
@@ -1021,6 +1182,19 @@ Ideas for where this framework could go next, roughly ordered by effort-to-value
 
 ---
 
+## 🤝 Contributing
+
+This started as a personal/portfolio framework, but it's structured to take contributions cleanly:
+
+1. **Before opening a PR**, run both gates locally — `mvn test` (must pass) and `mvn verify` (Checkstyle; see [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)). CI currently only runs the former, so `verify` catching something CI won't is expected, not a false positive.
+2. **New site?** Use `Scripts/new-site.sh` rather than hand-rolling config — see [➕ Adding a New Site](#-adding-a-new-site--4-steps).
+3. **New Page Object method?** Route clicks/types through `HumanActions`, not raw `WebElement` calls — that's what keeps every action showing up as an Allure step for free.
+4. **Bug fixes**, especially ones like the DemoQA `200`-vs-`204` mismatch in [Common Errors and Fixes](#-common-errors-and-fixes), are exactly the kind of PR this project wants — a one-line fix plus a one-line addition to that table so the next person doesn't re-discover it the hard way.
+
+Keep PRs scoped to one concern (one bug, one site, one feature) — this project's commit history is meant to be a readable log of *why* things are the way they are, not just *what* changed, so a PR description that explains the "why" is worth as much as the diff itself.
+
+---
+
 ## 📜 License
 
-MIT — see badge above. Use freely for learning, portfolio, and real-world QA practice.
+MIT — see [`LICENSE`](LICENSE). Use freely for learning, portfolio, and real-world QA practice.
