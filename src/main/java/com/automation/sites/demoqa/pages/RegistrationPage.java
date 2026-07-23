@@ -10,8 +10,11 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
+import java.util.logging.Logger;
 
 public class RegistrationPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(RegistrationPage.class.getName());
 
     // IDs verified from compiled RegistrationPage.class:
     private final By firstNameInput  = By.id("firstname");
@@ -61,7 +64,7 @@ public class RegistrationPage extends BasePage {
         navigateTo("/register");
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
         installNetworkCapture();
-        System.out.println("  Navigated to registration page");
+        logger.info("  Navigated to registration page");
     }
 
     /**
@@ -113,7 +116,7 @@ public class RegistrationPage extends BasePage {
         try {
             js.executeScript(script);
         } catch (Exception e) {
-            System.out.println("  Network capture install failed (non-fatal): " + e.getMessage());
+            logger.warning("  Network capture install failed (non-fatal): " + e.getMessage());
         }
     }
 
@@ -162,14 +165,14 @@ public class RegistrationPage extends BasePage {
                 actual = null; // force retry below
             }
 
-            System.out.println("  " + fieldName + ": typed='" + value
+            logger.info("  " + fieldName + ": typed='" + value
                     + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ")");
 
             if (value.equals(actual)) {
                 return;
             }
             if (attempt < maxAttempts) {
-                System.out.println("  " + fieldName + ": mismatch — retrying");
+                logger.info("  " + fieldName + ": mismatch — retrying");
             }
         }
 
@@ -191,10 +194,10 @@ public class RegistrationPage extends BasePage {
             if (expectedValue.equals(actual)) {
                 return;
             }
-            System.out.println("  " + fieldName + ": drifted to '" + actual
+            logger.info("  " + fieldName + ": drifted to '" + actual
                     + "' before submit — re-filling");
         } catch (Exception e) {
-            System.out.println("  " + fieldName + ": couldn't read current value (" + e.getMessage() + ") — re-filling");
+            logger.info("  " + fieldName + ": couldn't read current value (" + e.getMessage() + ") — re-filling");
         }
         fillField(locator, expectedValue, fieldName + " (reassert)");
     }
@@ -212,7 +215,7 @@ public class RegistrationPage extends BasePage {
             new WebDriverWait(driver, Duration.ofSeconds(3))
                     .until(ExpectedConditions.visibilityOfElementLocated(locator));
         } catch (TimeoutException e) {
-            System.out.println("  " + fieldName + ": field not present on this form — skipping");
+            logger.info("  " + fieldName + ": field not present on this form — skipping");
             return;
         }
         fillField(locator, value, fieldName);
@@ -220,7 +223,7 @@ public class RegistrationPage extends BasePage {
 
     public void registerUser(String firstName, String lastName,
                              String userName, String email, String password) {
-        System.out.println("  Filling registration form...");
+        logger.info("  Filling registration form...");
 
         fillField(firstNameInput, firstName,  "First name");
         fillField(lastNameInput,  lastName,   "Last name");
@@ -243,7 +246,7 @@ public class RegistrationPage extends BasePage {
                 ExpectedConditions.presenceOfElementLocated(registerButton));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         js.executeScript("arguments[0].click();", btn);
-        System.out.println("  Register clicked");
+        logger.info("  Register clicked");
 
         lastAlertText = "";
         lastServerErrorText = "";
@@ -252,26 +255,26 @@ public class RegistrationPage extends BasePage {
             new WebDriverWait(driver, Duration.ofSeconds(8))
                     .until(ExpectedConditions.alertIsPresent());
             lastAlertText = driver.switchTo().alert().getText();
-            System.out.println("  Alert: " + lastAlertText);
+            logger.info("  Alert: " + lastAlertText);
             driver.switchTo().alert().accept();
         } catch (TimeoutException e) {
-            System.out.println("  No alert appeared");
+            logger.info("  No alert appeared");
             lastServerErrorText = captureServerErrorText();
             if (!lastServerErrorText.isEmpty()) {
-                System.out.println("  Server error text: '" + lastServerErrorText + "'");
+                logger.warning("  Server error text: '" + lastServerErrorText + "'");
             } else {
                 lastNetworkErrorInfo = captureNetworkErrorInfo();
                 if (!lastNetworkErrorInfo.isEmpty()) {
-                    System.out.println("  Actual API response: " + lastNetworkErrorInfo);
+                    logger.warning("  Actual API response: " + lastNetworkErrorInfo);
                 } else {
-                    System.out.println("  No API response captured either — request may never have fired "
+                    logger.info("  No API response captured either — request may never have fired "
                             + "(button/JS issue) or fired to an unexpected URL.");
                 }
                 dumpDiagnosticsIfStillOnRegisterPage();
             }
         }
 
-        System.out.println("  URL after register: " + driver.getCurrentUrl());
+        logger.info("  URL after register: " + driver.getCurrentUrl());
     }
 
     /**
@@ -306,17 +309,17 @@ public class RegistrationPage extends BasePage {
         if (!driver.getCurrentUrl().contains("/register")) return;
 
         try {
-            System.out.println("  --- Diagnostics: registration did not visibly proceed ---");
+            logger.info("  --- Diagnostics: registration did not visibly proceed ---");
 
             WebElement btn = driver.findElement(registerButton);
-            System.out.println("  Register button: enabled=" + btn.isEnabled()
+            logger.info("  Register button: enabled=" + btn.isEnabled()
                     + " disabled-attr=" + btn.getAttribute("disabled")
                     + " class=" + btn.getAttribute("class"));
 
             for (By field : new By[]{firstNameInput, lastNameInput, userNameInput, passwordInput}) {
                 try {
                     WebElement el = driver.findElement(field);
-                    System.out.println("  " + field + ": value='" + el.getAttribute("value")
+                    logger.info("  " + field + ": value='" + el.getAttribute("value")
                             + "' aria-invalid=" + el.getAttribute("aria-invalid")
                             + " class=" + el.getAttribute("class"));
                 } catch (NoSuchElementException ignored) { }
@@ -331,21 +334,21 @@ public class RegistrationPage extends BasePage {
                             "'captcha')]");
             java.util.List<WebElement> errorEls = driver.findElements(likelyErrorText);
             if (errorEls.isEmpty()) {
-                System.out.println("  No error/validation text found anywhere on the page");
+                logger.warning("  No error/validation text found anywhere on the page");
             } else {
                 for (WebElement el : errorEls) {
                     try {
                         String text = el.getText().trim();
-                        if (!text.isEmpty()) System.out.println("  Possible error text: '" + text + "'");
+                        if (!text.isEmpty()) logger.warning("  Possible error text: '" + text + "'");
                     } catch (Exception ignored) { }
                 }
             }
 
             String screenshotPath = ScreenshotUtil.captureScreenshot(driver, "register_no_alert");
-            System.out.println("  Screenshot saved: " + screenshotPath);
-            System.out.println("  --- End diagnostics ---");
+            logger.info("  Screenshot saved: " + screenshotPath);
+            logger.info("  --- End diagnostics ---");
         } catch (Exception e) {
-            System.out.println("  Diagnostics capture failed: " + e.getMessage());
+            logger.warning("  Diagnostics capture failed: " + e.getMessage());
         }
     }
 
@@ -359,11 +362,11 @@ public class RegistrationPage extends BasePage {
         String alert = lastAlertText.toLowerCase();
 
         if (alert.contains("success")) {
-            System.out.println("  Alert confirmed success: " + lastAlertText);
+            logger.info("  Alert confirmed success: " + lastAlertText);
             return true;
         }
         if (alert.contains("already exist") || alert.contains("user exists")) {
-            System.out.println("  Registration failed — user already exists: " + lastAlertText);
+            logger.warning("  Registration failed — user already exists: " + lastAlertText);
             return false;
         }
 
@@ -371,7 +374,7 @@ public class RegistrationPage extends BasePage {
         // surfaces "Please verify ReCaptcha!" and "User already exists!".
         String serverError = lastServerErrorText.toLowerCase();
         if (serverError.contains("captcha")) {
-            System.out.println("  Registration blocked by DemoQA's ReCaptcha check: '"
+            logger.warning("  Registration blocked by DemoQA's ReCaptcha check: '"
                     + lastServerErrorText + "'. This is a server-side rate-limit/bot-detection "
                     + "response, not a locator or timing bug — it cannot be satisfied by "
                     + "Selenium. Reduce registration frequency, reuse an existing test "
@@ -380,32 +383,32 @@ public class RegistrationPage extends BasePage {
             return false;
         }
         if (serverError.contains("already exist") || serverError.contains("user exists")) {
-            System.out.println("  Registration failed — user already exists: " + lastServerErrorText);
+            logger.warning("  Registration failed — user already exists: " + lastServerErrorText);
             return false;
         }
         if (!serverError.isEmpty()) {
-            System.out.println("  Registration failed — server error: " + lastServerErrorText);
+            logger.warning("  Registration failed — server error: " + lastServerErrorText);
             return false;
         }
         if (!lastNetworkErrorInfo.isEmpty()) {
-            System.out.println("  Registration failed — actual API response: " + lastNetworkErrorInfo);
+            logger.warning("  Registration failed — actual API response: " + lastNetworkErrorInfo);
             return false;
         }
 
         // Fallback heuristics (kept in case DemoQA ever changes to redirect-based flow)
         String url = driver.getCurrentUrl();
         if (url.contains("/login") || url.contains("/profile")) {
-            System.out.println("  Redirected to " + url + " ✓");
+            logger.info("  Redirected to " + url + " ✓");
             return true;
         }
         By success = By.xpath(
                 "//*[contains(text(),'registered') or contains(text(),'success')]");
         if (!driver.findElements(success).isEmpty()) {
-            System.out.println("  Success element visible ✓");
+            logger.info("  Success element visible ✓");
             return true;
         }
 
-        System.out.println("  Registration uncertain. Alert='" + lastAlertText + "' URL=" + url);
+        logger.info("  Registration uncertain. Alert='" + lastAlertText + "' URL=" + url);
         return false;
     }
 
@@ -421,9 +424,9 @@ public class RegistrationPage extends BasePage {
             js.executeScript("arguments[0].scrollIntoView({block:'center'});", link);
             js.executeScript("arguments[0].click();", link);
             wait.until(ExpectedConditions.urlContains("/login"));
-            System.out.println("  On /login ✓");
+            logger.info("  On /login ✓");
         } catch (Exception e) {
-            System.out.println("  Navigating to /login directly");
+            logger.info("  Navigating to /login directly");
             navigateTo("/login");
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("userName")));
         }

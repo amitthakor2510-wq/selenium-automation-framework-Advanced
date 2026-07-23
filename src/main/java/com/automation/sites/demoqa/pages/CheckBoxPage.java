@@ -11,8 +11,11 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
+import java.util.logging.Logger;
 
 public class CheckBoxPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(CheckBoxPage.class.getName());
 
     // CONFIRMED via full page-source dump (target/debug-dumps) after two
     // rct-* guesses both failed to find anything: demoqa has switched the
@@ -104,10 +107,10 @@ public class CheckBoxPage extends BasePage {
                     + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
-            System.out.println("  DEBUG full page source written to: " + file.toAbsolutePath());
+            logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
         } catch (Exception writeEx) {
-            System.out.println("  DEBUG could not write page source dump: " + writeEx.getMessage());
+            logger.fine("  DEBUG could not write page source dump: " + writeEx.getMessage());
         }
-        System.out.println("  DEBUG current URL: " + driver.getCurrentUrl());
+        logger.fine("  DEBUG current URL: " + driver.getCurrentUrl());
     }
 }

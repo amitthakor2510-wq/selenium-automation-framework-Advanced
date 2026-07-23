@@ -13,8 +13,11 @@ import org.openqa.selenium.devtools.v125.page.Page;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.util.Optional;
+import java.util.logging.Logger;
 
 public class AlertsPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(AlertsPage.class.getName());
 
     private final By alertButton      = By.id("alertButton");
     private final By timerAlertButton = By.id("timerAlertButton");
@@ -120,9 +123,9 @@ public class AlertsPage extends BasePage {
                 DevTools devTools = ((HasDevTools) driver).getDevTools();
                 devTools.createSession();
                 devTools.send(Page.handleJavaScriptDialog(true, Optional.of(text)));
-                System.out.println("[AlertsPage] Handled prompt via CDP with text: \"" + text + "\"");
+                logger.info("[AlertsPage] Handled prompt via CDP with text: \"" + text + "\"");
             } catch (Exception e) {
-                System.out.println("[AlertsPage] CDP handling failed, falling back to Alert.sendKeys: " + e.getMessage());
+                logger.warning("[AlertsPage] CDP handling failed, falling back to Alert.sendKeys: " + e.getMessage());
                 Alert alert = driver.switchTo().alert();
                 alert.sendKeys(text);
                 alert.accept();

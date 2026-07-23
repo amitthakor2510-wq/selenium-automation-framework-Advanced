@@ -99,6 +99,17 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Allure Java Commons — the @Step/@Attachment annotations and Allure
+             lifecycle API. allure-testng above only pulls this in with
+             scope=test, so it's invisible from src/main/java (e.g.
+             HumanActions.java uses @Step). Declared explicitly here at the
+             default (compile) scope so main code can use it too. Version is
+             already pinned by the allure-bom import above. -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-java-commons</artifactId>
+        </dependency>
+
         <!-- Excel (.xlsx, .xls) -->
         <dependency>
             <groupId>org.apache.poi</groupId>

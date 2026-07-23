@@ -1,6 +1,7 @@
 package com.automation.core.utils;
 
 import com.automation.core.config.ConfigReader;
+import io.qameta.allure.Step;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -73,17 +74,20 @@ public final class HumanActions {
     // calling driver.findElement(...).click() / sendKeys(...) directly
     // ---------------------------------------------------------------
 
+    @Step("Click element: {locator}")
     public static void click(WebDriver driver, By locator) {
         WebElement element = waitFor(driver, locator);
         pause();
         element.click();
     }
 
+    @Step("Click element")
     public static void click(WebDriver driver, WebElement element) {
         pause();
         element.click();
     }
 
+    @Step("Type \"{text}\" into element: {locator}")
     public static void type(WebDriver driver, By locator, String text) {
         WebElement element = waitFor(driver, locator);
         pause();

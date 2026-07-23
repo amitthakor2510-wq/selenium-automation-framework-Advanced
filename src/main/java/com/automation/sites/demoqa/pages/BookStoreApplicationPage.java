@@ -11,8 +11,11 @@ import java.time.Duration;
 import java.util.List;
 
 import static java.util.stream.Collectors.*;
+import java.util.logging.Logger;
 
 public class BookStoreApplicationPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(BookStoreApplicationPage.class.getName());
 
     // ── Login ───────────────────────────────────────────────────────────────────
     private final By usernameField = By.id("userName");
@@ -99,11 +102,11 @@ public class BookStoreApplicationPage extends BasePage {
                     + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
-            System.out.println("  DEBUG full page source written to: " + file.toAbsolutePath());
+            logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
         } catch (Exception writeEx) {
-            System.out.println("  DEBUG could not write page source dump: " + writeEx.getMessage());
+            logger.fine("  DEBUG could not write page source dump: " + writeEx.getMessage());
         }
-        System.out.println("  DEBUG current URL: " + driver.getCurrentUrl());
+        logger.fine("  DEBUG current URL: " + driver.getCurrentUrl());
     }
 
     public void navigateToProfile() {
@@ -136,7 +139,7 @@ public class BookStoreApplicationPage extends BasePage {
 
         if (!driver.getCurrentUrl().contains("/profile")) {
             String error = getLoginErrorMessage();
-            System.out.println("  Login did not reach /profile. Error text: '" + error + "'");
+            logger.warning("  Login did not reach /profile. Error text: '" + error + "'");
         }
     }
 
@@ -170,7 +173,7 @@ public class BookStoreApplicationPage extends BasePage {
             if (value.equals(actual)) {
                 return;
             }
-            System.out.println("  " + fieldName + ": typed='" + value
+            logger.info("  " + fieldName + ": typed='" + value
                     + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ") — retrying");
         }
 
@@ -200,8 +203,8 @@ public class BookStoreApplicationPage extends BasePage {
      */
     private void dumpLoggedInDiagnostics() {
         try {
-            System.out.println("  --- Diagnostics: isLoggedIn() timed out ---");
-            System.out.println("  URL: " + driver.getCurrentUrl());
+            logger.info("  --- Diagnostics: isLoggedIn() timed out ---");
+            logger.info("  URL: " + driver.getCurrentUrl());
 
             @SuppressWarnings("unchecked")
             List<Object> matches = (List<Object>) js.executeScript(
@@ -215,18 +218,18 @@ public class BookStoreApplicationPage extends BasePage {
                             "return out;");
 
             if (matches == null || matches.isEmpty()) {
-                System.out.println("  No element anywhere on the page has an id containing 'userName' (case-insensitive).");
+                logger.info("  No element anywhere on the page has an id containing 'userName' (case-insensitive).");
             } else {
                 for (Object m : matches) {
-                    System.out.println("  Match: " + m);
+                    logger.info("  Match: " + m);
                 }
             }
 
             String screenshotPath = ScreenshotUtil.captureScreenshot(driver, "login_not_detected");
-            System.out.println("  Screenshot saved: " + screenshotPath);
-            System.out.println("  --- End diagnostics ---");
+            logger.info("  Screenshot saved: " + screenshotPath);
+            logger.info("  --- End diagnostics ---");
         } catch (Exception e) {
-            System.out.println("  isLoggedIn diagnostics capture failed: " + e.getMessage());
+            logger.warning("  isLoggedIn diagnostics capture failed: " + e.getMessage());
         }
     }
 
@@ -386,7 +389,7 @@ public class BookStoreApplicationPage extends BasePage {
 
         wait.until(ExpectedConditions.alertIsPresent());
         String alertText = driver.switchTo().alert().getText();
-        System.out.println("  [BookStoreApplicationPage] Alert: " + alertText);
+        logger.info("  [BookStoreApplicationPage] Alert: " + alertText);
         driver.switchTo().alert().accept();
     }
 }
