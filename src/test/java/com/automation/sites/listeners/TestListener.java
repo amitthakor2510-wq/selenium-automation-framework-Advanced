@@ -1,7 +1,10 @@
 package com.automation.sites.listeners;
 
 import com.automation.core.base.DriverProvider;
+import com.automation.core.config.ConfigReader;
+import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
+import com.automation.core.utils.FailureDiagnostics;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
 import com.aventstack.extentreports.ExtentReports;
@@ -13,6 +16,8 @@ import org.testng.ITestListener;
 import org.testng.ITestResult;
 
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class TestListener implements ITestListener {
 
@@ -29,7 +34,22 @@ public class TestListener implements ITestListener {
         return null;
     }
 
+    /** Maps TestNG groups (smoke/regression/etc.) onto an Allure severity label. */
+    private void tagSeverity(ITestResult result) {
+        String[] groups = result.getMethod().getGroups();
+        String severity = Arrays.asList(groups).contains("smoke") ? "critical" : "normal";
+        Allure.label("severity", severity);
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    @Override
+    public void onStart(ITestContext context) {
+        // Written once per JVM: populates the Allure report's "Environment"
+        // widget and "Categories" tab before any test results land in
+        // target/allure-results.
+        AllureEnvironmentWriter.writeOnce();
+    }
 
     @Override
     public void onTestStart(ITestResult result) {
@@ -44,6 +64,11 @@ public class TestListener implements ITestListener {
             );
         }
         test.set(extentTest);
+
+        // ── Allure: severity + run context, visible on every test's page ────────
+        tagSeverity(result);
+        Allure.parameter("Site", ConfigReader.get("site", ConfigReader.getActiveSite()));
+        Allure.parameter("Browser", ConfigReader.get("browser", "chrome"));
     }
 
     @Override
@@ -106,9 +131,42 @@ public class TestListener implements ITestListener {
                 );
             }
 
+            // ── Allure: attach page source + browser console logs for triage ────
+            String pageSource = FailureDiagnostics.capturePageSource(driver);
+            if (!pageSource.isEmpty()) {
+                Allure.addAttachment(
+                        "Page Source — " + result.getMethod().getMethodName(),
+                        "text/html",
+                        new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
+                        "html"
+                );
+            }
+
+            String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
+            if (!consoleLogs.isEmpty()) {
+                Allure.addAttachment(
+                        "Browser Console Logs — " + result.getMethod().getMethodName(),
+                        "text/plain",
+                        new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
+                        "log"
+                );
+            }
+
+            if (driver != null) {
+                Allure.parameter("Failed URL", safeCurrentUrl(driver));
+            }
+
             HumanActions.postTestPause();
         } finally {
             test.remove();
+        }
+    }
+
+    private String safeCurrentUrl(WebDriver driver) {
+        try {
+            return driver.getCurrentUrl();
+        } catch (Exception e) {
+            return "(unavailable)";
         }
     }
 
@@ -143,5 +201,6 @@ public class TestListener implements ITestListener {
         // future single-mvn multi-site run), the second site inherits the first
         // site's report name, system info, and output path — corrupting both reports.
         ExtentManager.reset();
+        AllureEnvironmentWriter.reset();
     }
 }

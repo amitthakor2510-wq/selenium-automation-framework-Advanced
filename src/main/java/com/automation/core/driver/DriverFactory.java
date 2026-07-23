@@ -190,6 +190,16 @@ public final class DriverFactory {
         } else {
             options.addArguments("--start-maximized");
         }
+
+        // Capture browser (JS console) logs so TestListener can attach them to
+        // the Allure report on failure — invaluable for diagnosing JS errors
+        // that caused a UI interaction to fail. Chromium-based only (Chrome,
+        // Edge, Brave); Firefox/geckodriver has no equivalent W3C capability.
+        org.openqa.selenium.logging.LoggingPreferences logPrefs =
+                new org.openqa.selenium.logging.LoggingPreferences();
+        logPrefs.enable(org.openqa.selenium.logging.LogType.BROWSER, java.util.logging.Level.ALL);
+        options.setCapability("goog:loggingPrefs", logPrefs);
+
         return options;
     }
 

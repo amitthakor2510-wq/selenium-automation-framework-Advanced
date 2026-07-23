@@ -1,6 +1,6 @@
 # 🤖 Selenium Automation Framework — Advanced Edition
 
-> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 4 file formats, human-like interaction simulation, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
+> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 4 file formats, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
 
 <p align="left">
   <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
@@ -9,6 +9,7 @@
   <img alt="Maven" src="https://img.shields.io/badge/Maven-Build-C71A36?style=flat-square&logo=apachemaven&logoColor=white">
   <img alt="Allure" src="https://img.shields.io/badge/Allure-2.27.0-FF5252?style=flat-square">
   <img alt="Extent Reports" src="https://img.shields.io/badge/Extent%20Reports-5.1.2-blue?style=flat-square">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Selenium%20Grid-2496ED?style=flat-square&logo=docker&logoColor=white">
   <img alt="CI" src="https://img.shields.io/badge/CI-Jenkins%20%7C%20GitHub%20Actions%20%7C%20GitLab-2088FF?style=flat-square&logo=githubactions&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square">
 </p>
@@ -20,52 +21,58 @@
 | 🧱 **Language / Build** | Java 17 · Maven |
 | 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
 | 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave) |
-| 📄 **Design Pattern** | Page Object Model — 42 page-object files |
-| 🧩 **Sites Covered** | demoqa.com (34 test classes) · saucedemo.com |
+| 📄 **Design Pattern** | Page Object Model |
+| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store Application) |
 | 📊 **Data-Driven Formats** | Excel · CSV · JSON · ZIP |
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
-| 🔁 **Resilience** | Auto-retry on failure, human-like pacing, auto screenshot |
-| 🔄 **CI/CD** | Jenkinsfile · GitHub Actions · GitLab CI (all three included) |
+| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure |
+| 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
+| 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is) |
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Clone and enter the project
+git clone <repo-url> && cd selenium-automation-framework
+
+# 2. Run the demoqa smoke suite (fastest sanity check — Chrome, visible browser)
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+
+# 3. Open the report
+open target/extent-reports/demoqa-report.html   # macOS
+# or: xdg-open target/extent-reports/demoqa-report.html   # Linux
+```
+
+Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid).
 
 ---
 
 ## 📋 Table of Contents
 
 - [🧠 What Is This? (From Scratch)](#-what-is-this-from-scratch)
+- [🏗️ Architecture — How a Test Runs](#️-architecture--how-a-test-runs)
+- [⚙️ Tech Stack](#️-tech-stack)
 - [🗂️ Project Structure](#️-project-structure)
-- [⚙️ Tech Stack & Dependencies](#️-tech-stack--dependencies)
-- [🏗️ Architecture — How Everything Connects](#️-architecture--how-everything-connects)
-- [🔑 Core Layer — Deep Dive](#-core-layer--deep-dive)
-  - [DriverFactory.java](#1-driverfactoryjava---browser-creation-engine)
-  - [ConfigReader.java](#2-configreaderjava---3-layer-config-system)
-  - [BasePage.java](#3-basepagejava---the-parent-of-all-pages)
-  - [BaseTest.java](#4-basetestjava---the-parent-of-all-tests)
-  - [HumanActions.java](#5-humanactionsjava---human-like-interaction-engine)
-  - [DataProvider.java](#6-dataproviderjava---multi-format-data-engine)
-  - [DataRow.java](#7-datarowjava---one-row-of-test-data)
-  - [DataProviderFactory.java](#8-dataproviderfactoryjava---convenience-wrapper)
-  - [ScreenshotUtil.java](#9-screenshotutiljava---screenshot-capture)
-  - [ExtentManager.java](#10-extentmanagerjava---html-report-generator)
-- [🎧 Listeners — The Hidden Automation Engine](#-listeners--the-hidden-automation-engine)
-  - [TestListener.java](#testlistenerjava)
-  - [RetryAnalyzer.java](#retryanalyzerjava)
-  - [RetryListener.java](#retrylistenerjava)
-- [📄 Page Object Model — Design Pattern Explained](#-page-object-model--design-pattern-explained)
-- [🧪 Test Classes — How To Write Tests](#-test-classes--how-to-write-tests)
-- [📊 Data-Driven Testing — 4 Formats](#-data-driven-testing--4-formats)
-- [🔧 Configuration Files Explained](#-configuration-files-explained)
-- [📁 Full Config File Reference (every file, every key)](#-full-config-file-reference-every-file-every-key)
-- [📑 TestNG Suite XMLs Explained](#-testng-suite-xmls-explained)
-- [🚀 How To Run Tests](#-how-to-run-tests)
-- [🔄 Jenkins CI/CD Pipeline — Full Flow](#-jenkinscicd-pipeline--full-flow)
+- [🔑 Core Files — What Each One Does](#-core-files--what-each-one-does)
+- [🔁 Retry & Resilience](#-retry--resilience)
+- [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
+- [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
+- [🚀 Running Tests Locally](#-running-tests-locally)
+- [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid)
+- [🔧 Configuration — `global.properties`](#-configuration--globalproperties)
+- [📈 Test Reports](#-test-reports)
+- [🚦 Smoke vs Regression](#-smoke-vs-regression)
+- [🔄 Jenkins CI/CD Setup](#-jenkins-cicd-setup)
 - [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
-- [🦊 GitLab CI Pipeline](#-gitlab-ci-pipeline)
-- [⚖️ CI/CD Platform Comparison](#️-cicd-platform-comparison)
-- [📈 Reports — Allure & Extent](#-reports--allure--extent)
-- [🌐 Multi-Site Architecture](#-multi-site-architecture)
-- [🆕 Scaffolding a New Site with `new-site.sh`](#-scaffolding-a-new-site-with-new-sitesh)
-- [🧩 Test Coverage — All 25 DemoQA Tests](#-test-coverage--all-25-demoqa-tests)
-- [🩹 Troubleshooting](#-troubleshooting)
+- [🦊 GitLab CI/CD Pipeline](#-gitlab-cicd-pipeline)
+- [➕ Adding a New Site — 4 Steps](#-adding-a-new-site--4-steps)
+- [🧭 Debugging a Live Site Redesign — Lessons from a Real Session](#-debugging-a-live-site-redesign--lessons-from-a-real-session)
+- [🧰 Key Selenium Concepts Used](#-key-selenium-concepts-used)
+- [🩹 Common Errors and Fixes](#-common-errors-and-fixes)
+- [🗺️ Suggestions & Roadmap](#️-suggestions--roadmap)
+- [📖 Glossary](#-glossary)
 - [📜 License](#-license)
 
 ---
@@ -88,37 +95,114 @@ Maven is a **build tool**. It downloads your dependencies (Selenium, TestNG…) 
 ### 🔰 What is the Page Object Model (POM)?
 POM is a **design pattern**: every web page gets its own Java class. The class knows how to interact with that page. Tests call the page class — they never interact with the browser directly. This keeps code clean and reusable.
 
-A production-ready, scalable Java + Selenium automation framework built for
-learning and real-world QA practice. Covers the complete demoqa.com test suite
-with Jenkins and GitLab CI/CD integration, custom Extent HTML reporting, and
-human-like interaction simulation.
+A production-ready, scalable Java + Selenium automation framework built for learning and real-world QA practice. Covers the demoqa.com test suite with Jenkins, GitHub Actions, and GitLab CI/CD integration, dual Allure + Extent reporting, and human-like interaction simulation.
 
 ---
 
-## Tech Stack
+## 🏗️ Architecture — How a Test Runs
+
+```mermaid
+flowchart TD
+    A["Run the tests<br/>(pick a site + browser)"] --> B["testng-suites/*.xml<br/>decides which tests to run"]
+    B --> C["ConfigReader<br/>loads all the settings"]
+    C --> ONCE["TestListener<br/>first test of the run only"]
+    ONCE -.-> ENV["AllureEnvironmentWriter<br/>saves run info for the report"]
+
+    C --> D["BaseTest<br/>opens a browser"]
+    D --> E["DriverFactory<br/>creates and configures it"]
+    E --> F["TestListener<br/>starts tracking this test"]
+    F --> G["The test itself"]
+
+    G -- "a required earlier test failed" --> SK["TestListener<br/>marks it skipped"]
+
+    G --> H["Page Object + HumanActions<br/>drives the site, human-like pacing"]
+    H --> I["Assertion<br/>pass or fail check"]
+    I --> J{"Passed?"}
+
+    J -- "No — can retry" --> RT["RetryAnalyzer<br/>runs the test again"]
+    RT --> G
+
+    J -- "No — out of retries" --> L["TestListener<br/>records the failure"]
+    L --> L1["ScreenshotUtil + FailureDiagnostics<br/>capture screenshot, page, browser logs"]
+
+    J -- "Yes" --> M["TestListener<br/>records the pass"]
+    M --> M1["ScreenshotUtil<br/>captures a screenshot"]
+
+    L1 --> N["BaseTest<br/>closes the browser"]
+    M1 --> N
+    SK --> N
+
+    N --> P{"More tests<br/>left to run?"}
+    P -- "Yes" --> D
+    P -- "No" --> Q["TestListener<br/>wraps up the run"]
+    Q --> R["ExtentManager report file<br/>+ Allure result files"]
+    ENV -.-> R
+
+    classDef start fill:#1E5FAE,stroke:#0B3C74,stroke-width:2px,color:#FFFFFF,font-weight:bold
+    classDef step fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33
+    classDef decision fill:#FFD666,stroke:#B8860B,stroke-width:2px,color:#1A1300,font-weight:bold
+    classDef pass fill:#2E9E5B,stroke:#1B6B3C,stroke-width:2px,color:#FFFFFF,font-weight:bold
+    classDef fail fill:#D64545,stroke:#8C1D1D,stroke-width:2px,color:#FFFFFF,font-weight:bold
+    classDef retry fill:#FFA94D,stroke:#B85C00,stroke-width:2px,color:#1A1300,font-weight:bold
+    classDef report fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33,font-style:italic
+    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic
+
+    class A start
+    class B,C,D,E,F,G,H,I,N step
+    class J,P decision
+    class M,M1 pass
+    class L,L1,SK fail
+    class RT retry
+    class R report
+    class ONCE,ENV once
+```
+
+**Reading it, in plain terms:**
+1. **Setup (once per run)** — `testng-suites/*.xml` decides which tests run, `ConfigReader` loads the settings, and `TestListener` (on the very first test only) has `AllureEnvironmentWriter` save the run's details for later.
+2. **Setup (per test)** — `BaseTest` asks `DriverFactory` to open a browser, then `TestListener` starts tracking the test.
+3. **Act** — the test drives the site through its Page Object, with `HumanActions` adding realistic pacing between actions.
+4. **Check** — an assertion decides pass or fail. A failure with retries left goes back through `RetryAnalyzer` and runs again; if a required earlier test failed, this one is skipped instead of run at all.
+5. **Record** — `TestListener` hands off to `ScreenshotUtil` (always) and `FailureDiagnostics` (failures only, for the page and browser logs).
+6. **Teardown** — `BaseTest` closes the browser, then the next test (if any) starts the per-test cycle again from step 2.
+7. **Finish** — once the suite is done, `TestListener` wraps everything up and the final report files are written.
+
+For the full breakdown of what happens after step 5 — which files get written and what each report shows — see [📈 Test Reports](#-test-reports).
+
+---
+
+## ⚙️ Tech Stack
 
 | Tool | Version | Purpose |
 |---|---|---|
 | Java | 17 | Programming language |
 | Selenium | 4.21.0 | Browser automation |
-| TestNG | 7.9.0 | Test runner and reporting |
+| TestNG | 7.9.0 | Test runner, retry, grouping (`smoke`/`regression`) |
 | Maven | 3.9+ | Build and dependency management |
-| ExtentReports | 5.1.2 | Custom HTML test reports |
-| WebDriverManager | 6.1.0 | Automatic browser driver management |
+| Allure | 2.27.0 | Interactive test report with history/trends |
+| ExtentReports | 5.1.2 | Self-contained HTML test report |
+| WebDriverManager | 6.1.0 | Automatic browser driver download/version match |
+| Docker / Selenium Grid | 4.21.0 images | Optional containerized Chrome/Firefox/Edge nodes |
 | Jenkins | Latest | CI/CD pipeline (local or server) |
+| GitHub Actions | — | CI/CD pipeline + Allure history on GitHub Pages |
 | GitLab CI | Latest | CI/CD pipeline |
 
 ---
 
-## Project Structure
+## 🗂️ Project Structure
 
 ```
 selenium-automation-framework/
 │
 ├── Jenkinsfile                          # Jenkins CI/CD pipeline
 ├── .gitlab-ci.yml                       # GitLab CI/CD pipeline
+├── .github/workflows/github-ci.yml      # GitHub Actions pipeline (build → test → Allure→Pages)
+├── docker-compose.yml                   # Selenium Grid (hub + chrome/firefox/edge nodes) + test runner
+├── Dockerfile                           # Image the `tests` service in docker-compose builds
 ├── pom.xml                              # Maven dependencies and build config
 ├── README.md                            # This file
+│
+├── Scripts/
+│   └── new-site.sh                      # Scaffolds config + suite XMLs for a new site in one command
 │
 ├── testng-suites/                       # TestNG suite files
 │   ├── demoqa-smoke.xml                 # Quick sanity checks (smoke group)
@@ -134,28 +218,31 @@ selenium-automation-framework/
     │   │   │   └── ConfigReader.java    # Reads layered config files
     │   │   ├── driver/
     │   │   │   └── DriverFactory.java   # Creates Chrome/Firefox/Edge driver
-    │   │   ├── listeners/
-    │   │   │   └── TestListener.java    # Connects results to Extent report
     │   │   ├── report/
     │   │   │   └── ExtentManager.java   # Creates HTML report (singleton)
     │   │   └── utils/
     │   │       ├── HumanActions.java    # Human-like delays on every action
     │   │       └── ScreenshotUtil.java  # Captures screenshots on failure
     │   │
-    │   └── sites/                       # SITE-SPECIFIC code
-    │       └── demoqa/
-    │           ├── pages/               # Page Objects (locators + actions)
-    │           └── tests/               # Test classes
+    │   └── sites/
+    │       ├── listeners/                # SHARED TestNG listeners
+    │       │   ├── TestListener.java     # Connects results to Extent report
+    │       │   ├── RetryAnalyzer.java    # Retries a failed test up to retry.count times
+    │       │   └── RetryListener.java    # Auto-attaches RetryAnalyzer to every @Test
+    │       │
+    │       └── demoqa/                   # SITE-SPECIFIC code
+    │           ├── pages/                # Page Objects (locators + actions)
+    │           └── tests/                # Test classes
     │
     └── resources/config/
         ├── global.properties            # Shared defaults for all sites
-        ├── demoqa.properties            # demoqa-specific config (URL)
+        ├── demoqa.properties            # demoqa-specific config (URL, timeout override)
         └── _TEMPLATE.properties.example # Copy this when adding a new site
 ```
 
 ---
 
-## Core Files — What Each One Does
+## 🔑 Core Files — What Each One Does
 
 ### `BaseTest.java`
 Parent class that every test extends. Handles browser lifecycle automatically.
@@ -164,7 +251,7 @@ Parent class that every test extends. Handles browser lifecycle automatically.
 @Test         → your test runs here
 @AfterMethod  → closes browser, cleans ThreadLocal
 ```
-Uses `ThreadLocal<WebDriver>` so each test thread gets its own browser instance — required for parallel execution.
+Uses `ThreadLocal<WebDriver>` so each test thread gets its own browser instance — required for parallel execution. Test classes that manage a single shared session across many `@Test` methods (e.g. a full E2E flow that stays logged in) override `setUp()`/`tearDown()` to no-ops and drive the browser from `@BeforeClass`/`@AfterClass` instead — see `BookStoreApplicationTest` for the pattern.
 
 ### `ConfigReader.java`
 Reads config in three layers, each overriding the previous:
@@ -176,61 +263,78 @@ demoqa.properties   → site-specific overrides
 Call anywhere: `ConfigReader.get("browser")`, `ConfigReader.getInt("timeout", 10)`
 
 ### `DriverFactory.java`
-Single place that creates the browser. Reads `browser` and `headless` from config.
-Supports Chrome, Firefox, Edge. Sets download folder to `target/downloads` so
-downloads work on both local machine and Jenkins.
+Single place that creates the browser. Reads `browser` and `headless` from config. Supports Chrome, Firefox, Edge. Sets download folder to `target/downloads` so downloads work on both local machine and CI. When `GRID_ENABLED=true` is set (see [Docker section](#-running-against-a-dockerized-selenium-grid)), points at a remote `GRID_URL` instead of a local driver. For Chromium-based browsers (Chrome/Edge/Brave) it also turns on `goog:loggingPrefs` so the browser's JS console output can be captured — see `FailureDiagnostics.java` below.
 
 ### `HumanActions.java`
-Wraps every Selenium click and type with random delays. Makes automation look
-human. All timings come from config so they can be tuned or disabled.
+Wraps every Selenium click and type with random delays. Makes automation look human. All timings come from config so they can be tuned or disabled.
 ```java
 HumanActions.click(driver, locator)        // pause → click
 HumanActions.type(driver, locator, text)   // pause → type char by char
 HumanActions.pause()                       // random pause min-max ms
-HumanActions.postTestPause()              // longer pause after test ends
+HumanActions.postTestPause()               // longer pause after test ends
 ```
+`click()`/`type()` are annotated `@Step`, so every Page Object call — across all 35+ page classes, with zero per-page edits — shows up as its own expandable, timestamped step in the Allure report. See [📈 Test Reports](#-test-reports).
 
 ### `TestListener.java`
-TestNG calls this at key moments. Connects test results to the Extent report.
+TestNG calls this at key moments. Drives **both** report engines from one place — Extent (always) and Allure (via the `allure-testng` SPI listener, which auto-registers itself; this class supplies the extra detail Allure doesn't capture on its own).
 ```
-onTestStart   → creates entry in HTML report
-onTestSuccess → marks green
-onTestFailure → marks red, captures screenshot, attaches to report
-onFinish      → writes HTML file to disk
+onStart       → writes environment.properties + categories.json (once per JVM)
+onTestStart   → creates Extent entry; tags Allure severity + Site/Browser parameters
+onTestSuccess → marks green; attaches pass screenshot to Allure
+onTestFailure → marks red; attaches failure screenshot + page source + browser
+                console logs + failed URL to Allure; embeds screenshot in Extent
+onFinish      → flushes Extent HTML to disk; resets singletons for the next site
 ```
-Registered in suite XML:
+Registered via `@Listeners({TestListener.class, RetryListener.class})` on `BaseTest` — **not** in the suite XML's `<listeners>` block. That ordering matters: registering it through the suite XML instead puts it in a different position relative to Allure's own auto-registered listener, so by the time `onTestFailure` runs, Allure has already closed the test case and silently drops the attachment. Keep it on `BaseTest`.
 
-```xml
+### `FailureDiagnostics.java`
+Best-effort failure forensics, called only from `TestListener.onTestFailure`, never from passing tests. Grabs the full page HTML (`capturePageSource`) and, for Chromium browsers only, the browser's JS console output since the last check (`captureBrowserConsoleLogs`). Both methods swallow their own exceptions — a browser that's already crashed, or a Firefox session with no console-log endpoint, must never turn a genuine test failure into a secondary `NullPointerException` inside the listener itself.
 
-<listener class-name="com.automation.sites.listeners.TestListener"/>
-```
+### `AllureEnvironmentWriter.java`
+Writes two files Allure doesn't generate on its own straight into `target/allure-results`, once per JVM: `environment.properties` (feeds the report's **Environment** widget — site, browser, OS, Java version, retry count) and `categories.json` (feeds the **Categories** tab, auto-bucketing failures into Product Defects / Element-not-found / Timeouts / Driver issues / Skipped). `reset()` clears the "already written" flag so a second site's run in the same JVM (Jenkins looping over sites) regenerates its own environment file instead of keeping the first site's values.
 
 ### `ExtentManager.java`
-Singleton that creates one shared HTML report per test run.
-Saves to `target/extent-reports/<site>-report.html`.
+Singleton that creates one shared HTML report per test run. Saves to `target/extent-reports/<site>-report.html`.
 
 ### `ScreenshotUtil.java`
-Takes a PNG screenshot on test failure.
-Saves to `target/screenshots/TestName_timestamp.png`.
-Called automatically by `TestListener` — never call manually.
+Takes a PNG screenshot (as bytes, and as base64 for embedding) on test pass or failure. Called automatically by `TestListener` — never call manually.
 
 ---
 
-## Page Objects — Pattern Explained
+## 🔁 Retry & Resilience
 
-Every webpage has its own Java class. Locators and actions live in the page
-class. Tests only call page methods — no locators ever appear in test files.
+Two listeners work together so no test needs to opt in manually:
+
+| File | Role |
+|---|---|
+| `RetryListener.java` | An `IAnnotationTransformer` — attaches `RetryAnalyzer` to **every** `@Test` at runtime, so individual test classes never need `retryAnalyzer = ...` boilerplate. |
+| `RetryAnalyzer.java` | An `IRetryAnalyzer` — on failure, re-queues the test up to `retry.count` times (default **2**, from `global.properties`; override with `-Dretry.count=N`). |
+
+```bash
+# Disable retry entirely — useful when you want a failure to surface immediately
+mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
+```
+
+> ⚠️ **CI defaults to `retry.count=0`** in both the GitHub Actions workflow and typical Jenkins params, trading resilience for fast, unambiguous CI signal. Locally, leaving the default `2` in place absorbs one-off network/render hiccups without masking a real break.
+
+Page objects add a second layer of resilience beyond retry: several locators are wrapped to dump the full page source to `target/debug-dumps/*.html` on a `TimeoutException`/`NoSuchElementException`, rather than failing with only a stack trace. See [🧭 Debugging a Live Site Redesign](#-debugging-a-live-site-redesign--lessons-from-a-real-session) for why that pattern exists and how to use the dumps it produces.
+
+---
+
+## 📄 Page Objects — Pattern Explained
+
+Every webpage has its own Java class. Locators and actions live in the page class. Tests only call page methods — no locators ever appear in test files.
 
 ```java
 // Page Object — knows HOW to interact with the page
 public class TextBoxPage {
     private final By userName = By.id("userName");   // locator
 
-    public void fillForm(String name) {              // action
+    public void fillForm(String name) {               // action
         HumanActions.type(driver, userName, name);
     }
 
-    public String getOutputName() {                  // getter
+    public String getOutputName() {                   // getter
         return driver.findElement(outputName).getText();
     }
 }
@@ -240,14 +344,15 @@ public class TextBoxTest extends BaseTest {
     @Test
     public void fillTextBoxForm() {
         TextBoxPage page = new TextBoxPage(getDriver());
-        page.fillForm("Amit");                        // no locators here
+        page.fillForm("Amit");                         // no locators here
         Assert.assertTrue(page.getOutputName().contains("Amit"));
     }
 }
 ```
 
-### Helpers in Page Objects
-Private methods that do repeated work so public methods stay clean:
+<details>
+<summary><strong>Helpers in Page Objects</strong> — private methods that keep public methods clean</summary>
+
 ```java
 // Helper — private, called only inside this class
 private void scrollAndClick(By locator) {
@@ -259,9 +364,11 @@ private void scrollAndClick(By locator) {
 public void selectSports()  { scrollAndClick(sportsLabel);  }
 public void selectReading() { scrollAndClick(readingLabel); }
 ```
+</details>
 
-### Helpers in Test Classes
-Private methods that group related steps — makes tests shorter and readable:
+<details>
+<summary><strong>Helpers in Test Classes</strong> — group related steps for shorter, readable tests</summary>
+
 ```java
 private PracticeFormPage openForm() {
     PracticeFormPage page = new PracticeFormPage(getDriver());
@@ -283,12 +390,15 @@ public void verifyFormSubmission() {
     page.submitForm();
 }
 ```
+</details>
 
 ---
 
-## Test Coverage — demoqa.com
+## 🧩 Test Coverage — demoqa.com
 
-### Elements Section
+<details>
+<summary><strong>Elements Section</strong></summary>
+
 | Page | Description | Groups |
 |---|---|---|
 | Text Box | Fill and submit form, verify output | smoke, regression |
@@ -300,13 +410,19 @@ public void verifyFormSubmission() {
 | Broken Links - Images | Valid image loads, broken image fails, link navigation | smoke, regression |
 | Upload and Download | Upload file, download file to target folder | smoke, regression |
 | Dynamic Properties | Enable after delay, color change, appear after delay | smoke, regression |
+</details>
 
-### Forms Section
+<details>
+<summary><strong>Forms Section</strong></summary>
+
 | Page | Description | Groups |
 |---|---|---|
 | Practice Form | Full form with all fields, mandatory fields only | smoke, regression |
+</details>
 
-### Alerts, Frame and Windows Section
+<details>
+<summary><strong>Alerts, Frame and Windows Section</strong></summary>
+
 | Page | Description | Groups |
 |---|---|---|
 | Browser Windows | New tab, new window, message window | smoke, regression |
@@ -314,8 +430,11 @@ public void verifyFormSubmission() {
 | Frames | Read text from frame 1 and frame 2 | smoke, regression |
 | Nested Frames | Read parent frame text, child frame text | smoke, regression |
 | Modal Dialogs | Small modal title/body, large modal title/body | smoke, regression |
+</details>
 
-### Widgets Section
+<details>
+<summary><strong>Widgets Section</strong></summary>
+
 | Page | Description | Groups |
 |---|---|---|
 | Accordian | Section 1 default open, open section 2, open section 3 | smoke, regression |
@@ -327,15 +446,35 @@ public void verifyFormSubmission() {
 | Tool Tips | Button tooltip on hover, text field tooltip on hover | smoke, regression |
 | Menu | Main item visible, sub item on hover, nested sub sub item | smoke, regression |
 | Select Menu | Old style select, standard multi select | smoke, regression |
+</details>
+
+<details open>
+<summary><strong>Book Store Application — full E2E flow (16 tests, one shared session)</strong></summary>
+
+`BookStoreApplicationTest` drives the entire Book Store Application as one continuous logged-in session rather than isolated page checks — registration through logout, with the profile/collection flow folded in as part of the same journey instead of a separate test class:
+
+| # | Test | What it verifies |
+|---|---|---|
+| 1–3 | Register → back to login | New unique user registers successfully, lands back on `/login` |
+| 4–5 | Invalid then valid login | Bad credentials rejected with an error message; correct credentials log in |
+| 6–10 | Browse, search, open a book | Store lists books, search filters correctly, detail page shows ISBN/Author |
+| 11–12 | Profile — identity & empty state | Profile shows the logged-in username; a new user's collection is empty |
+| 13 | Add to collection | Adds a book from its detail page, accepts the resulting native alert |
+| 14 | Book appears on profile | Polls until the added book is visible in the collection (see note below) |
+| 15 | Delete from profile | Confirms the in-page delete modal, polls until the row is gone |
+| 16 | Logout | Redirects to `/login`, closing out the session |
+
+> Tests 11–16 replace what used to be a separate `ProfileTest` class — merged here so the whole flow (register → shop → manage collection → logout) runs against one real user session instead of two independently-registered ones.
+</details>
 
 ---
 
-## Running Tests Locally
+## 🚀 Running Tests Locally
 
 ### Prerequisites
 - Java 17 — `java -version`
 - Maven 3.9+ — `mvn -version`
-- Chrome/Firefox/Edge browser installed
+- Chrome/Firefox/Edge browser installed (or use the [Docker Grid](#-running-against-a-dockerized-selenium-grid) instead)
 
 ### Commands
 
@@ -364,15 +503,53 @@ mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.x
 
 ---
 
-## Configuration — global.properties
+## 🐳 Running Against a Dockerized Selenium Grid
+
+`docker-compose.yml` spins up a full Selenium Grid (hub + Chrome/Firefox/Edge nodes) plus a containerized test runner — no local browser installs needed, and you can **watch the tests run live** via noVNC.
+
+```bash
+# 1. Start the grid (hub + all three browser nodes)
+docker compose up -d selenium-hub chrome firefox edge
+
+# 2. Run the demoqa smoke suite against it (defaults: chrome, headless)
+docker compose run --rm tests
+
+# 3. Run a different site/browser/suite combination
+docker compose run --rm \
+  -e BROWSER=firefox \
+  -e SITE=saucedemo \
+  -e SUITE=testng-suites/saucedemo-regression.xml \
+  tests
+
+# 4. Watch a node live (password: secret)
+open http://localhost:7900   # chrome noVNC — firefox on 7901, edge on 7902
+
+# 5. Watch the grid console
+open http://localhost:4444/ui
+
+# 6. Tear everything down
+docker compose down -v
+```
+
+Reports, screenshots, Allure results, and `target/debug-dumps/` are all volume-mounted back to your host `target/` folder, so they're available after the container exits exactly as they would be from a local `mvn test` run.
+
+---
+
+## 🔧 Configuration — `global.properties`
 
 ```properties
 # ── Browser ────────────────────────────────────────────────────────
 browser=chrome          # chrome | firefox | edge
-headless=false          # true = no visible window (use true on CI/CD)
+headless=false           # true = no visible window (use true on CI/CD)
 
 # ── Timeouts ───────────────────────────────────────────────────────
-timeout=10              # seconds to wait for elements before failing
+timeout=10               # seconds to wait for elements before failing
+                          # (per-site overrides live in <site>.properties —
+                          #  see demoqa.properties, bumped to 20s for its
+                          #  slower-rendering book store page)
+
+# ── Retry ──────────────────────────────────────────────────────────
+retry.count=2             # automatic re-runs of a failed test (see Retry & Resilience)
 
 # ── Human Pause ────────────────────────────────────────────────────
 human.pause.enabled=true       # false = skip all pauses for fast runs
@@ -386,32 +563,110 @@ human.pause.typing.max=120     # max ms between keystrokes when typing
 
 Any key can be overridden at runtime:
 ```bash
-mvn test -Dbrowser=edge -Dheadless=true -Dhuman.pause.enabled=false
+mvn test -Dbrowser=edge -Dheadless=true -Dhuman.pause.enabled=false -Dretry.count=0
 ```
 
 ---
 
-## Test Reports
+## 📈 Test Reports
 
 ```
 target/
 ├── extent-reports/
-│   └── demoqa-report.html     # Custom HTML report — open in Chrome
+│   └── demoqa-report.html         # Custom HTML report — open in Chrome
+├── allure-results/                # Raw Allure results — feed to `allure serve` or CI's Allure step
+│   ├── environment.properties     # Written by AllureEnvironmentWriter → powers the Environment widget
+│   ├── categories.json            # Written by AllureEnvironmentWriter → powers the Categories tab
+│   └── *-result.json              # One per test, written by the allure-testng listener
 ├── screenshots/
-│   └── TestName_20260704.png  # Auto-captured on failure
+│   └── TestName_20260704.png      # Auto-captured on failure (local file copy)
+├── debug-dumps/
+│   └── *.html                     # Full page-source dumps written when a locator times out
 └── surefire-reports/
-    └── *.xml                  # Raw XML consumed by Jenkins/GitLab
+    └── *.xml                      # Raw XML consumed by Jenkins/GitLab
 ```
 
-Open `target/extent-reports/demoqa-report.html` in Chrome to see:
+### How a result becomes two reports
+
+```mermaid
+flowchart TD
+    A["Test finishes<br/>pass / fail / skip"] --> B["TestListener<br/>handles the result"]
+
+    B --> C["ExtentManager<br/>updates the HTML report"]
+    B --> D["Allure<br/>records the result"]
+
+    C --> C1["Pass → green"]
+    C --> C2["Fail → red + screenshot shown inline"]
+    C --> C3["Skip → grey + reason"]
+    C1 --> EXT["Extent report file"]
+    C2 --> EXT
+    C3 --> EXT
+
+    D --> D1{"Outcome?"}
+    D1 -- "Pass" --> P1["ScreenshotUtil<br/>captures a screenshot"]
+    D1 -- "Fail" --> F1["ScreenshotUtil<br/>captures a screenshot"]
+    F1 --> F2["FailureDiagnostics<br/>captures the page and browser logs"]
+    D1 -- "Skip" --> S1["Nothing captured"]
+
+    P1 --> ALR["Allure result files"]
+    F2 --> ALR
+    S1 --> ALR
+
+    ONCE["TestListener<br/>first test of the run"] -.-> ENV["AllureEnvironmentWriter<br/>saves run info and failure categories"]
+    ENV -.-> ALR
+
+    ALR --> UI["Interactive Allure report"]
+
+    classDef step fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33
+    classDef decision fill:#FFD666,stroke:#B8860B,stroke-width:2px,color:#1A1300,font-weight:bold
+    classDef pass fill:#2E9E5B,stroke:#1B6B3C,stroke-width:2px,color:#FFFFFF,font-weight:bold
+    classDef fail fill:#D64545,stroke:#8C1D1D,stroke-width:2px,color:#FFFFFF,font-weight:bold
+    classDef report fill:#EAF1FB,stroke:#1E5FAE,stroke-width:1.5px,color:#0B1F33,font-style:italic
+    classDef once fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#2E1065,font-style:italic
+
+    class A,B step
+    class D1 decision
+    class C1,P1 pass
+    class C2,F1,F2 fail
+    class C3,S1 step
+    class EXT,ALR,UI report
+    class ONCE,ENV once
+```
+
+**Reading it, in plain terms:** every test result goes down two paths at once — Extent (a single self-contained HTML file, good for a quick pass/fail skim) and Allure (result files that get rendered into an interactive site). On the very first test of a run, `TestListener` also has `AllureEnvironmentWriter` save two extra files so the eventual report knows what environment it ran in and how to auto-categorize failures. A failing test gets more captured than a passing one — a screenshot plus the full page and browser logs — so most failures can be triaged from the report alone, without re-running the test locally.
+
+### Extent Report — `target/extent-reports/<site>-report.html`
+Open directly in any browser. Shows:
 - Pass/fail per test with timestamps and duration
-- Failure screenshots embedded inline
-- System info: browser, site, headless mode
+- Failure screenshots embedded inline (base64 — no broken image paths if you zip/move the report)
+- System info panel: browser, site, headless mode, OS, Java version, retry count
 - Summary charts showing overall pass/fail ratio
+
+### Allure Report — interactive, with history/trends
+```bash
+allure serve target/allure-results     # spins up a local server and opens it
+# or, for a static folder you can host/archive:
+mvn allure:report                      # writes target/allure-report/
+```
+What you get that Extent doesn't have:
+- **Step-by-step timeline per test** — every `HumanActions.click()`/`type()` call shows up as its own expandable step (locator, typed text, timestamp), not just a single pass/fail line
+- **Click-to-enlarge screenshots** — this is native to Allure's report UI; every attached image opens in a full-size lightbox when clicked, no extra config needed
+- **Environment widget** — site/browser/OS/Java/retry count for the whole run, from `environment.properties`
+- **Categories tab** — failures pre-sorted into *Product defects*, *Element not found / stale*, *Timeouts*, *Driver / infrastructure issues*, and *Skipped*, so a big regression run can be triaged by category instead of one test at a time
+- **Severity labels** — tests in the `smoke` group show as `critical`, everything else as `normal`
+- **History/trend graphs** — accumulate automatically across runs if you keep copying the previous run's `history/` folder back into `allure-results` before regenerating
+
+### What gets attached, by outcome
+
+| Outcome | Extent | Allure |
+|---|---|---|
+| ✅ Pass | Pass log | Screenshot |
+| ❌ Fail | Fail log + stack trace + screenshot (inline) | Screenshot + page source (HTML) + browser console logs + Failed URL parameter |
+| ⏭️ Skip | Skip log + reason | *(no attachment)* |
 
 ---
 
-## Smoke vs Regression
+## 🚦 Smoke vs Regression
 
 ### Smoke — run first, fast
 Quick check that critical paths work. Run after every deployment.
@@ -434,21 +689,23 @@ mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 
 ---
 
-## Jenkins CI/CD Setup
+## 🔄 Jenkins CI/CD Setup
 
 ### One-time setup
 1. `Manage Jenkins → Tools` → Add JDK named exactly `JDK17`
 2. `Manage Jenkins → Tools` → Add Maven named exactly `Maven3`
-3. Install **HTML Publisher** plugin
-4. Create Pipeline job → SCM: Git → Script Path: `Jenkinsfile`
+3. `Manage Jenkins → Tools` → Add Allure Commandline named exactly `allure`
+4. Install **HTML Publisher** plugin
+5. Create Pipeline job → SCM: Git → Script Path: `Jenkinsfile`
 
 ### Build parameters
 | Parameter | Options | Default | Purpose |
 |---|---|---|---|
-| `SUITE_TYPE` | regression / smoke | regression | Which suite type to run |
+| `SUITE_TYPE` | regression / smoke | regression | Which suite type to run for each discovered site |
 | `SITE` | ALL / site name | ALL | Run all sites or one specific |
 | `BROWSER` | chrome / firefox / edge | chrome | Browser to use |
 | `HEADLESS` | true / false | true | Show browser or not |
+| `RETRY_COUNT` | integer | 0 | Retries for failed tests — 0 disables for CI speed |
 
 ### After build — where to look
 ```
@@ -480,7 +737,35 @@ sudo systemctl restart jenkins
 
 ---
 
-## GitLab CI/CD Pipeline
+## 🐙 GitHub Actions Pipeline
+
+`.github/workflows/github-ci.yml` runs on every push/PR to `main`/`master` and is the only one of the three pipelines that also **publishes a live Allure report with trend history** to GitHub Pages.
+
+```
+build          → mvn clean compile test-compile (fails fast on compile errors)
+test           → installs Chrome if missing, runs the regression suite headless,
+                  uploads Allure results + Extent/screenshots/surefire as artifacts
+allure-report  → downloads this run's Allure results + previous run's history
+                  from the gh-pages branch, merges them for trend graphs,
+                  deploys both the Allure report and the Extent report to
+                  GitHub Pages under /allure-report and /extent-report
+```
+
+Defaults baked into the workflow (`env:` block) — override by editing the file, these aren't currently exposed as manual dispatch inputs:
+
+| Variable | Default |
+|---|---|
+| `SITE` | `demoqa` |
+| `SUITE_TYPE` | `regression` |
+| `BROWSER` | `chrome` |
+| `HEADLESS` | `true` |
+| `RETRY_COUNT` | `0` |
+
+The `allure-report` job needs `contents: write` permission and a `gh-pages` branch to accumulate history in — first run will simply start fresh history if that branch doesn't exist yet.
+
+---
+
+## 🦊 GitLab CI/CD Pipeline
 
 ### Pipeline stages
 ```
@@ -505,16 +790,15 @@ Download and open in Chrome — full styling works when opened locally.
 
 ---
 
-## Adding a New Site — 4 Steps
+## ➕ Adding a New Site — 4 Steps
 
-Zero changes to core framework files. Jenkins and GitLab auto-discover the
-new suite files on next run.
+Zero changes to core framework files. `Scripts/new-site.sh` automates steps 1 and 4; Jenkins and GitLab auto-discover the new suite files on next run.
 
-### Step 1 — Config
-```
-Copy:  src/test/resources/config/_TEMPLATE.properties.example
-To:    src/test/resources/config/mysite.properties
-Set:   url=https://mysite.com
+### Step 1 — Config + suite XMLs (one command)
+```bash
+./Scripts/new-site.sh mysite https://mysite.com
+# Creates: src/test/resources/config/mysite.properties
+#          testng-suites/mysite-regression.xml
 ```
 
 ### Step 2 — Page Objects
@@ -523,9 +807,6 @@ Create: src/test/java/com/automation/sites/mysite/pages/MyPage.java
 ```
 
 ### Step 3 — Test Classes
-```
-Create: src/test/java/com/automation/sites/mysite/tests/MyTest.java
-```
 ```java
 public class MyTest extends BaseTest {
     @Test(priority = 1, groups = {"regression"}, description = "My test")
@@ -537,30 +818,42 @@ public class MyTest extends BaseTest {
 }
 ```
 
-### Step 4 — Suite Files
-```
-Copy:   testng-suites/demoqa-regression.xml → testng-suites/mysite-regression.xml
-Copy:   testng-suites/demoqa-smoke.xml      → testng-suites/mysite-smoke.xml
-Change: <package name="com.automation.sites.mysite.tests"/>
-```
-
-### Run
+### Step 4 — Run it
 ```bash
 mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
 ```
 
 ---
 
-## Key Selenium Concepts Used
+## 🧭 Debugging a Live Site Redesign — Lessons from a Real Session
+
+demoqa.com's Book Store Application was redesigned mid-development of this suite, breaking every previously-working locator at once. The fixes below are documented here because they're the kind of failure mode any test suite pointed at a real, evolving website will eventually hit again — the process matters more than the specific selectors:
+
+| What changed on the site | Symptom | Fix |
+|---|---|---|
+| React-table grid (`[role='table']`, `.rt-tr-group`, `.rt-noData`) replaced with a plain semantic `<table>` | `TimeoutException` waiting for `[role='table']`, even though the table was visibly on screen | Re-derived locators (`table tbody tr`, `table tbody a[href]`) from a real page-source dump instead of guessing again |
+| Book detail links changed from `/books?book=<isbn>` to `/books?search=<isbn>` | URL assertions failed after a successful click | Updated every `urlContains`/`getCurrentUrl().contains(...)` check to the confirmed pattern |
+| "Back To Book Store" and "Add To Your Collection" buttons share a duplicate `id="addNewRecordButton"` and are both present at once | `By.id(...)` always resolved to the *first* match — silently clicking the wrong button | Switched to text-based `By.xpath("//button[normalize-space()='...']")` locators |
+| Adding a book triggers a **native JS `alert()`**, but deleting one shows a **rendered in-page modal** (not a native dialog) | `alertIsPresent()` correctly caught the add-alert, but timed out on delete and silently moved on with the modal still open, blocking everything after it | Add: accept the native alert. Delete: click the modal's `OK` button directly by locating it in the DOM |
+| Profile page collection table renders asynchronously after the username label appears | One-shot `findElements()` reads (`getBookCount()`, `isBookListed()`) intermittently returned stale/empty results depending on timing | Added polling variants (`waitForBookListed(...)`, retry inside `deleteBookByTitle(...)`) instead of trusting a single snapshot right after navigation |
+
+**Takeaways baked into the framework as a result:**
+- `dumpPageForDebugging(String label)` (in `BookStoreApplicationPage` / `ProfilePage`) writes full page source to `target/debug-dumps/` on locator timeout — check there first the next time a previously-passing test breaks against a live site.
+- Prefer **polling** (`wait.until(...)`) over one-shot DOM reads for anything that updates asynchronously after a navigation or an action — a single `findElements()` call has no guarantee the render has settled.
+- Don't assume a confirmation dialog is a native `alert()`/`confirm()` just because a sibling action's confirmation is — check both, or check the actual DOM/screenshot before writing the handling code.
+
+---
+
+## 🧰 Key Selenium Concepts Used
 
 ### Locator types
 ```java
 By.id("userName")                          // fastest, most reliable
 By.xpath("//h5[text()='Elements']")        // flexible, finds by text
 By.cssSelector(".modal-body")              // CSS class/attribute
-By.className("text-success")              // single class only
-By.linkText("Click Here")                 // exact link text
-By.xpath("//a[normalize-space()='Menu']") // trims whitespace before matching
+By.className("text-success")               // single class only
+By.linkText("Click Here")                  // exact link text
+By.xpath("//a[normalize-space()='Menu']")  // trims whitespace before matching
 ```
 
 ### Wait strategies
@@ -574,13 +867,14 @@ wait.until(ExpectedConditions.elementToBeClickable(locator));
 // Wait for element to disappear
 wait.until(ExpectedConditions.invisibilityOfElementLocated(locator));
 
-// Wait for custom condition using lambda
+// Wait for custom condition using lambda — also the pattern used for
+// "poll until this async UI update lands" (see Debugging section above)
 wait.until(d -> d.findElement(locator).getAttribute("aria-valuenow").equals("100"));
 
 // Wait for number of windows/tabs
 wait.until(ExpectedConditions.numberOfWindowsToBe(2));
 
-// Wait for JS alert to appear
+// Wait for a native JS alert to appear (does NOT catch in-page modals — see Debugging section)
 wait.until(ExpectedConditions.alertIsPresent());
 ```
 
@@ -666,23 +960,39 @@ element.getAttribute("aria-selected")   // true/false — is selected
 
 ---
 
-## Common Errors and Fixes
+## 🩹 Common Errors and Fixes
 
 | Error | Cause | Fix |
 |---|---|---|
 | `ElementClickInterceptedException` | Ad banner covering element | Use `js.executeScript("arguments[0].click()", el)` |
-| `TimeoutException` | Element not found in time | Check locator in DevTools, verify page loaded |
+| `TimeoutException` | Element not found in time, OR the site's markup changed | Check locator in DevTools; check `target/debug-dumps/` if the page object dumps on failure |
+| `UnhandledAlertException` on any subsequent driver call | A native alert opened and was never accepted/dismissed | Call `wait.until(alertIsPresent())` then `.accept()`/`.dismiss()` immediately after the action that triggers it, before any other driver call |
 | `NoSuchWindowException` | Window already closed | Wrap `driver.close()` in try-catch |
 | `StaleElementReferenceException` | Page reloaded, element gone | Re-find element after page action |
 | `InvalidSelectorException: Compound class names` | Space in `By.className()` | Use `By.cssSelector(".class1.class2")` instead |
 | `Keys to send should be not null` | Variable is null | Check `@BeforeMethod` runs before `@Test` |
-| `NoSuchElementException` | Wrong locator or inside iframe | Check locator in DevTools, switch frame first |
+| `NoSuchElementException` | Wrong locator, inside an iframe, OR read happened before an async re-render finished | Check locator in DevTools, switch frame first, or poll instead of a one-shot read |
 | `NoSuchWindowException on close()` | Message window closed itself | Wrap in try-catch, window already gone |
 | `ElementNotInteractableException` | Element hidden or disabled | Use `presenceOfElementLocated`, then JS click |
+| `Cannot resolve symbol 'Step'` (IDE) in `src/main/java` code | `allure-testng` (which transitively brings `@Step`) is declared `scope=test`, invisible to main code | Add `io.qameta.allure:allure-java-commons` as its own dependency with the default (compile) scope — already done in this pom |
 
 ---
 
-## Glossary
+## 🗺️ Suggestions & Roadmap
+
+Ideas for where this framework could go next, roughly ordered by effort-to-value:
+
+- [ ] **Parallel execution** — TestNG is already parallel-ready (`ThreadLocal<WebDriver>`); flipping `parallel="methods"`/`"classes"` in the suite XMLs plus a `thread-count` would cut regression runtime significantly, especially combined with the Docker Grid's multi-session nodes.
+- [ ] **API-layer assertions alongside UI** — the Book Store has a documented REST API (`/BookStore/v1/Books`); seeding/verifying state via API calls before/after UI actions would make tests faster and less coupled to fragile UI state.
+- [ ] **Visual regression** — a lightweight screenshot-diff step (Applitools, or even a simple pixel-diff) would have caught the demoqa table redesign automatically instead of via a cascade of locator failures.
+- [ ] **Checkstyle/PMD enforcement in CI** — `.idea/checkstyle-idea.xml` suggests Checkstyle is already configured locally; wiring the same ruleset into the Maven build (and failing CI on violations) would catch style drift before review.
+- [ ] **Parameterize the GitHub Actions workflow** — currently `SITE`/`BROWSER`/`SUITE_TYPE` are hardcoded in the `env:` block; converting to `workflow_dispatch` inputs (matching what Jenkins already exposes as build parameters) would let one workflow file cover the same flexibility as the Jenkinsfile.
+- [ ] **Multi-browser matrix in CI** — all three browsers are already supported locally and via the Docker Grid; a GitHub Actions matrix (`chrome`, `firefox`, `edge`) would catch browser-specific regressions automatically.
+- [ ] **Contract test for the debug-dump pattern** — now that three page objects (`BookStoreApplicationPage`, `ProfilePage`, `CheckBoxPage`) each hand-roll a near-identical `dumpPageForDebugging` method, it's a good candidate to promote into `core/utils` as a shared utility so future page objects get it for free.
+
+---
+
+## 📖 Glossary
 
 | Term | Meaning |
 |---|---|
@@ -693,9 +1003,11 @@ element.getAttribute("aria-selected")   // true/false — is selected
 | ThreadLocal | Variable where each thread gets its own independent copy |
 | TestNG groups | Tags on tests — `smoke` or `regression` — for selective running |
 | Extent Report | Custom HTML test report with charts and embedded screenshots |
+| Allure Report | Interactive test report with trend history across runs, used via CI |
 | HumanActions | Framework utility adding random delays to simulate human typing/clicking |
 | Actions class | Selenium class for hover, drag-drop, double-click, keyboard shortcuts |
-| Alert | JavaScript browser popup — not part of webpage HTML |
+| Alert | Native JavaScript browser popup (`alert`/`confirm`/`prompt`) — not part of the page's own HTML/DOM |
+| In-page modal | A dialog rendered by the site's own HTML/CSS/JS — looks like a popup but is a normal DOM element, so `alertIsPresent()` never catches it |
 | Frame / iframe | HTML element that embeds one webpage inside another |
 | Window handle | Unique ID assigned to each open browser tab or window |
 | ARIA attribute | Accessibility HTML attribute readable by automation tools |
@@ -704,5 +1016,11 @@ element.getAttribute("aria-selected")   // true/false — is selected
 | CSP | Content Security Policy — Jenkins setting that blocks external CSS in reports |
 | Smoke test | Quick sanity check — is it working at all? |
 | Regression test | Full suite — did anything break? |
-| ThreadLocal | Each thread gets its own driver — needed for parallel test runs |
 | dispatchEvent | JavaScript command to fire browser events that React/Vue listens to |
+| Debug dump | A full page-source snapshot written to `target/debug-dumps/` when a locator fails, for diagnosing site changes from real markup instead of guessing |
+
+---
+
+## 📜 License
+
+MIT — see badge above. Use freely for learning, portfolio, and real-world QA practice.
