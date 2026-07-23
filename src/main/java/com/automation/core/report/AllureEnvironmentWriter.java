@@ -38,7 +38,9 @@ public final class AllureEnvironmentWriter {
     }
 
     public static synchronized void writeOnce() {
-        if (written) return;
+        if (written) {
+            return;
+        }
         written = true;
 
         Path resultsDir = Paths.get("target", "allure-results");

@@ -27,7 +27,9 @@ public final class FailureDiagnostics {
 
     /** Full HTML of the page at the moment of failure, or "" if unavailable. */
     public static String capturePageSource(WebDriver driver) {
-        if (driver == null) return "";
+        if (driver == null) {
+            return "";
+        }
         try {
             return driver.getPageSource();
         } catch (Exception e) {
@@ -42,7 +44,9 @@ public final class FailureDiagnostics {
      * goog:loggingPrefs); Firefox/geckodriver returns an empty string.
      */
     public static String captureBrowserConsoleLogs(WebDriver driver) {
-        if (driver == null) return "";
+        if (driver == null) {
+            return "";
+        }
         try {
             List<LogEntry> entries = driver.manage().logs().get(LogType.BROWSER).getAll();
             if (entries.isEmpty()) {
@@ -51,7 +55,7 @@ public final class FailureDiagnostics {
             StringBuilder sb = new StringBuilder();
             for (LogEntry entry : entries) {
                 sb.append('[').append(entry.getLevel()).append("] ")
-                        .append(entry.getMessage()).append(System.lineSeparator());
+                    .append(entry.getMessage()).append(System.lineSeparator());
             }
             return sb.toString();
         } catch (Exception e) {

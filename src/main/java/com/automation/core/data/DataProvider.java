@@ -3,17 +3,31 @@ package com.automation.core.data;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVReader;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.yaml.snakeyaml.Yaml;
 
 import com.automation.core.config.ConfigReader;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -95,8 +109,8 @@ public class DataProvider {
             return readZip(file);
         } else {
             throw new RuntimeException(
-                    "[DataProvider] Unsupported file type: " + name
-                            + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
+                "[DataProvider] Unsupported file type: " + name
+                    + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
             );
         }
     }
@@ -154,17 +168,17 @@ public class DataProvider {
 
         try (InputStream is = new FileInputStream(file);
              Workbook workbook = file.getName().endsWith(".xls")
-                     ? new HSSFWorkbook(is)
-                     : new XSSFWorkbook(is)) {
+                 ? new HSSFWorkbook(is)
+                 : new XSSFWorkbook(is)) {
 
             Sheet sheet = (sheetName != null)
-                    ? workbook.getSheet(sheetName)
-                    : workbook.getSheetAt(0);
+                ? workbook.getSheet(sheetName)
+                : workbook.getSheetAt(0);
 
             if (sheet == null) {
                 throw new RuntimeException(
-                        "[DataProvider] Sheet '" + sheetName + "' not found in " + file.getName()
-                                + ". Available sheets: " + getSheetNames(workbook)
+                    "[DataProvider] Sheet '" + sheetName + "' not found in " + file.getName()
+                        + ". Available sheets: " + getSheetNames(workbook)
                 );
             }
 
@@ -183,7 +197,9 @@ public class DataProvider {
             // Data rows
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (isEmptyRow(row)) continue;
+                if (isEmptyRow(row)) {
+                    continue;
+                }
 
                 Map<String, String> rowData = new LinkedHashMap<>();
                 for (int j = 0; j < headers.size(); j++) {
@@ -194,7 +210,7 @@ public class DataProvider {
             }
 
             logger.info("[DataProvider] Read " + rows.size() + " rows from sheet '"
-                    + sheet.getSheetName() + "'");
+                + sheet.getSheetName() + "'");
 
         } catch (IOException e) {
             throw new RuntimeException("[DataProvider] Failed to read Excel: " + file.getPath(), e);
@@ -213,7 +229,7 @@ public class DataProvider {
         if (row == null) return true;
         for (Cell cell : row) {
             if (cell != null && cell.getCellType() != CellType.BLANK
-                    && !getCellValue(cell).isEmpty()) {
+                && !getCellValue(cell).isEmpty()) {
                 return false;
             }
         }
@@ -238,7 +254,7 @@ public class DataProvider {
         // data (accented names, currency symbols, etc.) on machines whose
         // default charset isn't UTF-8 (e.g. some Windows CI agents).
         try (CSVReader reader = new CSVReader(
-                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+            new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
 
             List<String[]> all = reader.readAll();
             if (all.isEmpty()) return rows;
@@ -289,8 +305,8 @@ public class DataProvider {
         try {
             ObjectMapper mapper = new ObjectMapper();
             List<Map<String, String>> list = mapper.readValue(
-                    file,
-                    new TypeReference<List<Map<String, String>>>() {}
+                file,
+                new TypeReference<List<Map<String, String>>>() {}
             );
 
             for (int i = 0; i < list.size(); i++) {
@@ -330,7 +346,7 @@ public class DataProvider {
 
             if (!(loaded instanceof List)) {
                 throw new RuntimeException(
-                        "[DataProvider] YAML root must be a list of rows: " + file.getName());
+                    "[DataProvider] YAML root must be a list of rows: " + file.getName());
             }
 
             List<Object> list = (List<Object>) loaded;
@@ -340,7 +356,7 @@ public class DataProvider {
 
                 Map<String, String> rowData = new LinkedHashMap<>();
                 ((Map<Object, Object>) entry).forEach((k, v) ->
-                        rowData.put(String.valueOf(k), v == null ? "" : String.valueOf(v)));
+                    rowData.put(String.valueOf(k), v == null ? "" : String.valueOf(v)));
 
                 rows.add(new DataRow(rowData, i + 1));
             }
@@ -380,10 +396,10 @@ public class DataProvider {
 
                 // Skip directories and unsupported files
                 if (entry.isDirectory()
-                        || (!entryName.endsWith(".xlsx")
-                        && !entryName.endsWith(".xls")
-                        && !entryName.endsWith(".csv")
-                        && !entryName.endsWith(".json"))) {
+                    || (!entryName.endsWith(".xlsx")
+                    && !entryName.endsWith(".xls")
+                    && !entryName.endsWith(".csv")
+                    && !entryName.endsWith(".json"))) {
                     zis.closeEntry();
                     continue;
                 }
@@ -440,7 +456,7 @@ public class DataProvider {
             if (rowMatchesTags(row, requestedTags)) byTags.add(row);
         }
         logger.info("[DataProvider] Tag filter " + requestedTags + " matched "
-                + byTags.size() + "/" + byExecute.size() + " rows");
+            + byTags.size() + "/" + byExecute.size() + " rows");
         return byTags;
     }
 
@@ -455,7 +471,7 @@ public class DataProvider {
                 if (!value.isEmpty() && FALSY.contains(value)) {
                     skipped++;
                     logger.info("[DataProvider] Skipping row " + row.getRowIndex()
-                            + " (" + executeColumn + "=" + value + ")");
+                        + " (" + executeColumn + "=" + value + ")");
                     continue;
                 }
             }
@@ -464,7 +480,7 @@ public class DataProvider {
 
         if (skipped > 0) {
             logger.info("[DataProvider] Excluded " + skipped + " row(s) via '"
-                    + executeColumn + "' column");
+                + executeColumn + "' column");
         }
         return kept;
     }
@@ -507,8 +523,8 @@ public class DataProvider {
         } catch (Exception ignored) {}
 
         throw new RuntimeException(
-                "[DataProvider] File not found: " + filePath
-                        + "\nTried: absolute path, project-relative, and classpath."
+            "[DataProvider] File not found: " + filePath
+                + "\nTried: absolute path, project-relative, and classpath."
         );
     }
 }
