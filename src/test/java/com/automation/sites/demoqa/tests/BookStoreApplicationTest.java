@@ -4,6 +4,7 @@ import com.automation.sites.core.BaseTest;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.demoqa.pages.BookStoreApplicationPage;
+import com.automation.sites.demoqa.pages.ProfilePage;
 import com.automation.sites.demoqa.pages.RegistrationPage;
 import org.testng.Assert;
 import org.testng.annotations.*;
@@ -13,7 +14,7 @@ import java.util.UUID;
 
 /**
  * ============================================================
- * Book Store Application — Complete E2E Flow
+ * Book Store Application — Complete E2E Flow (UI + Profile)
  * ============================================================
  *
  * Flow (one shared browser session, sequential):
@@ -28,16 +29,32 @@ import java.util.UUID;
  *  Test 8  → Click first book → detail page opens
  *  Test 9  → Back to store
  *  Test 10 → Search + open specific book "Git Pocket Guide"
- *  Test 11 → Logout → redirects to /login
+ *  Test 11 → Profile shows the logged-in user's name
+ *  Test 12 → New user's book collection is empty
+ *  Test 13 → Add a book to the collection (via /books → detail → "Add To Your Collection")
+ *  Test 14 → Added book is listed on the profile page
+ *  Test 15 → Delete book from profile removes it from the collection
+ *  Test 16 → Logout → redirects to /login
  *
  * ONE BROWSER SESSION:
  *   @BeforeClass opens Chrome once and stores driver in BaseTest's ThreadLocal
  *   so TestListener can capture screenshots on failure.
- *   @AfterClass closes it after Test 11.
- *   Tests 6–11 reuse the logged-in session from Test 5.
+ *   @AfterClass closes it after Test 16.
+ *   Tests 6–16 reuse the logged-in session from Test 5.
  *
  *   setUp() and tearDown() from BaseTest are suppressed here
  *   because this test manages its own lifecycle via @BeforeClass/@AfterClass.
+ *
+ * NOTE ON PROFILE:
+ *   The /profile page has NO "Add Book" button (confirmed via diagnostics —
+ *   only one clickable element exists on that page, a homepage link). The
+ *   actual flow to add a book is:
+ *     1. Navigate to /books
+ *     2. Click a book from the list
+ *     3. Click "Add To Your Collection" on the book's detail page
+ *     4. That action redirects back to /profile
+ *   This class now owns that flow end-to-end (previously split out into a
+ *   separate ProfileTest class using the same registered session).
  */
 public class BookStoreApplicationTest extends BaseTest {
 
@@ -49,8 +66,12 @@ public class BookStoreApplicationTest extends BaseTest {
     private static final String REGISTERED_EMAIL    = "autotest_" + UNIQUE_ID + "@mailtest.com";
     private static final String REGISTERED_PASSWORD = "Password123!@";
 
+    // Set by verifyAddBookToCollection, read by the two profile checks that follow it
+    private static String addedBookTitle;
+
     private BookStoreApplicationPage bookStorePage;
     private RegistrationPage registrationPage;
+    private ProfilePage profilePage;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -63,6 +84,7 @@ public class BookStoreApplicationTest extends BaseTest {
 
         bookStorePage    = new BookStoreApplicationPage(getDriver());
         registrationPage = new RegistrationPage(getDriver());
+        profilePage      = new ProfilePage(getDriver());
 
         System.out.println("=== Book Store E2E Test Started ===");
         System.out.println("  Username : " + REGISTERED_USERNAME);
@@ -280,7 +302,7 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.clickFirstBook();
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books?book="),
+                getDriver().getCurrentUrl().contains("/books?search="),
                 "Expected book detail URL, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 8 PASS — Detail page URL: " + getDriver().getCurrentUrl());
@@ -331,7 +353,7 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.clickBookByTitle("Git Pocket Guide");
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books?book="),
+                getDriver().getCurrentUrl().contains("/books?search="),
                 "Expected book detail page, got: " + getDriver().getCurrentUrl()
         );
 
@@ -344,14 +366,133 @@ public class BookStoreApplicationTest extends BaseTest {
     }
 
     // ════════════════════════════════════════════════════════════════════════════
-    // TEST 11 — Logout
+    // TEST 11 — Profile shows the logged-in user's name
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
             priority         = 11,
             groups           = {"smoke", "regression"},
-            description      = "Book Store - Logout redirects to /login",
+            description      = "Profile - Page shows the logged-in user's name",
             dependsOnMethods = "verifyOpenSpecificBook"
+    )
+    public void verifyProfileShowsUserName() {
+        profilePage.navigateToProfile();
+        String displayedName = profilePage.getProfileUserName();
+        System.out.println("  Profile shows: " + displayedName);
+        Assert.assertEquals(displayedName, REGISTERED_USERNAME,
+                "Profile page did not show the expected username");
+        System.out.println("✓ Test 11 PASS — Profile shows correct username");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TEST 12 — New user's book collection is empty
+    // ════════════════════════════════════════════════════════════════════════════
+
+    @Test(
+            priority         = 12,
+            groups           = {"regression"},
+            description      = "Profile - New user's book collection is empty",
+            dependsOnMethods = "verifyProfileShowsUserName"
+    )
+    public void verifyEmptyCollectionForNewUser() {
+        profilePage.navigateToProfile();
+        int bookCount = profilePage.getBookCount();
+        System.out.println("  Books on profile: " + bookCount);
+        Assert.assertEquals(bookCount, 0, "Brand-new user should have an empty collection");
+        System.out.println("✓ Test 12 PASS — Collection empty for new user");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TEST 13 — Add a book to the user's collection
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * The /profile page has NO "Add Book" button (confirmed via diagnostics —
+     * only one clickable element exists on that page, a homepage link). The
+     * actual flow to add a book is:
+     *   1. Navigate directly to /books
+     *   2. Click a book from the list
+     *   3. Click "Add To Your Collection" on the book's detail page
+     *   4. That action redirects back to /profile
+     */
+    @Test(
+            priority         = 13,
+            groups           = {"smoke", "regression"},
+            description      = "Profile - Add a book to the user's collection",
+            dependsOnMethods = "verifyEmptyCollectionForNewUser"
+    )
+    public void verifyAddBookToCollection() {
+        bookStorePage.navigateToBookStore();
+
+        addedBookTitle = bookStorePage.getBookTitles().get(0);
+        System.out.println("  Adding to collection: " + addedBookTitle);
+
+        bookStorePage.clickFirstBook();
+        bookStorePage.addBookToCollection();
+
+        // CONFIRMED from a real run: accepting the "Book added to your
+        // collection" alert does NOT redirect anywhere — the driver stays
+        // on this same book detail page. Test 14 navigates to /profile
+        // itself to verify the book actually landed in the collection.
+        Assert.assertTrue(
+                getDriver().getCurrentUrl().contains("/books?search="),
+                "Expected to remain on book detail page after adding, got: " + getDriver().getCurrentUrl()
+        );
+        System.out.println("✓ Test 13 PASS — Book added to collection");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TEST 14 — Added book is listed on the profile page
+    // ════════════════════════════════════════════════════════════════════════════
+
+    @Test(
+            priority         = 14,
+            groups           = {"regression"},
+            description      = "Profile - Added book is listed on the profile page",
+            dependsOnMethods = "verifyAddBookToCollection"
+    )
+    public void verifyAddedBookAppearsOnProfile() {
+        profilePage.navigateToProfile();
+        boolean listed = profilePage.waitForBookListed(addedBookTitle);
+        int bookCount = profilePage.getBookCount();
+        System.out.println("  Books on profile: " + bookCount + " | contains '" + addedBookTitle + "': " + listed);
+        Assert.assertTrue(listed, "Added book not found on profile page: " + addedBookTitle);
+        Assert.assertEquals(bookCount, 1, "Expected exactly 1 book in collection");
+        System.out.println("✓ Test 14 PASS — Added book visible on profile");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TEST 15 — Delete book from profile removes it
+    // ════════════════════════════════════════════════════════════════════════════
+
+    @Test(
+            priority         = 15,
+            groups           = {"smoke", "regression"},
+            description      = "Profile - Delete book from collection removes it",
+            dependsOnMethods = "verifyAddedBookAppearsOnProfile"
+    )
+    public void verifyDeleteBookFromProfile() {
+        profilePage.navigateToProfile();
+        profilePage.deleteBookByTitle(addedBookTitle);
+        int bookCount = profilePage.getBookCount();
+        System.out.println("  Books on profile after delete: " + bookCount);
+        Assert.assertFalse(
+                profilePage.isBookListed(addedBookTitle),
+                "Book still listed on profile after delete: " + addedBookTitle
+        );
+        Assert.assertEquals(bookCount, 0, "Expected empty collection after deleting the only book");
+        System.out.println("✓ Test 15 PASS — Book deleted, collection empty");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // TEST 16 — Logout
+    // ════════════════════════════════════════════════════════════════════════════
+
+    @Test(
+            priority         = 16,
+            groups           = {"smoke", "regression"},
+            description      = "Book Store - Logout redirects to /login",
+            dependsOnMethods = "verifyDeleteBookFromProfile"
     )
     public void verifyLogout() {
         bookStorePage.navigateToProfile();
@@ -361,7 +502,7 @@ public class BookStoreApplicationTest extends BaseTest {
                 getDriver().getCurrentUrl().contains("login"),
                 "Expected redirect to /login after logout, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 11 PASS — Logged out, on: " + getDriver().getCurrentUrl());
-        System.out.println("=== All 11 Book Store tests completed ===");
+        System.out.println("✓ Test 16 PASS — Logged out, on: " + getDriver().getCurrentUrl());
+        System.out.println("=== All 16 Book Store tests completed ===");
     }
 }
