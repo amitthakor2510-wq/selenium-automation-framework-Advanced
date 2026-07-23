@@ -91,7 +91,7 @@
     <dependency>
       <groupId>io.github.bonigarcia</groupId>
       <artifactId>webdrivermanager</artifactId>
-      <version>6.1.0</version>
+      <version>6.3.4</version>
     </dependency>
 
     <!-- Extent Reports (custom HTML report) -->
