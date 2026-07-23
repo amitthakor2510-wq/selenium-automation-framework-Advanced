@@ -23,10 +23,6 @@ echo "[✓] Created config/${SITE}.properties"
 cat > "testng-suites/${SITE}-regression.xml" <<EOF
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="${SITE^} Regression Suite" parallel="none">
-    <listeners>
-        <listener class-name="com.automation.sites.listeners.TestListener"/>
-        <listener class-name="com.automation.sites.listeners.RetryListener"/>
-    </listeners>
     <test name="${SITE^} Regression Tests" preserve-order="true">
         <groups>
             <run><include name="regression"/></run>
@@ -43,10 +39,6 @@ echo "[✓] Created testng-suites/${SITE}-regression.xml"
 cat > "testng-suites/${SITE}-smoke.xml" <<EOF
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="${SITE^} Smoke Suite" parallel="none">
-    <listeners>
-        <listener class-name="com.automation.sites.listeners.TestListener"/>
-        <listener class-name="com.automation.sites.listeners.RetryListener"/>
-    </listeners>
     <test name="${SITE^} Smoke Tests" preserve-order="true">
         <groups>
             <run><include name="smoke"/></run>

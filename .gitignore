@@ -41,4 +41,5 @@ build/
 
 *.log
 allure/
+.allure/
 target/allure-report/

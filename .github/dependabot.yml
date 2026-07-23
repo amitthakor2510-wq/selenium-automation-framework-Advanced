@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # Maven dependencies (Selenium, TestNG, Allure, WebDriverManager, Lombok, etc.)
+  # This project has already been bitten twice by version drift:
+  #   - Lombok < 1.18.30 crashing the compiler on JDK 21+
+  #   - Chrome auto-updating past what Selenium's bundled CDP classes support
+  # Weekly PRs here surface that kind of drift as a reviewable diff instead
+  # of a mystery CI failure.
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      allure:
+        patterns:
+          - "io.qameta.allure*"
+      selenium:
+        patterns:
+          - "org.seleniumhq.selenium*"
+
+  # GitHub Actions used in .github/workflows/github-ci.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ci"
