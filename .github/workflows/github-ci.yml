@@ -59,8 +59,14 @@ jobs:
           if ! command -v google-chrome &> /dev/null; then
             echo "Chrome not found - installing..."
             sudo apt-get update -qq
-            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            # `apt-key` is deprecated and has been removed from the
+            # ubuntu-latest (24.04 "noble") runner image, so the old
+            # "wget | sudo apt-key add -" line here would fail with
+            # "apt-key: command not found" and break this step outright.
+            # Use the modern signed-by keyring method instead.
+            sudo apt-get install -y -qq gnupg
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
             sudo apt-get update -qq
             sudo apt-get install -y -qq google-chrome-stable
           else

@@ -230,9 +230,14 @@
                         <firefox.binary>${firefox.binary}</firefox.binary>
                     </systemPropertyVariables>
                     <testFailureIgnore>true</testFailureIgnore>
-                    <!-- AspectJ weaver is required for @Step and @Attachment annotations to work -->
+                    <!-- AspectJ weaver is required for @Step and @Attachment annotations to work.
+                         java.util.logging.config.file points at src/test/resources/logging.properties,
+                         which silences Selenium's own harmless "Unable to find CDP implementation
+                         matching <version>" warnings that fire whenever the installed Chrome is newer
+                         than this Selenium release's bundled CDP command classes. -->
                     <argLine>
                         -javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar
+                        -Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties
                         -Xms256m
                         -Xmx1024m
                         -XX:+UseG1GC
