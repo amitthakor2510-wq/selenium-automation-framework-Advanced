@@ -25,6 +25,15 @@
         <allure.version>2.27.0</allure.version>
         <aspectj.version>1.9.25</aspectj.version>
 
+        <!-- Lombok — pinned explicitly (previously undeclared even though
+             RegistrationPage.java uses @Getter, so it was resolving from an
+             unpinned transitive version). 1.18.30+ is required for JDK 21+:
+             older versions crash the compiler itself with
+             "NoSuchFieldError: JCTree$JCImport ... qualid" because JDK 21
+             changed that internal field's type and old Lombok reflects into
+             it assuming the pre-21 type. -->
+        <lombok.version>1.18.46</lombok.version>
+
         <!-- WebDriverManager — cache drivers so they are not re-downloaded every run.
              These must live here (not just in systemPropertyVariables) so they take
              effect before the forked test JVM spins up. -->
@@ -110,6 +119,15 @@
             <artifactId>allure-java-commons</artifactId>
         </dependency>
 
+        <!-- Lombok — compile-time only (generates code into .class files,
+             never needed at runtime), hence scope=provided. -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- Excel (.xlsx, .xls) -->
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -165,6 +183,32 @@
         </pluginManagement>
 
         <plugins>
+            <!-- Maven Compiler Plugin — previously undeclared, which meant
+                 Maven silently fell back to its ancient bundled default
+                 (3.1, from 2013). That default's javac invocation is what
+                 was crashing against modern JDKs. Pinning a current version
+                 here fixes that regardless of which JDK the CI agent uses.
+                 Lombok is also registered explicitly as an annotation
+                 processor path: relying on classpath auto-discovery for
+                 annotation processors is deprecated behavior and outright
+                 stops working on JDK 23+, so this keeps the build correct
+                 going forward too. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
