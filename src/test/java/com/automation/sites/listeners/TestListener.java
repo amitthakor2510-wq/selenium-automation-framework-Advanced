@@ -41,6 +41,23 @@ public class TestListener implements ITestListener {
         Allure.label("severity", severity);
     }
 
+    /**
+     * Guards every Allure.* call below. AllureTestNg (Allure's own auto-registered
+     * TestNG listener) is what actually opens the "current test case" that
+     * Allure.label/parameter/addAttachment write into — and depending on listener
+     * registration order that can race with our own onTestStart/onTestFailure/etc.
+     * firing first, producing harmless-but-noisy
+     * "ERROR io.qameta.allure.AllureLifecycle - Could not update test case: no
+     * test case running" log spam (and a silently-dropped attachment/label).
+     * Checking first avoids the noise; it does mean that specific label/screenshot
+     * is skipped for that one test run rather than attached, but that's strictly
+     * better than the previous behavior, which attempted it anyway and failed
+     * the exact same way, just loudly.
+     */
+    private boolean isAllureTestCaseOpen() {
+        return Allure.getLifecycle().getCurrentTestCaseOrStep().isPresent();
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @Override
@@ -66,9 +83,11 @@ public class TestListener implements ITestListener {
         test.set(extentTest);
 
         // ── Allure: severity + run context, visible on every test's page ────────
-        tagSeverity(result);
-        Allure.parameter("Site", ConfigReader.get("site", ConfigReader.getActiveSite()));
-        Allure.parameter("Browser", ConfigReader.get("browser", "chrome"));
+        if (isAllureTestCaseOpen()) {
+            tagSeverity(result);
+            Allure.parameter("Site", ConfigReader.get("site", ConfigReader.getActiveSite()));
+            Allure.parameter("Browser", ConfigReader.get("browser", "chrome"));
+        }
     }
 
     @Override
@@ -82,7 +101,7 @@ public class TestListener implements ITestListener {
             // ── Allure: attach success screenshot ────────────────────────────────
             WebDriver driver = getDriver(result);
             byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
-            if (bytes.length > 0) {
+            if (bytes.length > 0 && isAllureTestCaseOpen()) {
                 Allure.addAttachment(
                         "Pass Screenshot — " + result.getMethod().getMethodName(),
                         "image/png",
@@ -121,39 +140,42 @@ public class TestListener implements ITestListener {
                 }
             }
 
-            // ── Allure: attach failure screenshot ────────────────────────────────
-            if (bytes.length > 0) {
-                Allure.addAttachment(
-                        "Failure Screenshot — " + result.getMethod().getMethodName(),
-                        "image/png",
-                        new ByteArrayInputStream(bytes),
-                        "png"
-                );
-            }
+            // ── Allure: attach failure screenshot + diagnostics for triage ───────
+            // Guarded once for the whole block rather than per-call: if the test
+            // case isn't open, none of these Allure.* calls will land anyway.
+            if (isAllureTestCaseOpen()) {
+                if (bytes.length > 0) {
+                    Allure.addAttachment(
+                            "Failure Screenshot — " + result.getMethod().getMethodName(),
+                            "image/png",
+                            new ByteArrayInputStream(bytes),
+                            "png"
+                    );
+                }
 
-            // ── Allure: attach page source + browser console logs for triage ────
-            String pageSource = FailureDiagnostics.capturePageSource(driver);
-            if (!pageSource.isEmpty()) {
-                Allure.addAttachment(
-                        "Page Source — " + result.getMethod().getMethodName(),
-                        "text/html",
-                        new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
-                        "html"
-                );
-            }
+                String pageSource = FailureDiagnostics.capturePageSource(driver);
+                if (!pageSource.isEmpty()) {
+                    Allure.addAttachment(
+                            "Page Source — " + result.getMethod().getMethodName(),
+                            "text/html",
+                            new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
+                            "html"
+                    );
+                }
 
-            String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
-            if (!consoleLogs.isEmpty()) {
-                Allure.addAttachment(
-                        "Browser Console Logs — " + result.getMethod().getMethodName(),
-                        "text/plain",
-                        new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
-                        "log"
-                );
-            }
+                String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
+                if (!consoleLogs.isEmpty()) {
+                    Allure.addAttachment(
+                            "Browser Console Logs — " + result.getMethod().getMethodName(),
+                            "text/plain",
+                            new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
+                            "log"
+                    );
+                }
 
-            if (driver != null) {
-                Allure.parameter("Failed URL", safeCurrentUrl(driver));
+                if (driver != null) {
+                    Allure.parameter("Failed URL", safeCurrentUrl(driver));
+                }
             }
 
             HumanActions.postTestPause();

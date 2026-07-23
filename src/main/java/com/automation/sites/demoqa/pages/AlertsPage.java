@@ -4,6 +4,7 @@ import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.Alert;
 import org.openqa.selenium.By;
+import org.openqa.selenium.HasCapabilities;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -96,6 +97,41 @@ public class AlertsPage extends BasePage {
     }
 
     /**
+     * The CDP command classes imported above (org.openqa.selenium.devtools.v125.*)
+     * are generated for a specific Chrome DevTools Protocol version. Selenium
+     * negotiates the "nearest available" version at runtime and only warns
+     * (CdpVersionFinder) rather than failing outright, but once the actual
+     * browser drifts far enough past what this Selenium release bundles,
+     * that negotiation stops being reliable. Rather than always attempting
+     * the CDP path and paying for an exception + warning on every single
+     * run against a too-new browser, check the gap up front and go straight
+     * to the proven-reliable Alert fallback when it's too wide.
+     *
+     * 130 is a deliberately conservative ceiling — comfortably above the
+     * v125 command classes actually imported here, but low enough to catch
+     * "the CI runner auto-updated Chrome way ahead of this Selenium version"
+     * before it becomes a real failure instead of just a log warning. Revisit
+     * this (or better, bump the Selenium/CDP dependency) if it starts
+     * triggering on browser versions you know are still fine.
+     */
+    private boolean isChromeVersionLikelyCompatibleWithCdp() {
+        try {
+            if (driver instanceof HasCapabilities) {
+                String browserVersion = ((HasCapabilities) driver).getCapabilities().getBrowserVersion();
+                if (browserVersion != null && !browserVersion.isEmpty()) {
+                    int majorVersion = Integer.parseInt(browserVersion.split("\\.")[0]);
+                    return majorVersion <= 130;
+                }
+            }
+        } catch (Exception e) {
+            logger.warning("[AlertsPage] Could not determine browser version for CDP compatibility check: " + e.getMessage());
+        }
+        // Unknown version — default to attempting CDP; the existing try/catch
+        // below still falls back safely if it turns out to be incompatible.
+        return true;
+    }
+
+    /**
      * Handles the JS prompt() dialog using Chrome DevTools Protocol (CDP) to
      * inject text directly at the browser level, completely bypassing OS-level
      * input/focus (which Robot/xdotool/clipboard hacks all depend on and which
@@ -118,7 +154,7 @@ public class AlertsPage extends BasePage {
         // and promptText=<our text>, which Chrome processes internally without
         // requiring any OS-level focus/input. The dialog closes and the page
         // callback fires with the text we provided.
-        if (driver instanceof HasDevTools) {
+        if (driver instanceof HasDevTools && isChromeVersionLikelyCompatibleWithCdp()) {
             try {
                 DevTools devTools = ((HasDevTools) driver).getDevTools();
                 devTools.createSession();
@@ -131,7 +167,9 @@ public class AlertsPage extends BasePage {
                 alert.accept();
             }
         } else {
-            // Non-Chromium browser (Firefox, Safari) — use standard WebDriver Alert
+            // Non-Chromium browser (Firefox, Safari), or a Chrome version too
+            // far ahead of this Selenium build's CDP support (see
+            // isChromeVersionLikelyCompatibleWithCdp) — use standard WebDriver Alert.
             Alert alert = driver.switchTo().alert();
             alert.sendKeys(text);
             alert.accept();

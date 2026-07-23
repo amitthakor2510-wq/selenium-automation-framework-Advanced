@@ -2,6 +2,14 @@
 # GitLab CI/CD Pipeline - Selenium Automation Framework
 # Allure report published via GitLab Pages
 # ================================================================
+
+# No image was declared before, so every job ran on the runner's bare
+# shell executor with no JDK/Maven at all — `mvn` failed immediately
+# with "command not found" before a single test could run. Pin a
+# Debian-based Maven+Temurin17 image (matches the JDK 17 used by every
+# other pipeline in this repo) so apt-get/gpg/wget below all work too.
+image: maven:3.9.9-eclipse-temurin-17
+
 stages:
   - build
   - test
@@ -42,14 +50,24 @@ test:
   script:
     - echo "======= Running Tests ======="
     - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
+    # Previously this just exited 1 if Chrome was missing instead of
+    # installing it, which meant the test stage could never pass on a
+    # fresh/ephemeral runner (the normal case for GitLab shared
+    # runners — they don't retain packages between jobs). Actually
+    # install it here, the same way the GitHub Actions pipeline does,
+    # using the modern apt-key-free (signed-by) method since apt-key
+    # is removed on current Debian/Ubuntu base images.
     - |
       if ! command -v google-chrome &> /dev/null; then
-        echo "Chrome not found — install it on the runner machine manually"
-        echo "Run: sudo apt-get install -y google-chrome-stable"
-        exit 1
-      else
-        echo "Chrome: $(google-chrome --version)"
+        echo "Chrome not found - installing..."
+        apt-get update -qq
+        apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+        apt-get update -qq
+        apt-get install -y -qq google-chrome-stable
       fi
+      echo "Chrome: $(google-chrome --version)"
     - mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
