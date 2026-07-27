@@ -3,7 +3,6 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
-import org.openqa.selenium.Alert;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.StaleElementReferenceException;

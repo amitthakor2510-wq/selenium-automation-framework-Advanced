@@ -68,7 +68,7 @@ public class KeywordEngine {
             case CLICK -> HumanActions.click(driver, locator(step));
             case TYPE -> HumanActions.type(driver, locator(step), step.getTestData());
             case SET_TEXT -> setText(locator(step), step.getTestData());
-            case CLEAR -> driver.findElement(locator(step)).clear();
+            case CLEAR -> waitVisible(locator(step)).clear();
             case SELECT_BY_TEXT -> new Select(waitVisible(locator(step))).selectByVisibleText(step.getTestData());
             case SELECT_BY_VALUE -> new Select(waitVisible(locator(step))).selectByValue(step.getTestData());
             case HOVER -> new Actions(driver).moveToElement(waitVisible(locator(step))).perform();
