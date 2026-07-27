@@ -1,0 +1,16 @@
+testCase,stepNo,keyword,locatorKey,testData,expected,description
+TC01_SubmitValidForm,1,NAVIGATE,,/text-box,,Go to demoqa Text Box page
+TC01_SubmitValidForm,2,TYPE,demoqa.textbox.userName,Amit Thakor,,Enter full name
+TC01_SubmitValidForm,3,TYPE,demoqa.textbox.userEmail,amit@example.com,,Enter email address
+TC01_SubmitValidForm,4,TYPE,demoqa.textbox.currentAddress,Gandhinagar Gujarat,,Enter current address
+TC01_SubmitValidForm,5,TYPE,demoqa.textbox.permanentAddress,Adalaj Gujarat,,Enter permanent address
+TC01_SubmitValidForm,6,CLICK,demoqa.textbox.submitButton,,,Submit the form
+TC01_SubmitValidForm,7,VERIFY_DISPLAYED,demoqa.textbox.outputName,,,Output section should show the submitted name
+TC01_SubmitValidForm,8,VERIFY_TEXT,demoqa.textbox.outputName,,Amit Thakor,Output name should echo back what was typed
+
+TC02_KeyboardOnlyFill,1,NAVIGATE,,/text-box,,Go to demoqa Text Box page
+TC02_KeyboardOnlyFill,2,SET_TEXT,demoqa.textbox.userName,Jane Tester,,Enter name (instant, no per-keystroke pacing)
+TC02_KeyboardOnlyFill,3,PRESS_KEY,demoqa.textbox.userName,TAB,,Tab from name to email - no mouse
+TC02_KeyboardOnlyFill,4,TYPE,demoqa.textbox.userEmail,jane.tester@example.com,,Enter email via keyboard
+TC02_KeyboardOnlyFill,5,PRESS_KEY,demoqa.textbox.userEmail,ENTER,,Submit the form with Enter instead of clicking Submit
+TC02_KeyboardOnlyFill,6,VERIFY_DISPLAYED,demoqa.textbox.outputName,,,Output section should appear after keyboard-only submission

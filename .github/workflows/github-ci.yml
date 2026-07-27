@@ -241,15 +241,39 @@ jobs:
           destination_dir: extent-report
 
   # ================================================================
-  # STAGE 4 - Notify (Slack, only on failure)
+  # STAGE 4 - Notify (Slack, on both success and failure)
   # ================================================================
+  # Previously this only ran `if: failure()`, so on a green pipeline it
+  # showed up as "skipped" every time with zero Slack visibility into
+  # passing runs. `if: always()` here means the job itself always
+  # executes; the Notify Slack step below then branches on the actual
+  # outcome of `test`/`allure-report` (via needs.*.result) to pick the
+  # color/title, so you get a green ✅ message on success and a red ❌
+  # message on failure instead of a silent no-op either way.
   notify:
     needs: [ test, allure-report ]
-    if: failure()
+    if: always()
     runs-on: ubuntu-latest
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      PIPELINE_STATUS: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
     steps:
+      # Pulls in every site's surefire-reports XML (already produced by the
+      # test job's "Upload Extent + Surefire Artifacts" step above) purely so
+      # the Slack message below can report real pass/fail/skip counts instead
+      # of just a binary status. continue-on-error: true because the notify
+      # job's own pass/fail should never depend on whether this download
+      # step happens to find anything (e.g. every test job errored before
+      # producing any report at all).
+      - name: Download Surefire Results (all sites)
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*-${{ github.ref_name }}
+          path: target/
+          merge-multiple: true
+
       # secrets.* isn't a recognized named-value inside a step's `if:` expression — it
       # only resolves inside env:/with:/run:. Routing it through the job-level env: above
       # first, then checking env.SLACK_WEBHOOK_URL here, is the supported way to make this
@@ -257,14 +281,52 @@ jobs:
       - name: Notify Slack
         if: ${{ env.SLACK_WEBHOOK_URL != '' }}
         run: |
+          if [ "$PIPELINE_STATUS" = "failure" ]; then
+            COLOR="#FF0000"
+            TITLE="❌ ${{ github.repository }} — run #${{ github.run_number }} failed"
+          else
+            COLOR="#36A64F"
+            TITLE="✅ ${{ github.repository }} — run #${{ github.run_number }} passed"
+          fi
+
+          # Sum total/passed/failed/skipped across every site's
+          # testng-results.xml — falls back to "n/a" if no report was found
+          # (e.g. the build itself failed before any test ever ran).
+          # CAVEAT: each site's testng-results.xml lands at the identical
+          # path (target/surefire-reports/testng-results.xml) inside its own
+          # artifact, so merge-multiple above keeps only the LAST site's copy
+          # on collision — the same limitation already noted for the GitLab
+          # pipeline's own junit report widget. This loop still sums whatever
+          # copies DID survive the merge, so today (2 sites, 1 file
+          # collision) the summary reflects one site's numbers, not a true
+          # cross-site total. Fixing this properly means having each test job
+          # write to a per-site filename before uploading — flagged here
+          # rather than silently done, since it touches the surefire/allure
+          # config other stages also rely on.
+          SUMMARY="n/a"
+          RESULT_FILES=$(find target -name "testng-results.xml" 2>/dev/null)
+          if [ -n "$RESULT_FILES" ]; then
+            TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0
+            for f in $RESULT_FILES; do
+              T=$(grep -o 'total="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*' || echo 0)
+              P=$(grep -o 'passed="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*' || echo 0)
+              F=$(grep -o 'failed="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*' || echo 0)
+              S=$(grep -o 'skipped="[0-9]*"' "$f" | head -1 | grep -o '[0-9]*' || echo 0)
+              TOTAL=$((TOTAL + ${T:-0})); PASSED=$((PASSED + ${P:-0}))
+              FAILED=$((FAILED + ${F:-0})); SKIPPED=$((SKIPPED + ${S:-0}))
+            done
+            SUMMARY="${PASSED} passed, ${FAILED} failed, ${SKIPPED} skipped (of ${TOTAL})"
+          fi
+
           curl -s -X POST -H 'Content-type: application/json' --data '{
             "attachments": [{
-              "color": "#FF0000",
-              "title": "${{ github.repository }} — run #${{ github.run_number }} failed",
+              "color": "'"$COLOR"'",
+              "title": "'"$TITLE"'",
               "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
               "fields": [
                 {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
-                {"title": "Triggered by", "value": "${{ github.actor }}", "short": true}
+                {"title": "Triggered by", "value": "${{ github.actor }}", "short": true},
+                {"title": "Results", "value": "'"$SUMMARY"'", "short": false}
               ]
             }]
           }' "$SLACK_WEBHOOK_URL"

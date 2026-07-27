@@ -1,0 +1,25 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="DemoQA Visual Regression Suite" parallel="none">
+
+  <!-- Opt-in suite — not wired into CI by default. First run per snapshot
+       name captures the baseline (always passes); commit that baseline
+       image, then this becomes a real check on subsequent runs. Run with:
+       mvn test -DsuiteXmlFile=testng-suites/demoqa-visual.xml -Dsite=demoqa -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="DemoQA Visual Regression Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="visual"/>
+      </run>
+    </groups>
+
+    <packages>
+      <package name="com.automation.sites.demoqa.tests"/>
+    </packages>
+
+  </test>
+
+</suite>

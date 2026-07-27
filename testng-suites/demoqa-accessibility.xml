@@ -1,0 +1,25 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="DemoQA Accessibility Suite" parallel="none">
+
+  <!-- Opt-in suite — not wired into CI by default. Run explicitly with:
+       mvn test -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml -Dsite=demoqa
+       See AccessibilityTest.java / AccessibilityUtils.java for the
+       a11y.enabled and a11y.failOn config knobs. -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="DemoQA Accessibility Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="accessibility"/>
+      </run>
+    </groups>
+
+    <packages>
+      <package name="com.automation.sites.demoqa.tests"/>
+    </packages>
+
+  </test>
+
+</suite>

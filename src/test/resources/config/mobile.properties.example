@@ -1,0 +1,33 @@
+# =========================================================
+# MOBILE / APPIUM CONFIG TEMPLATE
+# Copy to mobile.properties and fill in real values before running any
+# mobile test. Not loaded automatically by ConfigReader (which only loads
+# global.properties + <site>.properties) — pass these as -D overrides, or
+# wire a "mobile" pseudo-site into ConfigReader if you want file-based
+# loading instead. See AppiumDriverFactory.java for how each key is used.
+# =========================================================
+
+# android or ios
+mobile.platform=android
+
+# Where your Appium server is listening (npm install -g appium && appium)
+appium.server.url=http://127.0.0.1:4723
+
+# Device to target — an emulator/simulator name, or a real device's
+# adb devices / xcrun simctl name
+mobile.device.name=emulator-5554
+mobile.platform.version=
+
+# EITHER install a fresh app from a local build artifact...
+mobile.app.path=
+
+# ...OR target an already-installed app by package/activity (Android only)
+mobile.app.package=
+mobile.app.activity=
+
+# Keep app data between sessions instead of a clean reinstall each run
+mobile.noReset=false
+
+# Explicit wait timeout (seconds) for BaseMobilePage's waitVisible/waitClickable
+mobile.timeout=15
+mobile.newCommandTimeout=120

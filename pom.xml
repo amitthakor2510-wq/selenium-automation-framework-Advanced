@@ -177,6 +177,37 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- axe-core — accessibility (WCAG/GIGW-adjacent) scanning, see
+         core/utils/AccessibilityUtils.java. Version pinned against what was
+         current at time of writing; this sandbox has no access to Maven
+         Central so it hasn't been build-verified here — run
+         `mvn dependency:resolve` locally and bump if this version has since
+         been superseded. -->
+    <dependency>
+      <groupId>com.deque.html.axe-core</groupId>
+      <artifactId>selenium</artifactId>
+      <version>4.9.1</version>
+    </dependency>
+
+    <!-- AShot — pixel-level visual regression screenshots/diffing, see
+         core/utils/VisualRegressionUtils.java. Same build-verification
+         caveat as axe-core above applies. -->
+    <dependency>
+      <groupId>ru.yandex.qatools.ashot</groupId>
+      <artifactId>ashot</artifactId>
+      <version>1.5.4</version>
+    </dependency>
+
+    <!-- Appium — mobile automation scaffold, see mobile/core/AppiumDriverFactory.java
+         and mobile/README.md. Same build-verification caveat as axe-core above
+         applies. Compile scope (not test) since AppiumDriverFactory lives
+         under src/main, matching how selenium-java itself is scoped above. -->
+    <dependency>
+      <groupId>io.appium</groupId>
+      <artifactId>java-client</artifactId>
+      <version>9.3.0</version>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -361,4 +392,66 @@
       </plugin>
     </plugins>
   </build>
+
+  <!-- Opt-in performance smoke check — deliberately a profile, not a plugin
+       under <build><plugins>, so `mvn test` (used everywhere else in this
+       project, CI included) is completely unaffected by its presence. Run
+       explicitly with:
+         mvn verify -Pperf
+         mvn verify -Pperf -Dthreads=10 -DrampUp=5 -Dloops=5 -DmaxResponseMs=3000
+       See perf/basic-smoke.jmx — this is a response-time smoke check
+       (a handful of threads, response-code + duration assertions), NOT a
+       load/capacity test. Results land in target/jmeter/results/ and an
+       HTML report in target/jmeter/reports/. -->
+  <profiles>
+    <profile>
+      <id>perf</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.lazerycode.jmeter</groupId>
+            <artifactId>jmeter-maven-plugin</artifactId>
+            <version>3.8.0</version>
+            <configuration>
+              <testResultsTimestamp>false</testResultsTimestamp>
+              <testFilesDirectory>${project.basedir}/perf</testFilesDirectory>
+              <resultsDirectory>${project.build.directory}/jmeter/results</resultsDirectory>
+              <generateReports>true</generateReports>
+              <reportDirectory>${project.build.directory}/jmeter/reports</reportDirectory>
+              <propertiesUser>
+                <threads>${threads}</threads>
+                <rampUp>${rampUp}</rampUp>
+                <loops>${loops}</loops>
+                <maxResponseMs>${maxResponseMs}</maxResponseMs>
+              </propertiesUser>
+            </configuration>
+            <executions>
+              <execution>
+                <id>jmeter-tests</id>
+                <phase>integration-test</phase>
+                <goals>
+                  <goal>jmeter</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>jmeter-check-results</id>
+                <phase>integration-test</phase>
+                <goals>
+                  <goal>results</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <!-- Overridable via -Dthreads=... etc. — see perf/basic-smoke.jmx's
+             User Defined Variables, which read these via __P(). -->
+        <threads>5</threads>
+        <rampUp>2</rampUp>
+        <loops>3</loops>
+        <maxResponseMs>5000</maxResponseMs>
+      </properties>
+    </profile>
+  </profiles>
 </project>

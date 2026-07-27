@@ -2,6 +2,7 @@ package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
+import com.automation.core.utils.SmartLocator;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -11,8 +12,20 @@ import org.openqa.selenium.support.ui.Select;
 public class DatePickerPage extends BasePage {
 
     private final By dateInput   = By.id("datePickerMonthYearInput");
-    private final By monthSelect = By.className("react-datepicker__month-select");
-    private final By yearSelect  = By.className("react-datepicker__year-select");
+
+    // Resolved through SmartLocator instead of driver.findElement() directly:
+    // react-datepicker's own class names are the only locator confirmed against
+    // the live site so far. If demoqa's date-picker library is ever swapped out
+    // the same way the Check Box widget was (react-checkbox-tree -> rc-tree),
+    // these fallbacks give the framework a chance to recover instead of failing
+    // outright on the next CI run. Both fallbacks target the underlying native
+    // <select> via its accessible name, which tends to survive a library swap
+    // even when the wrapping CSS classes don't.
+    private final By monthSelect         = By.className("react-datepicker__month-select");
+    private final By monthSelectFallback = By.cssSelector("select[aria-label='Month']");
+    private final By yearSelect          = By.className("react-datepicker__year-select");
+    private final By yearSelectFallback  = By.cssSelector("select[aria-label='Year']");
+
     private final By dateTimeInput = By.id("dateAndTimePickerInput");
 
     public DatePickerPage(WebDriver driver) {
@@ -27,13 +40,17 @@ public class DatePickerPage extends BasePage {
 
     public void selectDate(String month, String year, String day) {
         HumanActions.click(driver, dateInput);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(monthSelect));
+
+        WebElement monthDropdown = SmartLocator.find(driver, wait,
+            "DatePicker month <select>", monthSelect, monthSelectFallback);
         HumanActions.pause();
 
-        new Select(driver.findElement(monthSelect)).selectByVisibleText(month);
+        new Select(monthDropdown).selectByVisibleText(month);
         HumanActions.pause();
 
-        new Select(driver.findElement(yearSelect)).selectByVisibleText(year);
+        WebElement yearDropdown = SmartLocator.find(driver, wait,
+            "DatePicker year <select>", yearSelect, yearSelectFallback);
+        new Select(yearDropdown).selectByVisibleText(year);
         HumanActions.pause();
 
         By dayLocator = By.xpath(
