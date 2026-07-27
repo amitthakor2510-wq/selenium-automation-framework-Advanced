@@ -25,6 +25,11 @@ public class ExtentManager {
             spark.config().setTheme(Theme.STANDARD);
             spark.config().setDocumentTitle(site + " - Automation Report");
             spark.config().setReportName(site + " Regression/Smoke Report");
+            spark.config().setTimeStampFormat("MMM dd, yyyy HH:mm:ss");
+            // Inlines the report's CSS/JS instead of loading them from a CDN — CI artifacts
+            // and downloaded zips get opened on machines with no internet access, and the
+            // dashboard/timeline tabs render blank without this if the CDN isn't reachable.
+            spark.config().enableOfflineMode(true);
 
             extent = new ExtentReports();
             extent.attachReporter(spark);

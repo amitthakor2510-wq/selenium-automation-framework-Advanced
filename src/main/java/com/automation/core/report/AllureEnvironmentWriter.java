@@ -43,14 +43,83 @@ public final class AllureEnvironmentWriter {
         }
         written = true;
 
-        Path resultsDir = Paths.get("target", "allure-results");
+        // -Dallure.results.directory=... (same property allure-testng itself
+        // reads) lets each parallel CI job/branch point at its own
+        // subdirectory instead of everyone racing to write the same shared
+        // file. Falls back to the previous hardcoded default.
+        Path resultsDir = Paths.get(System.getProperty("allure.results.directory", "target/allure-results"));
         try {
             Files.createDirectories(resultsDir);
             writeEnvironmentProperties(resultsDir);
             writeCategories(resultsDir);
+            writeExecutorInfo(resultsDir);
         } catch (IOException e) {
-            logger.warning("Could not write Allure environment/categories files: " + e.getMessage());
+            logger.warning("Could not write Allure environment/categories/executor files: " + e.getMessage());
         }
+    }
+
+    /**
+     * Populates executor.json — the file Allure's Trend/History/Duration/Retry widgets on the
+     * report overview actually key their x-axis and "open in CI" links off. Without it those
+     * widgets still render once history/ is carried over between runs, but every point is
+     * labeled with an opaque internal counter and there's no link back to the build that
+     * produced it. Detected from whichever CI system's standard env vars are present; falls
+     * back to a plain local build label so `mvn test` outside CI still gets a valid file.
+     */
+    private static void writeExecutorInfo(Path resultsDir) throws IOException {
+        String name;
+        String type;
+        String url;
+        String buildOrder;
+        String buildName;
+        String buildUrl;
+
+        if (System.getenv("JENKINS_URL") != null) {
+            name = "Jenkins";
+            type = "jenkins";
+            url = System.getenv("JENKINS_URL");
+            buildOrder = System.getenv().getOrDefault("BUILD_NUMBER", "0");
+            buildName = "#" + buildOrder;
+            buildUrl = System.getenv().getOrDefault("BUILD_URL", url);
+        } else if (System.getenv("GITHUB_ACTIONS") != null) {
+            name = "GitHub Actions";
+            type = "github";
+            String server = System.getenv().getOrDefault("GITHUB_SERVER_URL", "https://github.com");
+            String repo = System.getenv().getOrDefault("GITHUB_REPOSITORY", "");
+            url = server + "/" + repo;
+            buildOrder = System.getenv().getOrDefault("GITHUB_RUN_NUMBER", "0");
+            buildName = "Run #" + buildOrder;
+            buildUrl = server + "/" + repo + "/actions/runs/" + System.getenv().getOrDefault("GITHUB_RUN_ID", "");
+        } else if (System.getenv("GITLAB_CI") != null) {
+            name = "GitLab CI";
+            type = "gitlab";
+            url = System.getenv().getOrDefault("CI_PROJECT_URL", "");
+            buildOrder = System.getenv().getOrDefault("CI_PIPELINE_IID", "0");
+            buildName = "Pipeline #" + buildOrder;
+            buildUrl = System.getenv().getOrDefault("CI_PIPELINE_URL", url);
+        } else {
+            name = "Local";
+            type = "local";
+            url = "";
+            buildOrder = String.valueOf(System.currentTimeMillis() / 1000);
+            buildName = "Local run";
+            buildUrl = "";
+        }
+
+        String site = ConfigReader.get("site", ConfigReader.getActiveSite());
+        String json = """
+                {
+                  "name": "%s",
+                  "type": "%s",
+                  "url": "%s",
+                  "buildOrder": %s,
+                  "buildName": "%s — %s",
+                  "buildUrl": "%s",
+                  "reportName": "%s Allure Report"
+                }
+                """.formatted(name, type, url, buildOrder, buildName, site, buildUrl, site);
+
+        Files.writeString(resultsDir.resolve("executor.json"), json, StandardCharsets.UTF_8);
     }
 
     /** Mirrors ExtentManager.reset() — call after a suite finishes so a second

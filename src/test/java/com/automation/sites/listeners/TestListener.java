@@ -70,6 +70,16 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         Allure.label("severity", severity);
     }
 
+    /** TestNG reuses a single IRetryAnalyzer instance across every attempt of a given test
+     *  method, so its count reflects the true number of retries once the method has finished. */
+    private int retryAttemptsSoFar(ITestResult result) {
+        Object analyzer = result.getMethod().getRetryAnalyzer(result);
+        if (analyzer instanceof RetryAnalyzer retryAnalyzer) {
+            return retryAnalyzer.getCount();
+        }
+        return 0;
+    }
+
     /**
      * Belt-and-braces only at this point — with the Allure calls now made
      * from IInvokedMethodListener the case should always be open, but this
@@ -103,16 +113,25 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         }
 
         WebDriver driver = getDriver(result);
+        int retryAttempts = retryAttemptsSoFar(result);
 
         if (result.getStatus() == ITestResult.SUCCESS) {
             byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
-            if (bytes.length > 0 && isAllureTestCaseOpen()) {
-                Allure.addAttachment(
-                    "Pass Screenshot — " + result.getMethod().getMethodName(),
-                    "image/png",
-                    new ByteArrayInputStream(bytes),
-                    "png"
-                );
+            if (isAllureTestCaseOpen()) {
+                if (bytes.length > 0) {
+                    Allure.addAttachment(
+                        "Pass Screenshot — " + result.getMethod().getMethodName(),
+                        "image/png",
+                        new ByteArrayInputStream(bytes),
+                        "png"
+                    );
+                }
+                if (retryAttempts > 0) {
+                    // Only passed after failing at least once first — flag it so the
+                    // Categories/overview widgets separate "flaky" from a clean first-try pass.
+                    Allure.label("flaky", "true");
+                    Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
+                }
             }
             return;
         }
@@ -120,6 +139,9 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         if (result.getStatus() == ITestResult.FAILURE) {
             if (!isAllureTestCaseOpen()) {
                 return;
+            }
+            if (retryAttempts > 0) {
+                Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
             }
             byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
             if (bytes.length > 0) {
@@ -188,6 +210,17 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 (description != null && !description.isEmpty()) ? description : ""
             );
         }
+
+        // Categories/author/device populate the Dashboard tab's filter chips and the
+        // Tests-by-category donut chart — without them every test shows up "uncategorized"
+        // and the dashboard has nothing to slice by.
+        String[] groups = result.getMethod().getGroups();
+        if (groups.length > 0) {
+            extentTest.assignCategory(groups);
+        }
+        extentTest.assignDevice(ConfigReader.get("browser", "chrome"));
+        extentTest.assignAuthor(ConfigReader.get("site", ConfigReader.getActiveSite()));
+
         test.set(extentTest);
     }
 

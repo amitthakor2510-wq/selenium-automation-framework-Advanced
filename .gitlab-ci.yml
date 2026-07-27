@@ -17,23 +17,41 @@ stages:
   - pages
 
 variables:
-  SITE: "demoqa"
   SUITE_TYPE: "regression"
   BROWSER: "chrome"
   HEADLESS: "true"
   RETRY_COUNT: "0"
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  # WebDriverManager's default cache lives at $HOME/.wdm — for this image
+  # that's /root/.wdm, which sits OUTSIDE $CI_PROJECT_DIR and so can't be
+  # named in `cache:.paths` below (GitLab only caches paths inside the
+  # project directory). Redirect it into the project dir instead so the
+  # driver-binary cache actually persists between pipeline runs, the same
+  # way .m2/repository already does.
+  WDM_CACHE_PATH: "$CI_PROJECT_DIR/.wdm"
+
+# A superseded pipeline (e.g. a second push to the same MR before the
+# first pipeline finished) cancels the older one instead of letting both
+# run to completion. Jenkins gets the equivalent via
+# disableConcurrentBuilds(), GitHub Actions via `concurrency:`.
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - when: always
 
 cache:
   key: "$CI_COMMIT_REF_SLUG"
   paths:
     - .m2/repository/
+    - .wdm/
 
 # ================================================================
 # STAGE 1 - Build
 # ================================================================
 build:
   stage: build
+  interruptible: true
   script:
     - echo "======= Building Project ======="
     - mvn -B clean compile test-compile
@@ -43,12 +61,20 @@ build:
     - merge_requests
 
 # ================================================================
-# STAGE 2 - Test
+# STAGE 2 - Test (one job instance per site, running in parallel)
 # ================================================================
 test:
   stage: test
+  interruptible: true
+  parallel:
+    matrix:
+      # Every site that has a <site>-<suite>.xml under testng-suites/ runs
+      # as its own parallel job instance — previously this pipeline only
+      # ever tested "demoqa" via a hardcoded SITE variable, so "saucedemo"
+      # had no CI coverage at all despite the framework fully supporting it.
+      - SITE: [ demoqa, saucedemo ]
   script:
-    - echo "======= Running Tests ======="
+    - echo "======= Running Tests: site=$SITE ======="
     - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
     # Previously this just exited 1 if Chrome was missing instead of
     # installing it, which meant the test stage could never pass on a
@@ -68,6 +94,17 @@ test:
         apt-get install -y -qq google-chrome-stable
       fi
       echo "Chrome: $(google-chrome --version)"
+    # -Dallure.results.directory=target/allure-results/$SITE — GitLab
+    # automatically merges artifacts from every parallel:matrix instance
+    # of this job for any downstream job that declares `dependencies:
+    # [test]`. Allure's own result files are UUID-named so that merge is
+    # safe on its own, but environment.properties/categories.json (written
+    # once per JVM by AllureEnvironmentWriter) are NOT — two sites both
+    # writing to the same shared target/allure-results/environment.properties
+    # would leave the merged report's "Environment" widget showing only
+    # whichever site's file happened to survive the merge. Each site gets
+    # its own subdirectory instead; see the "report" stage below for how
+    # they're combined back together for `allure generate`.
     - mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
@@ -75,9 +112,11 @@ test:
       -Dheadless=$HEADLESS
       -Dhuman.pause.enabled=false
       -Dretry.count=$RETRY_COUNT
+      -Dallure.results.directory=target/allure-results/$SITE
+      -Dwdm.cachePath=$WDM_CACHE_PATH
       -Dmaven.test.failure.ignore=true
   artifacts:
-    name: "test-results-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    name: "test-results-$CI_JOB_NAME-$SITE-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 7 days
     paths:
@@ -86,6 +125,11 @@ test:
       - target/screenshots/
       - target/surefire-reports/
     reports:
+      # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
+      # lands at the same path, so GitLab's artifact merge keeps only one
+      # site's copy for the JUnit report widget/summary grep below — not a
+      # combined total. The individual per-class XML files (and the Allure
+      # report, which IS fully merged) are unaffected.
       junit: target/surefire-reports/*.xml
   only:
     - main
@@ -98,12 +142,13 @@ test:
 # ================================================================
 report:
   stage: report
+  interruptible: true
   script:
     - echo "======= Generating Allure Report ======="
     - |
       if [ ! -d "target/allure-results" ] || [ -z "$(ls -A target/allure-results 2>/dev/null)" ]; then
         echo "WARNING: target/allure-results is missing or empty — test job produced no allure results."
-        mkdir -p target/allure-results
+        mkdir -p target/allure-results/_empty
       fi
     - |
       if ! wget -q -O allure-2.27.0.tgz https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz; then
@@ -119,7 +164,24 @@ report:
     - tar -xzf allure-2.27.0.tgz -C allure-cli --strip-components=1
     - export PATH="$PWD/allure-cli/bin:$PATH"
     - mkdir -p public/allure-report
-    - allure generate target/allure-results --clean -o public/allure-report
+    # Pull the previously-published report's history/ folder from GitLab Pages so the
+    # History/Duration/Retry trend widgets have something to plot against — otherwise every
+    # pipeline run starts a brand-new trend from zero. continue-on-error via `|| true` since
+    # there's nothing to fetch on the very first run (404 is expected and fine).
+    - mkdir -p target/allure-results/_history/history
+    - |
+      for f in history.json history-trend.json duration-trend.json retry-trend.json categories-trend.json; do
+        wget -q -O "target/allure-results/_history/history/$f" "${CI_PAGES_URL}/allure-report/history/$f" || rm -f "target/allure-results/_history/history/$f"
+      done
+    # Each site's results live in their own target/allure-results/<site>
+    # subdirectory (see the "test" stage above) — Allure's CLI accepts
+    # multiple results directories on one command line and combines them
+    # into a single report, so glob every site's subdirectory in rather
+    # than pointing at just target/allure-results itself. _history/ (fetched
+    # above) rides along in that same glob purely to carry its history/
+    # subfolder in — Allure looks for a "history" folder INSIDE whichever
+    # results directory has one, not as a results dir passed on its own.
+    - allure generate target/allure-results/*/ --clean -o public/allure-report
     - echo "======= Test Results Summary ======="
     - |
       if [ -f "target/surefire-reports/testng-results.xml" ]; then
@@ -144,7 +206,8 @@ report:
     - main
     - master
 pages:
-  stage: pages  # ← was "report"
+  stage: pages
+  interruptible: true
   script:
     - echo "Publishing to GitLab Pages"
   artifacts:
@@ -155,3 +218,31 @@ pages:
   only:
     - main
     - master
+
+# ================================================================
+# STAGE 5 - Notify (Slack, only on failure)
+# ================================================================
+notify:
+  stage: pages
+  interruptible: true
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      curl -s -X POST -H 'Content-type: application/json' --data "{
+        \"attachments\": [{
+          \"color\": \"#FF0000\",
+          \"title\": \"$CI_PROJECT_PATH — pipeline #$CI_PIPELINE_IID failed\",
+          \"title_link\": \"$CI_PIPELINE_URL\",
+          \"fields\": [
+            {\"title\": \"Branch\", \"value\": \"$CI_COMMIT_REF_NAME\", \"short\": true},
+            {\"title\": \"Triggered by\", \"value\": \"$GITLAB_USER_LOGIN\", \"short\": true}
+          ]
+        }]
+      }" "$SLACK_WEBHOOK_URL"
+  rules:
+    # Only runs when SLACK_WEBHOOK_URL is set as a CI/CD variable (Settings > CI/CD >
+    # Variables) AND an earlier stage in this pipeline failed — otherwise a no-op.
+    - if: '$SLACK_WEBHOOK_URL'
+      when: on_failure

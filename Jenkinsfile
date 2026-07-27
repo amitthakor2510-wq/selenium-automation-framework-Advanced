@@ -49,6 +49,13 @@ pipeline {
     options {
         timestamps()
         buildDiscarder(logRotator(numToKeepStr: '20'))
+        // A second build of the same job (e.g. two pushes to the same branch
+        // in quick succession) aborts whichever earlier run is still queued/
+        // executing instead of both running to completion — the first run's
+        // result is about to be superseded anyway, so there's no reason to
+        // spend agent time finishing it. GitHub Actions gets the equivalent
+        // via `concurrency:`, GitLab CI via `interruptible: true`.
+        disableConcurrentBuilds()
     }
 
     stages {
@@ -98,25 +105,40 @@ pipeline {
                     def sites = env.SITES_TO_RUN.split(',')
                     def testResults = [:]
 
+                    // Each branch below runs `mvn test` as its own separate
+                    // JVM, so a shared/global Maven local repo is safe to
+                    // read from concurrently. The only genuinely shared
+                    // OUTPUT that two sites running at once would otherwise
+                    // collide on is target/allure-results/environment.properties
+                    // (AllureEnvironmentWriter writes it once per JVM) — each
+                    // branch is pointed at its own target/allure-results/<site>
+                    // subdirectory to avoid that race. Extent's report file
+                    // is already named "<site>-index.html" (ExtentManager),
+                    // so it never collided even in the old sequential loop.
+                    def branches = [:]
                     sites.each { site ->
-                        def suiteFile = "testng-suites/${site}-${params.SUITE_TYPE}.xml"
-                        echo "==== Running ${params.SUITE_TYPE} for site: ${site} ===="
+                        branches[site] = {
+                            def suiteFile = "testng-suites/${site}-${params.SUITE_TYPE}.xml"
+                            echo "==== Running ${params.SUITE_TYPE} for site: ${site} ===="
 
-                        int exitCode = sh(
-                                script: """
-                               mvn -B -ntp test \\
-                                  -Dsite=${site} \\
-                                  -DsuiteXmlFile=${suiteFile} \\
-                                  -Dbrowser=${params.BROWSER} \\
-                                  -Dheadless=${params.HEADLESS} \\
-                                  -Dhuman.pause.enabled=false \\
-                                  -Dretry.count=${params.RETRY_COUNT} \\
-                                  -Dmaven.test.failure.ignore=true
-                            """,
-                                returnStatus: true
-                        )
-                        testResults[site] = exitCode
+                            int exitCode = sh(
+                                    script: """
+                                   mvn -B -ntp test \\
+                                      -Dsite=${site} \\
+                                      -DsuiteXmlFile=${suiteFile} \\
+                                      -Dbrowser=${params.BROWSER} \\
+                                      -Dheadless=${params.HEADLESS} \\
+                                      -Dhuman.pause.enabled=false \\
+                                      -Dretry.count=${params.RETRY_COUNT} \\
+                                      -Dallure.results.directory=target/allure-results/${site} \\
+                                      -Dmaven.test.failure.ignore=true
+                                """,
+                                    returnStatus: true
+                            )
+                            testResults[site] = exitCode
+                        }
                     }
+                    parallel branches
 
                     def failedSites = testResults.findAll { k, v -> v != 0 }.keySet()
                     if (failedSites) {
@@ -135,11 +157,19 @@ pipeline {
                     testResults: 'target/surefire-reports/*.xml'
 
             // ── Allure Report ─────────────────────────────────────────
-            allure([
-                    includeProperties: false,
-                    jdk: '',
-                    results: [[path: 'target/allure-results']]
-            ])
+            // One results dir per site (see "Run Tests Per Site" stage) —
+            // pass all of them so the single generated report covers every
+            // site that ran, not just whichever happened to write last.
+            script {
+                def resultDirs = env.SITES_TO_RUN
+                        ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
+                        : [[path: 'target/allure-results']]
+                allure([
+                        includeProperties: false,
+                        jdk: '',
+                        results: resultDirs
+                ])
+            }
 
             // ── Extent Report (HTML Publisher) ────────────────────────
             script {
@@ -163,9 +193,38 @@ pipeline {
 
         unstable {
             echo 'UNSTABLE: one or more sites had test failures. Check Allure and Extent reports.'
+            script { notifySlack('UNSTABLE', '#FFCC00') }
         }
         failure {
             echo 'FAILED: check Build or Discover stage logs.'
+            script { notifySlack('FAILED', '#FF0000') }
         }
+    }
+}
+
+// Posts a build-result card to Slack via an Incoming Webhook. Reads the URL from the
+// SLACK_WEBHOOK_URL credential/environment variable (Manage Jenkins > Credentials, or a
+// Jenkins global env var of the same name) — if it isn't configured, this quietly no-ops
+// instead of failing the build, so notifications are opt-in per Jenkins instance.
+def notifySlack(String status, String color) {
+    try {
+        withCredentials([string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')]) {
+            def payload = """{
+                "attachments": [{
+                    "color": "${color}",
+                    "title": "${env.JOB_NAME} #${env.BUILD_NUMBER} — ${status}",
+                    "title_link": "${env.BUILD_URL}",
+                    "fields": [
+                        {"title": "Sites", "value": "${env.SITES_TO_RUN ?: 'n/a'}", "short": true},
+                        {"title": "Branch", "value": "${env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'n/a'}", "short": true}
+                    ]
+                }]
+            }"""
+            sh(script: "curl -s -X POST -H 'Content-type: application/json' --data '${payload}' \"\$SLACK_WEBHOOK_URL\"", returnStatus: true)
+        }
+    } catch (e) {
+        // No SLACK_WEBHOOK_URL credential configured on this Jenkins instance — notifications
+        // are opt-in, so skip quietly rather than failing an already-failed/unstable build.
+        echo "Slack notification skipped: ${e.message}"
     }
 }

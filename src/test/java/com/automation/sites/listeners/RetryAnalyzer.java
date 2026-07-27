@@ -18,4 +18,12 @@ public class RetryAnalyzer implements IRetryAnalyzer {
         }
         return false;
     }
+
+    /** Number of retry attempts already made for this test method. TestNG keeps a single
+     *  IRetryAnalyzer instance per method across all its attempts, so this reflects the
+     *  true attempt count when read from TestListener after the method finishes — used to
+     *  tag a test that failed at least once before eventually passing as "flaky" in Allure. */
+    public int getCount() {
+        return count;
+    }
 }

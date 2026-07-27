@@ -5,13 +5,50 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  # Manual trigger with the same run-time flexibility the Jenkins pipeline
+  # already has via its `parameters {}` block — previously this workflow
+  # only ever ran the hardcoded defaults below, with no way to ask for a
+  # different browser/suite/site without editing the file.
+  workflow_dispatch:
+    inputs:
+      suite_type:
+        description: "Suite to run (regression or smoke)"
+        type: choice
+        options: [ regression, smoke ]
+        default: regression
+      browser:
+        description: "Browser to run against"
+        type: choice
+        options: [ chrome, firefox, edge ]
+        default: chrome
+      headless:
+        description: "Run headless"
+        type: boolean
+        default: true
+      retry_count:
+        description: "Retries for failed tests"
+        type: string
+        default: "0"
+
+# A new push to the same branch/PR cancels whatever run is still in
+# progress for that same ref, instead of letting both run to completion —
+# the older run's result is about to be superseded anyway. Jenkins gets
+# the equivalent via disableConcurrentBuilds(), GitLab CI via
+# `interruptible: true` below.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  SITE: "demoqa"
-  SUITE_TYPE: "regression"
-  BROWSER: "chrome"
-  HEADLESS: "true"
-  RETRY_COUNT: "0"
+  # Every site that has a <site>-<suite>.xml under testng-suites/ runs as
+  # its own matrix job below (see the `test` job's strategy.matrix.site) —
+  # previously this workflow only ever tested "demoqa", so "saucedemo" had
+  # no CI coverage at all despite the framework fully supporting it (the
+  # Jenkins pipeline already covered both via its "Site=ALL" default).
+  SUITE_TYPE: ${{ inputs.suite_type || 'regression' }}
+  BROWSER: ${{ inputs.browser || 'chrome' }}
+  HEADLESS: ${{ inputs.headless == false && 'false' || 'true' }}
+  RETRY_COUNT: ${{ inputs.retry_count || '0' }}
   MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
 
 jobs:
@@ -37,11 +74,15 @@ jobs:
           mvn -B clean compile test-compile
 
   # ================================================================
-  # STAGE 2 - Test
+  # STAGE 2 - Test (one matrix job per site, running in parallel)
   # ================================================================
   test:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [ demoqa, saucedemo ]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -52,6 +93,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+
+      # WebDriverManager downloads a fresh chromedriver/geckodriver/
+      # msedgedriver binary on a cache miss — on an ubuntu-latest runner
+      # that cache starts empty every single run (the VM itself isn't
+      # reused), so without this every job re-downloads the same driver
+      # binary from scratch, which is both slower and adds an avoidable
+      # dependency on the driver CDN being reachable/not rate-limiting.
+      # Keyed on browser (not site) since the same driver binary is shared
+      # across both sites' matrix jobs.
+      - name: Cache WebDriverManager binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.wdm
+          key: wdm-${{ runner.os }}-${{ env.BROWSER }}
+          restore-keys: |
+            wdm-${{ runner.os }}-
 
       - name: Setup Chrome Browser
         run: |
@@ -75,21 +132,28 @@ jobs:
 
       - name: Run Tests
         run: |
-          echo "======= Running Tests ======="
+          echo "======= Running Tests: site=${{ matrix.site }} ======="
           mvn -B test \
-            -Dsite=${{ env.SITE }} \
-            -DsuiteXmlFile=testng-suites/${{ env.SITE }}-${{ env.SUITE_TYPE }}.xml \
+            -Dsite=${{ matrix.site }} \
+            -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
             -Dbrowser=${{ env.BROWSER }} \
             -Dheadless=${{ env.HEADLESS }} \
             -Dhuman.pause.enabled=false \
             -Dretry.count=${{ env.RETRY_COUNT }} \
             -Dmaven.test.failure.ignore=true
 
+      # Each matrix job's own runner/filesystem is already isolated from
+      # the others, so there's no risk of two sites' results overwriting
+      # each other here the way there would be if they ran in the same
+      # JVM — unlike the Jenkinsfile's parallel per-site stage, no
+      # -Dallure.results.directory override is needed. Results still land
+      # in the artifact under a per-site folder purely so the merge step
+      # in the allure-report job below can tell them apart.
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-results-${{ matrix.site }}
           path: target/allure-results/
           retention-days: 7
 
@@ -97,7 +161,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ github.ref_name }}
+          name: test-results-${{ matrix.site }}-${{ github.ref_name }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -106,7 +170,7 @@ jobs:
           retention-days: 7
 
   # ================================================================
-  # STAGE 3 - Allure Report
+  # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
     needs: test
@@ -118,11 +182,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Allure Results
+      # merge-multiple: true flattens all matching artifacts (one per
+      # site, from the matrix job above) into the SAME target directory —
+      # since each site's allure-results file names are UUID-based, they
+      # combine into one report covering every site instead of colliding.
+      - name: Download Allure Results (all sites)
         uses: actions/download-artifact@v4
         with:
-          name: allure-results
+          pattern: allure-results-*
           path: target/allure-results/
+          merge-multiple: true
 
       - name: Load Previous Allure History
         uses: actions/checkout@v4
@@ -157,11 +226,12 @@ jobs:
           publish_dir: target/allure-report
           destination_dir: allure-report
 
-      - name: Deploy Extent Report to GitHub Pages
+      - name: Download Extent Reports (all sites)
         uses: actions/download-artifact@v4
         with:
-          name: test-results-${{ github.ref_name }}
+          pattern: test-results-*-${{ github.ref_name }}
           path: target/
+          merge-multiple: true
 
       - name: Publish Extent Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -169,3 +239,31 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/extent-reports
           destination_dir: extent-report
+
+  # ================================================================
+  # STAGE 4 - Notify (Slack, only on failure)
+  # ================================================================
+  notify:
+    needs: [ test, allure-report ]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      # Repository secrets read as an empty string (never null) when unset, so this check
+      # lets the job succeed as a no-op for anyone who hasn't configured SLACK_WEBHOOK_URL
+      # instead of failing the whole workflow over a missing notification channel.
+      - name: Notify Slack
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST -H 'Content-type: application/json' --data '{
+            "attachments": [{
+              "color": "#FF0000",
+              "title": "${{ github.repository }} — run #${{ github.run_number }} failed",
+              "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "fields": [
+                {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                {"title": "Triggered by", "value": "${{ github.actor }}", "short": true}
+              ]
+            }]
+          }' "$SLACK_WEBHOOK_URL"
