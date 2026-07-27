@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class BrowserWindowsTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Browser Windows - New Tab Opens With Correct Text")
+        groups = {"smoke", "regression"},
+        description = "Browser Windows - New Tab Opens With Correct Text")
     public void verifyNewTab() {
         BrowserWindowsPage page = new BrowserWindowsPage(getDriver());
 
@@ -17,14 +17,14 @@ public class BrowserWindowsTest extends BaseTest {
         String text = page.clickNewTabAndGetText();
 
         Assert.assertTrue(
-                text.contains("This is a sample page"),
-                "New tab should contain sample page text. Got: " + text
+            text.contains("This is a sample page"),
+            "New tab should contain sample page text. Got: " + text
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Browser Windows - New Window Opens With Correct Text")
+        groups = {"regression"},
+        description = "Browser Windows - New Window Opens With Correct Text")
     public void verifyNewWindow() {
         BrowserWindowsPage page = new BrowserWindowsPage(getDriver());
 
@@ -32,14 +32,14 @@ public class BrowserWindowsTest extends BaseTest {
         String text = page.clickNewWindowAndGetText();
 
         Assert.assertTrue(
-                text.contains("This is a sample page"),
-                "New window should contain sample page text. Got: " + text
+            text.contains("This is a sample page"),
+            "New window should contain sample page text. Got: " + text
         );
     }
 
     @Test(priority = 3,
-            groups = {"regression"},
-            description = "Browser Windows - New Window Message Opens And Closes")
+        groups = {"regression"},
+        description = "Browser Windows - New Window Message Opens And Closes")
     public void verifyNewWindowMessage() {
         BrowserWindowsPage page = new BrowserWindowsPage(getDriver());
 
@@ -51,13 +51,13 @@ public class BrowserWindowsTest extends BaseTest {
 
         // Just verify we got back to the original window without crashing
         Assert.assertNotNull(text,
-                "Should have handled the message window without error"
+            "Should have handled the message window without error"
         );
 
         // Verify we are back on the correct page
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("demoqa"),
-                "Should be back on demoqa after message window closes"
+            getDriver().getCurrentUrl().contains("demoqa"),
+            "Should be back on demoqa after message window closes"
         );
     }
 }

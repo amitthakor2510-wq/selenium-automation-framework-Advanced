@@ -61,13 +61,40 @@ public class LinksPage extends BasePage {
         return url;
     }
 
-    public String clickCreatedLink()      { HumanActions.click(driver, createdLink);      return getApiResponseText(); }
-    public String clickNoContentLink()    { HumanActions.click(driver, noContentLink);    return getApiResponseText(); }
-    public String clickMovedLink()        { HumanActions.click(driver, movedLink);        return getApiResponseText(); }
-    public String clickBadRequestLink()   { HumanActions.click(driver, badRequestLink);   return getApiResponseText(); }
-    public String clickUnauthorizedLink() { HumanActions.click(driver, unauthorizedLink); return getApiResponseText(); }
-    public String clickForbiddenLink()    { HumanActions.click(driver, forbiddenLink);    return getApiResponseText(); }
-    public String clickNotFoundLink()     { HumanActions.click(driver, notFoundLink);     return getApiResponseText(); }
+    public String clickCreatedLink() {
+        HumanActions.click(driver, createdLink);
+        return getApiResponseText();
+    }
+
+    public String clickNoContentLink() {
+        HumanActions.click(driver, noContentLink);
+        return getApiResponseText();
+    }
+
+    public String clickMovedLink() {
+        HumanActions.click(driver, movedLink);
+        return getApiResponseText();
+    }
+
+    public String clickBadRequestLink() {
+        HumanActions.click(driver, badRequestLink);
+        return getApiResponseText();
+    }
+
+    public String clickUnauthorizedLink() {
+        HumanActions.click(driver, unauthorizedLink);
+        return getApiResponseText();
+    }
+
+    public String clickForbiddenLink() {
+        HumanActions.click(driver, forbiddenLink);
+        return getApiResponseText();
+    }
+
+    public String clickNotFoundLink() {
+        HumanActions.click(driver, notFoundLink);
+        return getApiResponseText();
+    }
 
     private String getApiResponseText() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(apiResponse)).getText();

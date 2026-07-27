@@ -37,9 +37,9 @@ public class DatePickerPage extends BasePage {
         HumanActions.pause();
 
         By dayLocator = By.xpath(
-                "//div[contains(@class,'react-datepicker__day')" +
-                        " and not(contains(@class,'outside-month'))" +
-                        " and text()='" + day + "']"
+            "//div[contains(@class,'react-datepicker__day')" +
+                " and not(contains(@class,'outside-month'))" +
+                " and text()='" + day + "']"
         );
         wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
         HumanActions.click(driver, dayLocator);
@@ -75,9 +75,9 @@ public class DatePickerPage extends BasePage {
 
         // Trigger React's change handlers
         js.executeScript(
-                "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));" +
-                        "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
-                input
+            "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));" +
+                "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
+            input
         );
 
         HumanActions.pause();

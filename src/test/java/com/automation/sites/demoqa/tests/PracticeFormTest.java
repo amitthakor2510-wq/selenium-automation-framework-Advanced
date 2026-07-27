@@ -43,16 +43,16 @@ public class PracticeFormTest extends BaseTest {
 
     private void verifyModal(PracticeFormPage page, String expectedName) {
         Assert.assertTrue(
-                page.isModalDisplayed(),
-                "Confirmation modal should appear after submit"
+            page.isModalDisplayed(),
+            "Confirmation modal should appear after submit"
         );
         Assert.assertEquals(
-                page.getModalTitle(),
-                "Thanks for submitting the form"
+            page.getModalTitle(),
+            "Thanks for submitting the form"
         );
         Assert.assertTrue(
-                page.getModalContent().contains(expectedName),
-                "Modal should show submitted name: " + expectedName
+            page.getModalContent().contains(expectedName),
+            "Modal should show submitted name: " + expectedName
         );
         page.closeModal();
     }
@@ -60,8 +60,8 @@ public class PracticeFormTest extends BaseTest {
     // ── Tests ──────────────────────────────────────────────────────────────────
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Practice Form - Submit With All Fields")
+        groups = {"smoke", "regression"},
+        description = "Practice Form - Submit With All Fields")
     public void verifyFormSubmissionWithAllFields() {
         PracticeFormPage page = openForm();
 
@@ -73,7 +73,11 @@ public class PracticeFormTest extends BaseTest {
         java.io.File pictureFile = new java.io.File(picturePath);
         if (!pictureFile.exists()) {
             pictureFile.getParentFile().mkdirs();
-            try { pictureFile.createNewFile(); } catch (java.io.IOException ignored) {}
+            try {
+                pictureFile.createNewFile();
+            } catch (java.io.IOException ignored) {
+                // best-effort placeholder file — test will surface the real failure on upload
+            }
         }
         page.uploadPicture(picturePath);
 
@@ -83,8 +87,8 @@ public class PracticeFormTest extends BaseTest {
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Practice Form - Submit With Mandatory Fields Only")
+        groups = {"regression"},
+        description = "Practice Form - Submit With Mandatory Fields Only")
     public void verifyFormSubmissionWithMandatoryFieldsOnly() {
         PracticeFormPage page = openForm();
 

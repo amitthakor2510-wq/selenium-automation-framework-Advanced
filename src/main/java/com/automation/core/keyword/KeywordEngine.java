@@ -3,7 +3,11 @@ package com.automation.core.keyword;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
-import org.openqa.selenium.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
@@ -81,7 +85,8 @@ public class KeywordEngine {
             case ACCEPT_ALERT -> driver.switchTo().alert().accept();
             case DISMISS_ALERT -> driver.switchTo().alert().dismiss();
             case SCREENSHOT -> ScreenshotUtil.captureScreenshot(driver,
-                    step.getTestData().isEmpty() ? step.getTestCase() + "_step" + step.getStepNo() : step.getTestData());
+                step.getTestData().isEmpty() ? step.getTestCase() + "_step" + step.getStepNo() : step.getTestData());
+            default -> throw new RuntimeException("[KeywordEngine] Unhandled keyword: " + step.getKeyword());
         }
     }
 
@@ -93,7 +98,7 @@ public class KeywordEngine {
         } else {
             String baseUrl = ConfigReader.get("url");
             driver.get(path.isEmpty() ? baseUrl
-                    : baseUrl + (path.startsWith("/") ? path : "/" + path));
+                : baseUrl + (path.startsWith("/") ? path : "/" + path));
         }
     }
 
@@ -139,7 +144,7 @@ public class KeywordEngine {
             return Keys.valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("[KeywordEngine] Unknown key: '" + raw
-                    + "'. Use a org.openqa.selenium.Keys name, e.g. ENTER, TAB, ESCAPE, ARROW_DOWN, SPACE");
+                + "'. Use a org.openqa.selenium.Keys name, e.g. ENTER, TAB, ESCAPE, ARROW_DOWN, SPACE");
         }
     }
 
@@ -147,7 +152,7 @@ public class KeywordEngine {
         String actual = waitVisible(locator(step)).getText().trim();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                    + ": expected text to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected text to contain '" + step.getExpected() + "' but was '" + actual + "'");
         }
     }
 
@@ -155,8 +160,8 @@ public class KeywordEngine {
         boolean displayed = isDisplayed(locator(step));
         if (displayed != shouldBeDisplayed) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                    + ": expected element " + step.getLocatorKey()
-                    + (shouldBeDisplayed ? " to be displayed but it was not" : " to be hidden but it was displayed"));
+                + ": expected element " + step.getLocatorKey()
+                + (shouldBeDisplayed ? " to be displayed but it was not" : " to be hidden but it was displayed"));
         }
     }
 
@@ -164,7 +169,7 @@ public class KeywordEngine {
         String actual = driver.getCurrentUrl();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                    + ": expected URL to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected URL to contain '" + step.getExpected() + "' but was '" + actual + "'");
         }
     }
 
@@ -172,7 +177,7 @@ public class KeywordEngine {
         String actual = driver.getTitle();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                    + ": expected title to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected title to contain '" + step.getExpected() + "' but was '" + actual + "'");
         }
     }
 
@@ -181,7 +186,7 @@ public class KeywordEngine {
     private By locator(KeywordStep step) {
         if (step.getLocatorKey().isEmpty()) {
             throw new RuntimeException("[KeywordEngine] " + step.getKeyword()
-                    + " requires a locatorKey (step " + step.getStepNo() + " of " + step.getTestCase() + ")");
+                + " requires a locatorKey (step " + step.getStepNo() + " of " + step.getTestCase() + ")");
         }
         return repo.get(step.getLocatorKey());
     }

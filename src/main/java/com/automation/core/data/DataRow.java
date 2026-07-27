@@ -43,8 +43,8 @@ public class DataRow {
         String value = get(columnName);
         if (value.isEmpty()) {
             throw new RuntimeException(
-                    "Required column '" + columnName + "' is missing or empty in row " + rowIndex
-                            + ". Available columns: " + data.keySet()
+                "Required column '" + columnName + "' is missing or empty in row " + rowIndex
+                    + ". Available columns: " + data.keySet()
             );
         }
         return value;

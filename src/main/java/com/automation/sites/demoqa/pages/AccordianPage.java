@@ -43,11 +43,11 @@ public class AccordianPage extends BasePage {
      * because it doesn't depend on any id attribute that might not exist.
      */
     private final By section1Content = By.cssSelector(
-            "#accordianContainer > div > div:nth-child(1) > div");
+        "#accordianContainer > div > div:nth-child(1) > div");
     private final By section2Content = By.cssSelector(
-            "#accordianContainer > div > div:nth-child(2) > div");
+        "#accordianContainer > div > div:nth-child(2) > div");
     private final By section3Content = By.cssSelector(
-            "#accordianContainer > div > div:nth-child(3) > div");
+        "#accordianContainer > div > div:nth-child(3) > div");
 
     public AccordianPage(WebDriver driver) {
         super(driver);
@@ -73,7 +73,7 @@ public class AccordianPage extends BasePage {
      */
     private void waitForSectionOpen(By contentLocator) {
         WebElement content = wait.until(
-                ExpectedConditions.presenceOfElementLocated(contentLocator));
+            ExpectedConditions.presenceOfElementLocated(contentLocator));
         wait.until(ExpectedConditions.attributeContains(content, "class", "show"));
         wait.until(d -> {
             String cls = content.getAttribute("class");
@@ -90,7 +90,7 @@ public class AccordianPage extends BasePage {
     private boolean isSectionVisible(By contentLocator) {
         try {
             WebElement el = wait.until(
-                    ExpectedConditions.presenceOfElementLocated(contentLocator));
+                ExpectedConditions.presenceOfElementLocated(contentLocator));
             String cls = el.getAttribute("class");
             return cls != null && cls.contains("show") && !cls.contains("collapsing");
         } catch (Exception e) {
@@ -120,7 +120,7 @@ public class AccordianPage extends BasePage {
 
     public String getSection1HeaderText() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(section1Header)
+            ExpectedConditions.visibilityOfElementLocated(section1Header)
         ).getText().trim();
     }
 
@@ -137,7 +137,7 @@ public class AccordianPage extends BasePage {
     public String getSection1Content() {
         try {
             return wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(section1Content)
+                ExpectedConditions.visibilityOfElementLocated(section1Content)
             ).getText().trim();
         } catch (Exception e) {
             return "";
@@ -167,7 +167,7 @@ public class AccordianPage extends BasePage {
     public String getSection2Content() {
         try {
             return wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(section2Content)
+                ExpectedConditions.visibilityOfElementLocated(section2Content)
             ).getText().trim();
         } catch (Exception e) {
             return "";
@@ -176,7 +176,7 @@ public class AccordianPage extends BasePage {
 
     public String getSection2HeaderText() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(section2Header)
+            ExpectedConditions.visibilityOfElementLocated(section2Header)
         ).getText().trim();
     }
 
@@ -203,7 +203,7 @@ public class AccordianPage extends BasePage {
     public String getSection3Content() {
         try {
             return wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(section3Content)
+                ExpectedConditions.visibilityOfElementLocated(section3Content)
             ).getText().trim();
         } catch (Exception e) {
             return "";
@@ -212,7 +212,7 @@ public class AccordianPage extends BasePage {
 
     public String getSection3HeaderText() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(section3Header)
+            ExpectedConditions.visibilityOfElementLocated(section3Header)
         ).getText().trim();
     }
 }

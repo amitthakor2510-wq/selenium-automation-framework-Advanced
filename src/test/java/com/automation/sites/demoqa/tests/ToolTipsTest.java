@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class ToolTipsTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Tool Tips - Button Shows Tooltip On Hover")
+        groups = {"smoke", "regression"},
+        description = "Tool Tips - Button Shows Tooltip On Hover")
     public void verifyButtonTooltip() {
         ToolTipsPage page = new ToolTipsPage(getDriver());
 
@@ -18,12 +18,12 @@ public class ToolTipsTest extends BaseTest {
 
         System.out.println("Button tooltip: " + tooltip);
         Assert.assertEquals(tooltip, "You hovered over the Button",
-                "Button tooltip text mismatch");
+            "Button tooltip text mismatch");
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Tool Tips - Text Field Shows Tooltip On Hover")
+        groups = {"regression"},
+        description = "Tool Tips - Text Field Shows Tooltip On Hover")
     public void verifyTextFieldTooltip() {
         ToolTipsPage page = new ToolTipsPage(getDriver());
 
@@ -32,6 +32,6 @@ public class ToolTipsTest extends BaseTest {
 
         System.out.println("Text field tooltip: " + tooltip);
         Assert.assertEquals(tooltip, "You hovered over the text field",
-                "Text field tooltip text mismatch");
+            "Text field tooltip text mismatch");
     }
 }

@@ -37,16 +37,16 @@ public final class HumanActions {
     /** Sleeps a random duration between human.pause.min and human.pause.max (ms). */
     public static void pause() {
         pauseBetween(
-                ConfigReader.getInt("human.pause.min", 400),
-                ConfigReader.getInt("human.pause.max", 1200)
+            ConfigReader.getInt("human.pause.min", 400),
+            ConfigReader.getInt("human.pause.max", 1200)
         );
     }
 
     /** Sleeps a random duration between human.pause.postTest.min/max (ms). Used after a test finishes. */
     public static void postTestPause() {
         pauseBetween(
-                ConfigReader.getInt("human.pause.postTest.min", 500),
-                ConfigReader.getInt("human.pause.postTest.max", 1500)
+            ConfigReader.getInt("human.pause.postTest.min", 500),
+            ConfigReader.getInt("human.pause.postTest.max", 1500)
         );
     }
 
@@ -114,7 +114,7 @@ public final class HumanActions {
 
     private static WebElement waitFor(WebDriver driver, By locator) {
         return new WebDriverWait(driver,
-                Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                .until(ExpectedConditions.elementToBeClickable(locator));
+            Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
+            .until(ExpectedConditions.elementToBeClickable(locator));
     }
 }

@@ -61,6 +61,6 @@ public class AutoCompletePage extends BasePage {
 
     public String getSingleSelectedValue() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(singleValue))
-                .getText().trim();
+            .getText().trim();
     }
 }

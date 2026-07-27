@@ -60,7 +60,7 @@ public class BrowserWindowsPage extends BasePage {
 
         // Wait up to 10s for a new window/tab handle to appear
         WebDriverWait longWait = new WebDriverWait(driver,
-                Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
+            Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
         try {
             longWait.until(d -> d.getWindowHandles().size() > beforeHandles.size());
         } catch (Exception e) {
@@ -92,7 +92,7 @@ public class BrowserWindowsPage extends BasePage {
         } else {
             try {
                 new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                        .until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
+                    .until(ExpectedConditions.presenceOfElementLocated(By.tagName("body")));
                 text = driver.findElement(By.tagName("body")).getText().trim();
             } catch (Exception e) {
                 text = "This is a sample page";
@@ -102,7 +102,9 @@ public class BrowserWindowsPage extends BasePage {
         // Close the new window and switch back
         try {
             driver.close();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // window may already be closed — proceed to switch back anyway
+        }
 
         try {
             driver.switchTo().window(originalHandle);

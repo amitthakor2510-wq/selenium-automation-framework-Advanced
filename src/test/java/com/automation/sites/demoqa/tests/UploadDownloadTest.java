@@ -29,14 +29,14 @@ public class UploadDownloadTest extends BaseTest {
         // ── Upload file ────────────────────────────────────────────────────
         try {
             File uploadFile = new File(
-                    System.getProperty("user.dir") + "/target/test-upload.txt"
+                System.getProperty("user.dir") + "/target/test-upload.txt"
             );
 
             boolean dirCreated = uploadFile.getParentFile().mkdirs();
             if (!dirCreated && !uploadFile.getParentFile().exists()) {
                 throw new RuntimeException(
-                        "Could not create directory: "
-                                + uploadFile.getParentFile().getAbsolutePath()
+                    "Could not create directory: "
+                        + uploadFile.getParentFile().getAbsolutePath()
                 );
             }
 
@@ -48,19 +48,19 @@ public class UploadDownloadTest extends BaseTest {
 
         } catch (IOException e) {
             throw new RuntimeException(
-                    "Failed to create upload file: " + e.getMessage(), e
+                "Failed to create upload file: " + e.getMessage(), e
             );
         }
 
         // ── Download folder ────────────────────────────────────────────────
         downloadFolderPath = System.getProperty("user.dir")
-                + "/target/downloads";
+            + "/target/downloads";
         File downloadDir = new File(downloadFolderPath);
 
         boolean dirCreated = downloadDir.mkdirs();
         if (!dirCreated && !downloadDir.exists()) {
             throw new RuntimeException(
-                    "Could not create download directory: " + downloadFolderPath
+                "Could not create download directory: " + downloadFolderPath
             );
         }
 
@@ -69,11 +69,11 @@ public class UploadDownloadTest extends BaseTest {
     }
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Upload and Download - Verify File Upload")
+        groups = {"smoke", "regression"},
+        description = "Upload and Download - Verify File Upload")
     public void verifyFileUpload() {
         Assert.assertNotNull(uploadFilePath,
-                "uploadFilePath is null - @BeforeMethod did not run");
+            "uploadFilePath is null - @BeforeMethod did not run");
 
         UploadDownloadPage page = new UploadDownloadPage(getDriver());
         page.navigateToUploadDownload();
@@ -81,29 +81,29 @@ public class UploadDownloadTest extends BaseTest {
 
         String displayedPath = page.getUploadedFileName();
         Assert.assertTrue(
-                displayedPath.contains("test-upload.txt"),
-                "Uploaded filename should appear on page. Got: " + displayedPath
+            displayedPath.contains("test-upload.txt"),
+            "Uploaded filename should appear on page. Got: " + displayedPath
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Upload and Download - Verify File Download")
+        groups = {"regression"},
+        description = "Upload and Download - Verify File Download")
     public void verifyFileDownload() {
         Assert.assertNotNull(downloadFolderPath,
-                "downloadFolderPath is null - @BeforeMethod did not run");
+            "downloadFolderPath is null - @BeforeMethod did not run");
 
         UploadDownloadPage page = new UploadDownloadPage(getDriver());
         page.navigateToUploadDownload();
 
         boolean downloaded = page.clickDownloadAndVerify(
-                downloadFolderPath,
-                "sampleFile.jpeg"
+            downloadFolderPath,
+            "sampleFile.jpeg"
         );
 
         Assert.assertTrue(
-                downloaded,
-                "File should be downloaded to: " + downloadFolderPath
+            downloaded,
+            "File should be downloaded to: " + downloadFolderPath
         );
     }
 }

@@ -9,7 +9,7 @@ import org.testng.annotations.Test;
 public class DroppableTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Droppable - Simple Drag And Drop Shows Dropped")
+        description = "Droppable - Simple Drag And Drop Shows Dropped")
     public void verifySimpleDragAndDrop() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -21,7 +21,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Droppable - Acceptable Element Is Accepted By Drop Zone")
+        description = "Droppable - Acceptable Element Is Accepted By Drop Zone")
     public void verifyAcceptableDrop() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -34,7 +34,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Droppable - Dragging Away From Drop Zone Does Not Trigger Drop")
+        description = "Droppable - Dragging Away From Drop Zone Does Not Trigger Drop")
     public void verifyDragAwayDoesNotDrop() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -48,7 +48,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 4, groups = {"regression"},
-            description = "Droppable - Drop On Inner Not-Greedy Box Also Triggers Outer")
+        description = "Droppable - Drop On Inner Not-Greedy Box Also Triggers Outer")
     public void verifyNotGreedyPropagation() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -65,7 +65,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 5, groups = {"regression"},
-            description = "Droppable - Drop On Inner Greedy Box Does NOT Trigger Outer")
+        description = "Droppable - Drop On Inner Greedy Box Does NOT Trigger Outer")
     public void verifyGreedyPreventsOuterDrop() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -82,7 +82,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 6, groups = {"regression"},
-            description = "Droppable - Will Revert Box Returns To Original Position After Drop")
+        description = "Droppable - Will Revert Box Returns To Original Position After Drop")
     public void verifyWillRevert() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();
@@ -101,7 +101,7 @@ public class DroppableTest extends BaseTest {
     }
 
     @Test(priority = 7, groups = {"regression"},
-            description = "Droppable - Not Revert Box Stays At Drop Position")
+        description = "Droppable - Not Revert Box Stays At Drop Position")
     public void verifyNotRevert() {
         DroppablePage page = new DroppablePage(getDriver());
         page.navigateToDroppable();

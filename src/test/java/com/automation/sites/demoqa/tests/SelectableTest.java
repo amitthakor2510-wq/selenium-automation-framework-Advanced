@@ -10,7 +10,7 @@ import java.util.List;
 public class SelectableTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Selectable - Single Click Selects One Item")
+        description = "Selectable - Single Click Selects One Item")
     public void verifySingleSelection() {
         SelectablePage page = new SelectablePage(getDriver());
         page.navigateToSelectable();
@@ -23,7 +23,7 @@ public class SelectableTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Selectable - Ctrl+Click Selects Multiple Items")
+        description = "Selectable - Ctrl+Click Selects Multiple Items")
     public void verifyMultiSelection() {
         SelectablePage page = new SelectablePage(getDriver());
         page.navigateToSelectable();
@@ -37,7 +37,7 @@ public class SelectableTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Selectable - Grid Single Click Selects One Item")
+        description = "Selectable - Grid Single Click Selects One Item")
     public void verifyGridSingleSelection() {
         SelectablePage page = new SelectablePage(getDriver());
         page.navigateToSelectable();

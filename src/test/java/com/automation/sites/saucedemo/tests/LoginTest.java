@@ -8,13 +8,13 @@ import org.testng.annotations.Test;
 public class LoginTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "SauceDemo - Verify Successful Login")
+        description = "SauceDemo - Verify Successful Login")
     public void verifyLogin() {
         LoginPage page = new LoginPage(getDriver());
         page.navigateToLogin();
         page.login("standard_user", "secret_sauce");
 
         Assert.assertTrue(getDriver().getCurrentUrl().contains("inventory"),
-                "Login failed - not redirected to inventory page");
+            "Login failed - not redirected to inventory page");
     }
 }

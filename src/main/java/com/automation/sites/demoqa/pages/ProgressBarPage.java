@@ -39,15 +39,15 @@ public class ProgressBarPage extends BasePage {
 
         // Wait up to 15 seconds for progress to reach 100%
         wait.until(d ->
-                d.findElement(progressBar)
-                        .getAttribute("aria-valuenow")
-                        .equals("100")
+            d.findElement(progressBar)
+                .getAttribute("aria-valuenow")
+                .equals("100")
         );
     }
 
     public String getProgressValue() {
         return driver.findElement(progressBar)
-                .getAttribute("aria-valuenow");
+            .getAttribute("aria-valuenow");
     }
 
     public void clickReset() {
@@ -77,7 +77,7 @@ public class ProgressBarPage extends BasePage {
         long deadline = System.currentTimeMillis() + 15000;
         while (System.currentTimeMillis() < deadline) {
             String current = driver.findElement(progressBar)
-                    .getAttribute("aria-valuenow");
+                .getAttribute("aria-valuenow");
             int currentValue = Integer.parseInt(current);
 
             if (currentValue >= targetPercent) {

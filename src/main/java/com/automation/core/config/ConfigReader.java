@@ -18,13 +18,15 @@ public class ConfigReader {
     private static volatile boolean initialized = false;
     private static String activeSite;
     private static final java.util.logging.Logger logger =
-            java.util.logging.Logger.getLogger(ConfigReader.class.getName());
+        java.util.logging.Logger.getLogger(ConfigReader.class.getName());
 
     private ConfigReader() {
     }
 
     public static synchronized void init() {
-        if (initialized) return;
+        if (initialized) {
+            return;
+        }
 
         activeSite = System.getProperty("site", "demoqa");
         loadFromClasspath("config/global.properties", true);
@@ -41,7 +43,9 @@ public class ConfigReader {
     private static void loadFromClasspath(String path, boolean required) {
         try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream(path)) {
             if (input == null) {
-                if (required) throw new RuntimeException("Required config file missing: " + path);
+                if (required) {
+                    throw new RuntimeException("Required config file missing: " + path);
+                }
                 logger.info("[ConfigReader] Optional config not found: " + path);
                 return;
             }
@@ -58,9 +62,13 @@ public class ConfigReader {
     public static String get(String key) {
         init();
         String sys = System.getProperty(key);
-        if (sys != null && !sys.isEmpty()) return sys;
+        if (sys != null && !sys.isEmpty()) {
+            return sys;
+        }
         String val = properties.getProperty(key);
-        if (val == null) throw new RuntimeException("Missing config key: " + key);
+        if (val == null) {
+            throw new RuntimeException("Missing config key: " + key);
+        }
         return val;
     }
 
@@ -72,7 +80,9 @@ public class ConfigReader {
     public static String get(String key, String defaultValue) {
         init();
         String sys = System.getProperty(key);
-        if (sys != null && !sys.isEmpty()) return sys;
+        if (sys != null && !sys.isEmpty()) {
+            return sys;
+        }
         return properties.getProperty(key, defaultValue);
     }
 

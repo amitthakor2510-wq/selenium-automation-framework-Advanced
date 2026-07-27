@@ -56,7 +56,7 @@ public final class DriverFactory {
                 return createBraveDriver(headless);
             default:
                 throw new RuntimeException("Browser not supported: " + browser
-                        + ". Supported: chrome, firefox, edge, brave");
+                    + ". Supported: chrome, firefox, edge, brave");
         }
     }
 
@@ -89,13 +89,13 @@ public final class DriverFactory {
                 break;
             default:
                 throw new RuntimeException("Browser not supported on grid: " + browser
-                        + ". Supported: chrome, firefox, edge, brave");
+                    + ". Supported: chrome, firefox, edge, brave");
         }
 
         try {
             URL hubUrl = URI.create(gridUrl).toURL();
             System.out.println("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
-                    + " (browser=" + browser + ", headless=" + headless + ")");
+                + " (browser=" + browser + ", headless=" + headless + ")");
             if (options instanceof ChromeOptions co) {
                 return new RemoteWebDriver(hubUrl, co);
             } else if (options instanceof FirefoxOptions fo) {
@@ -124,7 +124,7 @@ public final class DriverFactory {
         String braveBinary = findBraveBinary();
         if (braveBinary == null) {
             throw new RuntimeException(
-                    "Brave browser binary not found. Install Brave or set -Dbrave.binary=/path/to/brave");
+                "Brave browser binary not found. Install Brave or set -Dbrave.binary=/path/to/brave");
         }
 
         WebDriverManager.chromedriver().setup();
@@ -137,25 +137,29 @@ public final class DriverFactory {
     private static String findBraveBinary() {
         // Allow explicit override via system property
         String override = System.getProperty("brave.binary");
-        if (override != null && new File(override).exists()) return override;
+        if (override != null && new File(override).exists()) {
+            return override;
+        }
 
         String[] candidates = {
-                // Linux
-                "/usr/bin/brave-browser",
-                "/usr/bin/brave",
-                "/opt/brave.com/brave/brave",
-                // macOS
-                "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-                // Windows
-                System.getenv("LOCALAPPDATA") != null
-                        ? System.getenv("LOCALAPPDATA") + "\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
-                        : null,
-                "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-                "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+            // Linux
+            "/usr/bin/brave-browser",
+            "/usr/bin/brave",
+            "/opt/brave.com/brave/brave",
+            // macOS
+            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+            // Windows
+            System.getenv("LOCALAPPDATA") != null
+                ? System.getenv("LOCALAPPDATA") + "\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+                : null,
+            "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+            "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
         };
 
         for (String path : candidates) {
-            if (path != null && new File(path).exists()) return path;
+            if (path != null && new File(path).exists()) {
+                return path;
+            }
         }
         return null;
     }
@@ -196,7 +200,7 @@ public final class DriverFactory {
         // that caused a UI interaction to fail. Chromium-based only (Chrome,
         // Edge, Brave); Firefox/geckodriver has no equivalent W3C capability.
         org.openqa.selenium.logging.LoggingPreferences logPrefs =
-                new org.openqa.selenium.logging.LoggingPreferences();
+            new org.openqa.selenium.logging.LoggingPreferences();
         logPrefs.enable(org.openqa.selenium.logging.LogType.BROWSER, java.util.logging.Level.ALL);
         options.setCapability("goog:loggingPrefs", logPrefs);
 
@@ -209,10 +213,10 @@ public final class DriverFactory {
         // Apply WDM cache settings explicitly so drivers are not re-downloaded
         // on every run (pom.xml passes these as system properties).
         String wdmCache = System.getProperty("wdm.cachePath",
-                System.getProperty("user.home") + "/.wdm");
+            System.getProperty("user.home") + "/.wdm");
         System.setProperty("wdm.cachePath", wdmCache);
         System.setProperty("wdm.forceDownload",
-                System.getProperty("wdm.forceDownload", "false"));
+            System.getProperty("wdm.forceDownload", "false"));
 
         WebDriverManager.firefoxdriver().setup();
 
@@ -221,8 +225,8 @@ public final class DriverFactory {
             System.out.println("[DriverFactory] Using Firefox binary: " + firefoxBinary);
         } else {
             System.out.println("[DriverFactory] Firefox binary not found on known paths — " +
-                    "geckodriver will search PATH. If tests hang, install Firefox or pass " +
-                    "-Dfirefox.binary=/path/to/firefox");
+                "geckodriver will search PATH. If tests hang, install Firefox or pass " +
+                "-Dfirefox.binary=/path/to/firefox");
         }
 
         FirefoxOptions options = new FirefoxOptions();
@@ -241,7 +245,7 @@ public final class DriverFactory {
         options.addPreference("browser.download.folderList", 2);
         options.addPreference("browser.download.dir", getDownloadPath());
         options.addPreference("browser.helperApps.neverAsk.saveToDisk",
-                "application/octet-stream,application/zip,text/csv");
+            "application/octet-stream,application/zip,text/csv");
 
         if (headless) {
             options.addArguments("-headless");
@@ -261,38 +265,44 @@ public final class DriverFactory {
 
         // 2. Probe common install paths (order matters — most common first per OS)
         String[] candidates = {
-                // Ubuntu 22+/24 Snap install (most common on modern Ubuntu)
-                "/snap/bin/firefox",
-                // Ubuntu/Debian apt install
-                "/usr/bin/firefox",
-                // Older Ubuntu/Fedora
-                "/usr/lib/firefox/firefox",
-                "/usr/lib64/firefox/firefox",
-                // Fedora/RHEL flatpak
-                "/var/lib/flatpak/exports/bin/org.mozilla.firefox",
-                // macOS
-                "/Applications/Firefox.app/Contents/MacOS/firefox",
-                "/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox",
-                "/Applications/Firefox Nightly.app/Contents/MacOS/firefox",
-                // Windows
-                System.getenv("PROGRAMFILES") != null
-                        ? System.getenv("PROGRAMFILES") + "\\Mozilla Firefox\\firefox.exe" : null,
-                System.getenv("PROGRAMFILES(X86)") != null
-                        ? System.getenv("PROGRAMFILES(X86)") + "\\Mozilla Firefox\\firefox.exe" : null,
+            // Ubuntu 22+/24 Snap install (most common on modern Ubuntu)
+            "/snap/bin/firefox",
+            // Ubuntu/Debian apt install
+            "/usr/bin/firefox",
+            // Older Ubuntu/Fedora
+            "/usr/lib/firefox/firefox",
+            "/usr/lib64/firefox/firefox",
+            // Fedora/RHEL flatpak
+            "/var/lib/flatpak/exports/bin/org.mozilla.firefox",
+            // macOS
+            "/Applications/Firefox.app/Contents/MacOS/firefox",
+            "/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox",
+            "/Applications/Firefox Nightly.app/Contents/MacOS/firefox",
+            // Windows
+            System.getenv("PROGRAMFILES") != null
+                ? System.getenv("PROGRAMFILES") + "\\Mozilla Firefox\\firefox.exe" : null,
+            System.getenv("PROGRAMFILES(X86)") != null
+                ? System.getenv("PROGRAMFILES(X86)") + "\\Mozilla Firefox\\firefox.exe" : null,
         };
 
         for (String path : candidates) {
-            if (path != null && new File(path).exists()) return path;
+            if (path != null && new File(path).exists()) {
+                return path;
+            }
         }
 
         // 3. Try finding firefox on PATH via which/where command
         try {
             String whichCmd = System.getProperty("os.name").toLowerCase().contains("win")
-                    ? "where firefox" : "which firefox";
+                ? "where firefox" : "which firefox";
             Process p = Runtime.getRuntime().exec(whichCmd);
             String result = new String(p.getInputStream().readAllBytes()).trim();
-            if (!result.isEmpty() && new File(result).exists()) return result;
-        } catch (Exception ignored) {}
+            if (!result.isEmpty() && new File(result).exists()) {
+                return result;
+            }
+        } catch (Exception ignored) {
+            // fall through — geckodriver will search PATH itself
+        }
 
         return null;  // geckodriver will attempt to find Firefox itself
     }
@@ -331,8 +341,8 @@ public final class DriverFactory {
 
     private static String getDownloadPath() {
         String path = System.getProperty("user.dir")
-                + File.separator + "target"
-                + File.separator + "downloads";
+            + File.separator + "target"
+            + File.separator + "downloads";
         new File(path).mkdirs();
         return path;
     }

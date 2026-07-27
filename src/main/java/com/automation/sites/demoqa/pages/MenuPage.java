@@ -35,7 +35,7 @@ public class MenuPage extends BasePage {
 
     public String getMainItem1Text() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(mainItem1))
-                .getText().trim();
+            .getText().trim();
     }
 
     public void hoverMainItem2() {

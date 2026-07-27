@@ -33,18 +33,18 @@ public class SliderPage extends BasePage {
         // Use React's native input setter — plain .value assignment is ignored
         // by React's synthetic event system and the display stays at default (25)
         js.executeScript(
-                "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(" +
-                        "    window.HTMLInputElement.prototype, 'value').set;" +
-                        "nativeInputValueSetter.call(arguments[0], arguments[1]);" +
-                        "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
-                slider, String.valueOf(value)
+            "var nativeInputValueSetter = Object.getOwnPropertyDescriptor(" +
+                "    window.HTMLInputElement.prototype, 'value').set;" +
+                "nativeInputValueSetter.call(arguments[0], arguments[1]);" +
+                "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));",
+            slider, String.valueOf(value)
         );
         HumanActions.pause();
     }
 
     public String getSliderValue() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(sliderValue)
+            ExpectedConditions.visibilityOfElementLocated(sliderValue)
         ).getAttribute("value");
     }
 

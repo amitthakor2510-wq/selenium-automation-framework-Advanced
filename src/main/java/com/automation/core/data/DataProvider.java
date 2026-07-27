@@ -136,10 +136,14 @@ public class DataProvider {
      */
     public static List<DataRow> readWithTags(String filePath, String... tags) {
         Set<String> wanted = new HashSet<>();
-        for (String t : tags) wanted.add(t.trim().toLowerCase());
+        for (String t : tags) {
+            wanted.add(t.trim().toLowerCase());
+        }
         List<DataRow> rows = new ArrayList<>();
         for (DataRow row : filterExecuteOnly(readAll(filePath))) {
-            if (rowMatchesTags(row, wanted)) rows.add(row);
+            if (rowMatchesTags(row, wanted)) {
+                rows.add(row);
+            }
         }
         return rows;
     }
@@ -220,13 +224,17 @@ public class DataProvider {
     }
 
     private static String getCellValue(Cell cell) {
-        if (cell == null) return "";
+        if (cell == null) {
+            return "";
+        }
         DataFormatter formatter = new DataFormatter();
         return formatter.formatCellValue(cell).trim();
     }
 
     private static boolean isEmptyRow(Row row) {
-        if (row == null) return true;
+        if (row == null) {
+            return true;
+        }
         for (Cell cell : row) {
             if (cell != null && cell.getCellType() != CellType.BLANK
                 && !getCellValue(cell).isEmpty()) {
@@ -257,13 +265,17 @@ public class DataProvider {
             new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
 
             List<String[]> all = reader.readAll();
-            if (all.isEmpty()) return rows;
+            if (all.isEmpty()) {
+                return rows;
+            }
 
             String[] headers = all.get(0);
 
             for (int i = 1; i < all.size(); i++) {
                 String[] rowValues = all.get(i);
-                if (isEmptyArray(rowValues)) continue;
+                if (isEmptyArray(rowValues)) {
+                    continue;
+                }
 
                 Map<String, String> rowData = new LinkedHashMap<>();
                 for (int j = 0; j < headers.length; j++) {
@@ -283,9 +295,13 @@ public class DataProvider {
     }
 
     private static boolean isEmptyArray(String[] arr) {
-        if (arr == null) return true;
+        if (arr == null) {
+            return true;
+        }
         for (String s : arr) {
-            if (s != null && !s.trim().isEmpty()) return false;
+            if (s != null && !s.trim().isEmpty()) {
+                return false;
+            }
         }
         return true;
     }
@@ -352,7 +368,9 @@ public class DataProvider {
             List<Object> list = (List<Object>) loaded;
             for (int i = 0; i < list.size(); i++) {
                 Object entry = list.get(i);
-                if (!(entry instanceof Map)) continue;
+                if (!(entry instanceof Map)) {
+                    continue;
+                }
 
                 Map<String, String> rowData = new LinkedHashMap<>();
                 ((Map<Object, Object>) entry).forEach((k, v) ->
@@ -449,11 +467,15 @@ public class DataProvider {
         List<DataRow> byExecute = filterExecuteOnly(rows);
 
         Set<String> requestedTags = requestedTags();
-        if (requestedTags.isEmpty()) return byExecute;
+        if (requestedTags.isEmpty()) {
+            return byExecute;
+        }
 
         List<DataRow> byTags = new ArrayList<>();
         for (DataRow row : byExecute) {
-            if (rowMatchesTags(row, requestedTags)) byTags.add(row);
+            if (rowMatchesTags(row, requestedTags)) {
+                byTags.add(row);
+            }
         }
         logger.info("[DataProvider] Tag filter " + requestedTags + " matched "
             + byTags.size() + "/" + byExecute.size() + " rows");
@@ -488,19 +510,29 @@ public class DataProvider {
     private static Set<String> requestedTags() {
         String raw = ConfigReader.get("data.tags", "");
         Set<String> tags = new HashSet<>();
-        if (raw == null || raw.trim().isEmpty()) return tags;
+        if (raw == null || raw.trim().isEmpty()) {
+            return tags;
+        }
         for (String t : raw.split(",")) {
-            if (!t.trim().isEmpty()) tags.add(t.trim().toLowerCase());
+            if (!t.trim().isEmpty()) {
+                tags.add(t.trim().toLowerCase());
+            }
         }
         return tags;
     }
 
     private static boolean rowMatchesTags(DataRow row, Set<String> wanted) {
-        if (wanted.isEmpty()) return true;
-        if (!row.has("tags")) return false;
+        if (wanted.isEmpty()) {
+            return true;
+        }
+        if (!row.has("tags")) {
+            return false;
+        }
         String raw = row.get("tags");
         for (String candidate : raw.split("[,|]")) {
-            if (wanted.contains(candidate.trim().toLowerCase())) return true;
+            if (wanted.contains(candidate.trim().toLowerCase())) {
+                return true;
+            }
         }
         return false;
     }
@@ -510,17 +542,25 @@ public class DataProvider {
     private static File resolveFile(String filePath) {
         // Try as absolute path first
         File file = new File(filePath);
-        if (file.exists()) return file;
+        if (file.exists()) {
+            return file;
+        }
 
         // Try relative to project root
         file = new File(System.getProperty("user.dir"), filePath);
-        if (file.exists()) return file;
+        if (file.exists()) {
+            return file;
+        }
 
         // Try on classpath (inside src/test/resources)
         try {
             var resource = DataProvider.class.getClassLoader().getResource(filePath);
-            if (resource != null) return new File(resource.toURI());
-        } catch (Exception ignored) {}
+            if (resource != null) {
+                return new File(resource.toURI());
+            }
+        } catch (Exception ignored) {
+            // fall through to "not found" below
+        }
 
         throw new RuntimeException(
             "[DataProvider] File not found: " + filePath

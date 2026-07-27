@@ -40,7 +40,7 @@ public class KeywordStep {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
             throw new RuntimeException("[KeywordStep] stepNo must be numeric, got: '" + raw
-                    + "' (row " + row.getRowIndex() + ")");
+                + "' (row " + row.getRowIndex() + ")");
         }
     }
 
@@ -55,8 +55,8 @@ public class KeywordStep {
     @Override
     public String toString() {
         return "[" + testCase + " #" + stepNo + "] " + keyword
-                + (locatorKey.isEmpty() ? "" : " -> " + locatorKey)
-                + (testData.isEmpty() ? "" : " (\"" + testData + "\")")
-                + (description.isEmpty() ? "" : " // " + description);
+            + (locatorKey.isEmpty() ? "" : " -> " + locatorKey)
+            + (testData.isEmpty() ? "" : " (\"" + testData + "\")")
+            + (description.isEmpty() ? "" : " // " + description);
     }
 }

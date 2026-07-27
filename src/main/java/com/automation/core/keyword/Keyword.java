@@ -42,8 +42,8 @@ public enum Keyword {
             return Keyword.valueOf(raw.trim().toUpperCase().replace(' ', '_'));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                    "[KeywordEngine] Unknown keyword: '" + raw + "'. Supported: "
-                            + java.util.Arrays.toString(Keyword.values()));
+                "[KeywordEngine] Unknown keyword: '" + raw + "'. Supported: "
+                    + java.util.Arrays.toString(Keyword.values()));
         }
     }
 }

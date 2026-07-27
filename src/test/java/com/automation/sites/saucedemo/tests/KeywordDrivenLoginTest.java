@@ -25,19 +25,19 @@ public class KeywordDrivenLoginTest extends KeywordTestBase {
     private static final String SCRIPT = "src/test/resources/testdata/keyword/saucedemo_login_keywords.csv";
 
     @Test(groups = {"regression", "keyword-driven"},
-            description = "SauceDemo - Valid login, driven entirely by keyword script")
+        description = "SauceDemo - Valid login, driven entirely by keyword script")
     public void validLogin() {
         runKeywordTestCase(OBJECT_REPO, SCRIPT, "TC01_ValidLogin");
     }
 
     @Test(groups = {"regression", "keyword-driven"},
-            description = "SauceDemo - Locked-out user shows error, driven entirely by keyword script")
+        description = "SauceDemo - Locked-out user shows error, driven entirely by keyword script")
     public void lockedOutLoginShowsError() {
         runKeywordTestCase(OBJECT_REPO, SCRIPT, "TC02_InvalidLogin");
     }
 
     @Test(groups = {"regression", "keyword-driven", "keyboard-driven"},
-            description = "SauceDemo - Login completed using only the keyboard (Tab + Enter, no clicks on the fields)")
+        description = "SauceDemo - Login completed using only the keyboard (Tab + Enter, no clicks on the fields)")
     public void keyboardOnlyLogin() {
         runKeywordTestCase(OBJECT_REPO, SCRIPT, "TC03_KeyboardOnlyLogin");
     }

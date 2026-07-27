@@ -3,7 +3,11 @@ package com.automation.core.keyword;
 import com.automation.core.data.DataProvider;
 import com.automation.core.data.DataRow;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -31,8 +35,8 @@ public final class KeywordReader {
         }
 
         byTestCase.replaceAll((testCase, steps) -> steps.stream()
-                .sorted(Comparator.comparingInt(KeywordStep::getStepNo))
-                .collect(Collectors.toList()));
+            .sorted(Comparator.comparingInt(KeywordStep::getStepNo))
+            .collect(Collectors.toList()));
 
         return byTestCase;
     }
@@ -42,7 +46,7 @@ public final class KeywordReader {
         List<KeywordStep> steps = readAll(filePath).get(testCase);
         if (steps == null) {
             throw new RuntimeException("[KeywordReader] No rows found for testCase='"
-                    + testCase + "' in " + filePath);
+                + testCase + "' in " + filePath);
         }
         return steps;
     }

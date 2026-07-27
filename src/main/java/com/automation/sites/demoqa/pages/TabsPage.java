@@ -1,7 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -35,7 +34,7 @@ public class TabsPage extends BasePage {
     public String getWhatTabContent() {
         // What tab is active by default
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(whatContent)
+            ExpectedConditions.visibilityOfElementLocated(whatContent)
         ).getText().trim();
     }
 
@@ -43,7 +42,7 @@ public class TabsPage extends BasePage {
         WebElement tab = driver.findElement(originTab);
         js.executeScript("arguments[0].click();", tab);
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(originContent)
+            ExpectedConditions.visibilityOfElementLocated(originContent)
         ).getText().trim();
     }
 
@@ -51,7 +50,7 @@ public class TabsPage extends BasePage {
         WebElement tab = driver.findElement(useTab);
         js.executeScript("arguments[0].click();", tab);
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(useContent)
+            ExpectedConditions.visibilityOfElementLocated(useContent)
         ).getText().trim();
     }
 }

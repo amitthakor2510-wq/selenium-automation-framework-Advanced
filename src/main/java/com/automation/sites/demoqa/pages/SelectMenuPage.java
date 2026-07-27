@@ -14,8 +14,8 @@ public class SelectMenuPage extends BasePage {
     // Target by the input ID we know is correct, then walk up to the control div
     private final By selectValueInput   = By.id("react-select-2-input");
     private final By selectValueDisplay = By.cssSelector(
-            "#react-select-2-input ~ * .react-select__single-value, " +
-                    "div:has(> #react-select-2-input) .react-select__single-value"
+        "#react-select-2-input ~ * .react-select__single-value, " +
+            "div:has(> #react-select-2-input) .react-select__single-value"
     );
 
     // ── Old style select ───────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ public class SelectMenuPage extends BasePage {
 
     public void selectValue(String value) {
         WebElement input = wait.until(
-                ExpectedConditions.presenceOfElementLocated(selectValueInput)
+            ExpectedConditions.presenceOfElementLocated(selectValueInput)
         );
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", input);
         HumanActions.pause();
@@ -49,18 +49,18 @@ public class SelectMenuPage extends BasePage {
         // The DOM structure is: input → div (value-container) → div (control)
         // so parentElement.parentElement is always the control, class-name-agnostic.
         js.executeScript(
-                "arguments[0].parentElement.parentElement.click();", input
+            "arguments[0].parentElement.parentElement.click();", input
         );
 
         // Type into the now-open input
         input = wait.until(
-                ExpectedConditions.elementToBeClickable(selectValueInput)
+            ExpectedConditions.elementToBeClickable(selectValueInput)
         );
         input.sendKeys(value);
 
         // Click the matching option
         By option = By.xpath(
-                "//div[contains(@class,'option') and normalize-space(.)='" + value + "']"
+            "//div[contains(@class,'option') and normalize-space(.)='" + value + "']"
         );
         WebElement opt = wait.until(ExpectedConditions.elementToBeClickable(option));
         HumanActions.pause();
@@ -73,16 +73,16 @@ public class SelectMenuPage extends BasePage {
         // the dummy input value that react-select keeps in sync after selection.
         // The simplest approach: grab the input's current value attribute.
         WebElement input = wait.until(
-                ExpectedConditions.presenceOfElementLocated(selectValueInput)
+            ExpectedConditions.presenceOfElementLocated(selectValueInput)
         );
         // react-select sets the parent container's aria-label to the selected value
         // and also puts it as a sibling div. Use the grandparent's text content
         // minus the input's own placeholder text via JS to get the selected label.
         String selected = (String) js.executeScript(
-                "var c = arguments[0].parentElement.parentElement;" +
-                        "var sv = c.querySelector('[class*=\"singleValue\"]');" +
-                        "return sv ? sv.innerText : null;",
-                input
+            "var c = arguments[0].parentElement.parentElement;" +
+                "var sv = c.querySelector('[class*=\"singleValue\"]');" +
+                "return sv ? sv.innerText : null;",
+            input
         );
         return selected != null ? selected : "";
     }
@@ -91,7 +91,7 @@ public class SelectMenuPage extends BasePage {
 
     public void selectOldStyleOption(String visibleText) {
         WebElement select = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(oldStyleSelect)
+            ExpectedConditions.visibilityOfElementLocated(oldStyleSelect)
         );
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", select);
         HumanActions.pause();
@@ -107,7 +107,7 @@ public class SelectMenuPage extends BasePage {
 
     public void selectCarOption(String visibleText) {
         WebElement select = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(standardMulti)
+            ExpectedConditions.visibilityOfElementLocated(standardMulti)
         );
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", select);
         HumanActions.pause();
@@ -118,6 +118,6 @@ public class SelectMenuPage extends BasePage {
 
     public String getSelectedCarOption() {
         return new Select(driver.findElement(standardMulti))
-                .getFirstSelectedOption().getText();
+            .getFirstSelectedOption().getText();
     }
 }

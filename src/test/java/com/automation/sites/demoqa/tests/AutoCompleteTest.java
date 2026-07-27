@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class AutoCompleteTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Auto Complete - Multi Select Accepts Multiple Colors")
+        groups = {"smoke", "regression"},
+        description = "Auto Complete - Multi Select Accepts Multiple Colors")
     public void verifyMultiColorInput() {
         AutoCompletePage page = new AutoCompletePage(getDriver());
 
@@ -18,14 +18,14 @@ public class AutoCompleteTest extends BaseTest {
         page.typeMultiColor("Blue");
 
         Assert.assertEquals(
-                page.getMultiSelectedCount(), 2,
-                "Should have 2 colors selected"
+            page.getMultiSelectedCount(), 2,
+            "Should have 2 colors selected"
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Auto Complete - Single Select Shows Selected Color")
+        groups = {"regression"},
+        description = "Auto Complete - Single Select Shows Selected Color")
     public void verifySingleColorInput() {
         AutoCompletePage page = new AutoCompletePage(getDriver());
 
@@ -33,9 +33,9 @@ public class AutoCompleteTest extends BaseTest {
         page.typeSingleColor("Green");
 
         Assert.assertTrue(
-                page.getSingleSelectedValue().contains("Green"),
-                "Single input should show Green. Got: "
-                        + page.getSingleSelectedValue()
+            page.getSingleSelectedValue().contains("Green"),
+            "Single input should show Green. Got: "
+                + page.getSingleSelectedValue()
         );
     }
 }

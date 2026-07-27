@@ -19,7 +19,7 @@ public abstract class BasePage {
     protected BasePage(WebDriver driver) {
         this.driver = driver;
         this.wait   = new WebDriverWait(driver,
-                Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
+            Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
         this.js     = (JavascriptExecutor) driver;
     }
 
@@ -64,7 +64,7 @@ public abstract class BasePage {
     protected boolean isDisplayed(By locator) {
         try {
             return !driver.findElements(locator).isEmpty()
-                    && driver.findElement(locator).isDisplayed();
+                && driver.findElement(locator).isDisplayed();
         } catch (Exception e) {
             return false;
         }

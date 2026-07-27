@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class SliderTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Slider - Set Value To 50 And Verify")
+        groups = {"smoke", "regression"},
+        description = "Slider - Set Value To 50 And Verify")
     public void verifySliderValue() {
         SliderPage page = new SliderPage(getDriver());
 
@@ -17,14 +17,14 @@ public class SliderTest extends BaseTest {
         page.setSliderValue(50);
 
         Assert.assertEquals(
-                page.getSliderValue(), "50",
-                "Slider value should be 50"
+            page.getSliderValue(), "50",
+            "Slider value should be 50"
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Slider - Set Value To 75 And Verify")
+        groups = {"regression"},
+        description = "Slider - Set Value To 75 And Verify")
     public void verifySliderValueAt75() {
         SliderPage page = new SliderPage(getDriver());
 
@@ -32,8 +32,8 @@ public class SliderTest extends BaseTest {
         page.setSliderValue(75);
 
         Assert.assertEquals(
-                page.getSliderValue(), "75",
-                "Slider value should be 75"
+            page.getSliderValue(), "75",
+            "Slider value should be 75"
         );
     }
 }

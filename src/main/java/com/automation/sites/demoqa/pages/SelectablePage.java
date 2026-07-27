@@ -70,9 +70,9 @@ public class SelectablePage extends BasePage {
 
     public List<String> getActiveListItemTexts() {
         return driver.findElements(activeListItems)
-                .stream()
-                .map(e -> e.getText().trim())
-                .collect(Collectors.toList());
+            .stream()
+            .map(e -> e.getText().trim())
+            .collect(Collectors.toList());
     }
 
     public void clickGridTab() {

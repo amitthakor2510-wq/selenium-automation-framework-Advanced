@@ -32,8 +32,8 @@ public class LoginPage extends BasePage {
     public boolean isErrorDisplayed() {
         try {
             return wait.until(ExpectedConditions
-                            .visibilityOfElementLocated(errorMessage))
-                    .isDisplayed();
+                    .visibilityOfElementLocated(errorMessage))
+                .isDisplayed();
         } catch (Exception e) {
             return false;
         }

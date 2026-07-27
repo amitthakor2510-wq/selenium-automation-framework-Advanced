@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
 public class DraggableTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Draggable - Simple Box Moves To New Position")
+        description = "Draggable - Simple Box Moves To New Position")
     public void verifySimpleDrag() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -27,7 +27,7 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Draggable - X-Only Box Does Not Move Vertically")
+        description = "Draggable - X-Only Box Does Not Move Vertically")
     public void verifyXAxisRestriction() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -46,7 +46,7 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Draggable - Y-Only Box Does Not Move Horizontally")
+        description = "Draggable - Y-Only Box Does Not Move Horizontally")
     public void verifyYAxisRestriction() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -65,7 +65,7 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 4, groups = {"regression"},
-            description = "Draggable - Container Restricted Box Stays Within Parent")
+        description = "Draggable - Container Restricted Box Stays Within Parent")
     public void verifyContainerRestriction() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -83,13 +83,13 @@ public class DraggableTest extends BaseTest {
         System.out.println("Wrapper bottom edge:" + wrapperBottom);
 
         Assert.assertTrue(boxPos.getX() <= wrapperRight,
-                "Box left edge should not exceed wrapper right edge");
+            "Box left edge should not exceed wrapper right edge");
         Assert.assertTrue(boxPos.getY() <= wrapperBottom,
-                "Box top edge should not exceed wrapper bottom edge");
+            "Box top edge should not exceed wrapper bottom edge");
     }
 
     @Test(priority = 5, groups = {"regression"},
-            description = "Draggable - Contained-Within-Parent Box Stays Within Its Immediate Parent")
+        description = "Draggable - Contained-Within-Parent Box Stays Within Its Immediate Parent")
     public void verifyContainedWithinParentRestriction() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -108,13 +108,13 @@ public class DraggableTest extends BaseTest {
         System.out.println("Parent bottom edge: " + parentBottom);
 
         Assert.assertTrue(boxPos.getX() <= parentRight,
-                "Box left edge should not exceed its parent's right edge");
+            "Box left edge should not exceed its parent's right edge");
         Assert.assertTrue(boxPos.getY() <= parentBottom,
-                "Box top edge should not exceed its parent's bottom edge");
+            "Box top edge should not exceed its parent's bottom edge");
     }
 
     @Test(priority = 6, groups = {"regression"},
-            description = "Draggable - Cursor Center Box Drags Right")
+        description = "Draggable - Cursor Center Box Drags Right")
     public void verifyCursorCenter() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -134,7 +134,7 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 7, groups = {"regression"},
-            description = "Draggable - Cursor TopLeft Box Drags Diagonally")
+        description = "Draggable - Cursor TopLeft Box Drags Diagonally")
     public void verifyCursorTopLeft() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();
@@ -154,7 +154,7 @@ public class DraggableTest extends BaseTest {
     }
 
     @Test(priority = 8, groups = {"regression"},
-            description = "Draggable - Cursor Bottom Box Drags Down")
+        description = "Draggable - Cursor Bottom Box Drags Down")
     public void verifyCursorBottom() {
         DraggablePage page = new DraggablePage(getDriver());
         page.navigateToDraggable();

@@ -76,8 +76,8 @@ public class TestListener implements ITestListener {
         ExtentTest extentTest;
         synchronized (extent) {
             extentTest = extent.createTest(
-                    testName,
-                    (description != null && !description.isEmpty()) ? description : ""
+                testName,
+                (description != null && !description.isEmpty()) ? description : ""
             );
         }
         test.set(extentTest);
@@ -103,10 +103,10 @@ public class TestListener implements ITestListener {
             byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
             if (bytes.length > 0 && isAllureTestCaseOpen()) {
                 Allure.addAttachment(
-                        "Pass Screenshot — " + result.getMethod().getMethodName(),
-                        "image/png",
-                        new ByteArrayInputStream(bytes),
-                        "png"
+                    "Pass Screenshot — " + result.getMethod().getMethodName(),
+                    "image/png",
+                    new ByteArrayInputStream(bytes),
+                    "png"
                 );
             }
 
@@ -134,8 +134,8 @@ public class TestListener implements ITestListener {
 
                 if (bytes.length > 0)  {
                     test.get().addScreenCaptureFromBase64String(
-                            "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
-                            "Failure Screenshot"
+                        "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
+                        "Failure Screenshot"
                     );
                 }
             }
@@ -146,30 +146,30 @@ public class TestListener implements ITestListener {
             if (isAllureTestCaseOpen()) {
                 if (bytes.length > 0) {
                     Allure.addAttachment(
-                            "Failure Screenshot — " + result.getMethod().getMethodName(),
-                            "image/png",
-                            new ByteArrayInputStream(bytes),
-                            "png"
+                        "Failure Screenshot — " + result.getMethod().getMethodName(),
+                        "image/png",
+                        new ByteArrayInputStream(bytes),
+                        "png"
                     );
                 }
 
                 String pageSource = FailureDiagnostics.capturePageSource(driver);
                 if (!pageSource.isEmpty()) {
                     Allure.addAttachment(
-                            "Page Source — " + result.getMethod().getMethodName(),
-                            "text/html",
-                            new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
-                            "html"
+                        "Page Source — " + result.getMethod().getMethodName(),
+                        "text/html",
+                        new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
+                        "html"
                     );
                 }
 
                 String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
                 if (!consoleLogs.isEmpty()) {
                     Allure.addAttachment(
-                            "Browser Console Logs — " + result.getMethod().getMethodName(),
-                            "text/plain",
-                            new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
-                            "log"
+                        "Browser Console Logs — " + result.getMethod().getMethodName(),
+                        "text/plain",
+                        new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
+                        "log"
                     );
                 }
 

@@ -123,9 +123,9 @@ public class PracticeFormPage extends BasePage {
 
         // Click the correct day - exclude only days from other months
         By dayLocator = By.xpath(
-                "//div[contains(@class,'react-datepicker__day')" +
-                        " and not(contains(@class,'outside-month'))" +
-                        " and text()='" + day + "']"
+            "//div[contains(@class,'react-datepicker__day')" +
+                " and not(contains(@class,'outside-month'))" +
+                " and text()='" + day + "']"
         );
         wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
         HumanActions.click(driver, dayLocator);
@@ -135,7 +135,7 @@ public class PracticeFormPage extends BasePage {
 
     public void enterSubject(String subject) {
         WebElement input = wait.until(
-                ExpectedConditions.elementToBeClickable(subjectsInput)
+            ExpectedConditions.elementToBeClickable(subjectsInput)
         );
         HumanActions.pause();
         input.sendKeys(subject);
@@ -143,7 +143,7 @@ public class PracticeFormPage extends BasePage {
         // Wait for autocomplete to appear then press ENTER to select
         // More reliable than clicking the option element
         By suggestion = By.xpath(
-                "//div[contains(@class,'subjects-auto-complete__option')]"
+            "//div[contains(@class,'subjects-auto-complete__option')]"
         );
         wait.until(ExpectedConditions.visibilityOfElementLocated(suggestion));
         HumanActions.pause();
@@ -160,7 +160,7 @@ public class PracticeFormPage extends BasePage {
 
     public void uploadPicture(String filePath) {
         WebElement input = wait.until(
-                ExpectedConditions.presenceOfElementLocated(uploadPicture)
+            ExpectedConditions.presenceOfElementLocated(uploadPicture)
         );
         HumanActions.pause();
         input.sendKeys(filePath);
@@ -187,12 +187,12 @@ public class PracticeFormPage extends BasePage {
      */
     private void selectReactDropdown(By inputLocator, String value) {
         WebElement input = wait.until(
-                ExpectedConditions.elementToBeClickable(inputLocator)
+            ExpectedConditions.elementToBeClickable(inputLocator)
         );
 
         // Scroll into center so ad banner doesn't block it
         js.executeScript(
-                "arguments[0].scrollIntoView({block:'center'});", input
+            "arguments[0].scrollIntoView({block:'center'});", input
         );
         HumanActions.pause();
 
@@ -204,7 +204,7 @@ public class PracticeFormPage extends BasePage {
         // Wait for dropdown options to appear
         // Using a broad locator that works regardless of react-select version
         By anyOption = By.xpath(
-                "//div[contains(@id,'react-select') and contains(@id,'option')]"
+            "//div[contains(@id,'react-select') and contains(@id,'option')]"
         );
         wait.until(ExpectedConditions.visibilityOfElementLocated(anyOption));
         HumanActions.pause();
@@ -221,10 +221,10 @@ public class PracticeFormPage extends BasePage {
         HumanActions.pause();
 
         WebElement btn = wait.until(
-                ExpectedConditions.presenceOfElementLocated(submitButton)
+            ExpectedConditions.presenceOfElementLocated(submitButton)
         );
         js.executeScript(
-                "arguments[0].scrollIntoView({block:'center'});", btn
+            "arguments[0].scrollIntoView({block:'center'});", btn
         );
         HumanActions.pause();
         js.executeScript("arguments[0].click();", btn);
@@ -234,19 +234,19 @@ public class PracticeFormPage extends BasePage {
 
     public boolean isModalDisplayed() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(modalTitle)
+            ExpectedConditions.visibilityOfElementLocated(modalTitle)
         ).isDisplayed();
     }
 
     public String getModalTitle() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(modalTitle)
+            ExpectedConditions.visibilityOfElementLocated(modalTitle)
         ).getText();
     }
 
     public String getModalContent() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(modalTableBody)
+            ExpectedConditions.visibilityOfElementLocated(modalTableBody)
         ).getText();
     }
 
@@ -264,7 +264,7 @@ public class PracticeFormPage extends BasePage {
 
         // Wait until modal is visible
         WebElement modal = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(modalTitle)
+            ExpectedConditions.visibilityOfElementLocated(modalTitle)
         );
 
         // Try 3 different ways to close — stops at whichever works first
@@ -278,39 +278,45 @@ public class PracticeFormPage extends BasePage {
 
             // Check if modal disappeared
             if (driver.findElements(modalTitle).isEmpty()
-                    || !driver.findElement(modalTitle).isDisplayed()) {
+                || !driver.findElement(modalTitle).isDisplayed()) {
                 closed = true;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // JS click didn't work — fall through to the next attempt
+        }
 
         // Attempt 2 — Press Escape key to dismiss modal
         if (!closed) {
             try {
                 driver.findElement(By.tagName("body"))
-                        .sendKeys(Keys.ESCAPE);
+                    .sendKeys(Keys.ESCAPE);
                 HumanActions.pause();
 
                 if (driver.findElements(modalTitle).isEmpty()
-                        || !driver.findElement(modalTitle).isDisplayed()) {
+                    || !driver.findElement(modalTitle).isDisplayed()) {
                     closed = true;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // Escape key didn't dismiss it — fall through to the next attempt
+            }
         }
 
         // Attempt 3 — Click outside the modal (the backdrop)
         if (!closed) {
             try {
                 js.executeScript(
-                        "document.querySelector('.modal-backdrop').click();"
+                    "document.querySelector('.modal-backdrop').click();"
                 );
                 HumanActions.pause();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // backdrop click didn't work either — final wait below will report the state
+            }
         }
 
         // Final wait — just confirm modal is gone, don't throw if already gone
         try {
             new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                    .until(ExpectedConditions.invisibilityOfElementLocated(modalTitle));
+                .until(ExpectedConditions.invisibilityOfElementLocated(modalTitle));
         } catch (Exception ignored) {
             // Modal may have already closed via one of the attempts above
         }
@@ -320,10 +326,10 @@ public class PracticeFormPage extends BasePage {
 
     private void scrollAndClick(By locator) {
         WebElement element = wait.until(
-                ExpectedConditions.presenceOfElementLocated(locator)
+            ExpectedConditions.presenceOfElementLocated(locator)
         );
         js.executeScript(
-                "arguments[0].scrollIntoView({block:'center'});", element
+            "arguments[0].scrollIntoView({block:'center'});", element
         );
         HumanActions.pause();
         js.executeScript("arguments[0].click();", element);

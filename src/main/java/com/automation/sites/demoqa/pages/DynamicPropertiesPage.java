@@ -29,7 +29,7 @@ public class DynamicPropertiesPage extends BasePage {
         super(driver);
         // FIX #8e: reads from config — set timeout.long=15 in global.properties
         this.longWait = new WebDriverWait(driver,
-                Duration.ofSeconds(ConfigReader.getInt("timeout.long", 15)));
+            Duration.ofSeconds(ConfigReader.getInt("timeout.long", 15)));
     }
 
     public void navigateToDynamicProperties() {
@@ -49,7 +49,7 @@ public class DynamicPropertiesPage extends BasePage {
     public boolean hasColorChanged() {
         try {
             longWait.until(ExpectedConditions.attributeContains(
-                    colorChangeBtn, "class", "text-danger"));
+                colorChangeBtn, "class", "text-danger"));
             return true;
         } catch (Exception e) {
             return false;

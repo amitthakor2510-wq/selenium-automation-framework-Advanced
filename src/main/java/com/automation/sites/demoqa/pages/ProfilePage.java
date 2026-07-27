@@ -2,7 +2,11 @@ package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
-import org.openqa.selenium.*;
+import org.openqa.selenium.By;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.TimeoutException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.util.List;
@@ -63,19 +67,21 @@ public class ProfilePage extends BasePage {
             if (!driver.findElements(noRowsMessage).isEmpty()) {
                 return 0;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // fall through — count via table rows below
+        }
 
         try {
             return (int) driver.findElements(tableRows).stream()
-                    .filter(r -> {
-                        try {
-                            String text = r.getText().trim();
-                            return !text.isEmpty();
-                        } catch (StaleElementReferenceException e) {
-                            return false;
-                        }
-                    })
-                    .count();
+                .filter(r -> {
+                    try {
+                        String text = r.getText().trim();
+                        return !text.isEmpty();
+                    } catch (StaleElementReferenceException e) {
+                        return false;
+                    }
+                })
+                .count();
         } catch (Exception e) {
             System.out.println("[ProfilePage] Error getting book count: " + e.getMessage());
             return 0;
@@ -90,19 +96,21 @@ public class ProfilePage extends BasePage {
             if (!driver.findElements(noRowsMessage).isEmpty()) {
                 return List.of();
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // fall through — collect titles via table rows below
+        }
 
         try {
             return driver.findElements(tableRows).stream()
-                    .map(r -> {
-                        try {
-                            return r.getText().trim();
-                        } catch (StaleElementReferenceException e) {
-                            return "";
-                        }
-                    })
-                    .filter(t -> !t.isEmpty())
-                    .collect(toList());
+                .map(r -> {
+                    try {
+                        return r.getText().trim();
+                    } catch (StaleElementReferenceException e) {
+                        return "";
+                    }
+                })
+                .filter(t -> !t.isEmpty())
+                .collect(toList());
         } catch (Exception e) {
             System.out.println("[ProfilePage] Error getting book titles: " + e.getMessage());
             return List.of();
@@ -114,7 +122,7 @@ public class ProfilePage extends BasePage {
      */
     public boolean isBookListed(String title) {
         return getBookTitles().stream()
-                .anyMatch(rowText -> rowText.toLowerCase().contains(title.toLowerCase()));
+            .anyMatch(rowText -> rowText.toLowerCase().contains(title.toLowerCase()));
     }
 
     /**
@@ -154,19 +162,19 @@ public class ProfilePage extends BasePage {
         WebElement row;
         try {
             row = wait.until(d -> d.findElements(tableRows).stream()
-                    .filter(r -> {
-                        try {
-                            return r.getText().toLowerCase().contains(title.toLowerCase());
-                        } catch (StaleElementReferenceException e) {
-                            return false;
-                        }
-                    })
-                    .findFirst()
-                    .orElse(null));
+                .filter(r -> {
+                    try {
+                        return r.getText().toLowerCase().contains(title.toLowerCase());
+                    } catch (StaleElementReferenceException e) {
+                        return false;
+                    }
+                })
+                .findFirst()
+                .orElse(null));
         } catch (TimeoutException e) {
             dumpPageForDebugging("profile-book-row-not-found");
             throw new NoSuchElementException(
-                    "No row found matching book title: " + title);
+                "No row found matching book title: " + title);
         }
 
         WebElement deleteIcon = row.findElement(deleteIconInRow);
@@ -205,7 +213,7 @@ public class ProfilePage extends BasePage {
             java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
             java.nio.file.Files.createDirectories(dir);
             String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
-                    + "-" + System.currentTimeMillis() + ".html";
+                + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
             System.out.println("  DEBUG full page source written to: " + file.toAbsolutePath());

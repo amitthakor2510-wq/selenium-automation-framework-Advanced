@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 public class ButtonsTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Buttons - Verify Double Click")
+        description = "Buttons - Verify Double Click")
     public void verifyDoubleClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 
@@ -19,7 +19,7 @@ public class ButtonsTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Buttons - Verify Right Click")
+        description = "Buttons - Verify Right Click")
     public void verifyRightClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 
@@ -30,7 +30,7 @@ public class ButtonsTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Buttons - Verify Dynamic Click")
+        description = "Buttons - Verify Dynamic Click")
     public void verifyDynamicClick() {
         ButtonsPage page = new ButtonsPage(getDriver());
 

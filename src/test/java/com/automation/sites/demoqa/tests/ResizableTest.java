@@ -9,7 +9,7 @@ import org.testng.annotations.Test;
 public class ResizableTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Resizable - Box Has Default Size 200x200")
+        description = "Resizable - Box Has Default Size 200x200")
     public void verifyDefaultSize() {
         ResizablePage page = new ResizablePage(getDriver());
         page.navigateToResizable();
@@ -22,7 +22,7 @@ public class ResizableTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Resizable - Dragging Handle Increases Box Size")
+        description = "Resizable - Dragging Handle Increases Box Size")
     public void verifyResizeIncrease() {
         ResizablePage page = new ResizablePage(getDriver());
         page.navigateToResizable();
@@ -40,7 +40,7 @@ public class ResizableTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Resizable - Box Cannot Exceed Max Size 500x300")
+        description = "Resizable - Box Cannot Exceed Max Size 500x300")
     public void verifyMaxSizeConstraint() {
         ResizablePage page = new ResizablePage(getDriver());
         page.navigateToResizable();

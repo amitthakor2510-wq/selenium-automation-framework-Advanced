@@ -45,7 +45,7 @@ public class ObjectRepository {
     private static ObjectRepository doLoad(String classpathResource) {
         ObjectRepository repo = new ObjectRepository(classpathResource);
         try (InputStream is = ObjectRepository.class.getClassLoader()
-                .getResourceAsStream(classpathResource)) {
+            .getResourceAsStream(classpathResource)) {
             if (is == null) {
                 throw new RuntimeException("[ObjectRepository] Not found on classpath: " + classpathResource);
             }
@@ -61,7 +61,7 @@ public class ObjectRepository {
         String raw = locators.getProperty(key);
         if (raw == null) {
             throw new RuntimeException("[ObjectRepository] No locator for key '" + key
-                    + "' in " + sourcePath + ". Known keys: " + locators.keySet());
+                + "' in " + sourcePath + ". Known keys: " + locators.keySet());
         }
         return parse(key, raw.trim());
     }
@@ -70,7 +70,7 @@ public class ObjectRepository {
         int sep = raw.indexOf(':');
         if (sep < 0) {
             throw new RuntimeException("[ObjectRepository] Locator for '" + key
-                    + "' must be in 'type:value' form, got: '" + raw + "'");
+                + "' must be in 'type:value' form, got: '" + raw + "'");
         }
         String type = raw.substring(0, sep).trim().toLowerCase();
         String value = raw.substring(sep + 1).trim();
@@ -86,8 +86,8 @@ public class ObjectRepository {
             case "tag": return By.tagName(value);
             default:
                 throw new RuntimeException("[ObjectRepository] Unknown locator type '" + type
-                        + "' for key '" + key + "'. Supported: id, name, css, xpath, class, "
-                        + "linktext, partiallinktext, tag");
+                    + "' for key '" + key + "'. Supported: id, name, css, xpath, class, "
+                    + "linktext, partiallinktext, tag");
         }
     }
 }

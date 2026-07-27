@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class MenuTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Menu - Main Item 1 Is Visible")
+        groups = {"smoke", "regression"},
+        description = "Menu - Main Item 1 Is Visible")
     public void verifyMainItem1Visible() {
         MenuPage page = new MenuPage(getDriver());
 
@@ -21,8 +21,8 @@ public class MenuTest extends BaseTest {
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Menu - Sub Item Appears On Hover")
+        groups = {"regression"},
+        description = "Menu - Sub Item Appears On Hover")
     public void verifySubItemOnHover() {
         MenuPage page = new MenuPage(getDriver());
 
@@ -30,14 +30,14 @@ public class MenuTest extends BaseTest {
         page.hoverMainItem2();
 
         Assert.assertTrue(
-                page.isSubItemVisible(),
-                "Sub Item should appear after hovering Main Item 2"
+            page.isSubItemVisible(),
+            "Sub Item should appear after hovering Main Item 2"
         );
     }
 
     @Test(priority = 3,
-            groups = {"regression"},
-            description = "Menu - Sub Sub Item Appears On Nested Hover")
+        groups = {"regression"},
+        description = "Menu - Sub Sub Item Appears On Nested Hover")
     public void verifySubSubItemOnHover() {
         MenuPage page = new MenuPage(getDriver());
 
@@ -45,8 +45,8 @@ public class MenuTest extends BaseTest {
         page.hoverToSubSubList();
 
         Assert.assertTrue(
-                page.isSubSubItem1Visible(),
-                "Sub Sub Item 1 should appear after nested hover"
+            page.isSubSubItem1Visible(),
+            "Sub Sub Item 1 should appear after nested hover"
         );
     }
 }

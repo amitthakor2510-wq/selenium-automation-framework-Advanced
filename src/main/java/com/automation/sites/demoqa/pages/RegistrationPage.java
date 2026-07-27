@@ -1,11 +1,17 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
 import lombok.Getter;
-import org.openqa.selenium.*;
+import org.openqa.selenium.Alert;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.TimeoutException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -77,42 +83,42 @@ public class RegistrationPage extends BasePage {
      */
     private void installNetworkCapture() {
         String script =
-                "window.__lastRegisterResponse = null;" +
-                        "if (!window.__registerCaptureInstalled) {" +
-                        "  window.__registerCaptureInstalled = true;" +
-                        "  var origFetch = window.fetch;" +
-                        "  window.fetch = function() {" +
-                        "    var args = arguments;" +
-                        "    return origFetch.apply(this, args).then(function(res) {" +
-                        "      try {" +
-                        "        var url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';" +
-                        "        if (url.toLowerCase().indexOf('account') !== -1) {" +
-                        "          res.clone().text().then(function(body) {" +
-                        "            window.__lastRegisterResponse = {url:url, status:res.status, body:body};" +
-                        "          });" +
-                        "        }" +
-                        "      } catch(e) {}" +
-                        "      return res;" +
-                        "    });" +
-                        "  };" +
-                        "  var origOpen = XMLHttpRequest.prototype.open;" +
-                        "  var origSend = XMLHttpRequest.prototype.send;" +
-                        "  XMLHttpRequest.prototype.open = function(method, url) {" +
-                        "    this.__capturedUrl = url;" +
-                        "    return origOpen.apply(this, arguments);" +
-                        "  };" +
-                        "  XMLHttpRequest.prototype.send = function(body) {" +
-                        "    var xhr = this;" +
-                        "    xhr.addEventListener('load', function() {" +
-                        "      try {" +
-                        "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase().indexOf('account') !== -1) {" +
-                        "          window.__lastRegisterResponse = {url:xhr.__capturedUrl, status:xhr.status, body:xhr.responseText};" +
-                        "        }" +
-                        "      } catch(e) {}" +
-                        "    });" +
-                        "    return origSend.apply(this, arguments);" +
-                        "  };" +
-                        "}";
+            "window.__lastRegisterResponse = null;" +
+                "if (!window.__registerCaptureInstalled) {" +
+                "  window.__registerCaptureInstalled = true;" +
+                "  var origFetch = window.fetch;" +
+                "  window.fetch = function() {" +
+                "    var args = arguments;" +
+                "    return origFetch.apply(this, args).then(function(res) {" +
+                "      try {" +
+                "        var url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';" +
+                "        if (url.toLowerCase().indexOf('account') !== -1) {" +
+                "          res.clone().text().then(function(body) {" +
+                "            window.__lastRegisterResponse = {url:url, status:res.status, body:body};" +
+                "          });" +
+                "        }" +
+                "      } catch(e) {}" +
+                "      return res;" +
+                "    });" +
+                "  };" +
+                "  var origOpen = XMLHttpRequest.prototype.open;" +
+                "  var origSend = XMLHttpRequest.prototype.send;" +
+                "  XMLHttpRequest.prototype.open = function(method, url) {" +
+                "    this.__capturedUrl = url;" +
+                "    return origOpen.apply(this, arguments);" +
+                "  };" +
+                "  XMLHttpRequest.prototype.send = function(body) {" +
+                "    var xhr = this;" +
+                "    xhr.addEventListener('load', function() {" +
+                "      try {" +
+                "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase().indexOf('account') !== -1) {" +
+                "          window.__lastRegisterResponse = {url:xhr.__capturedUrl, status:xhr.status, body:xhr.responseText};" +
+                "        }" +
+                "      } catch(e) {}" +
+                "    });" +
+                "    return origSend.apply(this, arguments);" +
+                "  };" +
+                "}";
         try {
             js.executeScript(script);
         } catch (Exception e) {
@@ -148,7 +154,7 @@ public class RegistrationPage extends BasePage {
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             WebElement el = wait.until(
-                    ExpectedConditions.visibilityOfElementLocated(locator));
+                ExpectedConditions.visibilityOfElementLocated(locator));
 
             js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
             js.executeScript("arguments[0].click();", el);
@@ -166,7 +172,7 @@ public class RegistrationPage extends BasePage {
             }
 
             logger.info("  " + fieldName + ": typed='" + value
-                    + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ")");
+                + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ")");
 
             if (value.equals(actual)) {
                 return;
@@ -177,8 +183,8 @@ public class RegistrationPage extends BasePage {
         }
 
         throw new IllegalStateException(
-                fieldName + " field still didn't contain '" + value
-                        + "' after " + maxAttempts + " attempts — page may be unstable");
+            fieldName + " field still didn't contain '" + value
+                + "' after " + maxAttempts + " attempts — page may be unstable");
     }
 
     /**
@@ -195,7 +201,7 @@ public class RegistrationPage extends BasePage {
                 return;
             }
             logger.info("  " + fieldName + ": drifted to '" + actual
-                    + "' before submit — re-filling");
+                + "' before submit — re-filling");
         } catch (Exception e) {
             logger.info("  " + fieldName + ": couldn't read current value (" + e.getMessage() + ") — re-filling");
         }
@@ -213,7 +219,7 @@ public class RegistrationPage extends BasePage {
     private void fillFieldIfPresent(By locator, String value, String fieldName) {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(3))
-                    .until(ExpectedConditions.visibilityOfElementLocated(locator));
+                .until(ExpectedConditions.visibilityOfElementLocated(locator));
         } catch (TimeoutException e) {
             logger.info("  " + fieldName + ": field not present on this form — skipping");
             return;
@@ -243,7 +249,7 @@ public class RegistrationPage extends BasePage {
         wait.until(ExpectedConditions.elementToBeClickable(registerButton));
 
         WebElement btn = wait.until(
-                ExpectedConditions.presenceOfElementLocated(registerButton));
+            ExpectedConditions.presenceOfElementLocated(registerButton));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         js.executeScript("arguments[0].click();", btn);
         logger.info("  Register clicked");
@@ -253,7 +259,7 @@ public class RegistrationPage extends BasePage {
         lastNetworkErrorInfo = "";
         try {
             new WebDriverWait(driver, Duration.ofSeconds(8))
-                    .until(ExpectedConditions.alertIsPresent());
+                .until(ExpectedConditions.alertIsPresent());
             lastAlertText = driver.switchTo().alert().getText();
             logger.info("  Alert: " + lastAlertText);
             driver.switchTo().alert().accept();
@@ -268,7 +274,7 @@ public class RegistrationPage extends BasePage {
                     logger.warning("  Actual API response: " + lastNetworkErrorInfo);
                 } else {
                     logger.info("  No API response captured either — request may never have fired "
-                            + "(button/JS issue) or fired to an unexpected URL.");
+                        + "(button/JS issue) or fired to an unexpected URL.");
                 }
                 dumpDiagnosticsIfStillOnRegisterPage();
             }
@@ -288,7 +294,9 @@ public class RegistrationPage extends BasePage {
             WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(4));
             WebElement el = shortWait.until(d -> {
                 java.util.List<WebElement> els = d.findElements(serverErrorText);
-                if (els.isEmpty()) return null;
+                if (els.isEmpty()) {
+                    return null;
+                }
                 String text = els.get(0).getText();
                 return (text != null && !text.trim().isEmpty()) ? els.get(0) : null;
             });
@@ -306,32 +314,36 @@ public class RegistrationPage extends BasePage {
      * requiring another blind guess at the DOM we can't see from here.
      */
     private void dumpDiagnosticsIfStillOnRegisterPage() {
-        if (!driver.getCurrentUrl().contains("/register")) return;
+        if (!driver.getCurrentUrl().contains("/register")) {
+            return;
+        }
 
         try {
             logger.info("  --- Diagnostics: registration did not visibly proceed ---");
 
             WebElement btn = driver.findElement(registerButton);
             logger.info("  Register button: enabled=" + btn.isEnabled()
-                    + " disabled-attr=" + btn.getAttribute("disabled")
-                    + " class=" + btn.getAttribute("class"));
+                + " disabled-attr=" + btn.getAttribute("disabled")
+                + " class=" + btn.getAttribute("class"));
 
             for (By field : new By[]{firstNameInput, lastNameInput, userNameInput, passwordInput}) {
                 try {
                     WebElement el = driver.findElement(field);
                     logger.info("  " + field + ": value='" + el.getAttribute("value")
-                            + "' aria-invalid=" + el.getAttribute("aria-invalid")
-                            + " class=" + el.getAttribute("class"));
-                } catch (NoSuchElementException ignored) { }
+                        + "' aria-invalid=" + el.getAttribute("aria-invalid")
+                        + " class=" + el.getAttribute("class"));
+                } catch (NoSuchElementException ignored) {
+                    // field not present on this form — skip
+                }
             }
 
             By likelyErrorText = By.xpath(
-                    "//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
-                            "'error') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
-                            "'invalid') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
-                            "'required') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
-                            "'exist') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
-                            "'captcha')]");
+                "//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
+                    "'error') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
+                    "'invalid') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
+                    "'required') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
+                    "'exist') or contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')," +
+                    "'captcha')]");
             java.util.List<WebElement> errorEls = driver.findElements(likelyErrorText);
             if (errorEls.isEmpty()) {
                 logger.warning("  No error/validation text found anywhere on the page");
@@ -339,8 +351,12 @@ public class RegistrationPage extends BasePage {
                 for (WebElement el : errorEls) {
                     try {
                         String text = el.getText().trim();
-                        if (!text.isEmpty()) logger.warning("  Possible error text: '" + text + "'");
-                    } catch (Exception ignored) { }
+                        if (!text.isEmpty()) {
+                            logger.warning("  Possible error text: '" + text + "'");
+                        }
+                    } catch (Exception ignored) {
+                        // element went stale between findElements() and getText() — skip it
+                    }
                 }
             }
 
@@ -375,11 +391,11 @@ public class RegistrationPage extends BasePage {
         String serverError = lastServerErrorText.toLowerCase();
         if (serverError.contains("captcha")) {
             logger.warning("  Registration blocked by DemoQA's ReCaptcha check: '"
-                    + lastServerErrorText + "'. This is a server-side rate-limit/bot-detection "
-                    + "response, not a locator or timing bug — it cannot be satisfied by "
-                    + "Selenium. Reduce registration frequency, reuse an existing test "
-                    + "account instead of registering fresh every run, or seed the account "
-                    + "via a direct API call instead of the UI.");
+                + lastServerErrorText + "'. This is a server-side rate-limit/bot-detection "
+                + "response, not a locator or timing bug — it cannot be satisfied by "
+                + "Selenium. Reduce registration frequency, reuse an existing test "
+                + "account instead of registering fresh every run, or seed the account "
+                + "via a direct API call instead of the UI.");
             return false;
         }
         if (serverError.contains("already exist") || serverError.contains("user exists")) {
@@ -402,7 +418,7 @@ public class RegistrationPage extends BasePage {
             return true;
         }
         By success = By.xpath(
-                "//*[contains(text(),'registered') or contains(text(),'success')]");
+            "//*[contains(text(),'registered') or contains(text(),'success')]");
         if (!driver.findElements(success).isEmpty()) {
             logger.info("  Success element visible ✓");
             return true;
@@ -420,7 +436,7 @@ public class RegistrationPage extends BasePage {
     public void clickBackToLogin() {
         try {
             WebElement link = wait.until(
-                    ExpectedConditions.elementToBeClickable(backToLoginLink));
+                ExpectedConditions.elementToBeClickable(backToLoginLink));
             js.executeScript("arguments[0].scrollIntoView({block:'center'});", link);
             js.executeScript("arguments[0].click();", link);
             wait.until(ExpectedConditions.urlContains("/login"));

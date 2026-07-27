@@ -14,8 +14,8 @@ public class ModalDialogsTest extends BaseTest {
     }
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Modal Dialogs - Small Modal Title Is Correct")
+        groups = {"smoke", "regression"},
+        description = "Modal Dialogs - Small Modal Title Is Correct")
     public void verifySmallModalTitle() {
         ModalDialogsPage page = openPage();
 
@@ -27,8 +27,8 @@ public class ModalDialogsTest extends BaseTest {
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Modal Dialogs - Small Modal Body Has Content")
+        groups = {"regression"},
+        description = "Modal Dialogs - Small Modal Body Has Content")
     public void verifySmallModalBody() {
         ModalDialogsPage page = openPage();
 
@@ -37,14 +37,14 @@ public class ModalDialogsTest extends BaseTest {
         page.closeSmallModal();
 
         Assert.assertFalse(
-                body.isEmpty(),
-                "Small modal body should not be empty. Got: '" + body + "'"
+            body.isEmpty(),
+            "Small modal body should not be empty. Got: '" + body + "'"
         );
     }
 
     @Test(priority = 3,
-            groups = {"regression"},
-            description = "Modal Dialogs - Large Modal Title Is Correct")
+        groups = {"regression"},
+        description = "Modal Dialogs - Large Modal Title Is Correct")
     public void verifyLargeModalTitle() {
         ModalDialogsPage page = openPage();
 
@@ -56,8 +56,8 @@ public class ModalDialogsTest extends BaseTest {
     }
 
     @Test(priority = 4,
-            groups = {"regression"},
-            description = "Modal Dialogs - Large Modal Body Has Content")
+        groups = {"regression"},
+        description = "Modal Dialogs - Large Modal Body Has Content")
     public void verifyLargeModalBody() {
         ModalDialogsPage page = openPage();
 
@@ -66,8 +66,8 @@ public class ModalDialogsTest extends BaseTest {
         page.closeLargeModal();
 
         Assert.assertFalse(
-                body.isEmpty(),
-                "Large modal body should not be empty. Got: '" + body + "'"
+            body.isEmpty(),
+            "Large modal body should not be empty. Got: '" + body + "'"
         );
-    }   
+    }
 }

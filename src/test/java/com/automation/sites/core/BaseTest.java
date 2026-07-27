@@ -78,6 +78,7 @@ public class BaseTest implements DriverProvider {
             try {
                 getDriver().quit();
             } catch (Exception ignored) {
+                // driver already gone — nothing to do, still clean up the ThreadLocal below
             } finally {
                 driver.remove(); // Important for memory cleanup
             }

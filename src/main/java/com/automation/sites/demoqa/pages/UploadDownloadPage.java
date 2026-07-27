@@ -1,7 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -44,9 +43,9 @@ public class UploadDownloadPage extends BasePage {
 
         try {
             new FluentWait<>(downloadedFile)
-                    .withTimeout(Duration.ofSeconds(DOWNLOAD_WAIT_SECONDS))
-                    .pollingEvery(Duration.ofMillis(500))
-                    .until(f -> f.exists() && f.length() > 0);
+                .withTimeout(Duration.ofSeconds(DOWNLOAD_WAIT_SECONDS))
+                .pollingEvery(Duration.ofMillis(500))
+                .until(f -> f.exists() && f.length() > 0);
             return true;
         } catch (Exception e) {
             return false;
@@ -60,7 +59,7 @@ public class UploadDownloadPage extends BasePage {
      */
     public void uploadFile(String filePath) {
         WebElement input = wait.until(
-                ExpectedConditions.presenceOfElementLocated(uploadInput)
+            ExpectedConditions.presenceOfElementLocated(uploadInput)
         );
         HumanActions.pause();
         input.sendKeys(filePath);
@@ -68,7 +67,7 @@ public class UploadDownloadPage extends BasePage {
 
     public String getUploadedFileName() {
         return wait.until(
-                ExpectedConditions.visibilityOfElementLocated(uploadedFilePath)
+            ExpectedConditions.visibilityOfElementLocated(uploadedFilePath)
         ).getText();
     }
 }

@@ -46,7 +46,7 @@ public class CheckBoxPage extends BasePage {
     public CheckBoxPage(WebDriver driver) {
         super(driver);
         this.longWait = new WebDriverWait(driver,
-                Duration.ofSeconds(ConfigReader.getInt("timeout.long", 15)));
+            Duration.ofSeconds(ConfigReader.getInt("timeout.long", 15)));
     }
 
     public void navigateToCheckBox() {
@@ -65,7 +65,7 @@ public class CheckBoxPage extends BasePage {
 
     public void expandTree() {
         WebElement toggle = wait.until(
-                ExpectedConditions.elementToBeClickable(expandToggle));
+            ExpectedConditions.elementToBeClickable(expandToggle));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", toggle);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", toggle);
@@ -80,11 +80,11 @@ public class CheckBoxPage extends BasePage {
         // (that was the react-checkbox-tree shape this used to assume) —
         // walk up to the nearest treeitem div, then find its checkbox span.
         By desktopCheckbox = By.xpath(
-                "//span[@class='rc-tree-title' and text()='Desktop']" +
-                        "/ancestor::div[@role='treeitem'][1]//span[contains(@class,'rc-tree-checkbox')]"
+            "//span[@class='rc-tree-title' and text()='Desktop']" +
+                "/ancestor::div[@role='treeitem'][1]//span[contains(@class,'rc-tree-checkbox')]"
         );
         WebElement cb = wait.until(
-                ExpectedConditions.elementToBeClickable(desktopCheckbox));
+            ExpectedConditions.elementToBeClickable(desktopCheckbox));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", cb);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", cb);
@@ -93,7 +93,7 @@ public class CheckBoxPage extends BasePage {
 
     public boolean isResultDisplayed() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(resultSection))
-                .isDisplayed();
+            .isDisplayed();
     }
 
     // Writes the full page source to target/debug-dumps so a failing,
@@ -104,7 +104,7 @@ public class CheckBoxPage extends BasePage {
             java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
             java.nio.file.Files.createDirectories(dir);
             String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
-                    + "-" + System.currentTimeMillis() + ".html";
+                + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
             logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());

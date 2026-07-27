@@ -52,55 +52,55 @@ public class LoginDataDrivenTest extends BaseTest {
     // ── Tests ─────────────────────────────────────────────────────────────────
 
     @Test(
-            dataProvider  = "loginFromExcel",
-            groups        = {"regression", "data-driven"},
-            description   = "SauceDemo - Login with data from Excel"
+        dataProvider  = "loginFromExcel",
+        groups        = {"regression", "data-driven"},
+        description   = "SauceDemo - Login with data from Excel"
     )
     public void verifyLoginFromExcel(DataRow row) {
         runLoginTest(row);
     }
 
     @Test(
-            dataProvider  = "loginFromCsv",
-            groups        = {"regression", "data-driven"},
-            description   = "SauceDemo - Login with data from CSV"
+        dataProvider  = "loginFromCsv",
+        groups        = {"regression", "data-driven"},
+        description   = "SauceDemo - Login with data from CSV"
     )
     public void verifyLoginFromCsv(DataRow row) {
         runLoginTest(row);
     }
 
     @Test(
-            dataProvider  = "loginFromJson",
-            groups        = {"regression", "data-driven"},
-            description   = "SauceDemo - Login with data from JSON"
+        dataProvider  = "loginFromJson",
+        groups        = {"regression", "data-driven"},
+        description   = "SauceDemo - Login with data from JSON"
     )
     public void verifyLoginFromJson(DataRow row) {
         runLoginTest(row);
     }
 
     @Test(
-            dataProvider  = "loginFromZip",
-            groups        = {"regression", "data-driven"},
-            description   = "SauceDemo - Login with data from ZIP"
+        dataProvider  = "loginFromZip",
+        groups        = {"regression", "data-driven"},
+        description   = "SauceDemo - Login with data from ZIP"
     )
     public void verifyLoginFromZip(DataRow row) {
         runLoginTest(row);
     }
 
     @Test(
-            dataProvider  = "loginFromYaml",
-            groups        = {"regression", "data-driven"},
-            description   = "SauceDemo - Login with data from YAML (execute/tags filters applied)"
+        dataProvider  = "loginFromYaml",
+        groups        = {"regression", "data-driven"},
+        description   = "SauceDemo - Login with data from YAML (execute/tags filters applied)"
     )
     public void verifyLoginFromYaml(DataRow row) {
         runLoginTest(row);
     }
 
     @Test(
-            dataProvider  = "loginFromYamlUnfiltered",
-            groups        = {"regression", "data-driven", "data-audit"},
-            description   = "SauceDemo - Login with every YAML row, including execute=no ones",
-            enabled       = false // flip on for a one-off audit run; skipped rows are real known-issue data
+        dataProvider  = "loginFromYamlUnfiltered",
+        groups        = {"regression", "data-driven", "data-audit"},
+        description   = "SauceDemo - Login with every YAML row, including execute=no ones",
+        enabled       = false // flip on for a one-off audit run; skipped rows are real known-issue data
     )
     public void auditAllLoginRows(DataRow row) {
         runLoginTest(row);
@@ -115,8 +115,8 @@ public class LoginDataDrivenTest extends BaseTest {
         String notes    = row.get("notes"); // optional
 
         System.out.println("  Row " + row.getRowIndex()
-                + " | " + username + " | expected=" + expected
-                + (notes.isEmpty() ? "" : " | " + notes));
+            + " | " + username + " | expected=" + expected
+            + (notes.isEmpty() ? "" : " | " + notes));
 
         LoginPage page = new LoginPage(getDriver());
         page.navigateToLogin();
@@ -124,13 +124,13 @@ public class LoginDataDrivenTest extends BaseTest {
 
         if ("success".equalsIgnoreCase(expected)) {
             Assert.assertTrue(
-                    getDriver().getCurrentUrl().contains("inventory"),
-                    "Expected successful login for user: " + username
+                getDriver().getCurrentUrl().contains("inventory"),
+                "Expected successful login for user: " + username
             );
         } else {
             Assert.assertTrue(
-                    page.isErrorDisplayed(),
-                    "Expected error message for user: " + username
+                page.isErrorDisplayed(),
+                "Expected error message for user: " + username
             );
         }
     }

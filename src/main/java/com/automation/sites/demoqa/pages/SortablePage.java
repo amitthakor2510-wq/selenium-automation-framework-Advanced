@@ -33,9 +33,9 @@ public class SortablePage extends BasePage {
 
     public List<String> getListItemTexts() {
         return driver.findElements(listItems)
-                .stream()
-                .map(e -> e.getText().trim())
-                .collect(Collectors.toList());
+            .stream()
+            .map(e -> e.getText().trim())
+            .collect(Collectors.toList());
     }
 
     /**
@@ -81,13 +81,13 @@ public class SortablePage extends BasePage {
         } catch (Exception ex) {
             // fallback to center-to-center move if dragBy fails
             new Actions(driver)
-                    .moveToElement(source)
-                    .clickAndHold()
-                    .pause(Duration.ofMillis(200))
-                    .moveByOffset(deltaX, deltaY)
-                    .pause(Duration.ofMillis(200))
-                    .release()
-                    .perform();
+                .moveToElement(source)
+                .clickAndHold()
+                .pause(Duration.ofMillis(200))
+                .moveByOffset(deltaX, deltaY)
+                .pause(Duration.ofMillis(200))
+                .release()
+                .perform();
         }
 
         // Wait briefly for order to update (some implementations animate). If order unchanged, try a small retry.
@@ -96,11 +96,11 @@ public class SortablePage extends BasePage {
         } catch (Exception e) {
             // Retry once with a slight offset tweak
             new Actions(driver)
-                    .moveToElement(source)
-                    .clickAndHold()
-                    .moveByOffset(deltaX + 5, deltaY + 5)
-                    .release()
-                    .perform();
+                .moveToElement(source)
+                .clickAndHold()
+                .moveByOffset(deltaX + 5, deltaY + 5)
+                .release()
+                .perform();
             HumanActions.pause();
         }
         HumanActions.pause();
@@ -114,9 +114,9 @@ public class SortablePage extends BasePage {
 
     public List<String> getGridItemTexts() {
         return driver.findElements(gridItems)
-                .stream()
-                .map(e -> e.getText().trim())
-                .collect(Collectors.toList());
+            .stream()
+            .map(e -> e.getText().trim())
+            .collect(Collectors.toList());
     }
 
     /**
@@ -148,7 +148,9 @@ public class SortablePage extends BasePage {
                 // Wait for the original order to be restored (best-effort)
                 try {
                     wait.until(d -> getGridItemTexts().equals(before));
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                    // best-effort wait — restore attempt below still runs regardless
+                }
             }
         } catch (Exception e) {
             // If any error occurs, treat as not draggable
@@ -157,9 +159,15 @@ public class SortablePage extends BasePage {
                 List<String> now = getGridItemTexts();
                 if (!now.equals(before) && now.size() >= 2) {
                     // try to move item at index 1 back to 0
-                    try { dragGridItem(1, 0); } catch (Exception ignored) {}
+                    try {
+                        dragGridItem(1, 0);
+                    } catch (Exception ignored) {
+                        // best-effort revert — nothing more we can do here
+                    }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                // best-effort revert failed entirely — original exception below still reported
+            }
             return false;
         }
 
@@ -192,23 +200,23 @@ public class SortablePage extends BasePage {
         int deltaY = tCenterY - sCenterY;
 
         new Actions(driver)
-                .moveToElement(source)
-                .clickAndHold()
-                .pause(Duration.ofMillis(200))
-                .moveByOffset(deltaX, deltaY)
-                .pause(Duration.ofMillis(200))
-                .release()
-                .perform();
+            .moveToElement(source)
+            .clickAndHold()
+            .pause(Duration.ofMillis(200))
+            .moveByOffset(deltaX, deltaY)
+            .pause(Duration.ofMillis(200))
+            .release()
+            .perform();
 
         try {
             wait.until(d -> !getGridItemTexts().equals(before));
         } catch (Exception e) {
             new Actions(driver)
-                    .moveToElement(source)
-                    .clickAndHold()
-                    .moveByOffset(deltaX + 5, deltaY + 5)
-                    .release()
-                    .perform();
+                .moveToElement(source)
+                .clickAndHold()
+                .moveByOffset(deltaX + 5, deltaY + 5)
+                .release()
+                .perform();
             HumanActions.pause();
         }
         HumanActions.pause();

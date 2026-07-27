@@ -7,7 +7,6 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.HasCapabilities;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.devtools.DevTools;
 import org.openqa.selenium.devtools.HasDevTools;
 import org.openqa.selenium.devtools.v125.page.Page;
@@ -42,13 +41,15 @@ public class AlertsPage extends BasePage {
     private void dismissAdOverlay() {
         try {
             js.executeScript(
-                    "document.querySelectorAll(" +
-                            "  '#fixedban, [id*=\"google_ads\"], iframe[src*=\"googlesyndication\"]," +
-                            "  iframe[src*=\"doubleclick\"], div[id^=\"adngin\"]," +
-                            "  div[class*=\"adsbygoogle\"]'" +
-                            ").forEach(function(el){ el.remove(); });"
+                "document.querySelectorAll(" +
+                    "  '#fixedban, [id*=\"google_ads\"], iframe[src*=\"googlesyndication\"]," +
+                    "  iframe[src*=\"doubleclick\"], div[id^=\"adngin\"]," +
+                    "  div[class*=\"adsbygoogle\"]'" +
+                    ").forEach(function(el){ el.remove(); });"
             );
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // no ad overlay present — nothing to remove
+        }
     }
 
     private void safeClick(By locator) {
@@ -71,9 +72,9 @@ public class AlertsPage extends BasePage {
     public String clickTimerAlertAndGetText() {
         safeClick(timerAlertButton);
         Alert alert = new org.openqa.selenium.support.ui.WebDriverWait(driver,
-                java.time.Duration.ofSeconds(
-                        com.automation.core.config.ConfigReader.getInt("timeout.long", 15)))
-                .until(ExpectedConditions.alertIsPresent());
+            java.time.Duration.ofSeconds(
+                com.automation.core.config.ConfigReader.getInt("timeout.long", 15)))
+            .until(ExpectedConditions.alertIsPresent());
         HumanActions.pause();
         String text = alert.getText();
         alert.accept();

@@ -114,7 +114,7 @@ public class WebTablesPage extends BasePage {
 
     public void searchRecord(String keyword) {
         WebElement box = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(searchBox));
+            ExpectedConditions.visibilityOfElementLocated(searchBox));
         box.clear();
         HumanActions.type(driver, searchBox, keyword);
     }
@@ -123,8 +123,8 @@ public class WebTablesPage extends BasePage {
 
     public int getRowCount() {
         return (int) driver.findElements(tableRows).stream()
-                .filter(row -> !row.getText().trim().isEmpty())
-                .count();
+            .filter(row -> !row.getText().trim().isEmpty())
+            .count();
     }
 
     /**
@@ -178,9 +178,13 @@ public class WebTablesPage extends BasePage {
             editBtn = wait.until(d -> {
                 for (WebElement row : d.findElements(tableRows)) {
                     try {
-                        if (!row.getText().trim().contains(searchText)) continue;
+                        if (!row.getText().trim().contains(searchText)) {
+                            continue;
+                        }
                         WebElement btn = row.findElement(By.cssSelector("span[title='Edit']"));
-                        if (btn.isDisplayed()) return btn;
+                        if (btn.isDisplayed()) {
+                            return btn;
+                        }
                     } catch (Exception e) {
                         // row stale mid-render — keep polling rather than giving up
                     }
@@ -207,7 +211,7 @@ public class WebTablesPage extends BasePage {
 
     public void editFirstRecord() {
         WebElement editBtn = wait.until(
-                ExpectedConditions.elementToBeClickable(editButtons));
+            ExpectedConditions.elementToBeClickable(editButtons));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", editBtn);
         js.executeScript("arguments[0].click();", editBtn);
         wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput));
@@ -228,9 +232,13 @@ public class WebTablesPage extends BasePage {
             deleteBtn = wait.until(d -> {
                 for (WebElement row : d.findElements(tableRows)) {
                     try {
-                        if (!row.getText().trim().contains(searchText)) continue;
+                        if (!row.getText().trim().contains(searchText)) {
+                            continue;
+                        }
                         WebElement btn = row.findElement(By.cssSelector("span[title='Delete']"));
-                        if (btn.isDisplayed()) return btn;
+                        if (btn.isDisplayed()) {
+                            return btn;
+                        }
                     } catch (Exception e) {
                         // row stale mid-render — keep polling rather than giving up
                     }
@@ -248,7 +256,7 @@ public class WebTablesPage extends BasePage {
 
     public void deleteFirstRecord() {
         WebElement deleteBtn = wait.until(
-                ExpectedConditions.elementToBeClickable(deleteButtons));
+            ExpectedConditions.elementToBeClickable(deleteButtons));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", deleteBtn);
         js.executeScript("arguments[0].click();", deleteBtn);
         HumanActions.pause();

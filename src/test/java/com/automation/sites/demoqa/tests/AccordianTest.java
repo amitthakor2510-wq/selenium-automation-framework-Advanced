@@ -8,8 +8,8 @@ import org.testng.annotations.Test;
 public class AccordianTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Accordian - Section 1 Is Open By Default")
+        groups = {"smoke", "regression"},
+        description = "Accordian - Section 1 Is Open By Default")
     public void verifySection1OpenByDefault() {
         AccordianPage page = new AccordianPage(getDriver());
 
@@ -19,19 +19,19 @@ public class AccordianTest extends BaseTest {
         System.out.println("Section 1 header: " + header);
 
         Assert.assertFalse(
-                header.isEmpty(),
-                "Section 1 header should have text"
+            header.isEmpty(),
+            "Section 1 header should have text"
         );
 
         Assert.assertTrue(
-                page.isSection1ContentVisible(),
-                "Section 1 content should be visible by default"
+            page.isSection1ContentVisible(),
+            "Section 1 content should be visible by default"
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Accordian - Section 2 Opens On Click")
+        groups = {"regression"},
+        description = "Accordian - Section 2 Opens On Click")
     public void verifySection2OpensOnClick() {
         AccordianPage page = new AccordianPage(getDriver());
 
@@ -39,14 +39,14 @@ public class AccordianTest extends BaseTest {
         page.openSection2();
 
         Assert.assertTrue(
-                page.isSection2ContentVisible(),
-                "Section 2 content should be visible after click"
+            page.isSection2ContentVisible(),
+            "Section 2 content should be visible after click"
         );
     }
 
     @Test(priority = 3,
-            groups = {"regression"},
-            description = "Accordian - Section 3 Opens On Click")
+        groups = {"regression"},
+        description = "Accordian - Section 3 Opens On Click")
     public void verifySection3OpensOnClick() {
         AccordianPage page = new AccordianPage(getDriver());
 
@@ -54,14 +54,14 @@ public class AccordianTest extends BaseTest {
         page.openSection3();
 
         Assert.assertTrue(
-                page.isSection3ContentVisible(),
-                "Section 3 content should be visible after click"
+            page.isSection3ContentVisible(),
+            "Section 3 content should be visible after click"
         );
     }
 
     @Test(priority = 4,
-            groups = {"regression"},
-            description = "Accordian - Only One Section Open At A Time")
+        groups = {"regression"},
+        description = "Accordian - Only One Section Open At A Time")
     public void verifyOnlyOneSectionOpenAtTime() {
         AccordianPage page = new AccordianPage(getDriver());
 
@@ -69,26 +69,26 @@ public class AccordianTest extends BaseTest {
 
         // Section 1 is open by default
         Assert.assertTrue(page.isSection1ContentVisible(),
-                "Section 1 should be visible by default");
+            "Section 1 should be visible by default");
 
         // Open Section 2
         page.openSection2();
         Assert.assertTrue(page.isSection2ContentVisible(),
-                "Section 2 should be visible after click");
+            "Section 2 should be visible after click");
         Assert.assertFalse(page.isSection1ContentVisible(),
-                "Section 1 should be collapsed when Section 2 opens");
+            "Section 1 should be collapsed when Section 2 opens");
 
         // Open Section 3
         page.openSection3();
         Assert.assertTrue(page.isSection3ContentVisible(),
-                "Section 3 should be visible after click");
+            "Section 3 should be visible after click");
         Assert.assertFalse(page.isSection2ContentVisible(),
-                "Section 2 should be collapsed when Section 3 opens");
+            "Section 2 should be collapsed when Section 3 opens");
     }
 
     @Test(priority = 5,
-            groups = {"regression"},
-            description = "Accordian - Section Closes When Clicked Again")
+        groups = {"regression"},
+        description = "Accordian - Section Closes When Clicked Again")
     public void verifySectionToggles() {
         AccordianPage page = new AccordianPage(getDriver());
 
@@ -96,10 +96,10 @@ public class AccordianTest extends BaseTest {
         page.openSection2();
 
         Assert.assertTrue(page.isSection2ContentVisible(),
-                "Section 2 should be visible after first click");
+            "Section 2 should be visible after first click");
 
         page.clickSection2Header();
         Assert.assertFalse(page.isSection2ContentVisible(),
-                "Section 2 should be hidden after second click");
+            "Section 2 should be hidden after second click");
     }
 }

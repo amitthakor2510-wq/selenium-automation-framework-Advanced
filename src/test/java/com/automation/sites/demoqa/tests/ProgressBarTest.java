@@ -8,22 +8,22 @@ import org.testng.annotations.Test;
 public class ProgressBarTest extends BaseTest {
 
     @Test(priority = 1,
-            groups = {"smoke", "regression"},
-            description = "Progress Bar - Starts At 0")
+        groups = {"smoke", "regression"},
+        description = "Progress Bar - Starts At 0")
     public void verifyProgressBarStartsAt0() {
         ProgressBarPage page = new ProgressBarPage(getDriver());
 
         page.navigateToProgressBar();
 
         Assert.assertEquals(
-                page.getProgressValue(), "0",
-                "Progress bar should start at 0"
+            page.getProgressValue(), "0",
+            "Progress bar should start at 0"
         );
     }
 
     @Test(priority = 2,
-            groups = {"regression"},
-            description = "Progress Bar - Reaches 100 After Start")
+        groups = {"regression"},
+        description = "Progress Bar - Reaches 100 After Start")
     public void verifyProgressBarCompletes() {
         ProgressBarPage page = new ProgressBarPage(getDriver());
 
@@ -31,14 +31,14 @@ public class ProgressBarTest extends BaseTest {
         page.waitForCompletion();
 
         Assert.assertEquals(
-                page.getProgressValue(), "100",
-                "Progress bar should reach 100"
+            page.getProgressValue(), "100",
+            "Progress bar should reach 100"
         );
     }
 
     @Test(priority = 3,
-            groups = {"regression"},
-            description = "Progress Bar - Resets To 0 After Reset")
+        groups = {"regression"},
+        description = "Progress Bar - Resets To 0 After Reset")
     public void verifyProgressBarReset() {
         ProgressBarPage page = new ProgressBarPage(getDriver());
 
@@ -47,14 +47,14 @@ public class ProgressBarTest extends BaseTest {
         page.clickReset();
 
         Assert.assertEquals(
-                page.getProgressValue(), "0",
-                "Progress bar should reset to 0"
+            page.getProgressValue(), "0",
+            "Progress bar should reset to 0"
         );
     }
 
     @Test(priority = 4,
-            groups = {"regression"},
-            description = "Progress Bar - Stop At Specific Value")
+        groups = {"regression"},
+        description = "Progress Bar - Stop At Specific Value")
     public void verifyProgressBarStopsAtValue() {
         ProgressBarPage page = new ProgressBarPage(getDriver());
 
@@ -66,8 +66,8 @@ public class ProgressBarTest extends BaseTest {
 
         int actual = Integer.parseInt(value);
         Assert.assertTrue(
-                actual >= 65 && actual <= 71,
-                "Progress bar should stop near 68%. Got: " + value
+            actual >= 65 && actual <= 71,
+            "Progress bar should stop near 68%. Got: " + value
         );
     }
 }

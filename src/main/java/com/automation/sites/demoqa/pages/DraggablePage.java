@@ -149,7 +149,7 @@ public class DraggablePage extends BasePage {
     // div. It is constrained to its own immediate parent element, not to
     // #containmentWrapper. No selector previously existed for it.
     private final By containedWithinParentBox =
-            By.xpath("//span[normalize-space()=\"I'm contained within my parent\"]");
+        By.xpath("//span[normalize-space()=\"I'm contained within my parent\"]");
 
     public void dragContainedWithinParentBoxBy(int offsetX, int offsetY) {
         dragWithRetry(containedWithinParentBox, offsetX, offsetY);

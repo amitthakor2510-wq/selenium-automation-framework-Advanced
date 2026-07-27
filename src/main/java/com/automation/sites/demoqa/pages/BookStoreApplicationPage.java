@@ -3,7 +3,13 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
-import org.openqa.selenium.*;
+import org.openqa.selenium.Alert;
+import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.TimeoutException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -80,9 +86,9 @@ public class BookStoreApplicationPage extends BasePage {
         // markup instead of another guess.
         try {
             wait.until(d -> !d.findElements(noDataDiv).isEmpty()
-                    || (!d.findElements(tableRows).isEmpty()
-                    && d.findElements(tableRows).stream()
-                    .anyMatch(r -> !r.getText().trim().isEmpty())));
+                || (!d.findElements(tableRows).isEmpty()
+                && d.findElements(tableRows).stream()
+                .anyMatch(r -> !r.getText().trim().isEmpty())));
         } catch (TimeoutException e) {
             dumpPageForDebugging("books-table-not-found");
             throw e;
@@ -99,7 +105,7 @@ public class BookStoreApplicationPage extends BasePage {
             java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
             java.nio.file.Files.createDirectories(dir);
             String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
-                    + "-" + System.currentTimeMillis() + ".html";
+                + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
             logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
@@ -133,8 +139,8 @@ public class BookStoreApplicationPage extends BasePage {
         js.executeScript("arguments[0].click();", btn);
 
         wait.until(d ->
-                d.getCurrentUrl().contains("/profile") ||
-                        !d.findElements(loginError).isEmpty()
+            d.getCurrentUrl().contains("/profile") ||
+                !d.findElements(loginError).isEmpty()
         );
 
         if (!driver.getCurrentUrl().contains("/profile")) {
@@ -174,18 +180,18 @@ public class BookStoreApplicationPage extends BasePage {
                 return;
             }
             logger.info("  " + fieldName + ": typed='" + value
-                    + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ") — retrying");
+                + "' actual='" + actual + "' (attempt " + attempt + "/" + maxAttempts + ") — retrying");
         }
 
         throw new IllegalStateException(
-                fieldName + " field still didn't contain the expected value after "
-                        + maxAttempts + " attempts — page may be unstable");
+            fieldName + " field still didn't contain the expected value after "
+                + maxAttempts + " attempts — page may be unstable");
     }
 
     public boolean isLoggedIn() {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(5))
-                    .until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
+                .until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel));
             return true;
         } catch (TimeoutException e) {
             dumpLoggedInDiagnostics();
@@ -208,14 +214,14 @@ public class BookStoreApplicationPage extends BasePage {
 
             @SuppressWarnings("unchecked")
             List<Object> matches = (List<Object>) js.executeScript(
-                    "var out = []; " +
-                            "document.querySelectorAll('[id]').forEach(function(el) { " +
-                            "  if (el.id.toLowerCase().indexOf('username') !== -1) { " +
-                            "    out.push({tag: el.tagName, id: el.id, text: el.textContent, " +
-                            "              visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)}); " +
-                            "  } " +
-                            "}); " +
-                            "return out;");
+                "var out = []; " +
+                    "document.querySelectorAll('[id]').forEach(function(el) { " +
+                    "  if (el.id.toLowerCase().indexOf('username') !== -1) { " +
+                    "    out.push({tag: el.tagName, id: el.id, text: el.textContent, " +
+                    "              visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)}); " +
+                    "  } " +
+                    "}); " +
+                    "return out;");
 
             if (matches == null || matches.isEmpty()) {
                 logger.info("  No element anywhere on the page has an id containing 'userName' (case-insensitive).");
@@ -235,11 +241,13 @@ public class BookStoreApplicationPage extends BasePage {
 
     public String getLoggedInUserName() {
         return wait.until(ExpectedConditions.visibilityOfElementLocated(loggedInLabel))
-                .getText().trim();
+            .getText().trim();
     }
 
     public String getLoginErrorMessage() {
-        if (driver.findElements(loginError).isEmpty()) return "";
+        if (driver.findElements(loginError).isEmpty()) {
+            return "";
+        }
         return driver.findElement(loginError).getText().trim();
     }
 
@@ -261,7 +269,7 @@ public class BookStoreApplicationPage extends BasePage {
 
     public void searchBook(String keyword) {
         WebElement box = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(searchBox));
+            ExpectedConditions.visibilityOfElementLocated(searchBox));
         box.clear();
         box.sendKeys(keyword);
 
@@ -277,33 +285,35 @@ public class BookStoreApplicationPage extends BasePage {
     }
 
     public int getVisibleBookCount() {
-        if (!driver.findElements(noDataDiv).isEmpty()) return 0;
+        if (!driver.findElements(noDataDiv).isEmpty()) {
+            return 0;
+        }
         return (int) driver.findElements(bookLinks).stream()
-                .filter(e -> {
-                    try { return !e.getText().trim().isEmpty(); }
-                    catch (StaleElementReferenceException ex) { return false; }
-                })
-                .count();
+            .filter(e -> {
+                try { return !e.getText().trim().isEmpty(); }
+                catch (StaleElementReferenceException ex) { return false; }
+            })
+            .count();
     }
 
     public List<String> getBookTitles() {
         return driver.findElements(bookLinks).stream()
-                .map(e -> {
-                    try { return e.getText().trim(); }
-                    catch (StaleElementReferenceException ex) { return ""; }
-                })
-                .filter(t -> !t.isEmpty())
-                .collect(toList());
+            .map(e -> {
+                try { return e.getText().trim(); }
+                catch (StaleElementReferenceException ex) { return ""; }
+            })
+            .filter(t -> !t.isEmpty())
+            .collect(toList());
     }
 
     public void clickFirstBook() {
         WebElement first = driver.findElements(bookLinks).stream()
-                .filter(e -> {
-                    try { return !e.getText().trim().isEmpty(); }
-                    catch (StaleElementReferenceException ex) { return false; }
-                })
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("No books found in store"));
+            .filter(e -> {
+                try { return !e.getText().trim().isEmpty(); }
+                catch (StaleElementReferenceException ex) { return false; }
+            })
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("No books found in store"));
 
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", first);
         HumanActions.pause();
@@ -321,11 +331,11 @@ public class BookStoreApplicationPage extends BasePage {
     public void clickBookByTitle(String title) {
         By link = By.cssSelector("table tbody a[href]");
         WebElement el = wait.until(d -> d.findElements(link).stream()
-                .filter(e -> {
-                    try { return e.getText().trim().equalsIgnoreCase(title); }
-                    catch (StaleElementReferenceException ex) { return false; }
-                })
-                .findFirst().orElse(null));
+            .filter(e -> {
+                try { return e.getText().trim().equalsIgnoreCase(title); }
+                catch (StaleElementReferenceException ex) { return false; }
+            })
+            .findFirst().orElse(null));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", el);
@@ -346,12 +356,12 @@ public class BookStoreApplicationPage extends BasePage {
         // Wrapper id casing is inconsistent: "ISBN-wrapper" keeps ISBN
         // uppercase, everything else is lowercase ("author-wrapper", etc).
         String wrapperId = "ISBN".equalsIgnoreCase(label)
-                ? "ISBN-wrapper"
-                : label.toLowerCase() + "-wrapper";
+            ? "ISBN-wrapper"
+            : label.toLowerCase() + "-wrapper";
         By valueLocator = By.cssSelector("#" + wrapperId + " .col-md-9 label");
         try {
             return wait.until(ExpectedConditions.visibilityOfElementLocated(valueLocator))
-                    .getText().trim();
+                .getText().trim();
         } catch (TimeoutException e) {
             dumpPageForDebugging("book-detail-value-" + label);
             throw e;
@@ -360,7 +370,7 @@ public class BookStoreApplicationPage extends BasePage {
 
     public void clickBackToBookStore() {
         WebElement btn = wait.until(
-                ExpectedConditions.elementToBeClickable(backToStoreBtn));
+            ExpectedConditions.elementToBeClickable(backToStoreBtn));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", btn);
@@ -382,7 +392,7 @@ public class BookStoreApplicationPage extends BasePage {
      */
     public void addBookToCollection() {
         WebElement btn = wait.until(
-                ExpectedConditions.elementToBeClickable(addToCollectionBtn));
+            ExpectedConditions.elementToBeClickable(addToCollectionBtn));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", btn);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", btn);

@@ -10,7 +10,7 @@ import java.util.List;
 public class SortableTest extends BaseTest {
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Sortable - List Has 6 Items By Default")
+        description = "Sortable - List Has 6 Items By Default")
     public void verifyListHasSixItems() {
         SortablePage page = new SortablePage(getDriver());
         page.navigateToSortable();
@@ -22,7 +22,7 @@ public class SortableTest extends BaseTest {
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Sortable - Drag First Item To Third Position Changes Order")
+        description = "Sortable - Drag First Item To Third Position Changes Order")
     public void verifyDragChangesOrder() {
         SortablePage page = new SortablePage(getDriver());
         page.navigateToSortable();
@@ -39,7 +39,7 @@ public class SortableTest extends BaseTest {
     }
 
     @Test(priority = 3, groups = {"regression"},
-            description = "Sortable - Grid Tab Has 9 Items")
+        description = "Sortable - Grid Tab Has 9 Items")
     public void verifyGridHasNineItems() {
         SortablePage page = new SortablePage(getDriver());
         page.navigateToSortable();
@@ -52,7 +52,7 @@ public class SortableTest extends BaseTest {
     }
 
     @Test(priority = 4, groups = {"regression"},
-            description = "Sortable - Grid Is Draggable")
+        description = "Sortable - Grid Is Draggable")
     public void verifyGridIsDraggable() {
         SortablePage page = new SortablePage(getDriver());
         page.navigateToSortable();

@@ -95,7 +95,11 @@ public class BookStoreApplicationTest extends BaseTest {
     @AfterClass(alwaysRun = true)
     public void closeBrowser() {
         if (getDriver() != null) {
-            try { getDriver().quit(); } catch (Exception ignored) {}
+            try {
+                getDriver().quit();
+            } catch (Exception ignored) {
+                // driver already gone — nothing more to clean up
+            }
             driver.remove();
         }
         System.out.println("=== Book Store E2E Test Finished ===");
@@ -115,16 +119,16 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority    = 1,
-            groups      = {"smoke", "regression"},
-            description = "Book Store - Register page loads the form"
+        priority    = 1,
+        groups      = {"smoke", "regression"},
+        description = "Book Store - Register page loads the form"
     )
     public void verifyRegisterPageLoads() {
         registrationPage.navigateToRegistration();
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("register"),
-                "Should be on /register, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("register"),
+            "Should be on /register, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 1 PASS — Register page loaded: " + getDriver().getCurrentUrl());
     }
@@ -134,23 +138,23 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 2,
-            groups           = {"regression"},
-            description      = "Book Store - Register new user with auto-generated unique credentials",
-            dependsOnMethods = "verifyRegisterPageLoads"
+        priority         = 2,
+        groups           = {"regression"},
+        description      = "Book Store - Register new user with auto-generated unique credentials",
+        dependsOnMethods = "verifyRegisterPageLoads"
     )
     public void registerNewUser() {
         registrationPage.registerUser(
-                REGISTERED_FNAME,
-                REGISTERED_LNAME,
-                REGISTERED_USERNAME,
-                REGISTERED_EMAIL,
-                REGISTERED_PASSWORD
+            REGISTERED_FNAME,
+            REGISTERED_LNAME,
+            REGISTERED_USERNAME,
+            REGISTERED_EMAIL,
+            REGISTERED_PASSWORD
         );
 
         Assert.assertTrue(
-                registrationPage.isRegistrationSuccessful(),
-                "Registration did not succeed. URL: " + getDriver().getCurrentUrl()
+            registrationPage.isRegistrationSuccessful(),
+            "Registration did not succeed. URL: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 2 PASS — Registered user: " + REGISTERED_USERNAME);
     }
@@ -160,10 +164,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 3,
-            groups           = {"regression"},
-            description      = "Book Store - Back to Login link navigates to /login",
-            dependsOnMethods = "registerNewUser"
+        priority         = 3,
+        groups           = {"regression"},
+        description      = "Book Store - Back to Login link navigates to /login",
+        dependsOnMethods = "registerNewUser"
     )
     public void navigateBackToLogin() {
         // If registration auto-redirected to /login, we're already there
@@ -172,8 +176,8 @@ public class BookStoreApplicationTest extends BaseTest {
         }
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("login"),
-                "Should be on /login, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("login"),
+            "Should be on /login, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 3 PASS — On login page: " + getDriver().getCurrentUrl());
     }
@@ -183,10 +187,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 4,
-            groups           = {"regression"},
-            description      = "Book Store - Invalid credentials show error message",
-            dependsOnMethods = "navigateBackToLogin"
+        priority         = 4,
+        groups           = {"regression"},
+        description      = "Book Store - Invalid credentials show error message",
+        dependsOnMethods = "navigateBackToLogin"
     )
     public void verifyInvalidLogin() {
         bookStorePage.navigateToLogin();
@@ -196,16 +200,16 @@ public class BookStoreApplicationTest extends BaseTest {
         System.out.println("  Login error message: " + errorMsg);
 
         Assert.assertFalse(
-                bookStorePage.isLoggedIn(),
-                "Should NOT be logged in with invalid credentials"
+            bookStorePage.isLoggedIn(),
+            "Should NOT be logged in with invalid credentials"
         );
         Assert.assertFalse(
-                errorMsg.isEmpty(),
-                "Expected an error message for invalid login but got none"
+            errorMsg.isEmpty(),
+            "Expected an error message for invalid login but got none"
         );
         Assert.assertTrue(
-                errorMsg.toLowerCase().contains("invalid") || errorMsg.toLowerCase().contains("incorrect"),
-                "Unexpected error message text: " + errorMsg
+            errorMsg.toLowerCase().contains("invalid") || errorMsg.toLowerCase().contains("incorrect"),
+            "Unexpected error message text: " + errorMsg
         );
         System.out.println("✓ Test 4 PASS — Invalid login correctly rejected");
     }
@@ -215,18 +219,18 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 5,
-            groups           = {"smoke", "regression"},
-            description      = "Book Store - Login with registered user succeeds",
-            dependsOnMethods = "verifyInvalidLogin"
+        priority         = 5,
+        groups           = {"smoke", "regression"},
+        description      = "Book Store - Login with registered user succeeds",
+        dependsOnMethods = "verifyInvalidLogin"
     )
     public void verifyValidLogin() {
         bookStorePage.navigateToLogin();
         bookStorePage.login(REGISTERED_USERNAME, REGISTERED_PASSWORD);
 
         Assert.assertTrue(
-                bookStorePage.isLoggedIn(),
-                "Login failed for user: " + REGISTERED_USERNAME
+            bookStorePage.isLoggedIn(),
+            "Login failed for user: " + REGISTERED_USERNAME
         );
 
         String loggedInUser = bookStorePage.getLoggedInUserName();
@@ -238,10 +242,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 6,
-            groups           = {"smoke", "regression"},
-            description      = "Book Store - Store page loads and displays books",
-            dependsOnMethods = "verifyValidLogin"
+        priority         = 6,
+        groups           = {"smoke", "regression"},
+        description      = "Book Store - Store page loads and displays books",
+        dependsOnMethods = "verifyValidLogin"
     )
     public void verifyBookStoreLoads() {
         bookStorePage.navigateToBookStore();
@@ -250,8 +254,8 @@ public class BookStoreApplicationTest extends BaseTest {
         System.out.println("  Books visible: " + bookCount);
 
         Assert.assertTrue(
-                bookCount > 0,
-                "Expected books in store but found 0"
+            bookCount > 0,
+            "Expected books in store but found 0"
         );
         System.out.println("✓ Test 6 PASS — Store shows " + bookCount + " books");
     }
@@ -261,10 +265,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 7,
-            groups           = {"regression"},
-            description      = "Book Store - Search 'Git' filters the book list",
-            dependsOnMethods = "verifyBookStoreLoads"
+        priority         = 7,
+        groups           = {"regression"},
+        description      = "Book Store - Search 'Git' filters the book list",
+        dependsOnMethods = "verifyBookStoreLoads"
     )
     public void verifySearchFiltersBooks() {
         bookStorePage.navigateToBookStore();
@@ -277,12 +281,12 @@ public class BookStoreApplicationTest extends BaseTest {
         System.out.println("  Titles: " + titles);
 
         Assert.assertTrue(
-                filteredCount > 0,
-                "Expected at least 1 book matching 'Git'"
+            filteredCount > 0,
+            "Expected at least 1 book matching 'Git'"
         );
         Assert.assertTrue(
-                titles.stream().anyMatch(t -> t.toLowerCase().contains("git")),
-                "No book title contains 'git'. Titles: " + titles
+            titles.stream().anyMatch(t -> t.toLowerCase().contains("git")),
+            "No book title contains 'git'. Titles: " + titles
         );
         System.out.println("✓ Test 7 PASS — Search filtered to " + filteredCount + " books");
     }
@@ -292,18 +296,18 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 8,
-            groups           = {"regression"},
-            description      = "Book Store - Clicking first book opens detail page",
-            dependsOnMethods = "verifySearchFiltersBooks"
+        priority         = 8,
+        groups           = {"regression"},
+        description      = "Book Store - Clicking first book opens detail page",
+        dependsOnMethods = "verifySearchFiltersBooks"
     )
     public void verifyClickFirstBookOpensDetail() {
         bookStorePage.navigateToBookStore();
         bookStorePage.clickFirstBook();
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books?search="),
-                "Expected book detail URL, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("/books?search="),
+            "Expected book detail URL, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 8 PASS — Detail page URL: " + getDriver().getCurrentUrl());
     }
@@ -313,17 +317,17 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 9,
-            groups           = {"regression"},
-            description      = "Book Store - Back to Book Store button returns to store",
-            dependsOnMethods = "verifyClickFirstBookOpensDetail"
+        priority         = 9,
+        groups           = {"regression"},
+        description      = "Book Store - Back to Book Store button returns to store",
+        dependsOnMethods = "verifyClickFirstBookOpensDetail"
     )
     public void verifyBackToStoreNavigation() {
         bookStorePage.clickBackToBookStore();
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books"),
-                "Expected to return to /books, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("/books"),
+            "Expected to return to /books, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 9 PASS — Back to store: " + getDriver().getCurrentUrl());
     }
@@ -333,10 +337,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 10,
-            groups           = {"regression"},
-            description      = "Book Store - Search 'Git Pocket Guide' and open it",
-            dependsOnMethods = "verifyBackToStoreNavigation"
+        priority         = 10,
+        groups           = {"regression"},
+        description      = "Book Store - Search 'Git Pocket Guide' and open it",
+        dependsOnMethods = "verifyBackToStoreNavigation"
     )
     public void verifyOpenSpecificBook() {
         bookStorePage.navigateToBookStore();
@@ -346,15 +350,15 @@ public class BookStoreApplicationTest extends BaseTest {
         System.out.println("  Books found: " + titles);
 
         Assert.assertFalse(
-                titles.isEmpty(),
-                "Expected 'Git Pocket Guide' in results but list is empty"
+            titles.isEmpty(),
+            "Expected 'Git Pocket Guide' in results but list is empty"
         );
 
         bookStorePage.clickBookByTitle("Git Pocket Guide");
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books?search="),
-                "Expected book detail page, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("/books?search="),
+            "Expected book detail page, got: " + getDriver().getCurrentUrl()
         );
 
         String isbn = bookStorePage.getBookDetailValue("ISBN");
@@ -370,17 +374,17 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 11,
-            groups           = {"smoke", "regression"},
-            description      = "Profile - Page shows the logged-in user's name",
-            dependsOnMethods = "verifyOpenSpecificBook"
+        priority         = 11,
+        groups           = {"smoke", "regression"},
+        description      = "Profile - Page shows the logged-in user's name",
+        dependsOnMethods = "verifyOpenSpecificBook"
     )
     public void verifyProfileShowsUserName() {
         profilePage.navigateToProfile();
         String displayedName = profilePage.getProfileUserName();
         System.out.println("  Profile shows: " + displayedName);
         Assert.assertEquals(displayedName, REGISTERED_USERNAME,
-                "Profile page did not show the expected username");
+            "Profile page did not show the expected username");
         System.out.println("✓ Test 11 PASS — Profile shows correct username");
     }
 
@@ -389,10 +393,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 12,
-            groups           = {"regression"},
-            description      = "Profile - New user's book collection is empty",
-            dependsOnMethods = "verifyProfileShowsUserName"
+        priority         = 12,
+        groups           = {"regression"},
+        description      = "Profile - New user's book collection is empty",
+        dependsOnMethods = "verifyProfileShowsUserName"
     )
     public void verifyEmptyCollectionForNewUser() {
         profilePage.navigateToProfile();
@@ -416,10 +420,10 @@ public class BookStoreApplicationTest extends BaseTest {
      *   4. That action redirects back to /profile
      */
     @Test(
-            priority         = 13,
-            groups           = {"smoke", "regression"},
-            description      = "Profile - Add a book to the user's collection",
-            dependsOnMethods = "verifyEmptyCollectionForNewUser"
+        priority         = 13,
+        groups           = {"smoke", "regression"},
+        description      = "Profile - Add a book to the user's collection",
+        dependsOnMethods = "verifyEmptyCollectionForNewUser"
     )
     public void verifyAddBookToCollection() {
         bookStorePage.navigateToBookStore();
@@ -435,8 +439,8 @@ public class BookStoreApplicationTest extends BaseTest {
         // on this same book detail page. Test 14 navigates to /profile
         // itself to verify the book actually landed in the collection.
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("/books?search="),
-                "Expected to remain on book detail page after adding, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("/books?search="),
+            "Expected to remain on book detail page after adding, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 13 PASS — Book added to collection");
     }
@@ -446,10 +450,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 14,
-            groups           = {"regression"},
-            description      = "Profile - Added book is listed on the profile page",
-            dependsOnMethods = "verifyAddBookToCollection"
+        priority         = 14,
+        groups           = {"regression"},
+        description      = "Profile - Added book is listed on the profile page",
+        dependsOnMethods = "verifyAddBookToCollection"
     )
     public void verifyAddedBookAppearsOnProfile() {
         profilePage.navigateToProfile();
@@ -466,10 +470,10 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 15,
-            groups           = {"smoke", "regression"},
-            description      = "Profile - Delete book from collection removes it",
-            dependsOnMethods = "verifyAddedBookAppearsOnProfile"
+        priority         = 15,
+        groups           = {"smoke", "regression"},
+        description      = "Profile - Delete book from collection removes it",
+        dependsOnMethods = "verifyAddedBookAppearsOnProfile"
     )
     public void verifyDeleteBookFromProfile() {
         profilePage.navigateToProfile();
@@ -477,8 +481,8 @@ public class BookStoreApplicationTest extends BaseTest {
         int bookCount = profilePage.getBookCount();
         System.out.println("  Books on profile after delete: " + bookCount);
         Assert.assertFalse(
-                profilePage.isBookListed(addedBookTitle),
-                "Book still listed on profile after delete: " + addedBookTitle
+            profilePage.isBookListed(addedBookTitle),
+            "Book still listed on profile after delete: " + addedBookTitle
         );
         Assert.assertEquals(bookCount, 0, "Expected empty collection after deleting the only book");
         System.out.println("✓ Test 15 PASS — Book deleted, collection empty");
@@ -489,18 +493,18 @@ public class BookStoreApplicationTest extends BaseTest {
     // ════════════════════════════════════════════════════════════════════════════
 
     @Test(
-            priority         = 16,
-            groups           = {"smoke", "regression"},
-            description      = "Book Store - Logout redirects to /login",
-            dependsOnMethods = "verifyDeleteBookFromProfile"
+        priority         = 16,
+        groups           = {"smoke", "regression"},
+        description      = "Book Store - Logout redirects to /login",
+        dependsOnMethods = "verifyDeleteBookFromProfile"
     )
     public void verifyLogout() {
         bookStorePage.navigateToProfile();
         bookStorePage.logout();
 
         Assert.assertTrue(
-                getDriver().getCurrentUrl().contains("login"),
-                "Expected redirect to /login after logout, got: " + getDriver().getCurrentUrl()
+            getDriver().getCurrentUrl().contains("login"),
+            "Expected redirect to /login after logout, got: " + getDriver().getCurrentUrl()
         );
         System.out.println("✓ Test 16 PASS — Logged out, on: " + getDriver().getCurrentUrl());
         System.out.println("=== All 16 Book Store tests completed ===");

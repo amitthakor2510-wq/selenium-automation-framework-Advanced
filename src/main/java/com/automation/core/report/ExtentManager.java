@@ -48,5 +48,5 @@ public class ExtentManager {
     }
 
     private static final java.util.logging.Logger logger =
-            java.util.logging.Logger.getLogger(ExtentManager.class.getName());
+        java.util.logging.Logger.getLogger(ExtentManager.class.getName());
 }

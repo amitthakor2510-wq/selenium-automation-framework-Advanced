@@ -70,13 +70,13 @@ public class ResizablePage extends BasePage {
         // If the delta is zero (already at limit), skip the action.
         if (deltaX != 0 || deltaY != 0) {
             new Actions(driver)
-                    .moveToElement(handle)
-                    .clickAndHold()
-                    .pause(Duration.ofMillis(150))
-                    .moveByOffset(deltaX, deltaY)
-                    .pause(Duration.ofMillis(150))
-                    .release()
-                    .perform();
+                .moveToElement(handle)
+                .clickAndHold()
+                .pause(Duration.ofMillis(150))
+                .moveByOffset(deltaX, deltaY)
+                .pause(Duration.ofMillis(150))
+                .release()
+                .perform();
         }
 
         HumanActions.pause();
