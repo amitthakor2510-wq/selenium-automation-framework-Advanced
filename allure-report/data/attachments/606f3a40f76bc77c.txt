@@ -1,0 +1,6 @@
+[INFO] https://demoqa.com/assets/index-D_rDx8ml.js 38:93707 "broken"
+[WARNING] https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202607210101/pubads_impl.js?cb=31099895 18:422387 "[GPT] PubAdsService.setTargeting is deprecated, use googletag.setConfig({targeting: ...}) instead.\nhttps://goo.gle/gpt-message#170"
+[INFO] https://demoqa.com/assets/index-D_rDx8ml.js 38:93707 "broken"
+[WARNING] https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202607210101/pubads_impl.js?cb=31099895 18:422387 "[GPT] PubAdsService.setTargeting is deprecated, use googletag.setConfig({targeting: ...}) instead.\nhttps://goo.gle/gpt-message#170"
+[INFO] https://demoqa.com/assets/index-D_rDx8ml.js 38:93707 "broken"
+[WARNING] https://securepubads.g.doubleclick.net/pagead/managed/js/gpt/m202607210101/pubads_impl.js?cb=31099895 18:422387 "[GPT] PubAdsService.setTargeting is deprecated, use googletag.setConfig({targeting: ...}) instead.\nhttps://goo.gle/gpt-message#170"
