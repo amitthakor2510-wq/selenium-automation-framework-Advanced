@@ -247,14 +247,15 @@ jobs:
     needs: [ test, allure-report ]
     if: failure()
     runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
-      # Repository secrets read as an empty string (never null) when unset, so this check
-      # lets the job succeed as a no-op for anyone who hasn't configured SLACK_WEBHOOK_URL
-      # instead of failing the whole workflow over a missing notification channel.
+      # secrets.* isn't a recognized named-value inside a step's `if:` expression — it
+      # only resolves inside env:/with:/run:. Routing it through the job-level env: above
+      # first, then checking env.SLACK_WEBHOOK_URL here, is the supported way to make this
+      # step a no-op when nobody has configured the secret, instead of a hard workflow error.
       - name: Notify Slack
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
         run: |
           curl -s -X POST -H 'Content-type: application/json' --data '{
             "attachments": [{

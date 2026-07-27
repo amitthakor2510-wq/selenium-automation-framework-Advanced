@@ -74,7 +74,7 @@ test:
       # had no CI coverage at all despite the framework fully supporting it.
       - SITE: [ demoqa, saucedemo ]
   script:
-    - echo "======= Running Tests: site=$SITE ======="
+    - 'echo "======= Running Tests: site=$SITE ======="'
     - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
     # Previously this just exited 1 if Chrome was missing instead of
     # installing it, which meant the test stage could never pass on a
