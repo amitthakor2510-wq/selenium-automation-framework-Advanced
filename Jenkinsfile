@@ -58,6 +58,18 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    triggers {
+        // Accessibility (axe-core) and visual-regression (AShot screenshot
+        // diffing) are opt-in by nature — both are slower and more
+        // flake-prone than the standard functional suites, and only exist
+        // for demoqa — so they don't run on every commit like the regular
+        // SUITE_TYPE choice does. Instead they run once a night regardless
+        // of what SUITE_TYPE this build's parameters otherwise specify; see
+        // the "Nightly Extra Coverage" stage below, gated on this same
+        // TimerTrigger cause.
+        cron('H 2 * * *')
+    }
+
     stages {
 
         stage('Checkout') {
@@ -148,6 +160,59 @@ pipeline {
                 }
             }
         }
+
+        stage('Nightly Extra Coverage') {
+            // Only demoqa has these two suite files, and they're
+            // intentionally excluded from the regular SUITE_TYPE choice
+            // (['regression', 'smoke']) above — this stage is the only
+            // place they run, and only on the nightly cron trigger, not on
+            // every manually-triggered or commit-triggered build.
+            when {
+                expression {
+                    currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                }
+            }
+            steps {
+                script {
+                    def extraSuites = ['accessibility', 'visual']
+                    def extraResultDirs = []
+                    def extraFailures = []
+
+                    extraSuites.each { suite ->
+                        def suiteFile = "testng-suites/demoqa-${suite}.xml"
+                        if (fileExists(suiteFile)) {
+                            echo "==== Running nightly demoqa ${suite} suite ===="
+                            def resultDir = "demoqa-${suite}"
+                            int exitCode = sh(
+                                    script: """
+                                   mvn -B -ntp test \\
+                                      -Dsite=demoqa \\
+                                      -DsuiteXmlFile=${suiteFile} \\
+                                      -Dbrowser=${params.BROWSER} \\
+                                      -Dheadless=${params.HEADLESS} \\
+                                      -Dhuman.pause.enabled=false \\
+                                      -Dallure.results.directory=target/allure-results/${resultDir} \\
+                                      -Dmaven.test.failure.ignore=true
+                                """,
+                                    returnStatus: true
+                            )
+                            extraResultDirs.add(resultDir)
+                            if (exitCode != 0) {
+                                extraFailures.add(suite)
+                            }
+                        } else {
+                            echo "Skipping ${suite}: ${suiteFile} not found"
+                        }
+                    }
+
+                    env.NIGHTLY_RESULT_DIRS = extraResultDirs.join(',')
+                    if (extraFailures) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Nightly suites with failures: ${extraFailures.join(', ')}"
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -157,13 +222,18 @@ pipeline {
                     testResults: 'target/surefire-reports/*.xml'
 
             // ── Allure Report ─────────────────────────────────────────
-            // One results dir per site (see "Run Tests Per Site" stage) —
-            // pass all of them so the single generated report covers every
-            // site that ran, not just whichever happened to write last.
+            // One results dir per site (see "Run Tests Per Site" stage),
+            // plus the nightly accessibility/visual dirs when the
+            // "Nightly Extra Coverage" stage ran — pass all of them so the
+            // single generated report covers every suite that ran, not
+            // just whichever happened to write last.
             script {
                 def resultDirs = env.SITES_TO_RUN
                         ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
                         : [[path: 'target/allure-results']]
+                if (env.NIGHTLY_RESULT_DIRS) {
+                    resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
+                }
                 allure([
                         includeProperties: false,
                         jdk: '',

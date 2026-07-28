@@ -45,6 +45,7 @@ cache:
   paths:
     - .m2/repository/
     - .wdm/
+    - .android-sdk/
 
 # ================================================================
 # STAGE 1 - Build
@@ -137,7 +138,163 @@ test:
     - merge_requests
 
 # ================================================================
-# STAGE 3 - Report
+# STAGE 2b - Mobile Test (Android emulator + Appium)
+# ================================================================
+# Separate job rather than a third `SITE` matrix entry above, since it
+# needs a completely different toolchain (Android SDK + emulator +
+# Appium instead of a browser) — squeezing it into the same script would
+# either skip Chrome setup for nothing or fail trying to install it for a
+# job that never uses it.
+mobile-test:
+  stage: test
+  interruptible: true
+  variables:
+    ANDROID_SDK_ROOT: "$CI_PROJECT_DIR/.android-sdk"
+    ANDROID_AVD_NAME: "gitlab_ci_avd"
+  script:
+    - echo "======= Running Mobile Tests ======="
+    - apt-get update -qq
+    - apt-get install -y -qq unzip wget
+    # Same install-if-missing pattern as the Chrome step in the `test` job
+    # above — cached across runs via .android-sdk/ in the global `cache:`
+    # block, so this only actually downloads anything on a cold cache.
+    - |
+      if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+        echo "Android SDK not found - installing cmdline-tools..."
+        mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+        wget -q -O cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+        mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+        rm cmdline-tools.zip
+      fi
+    - export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"
+    - yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+    - sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "emulator" "system-images;android-30;default;x86_64" "platforms;android-30" > /dev/null
+    - |
+      if [ ! -d "$ANDROID_SDK_ROOT/avd/${ANDROID_AVD_NAME}.avd" ]; then
+        echo "no" | avdmanager create avd -n "$ANDROID_AVD_NAME" -k "system-images;android-30;default;x86_64" --force
+      fi
+    # If /dev/kvm isn't accessible to this runner (common the first time
+    # this job runs on a given machine, or if the runner isn't configured
+    # to pass --device=/dev/kvm through to its job containers), the
+    # emulator silently falls back to slow software emulation instead of
+    # failing outright — flagged here so an unusually slow run points
+    # back at this instead of looking like a mystery regression. Granting
+    # KVM access is a one-time host/runner config change, not something
+    # safe to script unattended inside a CI job.
+    - |
+      if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+        echo "WARNING: /dev/kvm not accessible to this job — emulator will run in slow software mode."
+      fi
+    - $ANDROID_SDK_ROOT/emulator/emulator -avd $ANDROID_AVD_NAME -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none &
+    - |
+      echo "Waiting for emulator to boot..."
+      "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device
+      for i in $(seq 1 60); do
+        boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+        if [ "$boot_completed" = "1" ]; then
+          echo "Emulator booted"
+          break
+        fi
+        sleep 5
+      done
+    - |
+      if ! command -v node &> /dev/null; then
+        apt-get install -y -qq nodejs npm
+      fi
+    - |
+      if ! command -v appium &> /dev/null; then
+        npm install -g appium
+        appium driver install uiautomator2
+      fi
+    - appium --log-timestamp --log-no-colors > appium.log 2>&1 &
+    - |
+      for i in $(seq 1 30); do
+        if curl -s http://127.0.0.1:4723/status > /dev/null; then
+          echo "Appium is up"
+          break
+        fi
+        echo "Waiting for Appium... ($i)"
+        sleep 2
+      done
+    - mvn -B test
+      -Dsite=mobile
+      -DsuiteXmlFile=testng-suites/mobile-$SUITE_TYPE.xml
+      -Dmobile.app.package=com.android.settings
+      -Dmobile.app.activity=.Settings
+      -Dmobile.device.name=$ANDROID_AVD_NAME
+      -Dretry.count=$RETRY_COUNT
+      -Dallure.results.directory=target/allure-results/mobile
+      -Dmaven.test.failure.ignore=true
+  artifacts:
+    name: "test-results-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/allure-results/
+      - target/extent-reports/
+      - target/screenshots/
+      - target/surefire-reports/
+    reports:
+      junit: target/surefire-reports/*.xml
+  only:
+    - main
+    - master
+    - merge_requests
+
+# ================================================================
+# STAGE 2c - Nightly Accessibility + Visual-Regression (demoqa only)
+# ================================================================
+# Both suites are opt-in by nature (axe-core accessibility scanning and
+# AShot screenshot diffing are both slower / more flake-prone than the
+# regular functional suites) and only exist for demoqa, so they don't run
+# on every commit — only on a scheduled pipeline. Create the schedule
+# under Settings > CI/CD > Schedules (e.g. "0 2 * * *" targeting main) —
+# that part can't be expressed in this YAML file, it's a one-time manual
+# setup step in the GitLab UI.
+accessibility-visual-test:
+  stage: test
+  interruptible: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  parallel:
+    matrix:
+      - EXTRA_SUITE: [ accessibility, visual ]
+  script:
+    - echo "======= Running Nightly demoqa $EXTRA_SUITE Suite ======="
+    - |
+      if [ ! -f "testng-suites/demoqa-$EXTRA_SUITE.xml" ]; then
+        echo "testng-suites/demoqa-$EXTRA_SUITE.xml not found - skipping"
+        exit 0
+      fi
+    - |
+      if ! command -v google-chrome &> /dev/null; then
+        apt-get update -qq
+        apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+        apt-get update -qq
+        apt-get install -y -qq google-chrome-stable
+      fi
+    - mvn -B test
+      -Dsite=demoqa
+      -DsuiteXmlFile=testng-suites/demoqa-$EXTRA_SUITE.xml
+      -Dbrowser=$BROWSER
+      -Dheadless=$HEADLESS
+      -Dallure.results.directory=target/allure-results/demoqa-$EXTRA_SUITE
+      -Dwdm.cachePath=$WDM_CACHE_PATH
+      -Dmaven.test.failure.ignore=true
+  artifacts:
+    name: "test-results-$CI_JOB_NAME-$EXTRA_SUITE-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/allure-results/
+      - target/extent-reports/
+      - target/screenshots/
+      - target/surefire-reports/
+    reports:
+      junit: target/surefire-reports/*.xml
 # Allure → GitLab Pages  |  Extent → artifact
 # ================================================================
 report:
@@ -182,6 +339,17 @@ report:
     # subfolder in — Allure looks for a "history" folder INSIDE whichever
     # results directory has one, not as a results dir passed on its own.
     - allure generate target/allure-results/*/ --clean -o public/allure-report
+    # Extent's HTML report was being uploaded as a plain job artifact
+    # (target/extent-reports/) but never copied into public/ — GitLab
+    # Pages only ever serves what's inside public/, so Allure was the
+    # only report that actually got a live URL. Mirror it in here too.
+    - |
+      if [ -d "target/extent-reports" ] && [ -n "$(ls -A target/extent-reports 2>/dev/null)" ]; then
+        mkdir -p public/extent-report
+        cp -r target/extent-reports/. public/extent-report/
+      else
+        echo "WARNING: target/extent-reports is missing or empty — no Extent report to publish."
+      fi
     - echo "======= Test Results Summary ======="
     - |
       if [ -f "target/surefire-reports/testng-results.xml" ]; then
@@ -202,6 +370,8 @@ report:
       junit: target/surefire-reports/*.xml
   dependencies:
     - test
+    - mobile-test
+    - accessibility-visual-test
   only:
     - main
     - master

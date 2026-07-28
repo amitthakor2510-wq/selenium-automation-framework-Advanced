@@ -29,6 +29,15 @@ on:
         description: "Retries for failed tests"
         type: string
         default: "0"
+  # Accessibility (axe-core) and visual-regression (AShot screenshot
+  # diffing) are opt-in by nature — both slower and more flake-prone than
+  # the regular functional suites, and only exist for demoqa — so they
+  # don't run on every push/PR like `test` above. Instead they run once a
+  # night via the `accessibility-visual-test` job below, which is gated
+  # on `github.event_name == 'schedule'` so this same cron entry can't
+  # accidentally trigger the regular test matrix too.
+  schedule:
+    - cron: "0 2 * * *"
 
 # A new push to the same branch/PR cancels whatever run is still in
 # progress for that same ref, instead of letting both run to completion —
@@ -170,10 +179,190 @@ jobs:
           retention-days: 7
 
   # ================================================================
+  # STAGE 2b - Mobile Test (Android emulator + Appium)
+  # ================================================================
+  # This is a separate job from `test` above rather than a third matrix
+  # entry there, because it needs a completely different environment
+  # (an Android emulator + Appium server instead of a browser) — trying
+  # to squeeze it into the same steps as the browser jobs would either
+  # skip the browser setup for nothing or fail immediately trying to
+  # install Chrome for a job that will never use it.
+  mobile-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # GitHub's ubuntu-latest runners don't have nested virtualization
+      # enabled by default, which the Android emulator needs to boot at a
+      # usable speed — without this, software-only emulation is
+      # impractically slow for CI. This grants the default runner user
+      # access to /dev/kvm.
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # ubuntu-latest already ships Node.js, so this just layers the
+      # Appium CLI and the uiautomator2 driver (the one
+      # AppiumDriverFactory's Android path talks to) on top of it.
+      - name: Install Appium
+        run: |
+          npm install -g appium
+          appium driver install uiautomator2
+
+      # Start Appium now so it's already listening on 127.0.0.1:4723 (the
+      # default AppiumDriverFactory falls back to when appium.server.url
+      # isn't overridden) by the time the emulator step below runs tests.
+      - name: Start Appium Server
+        run: |
+          appium --log-timestamp --log-no-colors > appium.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:4723/status > /dev/null; then
+              echo "Appium is up"
+              break
+            fi
+            echo "Waiting for Appium... ($i)"
+            sleep 2
+          done
+
+      # Boots an emulator, waits for it to fully come up, runs the given
+      # script against it, then tears it down again — all in one step.
+      # Targets the built-in Android "Settings" app (see
+      # src/main/java/com/automation/mobile/README.md's Quick Start), so
+      # no app-under-test APK needs to be built or downloaded first.
+      - name: Run Mobile Tests on Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: pixel_5
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            mvn -B test \
+              -Dsite=mobile \
+              -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml \
+              -Dmobile.app.package=com.android.settings \
+              -Dmobile.app.activity=.Settings \
+              -Dmobile.device.name=emulator-5554 \
+              -Dretry.count=${{ env.RETRY_COUNT }} \
+              -Dmaven.test.failure.ignore=true
+
+      # Same artifact-naming convention as the browser `test` job above
+      # (allure-results-<job-identifier> / test-results-<job-identifier>-
+      # <ref>) so the allure-report job's wildcard download patterns pick
+      # these up automatically without needing a separate download step.
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-mobile
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Extent + Surefire Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-mobile-${{ github.ref_name }}
+          path: |
+            target/extent-reports/
+            target/screenshots/
+            target/surefire-reports/
+          retention-days: 7
+
+  # ================================================================
+  # STAGE 2c - Nightly Accessibility + Visual-Regression (demoqa only)
+  # ================================================================
+  # Both suites only exist for demoqa and are intentionally excluded from
+  # the regular suite_type input above — this job is the only place they
+  # run, gated on the scheduled trigger so a manual workflow_dispatch or
+  # a normal push/PR never picks it up.
+  accessibility-visual-test:
+    needs: build
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [ accessibility, visual ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Setup Chrome Browser
+        run: |
+          echo "======= Setting Up Browser ======="
+          if ! command -v google-chrome &> /dev/null; then
+            echo "Chrome not found - installing..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gnupg
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq google-chrome-stable
+          else
+            echo "Chrome already installed: $(google-chrome --version)"
+          fi
+
+      - name: Run Nightly Suite
+        run: |
+          echo "======= Running Nightly demoqa ${{ matrix.suite }} Suite ======="
+          mvn -B test \
+            -Dsite=demoqa \
+            -DsuiteXmlFile=testng-suites/demoqa-${{ matrix.suite }}.xml \
+            -Dbrowser=chrome \
+            -Dheadless=true \
+            -Dallure.results.directory=target/allure-results/demoqa-${{ matrix.suite }} \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-demoqa-${{ matrix.suite }}
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Extent + Surefire Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-demoqa-${{ matrix.suite }}-${{ github.ref_name }}
+          path: |
+            target/extent-reports/
+            target/screenshots/
+            target/surefire-reports/
+          retention-days: 7
+
+  # ================================================================
   # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
-    needs: test
+    needs: [ test, mobile-test, accessibility-visual-test ]
+    # accessibility-visual-test only actually runs on the schedule
+    # trigger (see its own `if:` above) — `always()` here means this job
+    # still runs on ordinary pushes/PRs even though that one job shows as
+    # skipped rather than succeeded, which `needs:` alone would block on.
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -225,6 +414,11 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/allure-report
           destination_dir: allure-report
+          # Without this, this deploy wipes the ENTIRE gh-pages branch
+          # before publishing — including the extent-report/ folder from
+          # the other deploy step below — so only whichever step runs
+          # last would ever survive on the branch.
+          keep_files: true
 
       - name: Download Extent Reports (all sites)
         uses: actions/download-artifact@v4
@@ -239,3 +433,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/extent-reports
           destination_dir: extent-report
+          keep_files: true
