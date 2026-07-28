@@ -11,7 +11,6 @@ import ru.yandex.qatools.ashot.comparison.ImageDiffer;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;

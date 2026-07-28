@@ -1,11 +1,15 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.AccordianPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class AccordianTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(AccordianTest.class.getName());
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
@@ -16,7 +20,7 @@ public class AccordianTest extends BaseTest {
         page.navigateToAccordian();
 
         String header = page.getSection1HeaderText();
-        System.out.println("Section 1 header: " + header);
+        logger.info("Section 1 header: " + header);
 
         Assert.assertFalse(
             header.isEmpty(),

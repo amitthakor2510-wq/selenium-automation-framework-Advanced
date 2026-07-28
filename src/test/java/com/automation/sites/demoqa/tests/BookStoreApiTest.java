@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.core.config.ConfigReader;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -35,6 +37,8 @@ import static org.hamcrest.Matchers.*;
  */
 public class BookStoreApiTest {
 
+    private static final Logger logger = Logger.getLogger(BookStoreApiTest.class.getName());
+
     private static final String UNIQUE_ID = UUID.randomUUID().toString().substring(0, 8);
     private static final String API_USERNAME = "ApiTest_" + UNIQUE_ID;
     private static final String API_PASSWORD = "Password123!@";
@@ -47,7 +51,7 @@ public class BookStoreApiTest {
     public void setBaseUri() {
         ConfigReader.reset();
         RestAssured.baseURI = ConfigReader.get("url"); // https://demoqa.com
-        System.out.println("=== Book Store API Test Started — user: " + API_USERNAME + " ===");
+        logger.info("=== Book Store API Test Started — user: " + API_USERNAME + " ===");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -69,7 +73,7 @@ public class BookStoreApiTest {
             .extract().response();
 
         userId = response.jsonPath().getString("userID");
-        System.out.println("✓ Test 1 PASS — Created userId: " + userId);
+        logger.info("✓ Test 1 PASS — Created userId: " + userId);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -92,7 +96,7 @@ public class BookStoreApiTest {
             .extract().response();
 
         authToken = response.jsonPath().getString("token");
-        System.out.println("✓ Test 2 PASS — Token generated (len=" + authToken.length() + ")");
+        logger.info("✓ Test 2 PASS — Token generated (len=" + authToken.length() + ")");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -112,7 +116,7 @@ public class BookStoreApiTest {
             .statusCode(200)
             .body(equalTo("true"));
 
-        System.out.println("✓ Test 3 PASS — Account reports authorized=true");
+        logger.info("✓ Test 3 PASS — Account reports authorized=true");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -132,7 +136,7 @@ public class BookStoreApiTest {
 
         List<String> isbns = response.jsonPath().getList("books.isbn", String.class);
         sampleIsbn = isbns.get(0);
-        System.out.println("✓ Test 4 PASS — " + isbns.size() + " books found, using ISBN: " + sampleIsbn);
+        logger.info("✓ Test 4 PASS — " + isbns.size() + " books found, using ISBN: " + sampleIsbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -152,7 +156,7 @@ public class BookStoreApiTest {
             .body("isbn", equalTo(sampleIsbn))
             .body("title", not(emptyString()));
 
-        System.out.println("✓ Test 5 PASS — Book detail matches ISBN: " + sampleIsbn);
+        logger.info("✓ Test 5 PASS — Book detail matches ISBN: " + sampleIsbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -176,7 +180,7 @@ public class BookStoreApiTest {
             .statusCode(201)
             .body("books.isbn", hasItem(sampleIsbn));
 
-        System.out.println("✓ Test 6 PASS — Book added to collection: " + sampleIsbn);
+        logger.info("✓ Test 6 PASS — Book added to collection: " + sampleIsbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -196,7 +200,7 @@ public class BookStoreApiTest {
             .body("username", equalTo(API_USERNAME))
             .body("books.isbn", hasItem(sampleIsbn));
 
-        System.out.println("✓ Test 7 PASS — User's collection contains: " + sampleIsbn);
+        logger.info("✓ Test 7 PASS — User's collection contains: " + sampleIsbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -244,7 +248,7 @@ public class BookStoreApiTest {
         Assert.assertFalse(remainingIsbns.contains(sampleIsbn),
             "Book " + sampleIsbn + " should be removed from collection after 3 checks");
 
-        System.out.println("✓ Test 8 PASS — Book removed from collection: " + sampleIsbn);
+        logger.info("✓ Test 8 PASS — Book removed from collection: " + sampleIsbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -262,7 +266,7 @@ public class BookStoreApiTest {
             .then()
             .statusCode(204);
 
-        System.out.println("✓ Test 9 PASS — Account deleted: " + userId);
-        System.out.println("=== All 9 Book Store API tests completed ===");
+        logger.info("✓ Test 9 PASS — Account deleted: " + userId);
+        logger.info("=== All 9 Book Store API tests completed ===");
     }
 }

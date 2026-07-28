@@ -1,10 +1,14 @@
 package com.automation.sites.listeners;
 
+import java.util.logging.Logger;
+
 import com.automation.core.config.ConfigReader;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestResult;
 
 public class RetryAnalyzer implements IRetryAnalyzer {
+
+    private static final Logger logger = Logger.getLogger(RetryAnalyzer.class.getName());
 
     private int count = 0;
 
@@ -13,7 +17,7 @@ public class RetryAnalyzer implements IRetryAnalyzer {
         int maxRetry = ConfigReader.getInt("retry.count", 2);
         if (count < maxRetry) {
             count++;
-            System.out.println("Retrying test [" + result.getName() + "] attempt " + count + " of " + maxRetry);
+            logger.info("Retrying test [" + result.getName() + "] attempt " + count + " of " + maxRetry);
             return true;
         }
         return false;

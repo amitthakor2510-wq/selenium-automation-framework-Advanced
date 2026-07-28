@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DroppablePage;
 import org.openqa.selenium.Point;
@@ -7,6 +9,8 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class DroppableTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(DroppableTest.class.getName());
 
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Droppable - Simple Drag And Drop Shows Dropped")
@@ -16,7 +20,7 @@ public class DroppableTest extends BaseTest {
         page.dragToDropZone();
 
         String text = page.getSimpleDropText();
-        System.out.println("Simple drop text: " + text);
+        logger.info("Simple drop text: " + text);
         Assert.assertEquals(text, "Dropped!", "Drop zone should say 'Dropped!'");
     }
 
@@ -29,7 +33,7 @@ public class DroppableTest extends BaseTest {
         page.dragAcceptableToDropZone();
 
         String text = page.getAcceptDropText();
-        System.out.println("Accept drop text: " + text);
+        logger.info("Accept drop text: " + text);
         Assert.assertEquals(text, "Dropped!", "Acceptable element should be accepted");
     }
 
@@ -43,7 +47,7 @@ public class DroppableTest extends BaseTest {
         page.dragNotAcceptableToDropZone();
 
         String text = page.getAcceptDropText();
-        System.out.println("Drop text after attempting to drop not-acceptable: " + text);
+        logger.info("Drop text after attempting to drop not-acceptable: " + text);
         Assert.assertNotEquals(text, "Dropped!", "Not-acceptable element should NOT be accepted by the drop zone");
     }
 
@@ -57,8 +61,8 @@ public class DroppableTest extends BaseTest {
 
         String outer = page.getOuterNotGreedyText();
         String inner = page.getInnerNotGreedyText();
-        System.out.println("Outer not-greedy text: " + outer);
-        System.out.println("Inner not-greedy text: " + inner);
+        logger.info("Outer not-greedy text: " + outer);
+        logger.info("Inner not-greedy text: " + inner);
 
         Assert.assertEquals(inner, "Dropped!", "Inner not-greedy should show Dropped!");
         Assert.assertEquals(outer, "Dropped!", "Outer should also show Dropped! (event propagated)");
@@ -74,8 +78,8 @@ public class DroppableTest extends BaseTest {
 
         String outer = page.getOuterGreedyText();
         String inner = page.getInnerGreedyText();
-        System.out.println("Outer greedy text: " + outer);
-        System.out.println("Inner greedy text: " + inner);
+        logger.info("Outer greedy text: " + outer);
+        logger.info("Inner greedy text: " + inner);
 
         Assert.assertEquals(inner, "Dropped!", "Inner greedy should show Dropped!");
         Assert.assertNotEquals(outer, "Dropped!", "Outer should NOT show Dropped! (event prevented)");
@@ -89,12 +93,12 @@ public class DroppableTest extends BaseTest {
         page.clickRevertDraggableTab();
 
         Point before = page.getWillRevertBoxLocation();
-        System.out.println("Will-revert before: " + before);
+        logger.info("Will-revert before: " + before);
 
         page.dragWillRevertToDropZone();
 
         Point after = page.getWillRevertBoxLocation();
-        System.out.println("Will-revert after:  " + after);
+        logger.info("Will-revert after:  " + after);
 
         Assert.assertEquals(after.getX(), before.getX(), "X should revert to original");
         Assert.assertEquals(after.getY(), before.getY(), "Y should revert to original");
@@ -108,12 +112,12 @@ public class DroppableTest extends BaseTest {
         page.clickRevertDraggableTab();
 
         Point before = page.getNotRevertBoxLocation();
-        System.out.println("Not-revert before: " + before);
+        logger.info("Not-revert before: " + before);
 
         page.dragNotRevertToDropZone();
 
         Point after = page.getNotRevertBoxLocation();
-        System.out.println("Not-revert after:  " + after);
+        logger.info("Not-revert after:  " + after);
 
         Assert.assertNotEquals(after, before, "Not-revert box should stay at drop position");
     }

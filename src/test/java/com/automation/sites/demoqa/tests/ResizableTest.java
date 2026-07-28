@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.ResizablePage;
 import org.openqa.selenium.Dimension;
@@ -8,6 +10,8 @@ import org.testng.annotations.Test;
 
 public class ResizableTest extends BaseTest {
 
+    private static final Logger logger = Logger.getLogger(ResizableTest.class.getName());
+
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Resizable - Box Has Default Size 200x200")
     public void verifyDefaultSize() {
@@ -15,7 +19,7 @@ public class ResizableTest extends BaseTest {
         page.navigateToResizable();
 
         Dimension size = page.getBoxSize();
-        System.out.println("Default size: " + size.width + "x" + size.height);
+        logger.info("Default size: " + size.width + "x" + size.height);
 
         Assert.assertEquals(size.width, 200, "Default width should be 200px");
         Assert.assertEquals(size.height, 200, "Default height should be 200px");
@@ -28,12 +32,12 @@ public class ResizableTest extends BaseTest {
         page.navigateToResizable();
 
         Dimension before = page.getBoxSize();
-        System.out.println("Before: " + before.width + "x" + before.height);
+        logger.info("Before: " + before.width + "x" + before.height);
 
         page.resizeBy(100, 50);
 
         Dimension after = page.getBoxSize();
-        System.out.println("After:  " + after.width + "x" + after.height);
+        logger.info("After:  " + after.width + "x" + after.height);
 
         Assert.assertTrue(after.width > before.width, "Width should increase");
         Assert.assertTrue(after.height > before.height, "Height should increase");
@@ -48,7 +52,7 @@ public class ResizableTest extends BaseTest {
         page.resizeBy(500, 500);
 
         Dimension size = page.getBoxSize();
-        System.out.println("After large drag: " + size.width + "x" + size.height);
+        logger.info("After large drag: " + size.width + "x" + size.height);
 
         Assert.assertTrue(size.width <= 500, "Width should not exceed 500px");
         Assert.assertTrue(size.height <= 300, "Height should not exceed 300px");

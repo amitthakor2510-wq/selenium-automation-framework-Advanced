@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.logging.Logger;
+
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.SmartLocator;
@@ -10,6 +12,8 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 
 public class DatePickerPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(DatePickerPage.class.getName());
 
     private final By dateInput   = By.id("datePickerMonthYearInput");
 
@@ -76,13 +80,13 @@ public class DatePickerPage extends BasePage {
      * automated testing of React form components.
      */
     public void selectDateTime(String month, String year, String day, String time) {
-        System.out.println("[DatePickerPage] Selecting date-time: " + month + " " + day + ", " + year + " @ " + time);
+        logger.info("[DatePickerPage] Selecting date-time: " + month + " " + day + ", " + year + " @ " + time);
 
         WebElement input = wait.until(ExpectedConditions.elementToBeClickable(dateTimeInput));
 
         // Build the date-time string in format the input expects
         String dateTimeStr = month + " " + day + ", " + year + " " + time;
-        System.out.println("[DatePickerPage] Setting input to: \"" + dateTimeStr + "\"");
+        logger.info("[DatePickerPage] Setting input to: \"" + dateTimeStr + "\"");
 
         // Clear the input and type the new value
         input.clear();
@@ -100,12 +104,12 @@ public class DatePickerPage extends BasePage {
         HumanActions.pause();
 
         String result = driver.findElement(dateTimeInput).getAttribute("value");
-        System.out.println("[DatePickerPage] After selection, input value: \"" + result + "\"");
+        logger.info("[DatePickerPage] After selection, input value: \"" + result + "\"");
     }
 
     public String getSelectedDateTime() {
         String value = driver.findElement(dateTimeInput).getAttribute("value");
-        System.out.println("[DatePickerPage] getSelectedDateTime() returning: \"" + value + "\"");
+        logger.info("[DatePickerPage] getSelectedDateTime() returning: \"" + value + "\"");
         return value;
     }
 }

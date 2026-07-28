@@ -1,5 +1,7 @@
 package com.automation.core.driver;
 
+import java.util.logging.Logger;
+
 import com.automation.core.config.ConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.PageLoadStrategy;
@@ -33,6 +35,8 @@ import java.util.Map;
  * live in separate selenium/node-* containers. See docker-compose.yml.
  */
 public final class DriverFactory {
+
+    private static final Logger logger = Logger.getLogger(DriverFactory.class.getName());
 
     private DriverFactory() {
     }
@@ -94,7 +98,7 @@ public final class DriverFactory {
 
         try {
             URL hubUrl = URI.create(gridUrl).toURL();
-            System.out.println("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
+            logger.info("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
                 + " (browser=" + browser + ", headless=" + headless + ")");
             if (options instanceof ChromeOptions co) {
                 return new RemoteWebDriver(hubUrl, co);
@@ -130,7 +134,7 @@ public final class DriverFactory {
         WebDriverManager.chromedriver().setup();
         ChromeOptions options = buildChromeOptions(headless);
         options.setBinary(braveBinary);
-        System.out.println("[DriverFactory] Using Brave binary: " + braveBinary);
+        logger.info("[DriverFactory] Using Brave binary: " + braveBinary);
         return new ChromeDriver(options);
     }
 
@@ -222,9 +226,9 @@ public final class DriverFactory {
 
         String firefoxBinary = findFirefoxBinary();
         if (firefoxBinary != null) {
-            System.out.println("[DriverFactory] Using Firefox binary: " + firefoxBinary);
+            logger.info("[DriverFactory] Using Firefox binary: " + firefoxBinary);
         } else {
-            System.out.println("[DriverFactory] Firefox binary not found on known paths — " +
+            logger.info("[DriverFactory] Firefox binary not found on known paths — " +
                 "geckodriver will search PATH. If tests hang, install Firefox or pass " +
                 "-Dfirefox.binary=/path/to/firefox");
         }

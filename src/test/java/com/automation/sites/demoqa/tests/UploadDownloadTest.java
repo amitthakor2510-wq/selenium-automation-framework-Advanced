@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.UploadDownloadPage;
 import org.testng.Assert;
@@ -11,6 +13,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 public class UploadDownloadTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(UploadDownloadTest.class.getName());
 
     // FIX #1: Was 'private static' — changed to instance fields so each
     // thread gets its own copy. Static + parallel execution = race condition.
@@ -64,8 +68,8 @@ public class UploadDownloadTest extends BaseTest {
             );
         }
 
-        System.out.println("[UploadDownloadTest] Upload path : " + uploadFilePath);
-        System.out.println("[UploadDownloadTest] Download dir: " + downloadFolderPath);
+        logger.info("[UploadDownloadTest] Upload path : " + uploadFilePath);
+        logger.info("[UploadDownloadTest] Download dir: " + downloadFolderPath);
     }
 
     @Test(priority = 1,

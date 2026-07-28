@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.SortablePage;
 import org.testng.Assert;
@@ -9,6 +11,8 @@ import java.util.List;
 
 public class SortableTest extends BaseTest {
 
+    private static final Logger logger = Logger.getLogger(SortableTest.class.getName());
+
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Sortable - List Has 6 Items By Default")
     public void verifyListHasSixItems() {
@@ -16,7 +20,7 @@ public class SortableTest extends BaseTest {
         page.navigateToSortable();
 
         List<String> items = page.getListItemTexts();
-        System.out.println("List items: " + items);
+        logger.info("List items: " + items);
 
         Assert.assertEquals(items.size(), 6, "Sortable list should have 6 items");
     }
@@ -28,12 +32,12 @@ public class SortableTest extends BaseTest {
         page.navigateToSortable();
 
         List<String> before = page.getListItemTexts();
-        System.out.println("Before drag: " + before);
+        logger.info("Before drag: " + before);
 
         page.dragListItem(0, 2);
 
         List<String> after = page.getListItemTexts();
-        System.out.println("After drag:  " + after);
+        logger.info("After drag:  " + after);
 
         Assert.assertNotEquals(before, after, "List order should change after drag");
     }
@@ -46,7 +50,7 @@ public class SortableTest extends BaseTest {
         page.clickGridTab();
 
         List<String> items = page.getGridItemTexts();
-        System.out.println("Grid items: " + items);
+        logger.info("Grid items: " + items);
 
         Assert.assertEquals(items.size(), 9, "Sortable grid should have 9 items");
     }
@@ -59,7 +63,7 @@ public class SortableTest extends BaseTest {
         page.clickGridTab();
 
         boolean draggable = page.gridIsDragable();
-        System.out.println("Grid draggable: " + draggable);
+        logger.info("Grid draggable: " + draggable);
         Assert.assertTrue(draggable, "Grid should be draggable");
     }
 }

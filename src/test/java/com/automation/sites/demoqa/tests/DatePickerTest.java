@@ -1,11 +1,15 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DatePickerPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class DatePickerTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(DatePickerTest.class.getName());
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
@@ -17,7 +21,7 @@ public class DatePickerTest extends BaseTest {
         page.selectDate("May", "1999", "15");
 
         String selected = page.getSelectedDate();
-        System.out.println("Selected date: " + selected);
+        logger.info("Selected date: " + selected);
 
         Assert.assertTrue(
             selected.contains("05/15/1999"),
@@ -35,7 +39,7 @@ public class DatePickerTest extends BaseTest {
         page.selectDateTime("May", "1999", "15", "10:30 PM");
 
         String selected = page.getSelectedDateTime();
-        System.out.println("Selected date-time: " + selected);
+        logger.info("Selected date-time: " + selected);
 
         // Verify that the date and time components are in the result
         Assert.assertTrue(

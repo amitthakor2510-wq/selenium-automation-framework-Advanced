@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.SelectablePage;
 import org.testng.Assert;
@@ -9,6 +11,8 @@ import java.util.List;
 
 public class SelectableTest extends BaseTest {
 
+    private static final Logger logger = Logger.getLogger(SelectableTest.class.getName());
+
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Selectable - Single Click Selects One Item")
     public void verifySingleSelection() {
@@ -17,7 +21,7 @@ public class SelectableTest extends BaseTest {
         page.clickListItem(0);
 
         int active = page.getActiveListItemCount();
-        System.out.println("Active items: " + active);
+        logger.info("Active items: " + active);
 
         Assert.assertEquals(active, 1, "Only 1 item should be selected");
     }
@@ -31,7 +35,7 @@ public class SelectableTest extends BaseTest {
 
         int active = page.getActiveListItemCount();
         List<String> texts = page.getActiveListItemTexts();
-        System.out.println("Active items after Ctrl+Click: " + texts);
+        logger.info("Active items after Ctrl+Click: " + texts);
 
         Assert.assertEquals(active, 3, "3 items should be selected after Ctrl+Click");
     }
@@ -45,7 +49,7 @@ public class SelectableTest extends BaseTest {
         page.clickGridItem(0);
 
         int active = page.getActiveGridItemCount();
-        System.out.println("Active grid items: " + active);
+        logger.info("Active grid items: " + active);
 
         Assert.assertEquals(active, 1, "Only 1 grid item should be selected");
     }

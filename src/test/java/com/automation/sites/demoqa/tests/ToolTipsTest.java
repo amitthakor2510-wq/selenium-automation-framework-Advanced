@@ -1,11 +1,15 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.ToolTipsPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class ToolTipsTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(ToolTipsTest.class.getName());
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
@@ -16,7 +20,7 @@ public class ToolTipsTest extends BaseTest {
         page.navigateToToolTips();
         String tooltip = page.getButtonTooltipText();
 
-        System.out.println("Button tooltip: " + tooltip);
+        logger.info("Button tooltip: " + tooltip);
         Assert.assertEquals(tooltip, "You hovered over the Button",
             "Button tooltip text mismatch");
     }
@@ -30,7 +34,7 @@ public class ToolTipsTest extends BaseTest {
         page.navigateToToolTips();
         String tooltip = page.getTextFieldTooltipText();
 
-        System.out.println("Text field tooltip: " + tooltip);
+        logger.info("Text field tooltip: " + tooltip);
         Assert.assertEquals(tooltip, "You hovered over the text field",
             "Text field tooltip text mismatch");
     }

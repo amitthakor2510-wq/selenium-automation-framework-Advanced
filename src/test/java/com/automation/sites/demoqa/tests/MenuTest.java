@@ -1,11 +1,15 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.MenuPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class MenuTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(MenuTest.class.getName());
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
@@ -16,7 +20,7 @@ public class MenuTest extends BaseTest {
         page.navigateToMenu();
         String text = page.getMainItem1Text();
 
-        System.out.println("Main item 1 text: " + text);
+        logger.info("Main item 1 text: " + text);
         Assert.assertEquals(text, "Main Item 1");
     }
 

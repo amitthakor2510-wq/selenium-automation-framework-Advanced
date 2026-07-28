@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.logging.Logger;
+
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
@@ -28,6 +30,8 @@ import static java.util.stream.Collectors.toList;
  * which then redirects back to /profile.
  */
 public class ProfilePage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(ProfilePage.class.getName());
 
     // Same site-wide table redesign confirmed on /books and /webtables:
     // plain semantic <table>/<tr>/<td>, no more react-table ".rt-*" classes.
@@ -83,7 +87,7 @@ public class ProfilePage extends BasePage {
                 })
                 .count();
         } catch (Exception e) {
-            System.out.println("[ProfilePage] Error getting book count: " + e.getMessage());
+            logger.info("[ProfilePage] Error getting book count: " + e.getMessage());
             return 0;
         }
     }
@@ -112,7 +116,7 @@ public class ProfilePage extends BasePage {
                 .filter(t -> !t.isEmpty())
                 .collect(toList());
         } catch (Exception e) {
-            System.out.println("[ProfilePage] Error getting book titles: " + e.getMessage());
+            logger.info("[ProfilePage] Error getting book titles: " + e.getMessage());
             return List.of();
         }
     }
@@ -157,7 +161,7 @@ public class ProfilePage extends BasePage {
      * one snapshot.
      */
     public void deleteBookByTitle(String title) {
-        System.out.println("[ProfilePage] Deleting book: " + title);
+        logger.info("[ProfilePage] Deleting book: " + title);
 
         WebElement row;
         try {
@@ -181,7 +185,7 @@ public class ProfilePage extends BasePage {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", deleteIcon);
         HumanActions.pause();
         js.executeScript("arguments[0].click();", deleteIcon);
-        System.out.println("[ProfilePage] Clicked delete icon");
+        logger.info("[ProfilePage] Clicked delete icon");
 
         // CONFIRMED from a screenshot: this is NOT a native browser alert —
         // it's a rendered in-page "Delete Book" modal with OK/Cancel
@@ -194,7 +198,7 @@ public class ProfilePage extends BasePage {
             By okButton = By.xpath("//button[normalize-space()='OK']");
             WebElement ok = wait.until(ExpectedConditions.elementToBeClickable(okButton));
             js.executeScript("arguments[0].click();", ok);
-            System.out.println("[ProfilePage] Confirmed delete via OK button");
+            logger.info("[ProfilePage] Confirmed delete via OK button");
         } catch (TimeoutException e) {
             dumpPageForDebugging("profile-delete-modal-not-found");
             throw e;
@@ -202,7 +206,7 @@ public class ProfilePage extends BasePage {
 
         // Wait for the book to be removed from the list
         wait.until(d -> !isBookListed(title));
-        System.out.println("[ProfilePage] Book deleted successfully");
+        logger.info("[ProfilePage] Book deleted successfully");
     }
 
     // Writes the full page source to target/debug-dumps so a failing,
@@ -216,10 +220,10 @@ public class ProfilePage extends BasePage {
                 + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
-            System.out.println("  DEBUG full page source written to: " + file.toAbsolutePath());
+            logger.info("  DEBUG full page source written to: " + file.toAbsolutePath());
         } catch (Exception writeEx) {
-            System.out.println("  DEBUG could not write page source dump: " + writeEx.getMessage());
+            logger.info("  DEBUG could not write page source dump: " + writeEx.getMessage());
         }
-        System.out.println("  DEBUG current URL: " + driver.getCurrentUrl());
+        logger.info("  DEBUG current URL: " + driver.getCurrentUrl());
     }
 }

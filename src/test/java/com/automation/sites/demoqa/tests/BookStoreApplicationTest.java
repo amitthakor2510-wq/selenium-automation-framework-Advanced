@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
@@ -58,6 +60,8 @@ import java.util.UUID;
  */
 public class BookStoreApplicationTest extends BaseTest {
 
+    private static final Logger logger = Logger.getLogger(BookStoreApplicationTest.class.getName());
+
     // ── Auto-generated credentials (unique per run to avoid "username taken") ──
     private static final String UNIQUE_ID           = UUID.randomUUID().toString().substring(0, 8);
     private static final String REGISTERED_FNAME    = "Auto";
@@ -86,10 +90,10 @@ public class BookStoreApplicationTest extends BaseTest {
         registrationPage = new RegistrationPage(getDriver());
         profilePage      = new ProfilePage(getDriver());
 
-        System.out.println("=== Book Store E2E Test Started ===");
-        System.out.println("  Username : " + REGISTERED_USERNAME);
-        System.out.println("  Email    : " + REGISTERED_EMAIL);
-        System.out.println("  Password : " + REGISTERED_PASSWORD);
+        logger.info("=== Book Store E2E Test Started ===");
+        logger.info("  Username : " + REGISTERED_USERNAME);
+        logger.info("  Email    : " + REGISTERED_EMAIL);
+        logger.info("  Password : ****** (redacted from logs)");
     }
 
     @AfterClass(alwaysRun = true)
@@ -102,7 +106,7 @@ public class BookStoreApplicationTest extends BaseTest {
             }
             driver.remove();
         }
-        System.out.println("=== Book Store E2E Test Finished ===");
+        logger.info("=== Book Store E2E Test Finished ===");
     }
 
     // Suppress per-method driver creation — this class owns the session
@@ -130,7 +134,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("register"),
             "Should be on /register, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 1 PASS — Register page loaded: " + getDriver().getCurrentUrl());
+        logger.info("✓ Test 1 PASS — Register page loaded: " + getDriver().getCurrentUrl());
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -156,7 +160,7 @@ public class BookStoreApplicationTest extends BaseTest {
             registrationPage.isRegistrationSuccessful(),
             "Registration did not succeed. URL: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 2 PASS — Registered user: " + REGISTERED_USERNAME);
+        logger.info("✓ Test 2 PASS — Registered user: " + REGISTERED_USERNAME);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -179,7 +183,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("login"),
             "Should be on /login, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 3 PASS — On login page: " + getDriver().getCurrentUrl());
+        logger.info("✓ Test 3 PASS — On login page: " + getDriver().getCurrentUrl());
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -197,7 +201,7 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.login("invalidUser_" + UNIQUE_ID, "wrongPassword123");
 
         String errorMsg = bookStorePage.getLoginErrorMessage();
-        System.out.println("  Login error message: " + errorMsg);
+        logger.info("  Login error message: " + errorMsg);
 
         Assert.assertFalse(
             bookStorePage.isLoggedIn(),
@@ -211,7 +215,7 @@ public class BookStoreApplicationTest extends BaseTest {
             errorMsg.toLowerCase().contains("invalid") || errorMsg.toLowerCase().contains("incorrect"),
             "Unexpected error message text: " + errorMsg
         );
-        System.out.println("✓ Test 4 PASS — Invalid login correctly rejected");
+        logger.info("✓ Test 4 PASS — Invalid login correctly rejected");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -234,7 +238,7 @@ public class BookStoreApplicationTest extends BaseTest {
         );
 
         String loggedInUser = bookStorePage.getLoggedInUserName();
-        System.out.println("✓ Test 5 PASS — Logged in as: " + loggedInUser);
+        logger.info("✓ Test 5 PASS — Logged in as: " + loggedInUser);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -251,13 +255,13 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.navigateToBookStore();
 
         int bookCount = bookStorePage.getVisibleBookCount();
-        System.out.println("  Books visible: " + bookCount);
+        logger.info("  Books visible: " + bookCount);
 
         Assert.assertTrue(
             bookCount > 0,
             "Expected books in store but found 0"
         );
-        System.out.println("✓ Test 6 PASS — Store shows " + bookCount + " books");
+        logger.info("✓ Test 6 PASS — Store shows " + bookCount + " books");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -277,8 +281,8 @@ public class BookStoreApplicationTest extends BaseTest {
         int filteredCount = bookStorePage.getVisibleBookCount();
         List<String> titles = bookStorePage.getBookTitles();
 
-        System.out.println("  Books after search 'Git': " + filteredCount);
-        System.out.println("  Titles: " + titles);
+        logger.info("  Books after search 'Git': " + filteredCount);
+        logger.info("  Titles: " + titles);
 
         Assert.assertTrue(
             filteredCount > 0,
@@ -288,7 +292,7 @@ public class BookStoreApplicationTest extends BaseTest {
             titles.stream().anyMatch(t -> t.toLowerCase().contains("git")),
             "No book title contains 'git'. Titles: " + titles
         );
-        System.out.println("✓ Test 7 PASS — Search filtered to " + filteredCount + " books");
+        logger.info("✓ Test 7 PASS — Search filtered to " + filteredCount + " books");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -309,7 +313,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("/books?search="),
             "Expected book detail URL, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 8 PASS — Detail page URL: " + getDriver().getCurrentUrl());
+        logger.info("✓ Test 8 PASS — Detail page URL: " + getDriver().getCurrentUrl());
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -329,7 +333,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("/books"),
             "Expected to return to /books, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 9 PASS — Back to store: " + getDriver().getCurrentUrl());
+        logger.info("✓ Test 9 PASS — Back to store: " + getDriver().getCurrentUrl());
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -347,7 +351,7 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.searchBook("Git Pocket Guide");
 
         List<String> titles = bookStorePage.getBookTitles();
-        System.out.println("  Books found: " + titles);
+        logger.info("  Books found: " + titles);
 
         Assert.assertFalse(
             titles.isEmpty(),
@@ -363,10 +367,10 @@ public class BookStoreApplicationTest extends BaseTest {
 
         String isbn = bookStorePage.getBookDetailValue("ISBN");
         String author = bookStorePage.getBookDetailValue("Author");
-        System.out.println("  ISBN: " + isbn + " | Author: " + author);
+        logger.info("  ISBN: " + isbn + " | Author: " + author);
 
         Assert.assertFalse(isbn.isEmpty(), "ISBN should not be empty on detail page");
-        System.out.println("✓ Test 10 PASS — Opened 'Git Pocket Guide', ISBN: " + isbn);
+        logger.info("✓ Test 10 PASS — Opened 'Git Pocket Guide', ISBN: " + isbn);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -382,10 +386,10 @@ public class BookStoreApplicationTest extends BaseTest {
     public void verifyProfileShowsUserName() {
         profilePage.navigateToProfile();
         String displayedName = profilePage.getProfileUserName();
-        System.out.println("  Profile shows: " + displayedName);
+        logger.info("  Profile shows: " + displayedName);
         Assert.assertEquals(displayedName, REGISTERED_USERNAME,
             "Profile page did not show the expected username");
-        System.out.println("✓ Test 11 PASS — Profile shows correct username");
+        logger.info("✓ Test 11 PASS — Profile shows correct username");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -401,9 +405,9 @@ public class BookStoreApplicationTest extends BaseTest {
     public void verifyEmptyCollectionForNewUser() {
         profilePage.navigateToProfile();
         int bookCount = profilePage.getBookCount();
-        System.out.println("  Books on profile: " + bookCount);
+        logger.info("  Books on profile: " + bookCount);
         Assert.assertEquals(bookCount, 0, "Brand-new user should have an empty collection");
-        System.out.println("✓ Test 12 PASS — Collection empty for new user");
+        logger.info("✓ Test 12 PASS — Collection empty for new user");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -429,7 +433,7 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage.navigateToBookStore();
 
         addedBookTitle = bookStorePage.getBookTitles().get(0);
-        System.out.println("  Adding to collection: " + addedBookTitle);
+        logger.info("  Adding to collection: " + addedBookTitle);
 
         bookStorePage.clickFirstBook();
         bookStorePage.addBookToCollection();
@@ -442,7 +446,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("/books?search="),
             "Expected to remain on book detail page after adding, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 13 PASS — Book added to collection");
+        logger.info("✓ Test 13 PASS — Book added to collection");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -459,10 +463,10 @@ public class BookStoreApplicationTest extends BaseTest {
         profilePage.navigateToProfile();
         boolean listed = profilePage.waitForBookListed(addedBookTitle);
         int bookCount = profilePage.getBookCount();
-        System.out.println("  Books on profile: " + bookCount + " | contains '" + addedBookTitle + "': " + listed);
+        logger.info("  Books on profile: " + bookCount + " | contains '" + addedBookTitle + "': " + listed);
         Assert.assertTrue(listed, "Added book not found on profile page: " + addedBookTitle);
         Assert.assertEquals(bookCount, 1, "Expected exactly 1 book in collection");
-        System.out.println("✓ Test 14 PASS — Added book visible on profile");
+        logger.info("✓ Test 14 PASS — Added book visible on profile");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -479,13 +483,13 @@ public class BookStoreApplicationTest extends BaseTest {
         profilePage.navigateToProfile();
         profilePage.deleteBookByTitle(addedBookTitle);
         int bookCount = profilePage.getBookCount();
-        System.out.println("  Books on profile after delete: " + bookCount);
+        logger.info("  Books on profile after delete: " + bookCount);
         Assert.assertFalse(
             profilePage.isBookListed(addedBookTitle),
             "Book still listed on profile after delete: " + addedBookTitle
         );
         Assert.assertEquals(bookCount, 0, "Expected empty collection after deleting the only book");
-        System.out.println("✓ Test 15 PASS — Book deleted, collection empty");
+        logger.info("✓ Test 15 PASS — Book deleted, collection empty");
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -506,7 +510,7 @@ public class BookStoreApplicationTest extends BaseTest {
             getDriver().getCurrentUrl().contains("login"),
             "Expected redirect to /login after logout, got: " + getDriver().getCurrentUrl()
         );
-        System.out.println("✓ Test 16 PASS — Logged out, on: " + getDriver().getCurrentUrl());
-        System.out.println("=== All 16 Book Store tests completed ===");
+        logger.info("✓ Test 16 PASS — Logged out, on: " + getDriver().getCurrentUrl());
+        logger.info("=== All 16 Book Store tests completed ===");
     }
 }

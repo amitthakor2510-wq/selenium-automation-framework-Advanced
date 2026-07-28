@@ -1,11 +1,15 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.ProgressBarPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class ProgressBarTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(ProgressBarTest.class.getName());
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
@@ -62,7 +66,7 @@ public class ProgressBarTest extends BaseTest {
         page.startAndStopAtValue(68);
 
         String value = page.getProgressValue();
-        System.out.println("Progress stopped at: " + value);
+        logger.info("Progress stopped at: " + value);
 
         int actual = Integer.parseInt(value);
         Assert.assertTrue(

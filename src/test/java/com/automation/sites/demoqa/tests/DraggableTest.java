@@ -1,5 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DraggablePage;
 import org.openqa.selenium.By;
@@ -9,6 +11,8 @@ import org.testng.annotations.Test;
 
 public class DraggableTest extends BaseTest {
 
+    private static final Logger logger = Logger.getLogger(DraggableTest.class.getName());
+
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Draggable - Simple Box Moves To New Position")
     public void verifySimpleDrag() {
@@ -16,12 +20,12 @@ public class DraggableTest extends BaseTest {
         page.navigateToDraggable();
 
         Point before = page.getDragBoxLocation();
-        System.out.println("Before: " + before);
+        logger.info("Before: " + before);
 
         page.dragSimpleBoxBy(150, 80);
 
         Point after = page.getDragBoxLocation();
-        System.out.println("After:  " + after);
+        logger.info("After:  " + after);
 
         Assert.assertNotEquals(before, after, "Box position should change after drag");
     }
@@ -34,12 +38,12 @@ public class DraggableTest extends BaseTest {
         page.clickAxisTab();
 
         Point before = page.getXOnlyBoxLocation();
-        System.out.println("X-only before: " + before);
+        logger.info("X-only before: " + before);
 
         page.dragXOnlyBox(100);
 
         Point after = page.getXOnlyBoxLocation();
-        System.out.println("X-only after:  " + after);
+        logger.info("X-only after:  " + after);
 
         Assert.assertNotEquals(after.getX(), before.getX(), "X should change");
         Assert.assertEquals(after.getY(), before.getY(), "Y should NOT change for X-restricted box");
@@ -53,12 +57,12 @@ public class DraggableTest extends BaseTest {
         page.clickAxisTab();
 
         Point before = page.getYOnlyBoxLocation();
-        System.out.println("Y-only before: " + before);
+        logger.info("Y-only before: " + before);
 
         page.dragYOnlyBox(100);
 
         Point after = page.getYOnlyBoxLocation();
-        System.out.println("Y-only after:  " + after);
+        logger.info("Y-only after:  " + after);
 
         Assert.assertEquals(after.getX(), before.getX(), "X should NOT change for Y-restricted box");
         Assert.assertNotEquals(after.getY(), before.getY(), "Y should change");
@@ -78,9 +82,9 @@ public class DraggableTest extends BaseTest {
         int   wrapperRight  = page.getContainmentWrapperRightEdge();
         int   wrapperBottom = page.getContainmentWrapperBottomEdge();
 
-        System.out.println("Box position:      " + boxPos);
-        System.out.println("Wrapper right edge: " + wrapperRight);
-        System.out.println("Wrapper bottom edge:" + wrapperBottom);
+        logger.info("Box position:      " + boxPos);
+        logger.info("Wrapper right edge: " + wrapperRight);
+        logger.info("Wrapper bottom edge:" + wrapperBottom);
 
         Assert.assertTrue(boxPos.getX() <= wrapperRight,
             "Box left edge should not exceed wrapper right edge");
@@ -103,9 +107,9 @@ public class DraggableTest extends BaseTest {
         int   parentRight  = page.getContainedWithinParentBoundaryRightEdge();
         int   parentBottom = page.getContainedWithinParentBoundaryBottomEdge();
 
-        System.out.println("Parent-contained box position: " + boxPos);
-        System.out.println("Parent right edge:  " + parentRight);
-        System.out.println("Parent bottom edge: " + parentBottom);
+        logger.info("Parent-contained box position: " + boxPos);
+        logger.info("Parent right edge:  " + parentRight);
+        logger.info("Parent bottom edge: " + parentBottom);
 
         Assert.assertTrue(boxPos.getX() <= parentRight,
             "Box left edge should not exceed its parent's right edge");
@@ -122,13 +126,13 @@ public class DraggableTest extends BaseTest {
 
         By locator = page.getCursorCenterLocator();
         String cursor = page.getCursorStyle(locator);
-        System.out.println("Cursor Center style: " + cursor);
+        logger.info("Cursor Center style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
         Point before = page.getCursorBoxLocation(locator);
         page.dragCursorBox(locator, 150, 0);   // → right
         Point after = page.getCursorBoxLocation(locator);
-        System.out.println("Cursor Center before/after: " + before + " -> " + after);
+        logger.info("Cursor Center before/after: " + before + " -> " + after);
 
         Assert.assertNotEquals(before, after, "Cursor Center box should move after drag");
     }
@@ -142,13 +146,13 @@ public class DraggableTest extends BaseTest {
 
         By locator = page.getCursorTopLeftLocator();
         String cursor = page.getCursorStyle(locator);
-        System.out.println("Cursor TopLeft style: " + cursor);
+        logger.info("Cursor TopLeft style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
         Point before = page.getCursorBoxLocation(locator);
         page.dragCursorBox(locator, 100, 80);  // → diagonal down-right
         Point after = page.getCursorBoxLocation(locator);
-        System.out.println("Cursor TopLeft before/after: " + before + " -> " + after);
+        logger.info("Cursor TopLeft before/after: " + before + " -> " + after);
 
         Assert.assertNotEquals(before, after, "Cursor TopLeft box should move after drag");
     }
@@ -162,13 +166,13 @@ public class DraggableTest extends BaseTest {
 
         By locator = page.getCursorBottomLocator();
         String cursor = page.getCursorStyle(locator);
-        System.out.println("Cursor Bottom style: " + cursor);
+        logger.info("Cursor Bottom style: " + cursor);
         Assert.assertEquals(cursor, "move");
 
         Point before = page.getCursorBoxLocation(locator);
         page.dragCursorBox(locator, 0, 100);    // ↓ straight down
         Point after = page.getCursorBoxLocation(locator);
-        System.out.println("Cursor Bottom before/after: " + before + " -> " + after);
+        logger.info("Cursor Bottom before/after: " + before + " -> " + after);
 
         Assert.assertNotEquals(before, after, "Cursor Bottom box should move after drag");
     }

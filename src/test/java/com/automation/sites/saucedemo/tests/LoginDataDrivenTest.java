@@ -1,5 +1,7 @@
 package com.automation.sites.saucedemo.tests;
 
+import java.util.logging.Logger;
+
 import com.automation.core.data.DataProviderFactory;
 import com.automation.core.data.DataRow;
 import com.automation.sites.core.BaseTest;
@@ -13,6 +15,8 @@ import org.testng.annotations.Test;
 @Feature("Authentication")
 @Story("Login - Data Driven")
 public class LoginDataDrivenTest extends BaseTest {
+
+    private static final Logger logger = Logger.getLogger(LoginDataDrivenTest.class.getName());
 
     // ── Data Providers ────────────────────────────────────────────────────────
     // Point to whichever file format you prefer — all produce the same result
@@ -114,7 +118,7 @@ public class LoginDataDrivenTest extends BaseTest {
         String expected = row.getRequired("expected");
         String notes    = row.get("notes"); // optional
 
-        System.out.println("  Row " + row.getRowIndex()
+        logger.info("  Row " + row.getRowIndex()
             + " | " + username + " | expected=" + expected
             + (notes.isEmpty() ? "" : " | " + notes));
 
