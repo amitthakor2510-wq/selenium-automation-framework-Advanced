@@ -1,10 +1,14 @@
 # =========================================================
 # MOBILE / APPIUM CONFIG TEMPLATE
 # Copy to mobile.properties and fill in real values before running any
-# mobile test. Not loaded automatically by ConfigReader (which only loads
-# global.properties + <site>.properties) — pass these as -D overrides, or
-# wire a "mobile" pseudo-site into ConfigReader if you want file-based
-# loading instead. See AppiumDriverFactory.java for how each key is used.
+# mobile test. Loaded automatically the same way demoqa.properties or
+# saucedemo.properties are: ConfigReader loads config/<site>.properties
+# for whatever -Dsite you pass, so this file just needs to exist and be
+# run under -Dsite=mobile (e.g. mvn test -Dsite=mobile
+# -DsuiteXmlFile=testng-suites/mobile-smoke.xml) — no ConfigReader code
+# changes needed. Individual keys can still be overridden per-run with
+# -D<key>=<value>, same as any other config key. See
+# AppiumDriverFactory.java for how each key is used.
 # =========================================================
 
 # android or ios

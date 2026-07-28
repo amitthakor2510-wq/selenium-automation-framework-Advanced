@@ -1,6 +1,6 @@
 # 🤖 Selenium Automation Framework — Advanced Edition
 
-> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 4 file formats, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
+> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 5 file formats, keyword-driven scripting, accessibility (axe-core) and visual-regression (AShot) checks, an opt-in JMeter performance smoke check, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
 
 <p align="left">
   <img alt="CI Status" src="https://github.com/amitthakor2510-wq/selenium-automation-framework-Advanced/actions/workflows/github-ci.yml/badge.svg">
@@ -26,15 +26,20 @@
 | 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
 | 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave) |
 | 📄 **Design Pattern** | Page Object Model |
-| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) |
-| 📊 **Data-Driven Formats** | Excel · CSV · JSON · ZIP |
+| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) — both also show the keyword-driven style (`KeywordDrivenTextBoxTest`, `KeywordDrivenLoginTest`) |
+| 📊 **Data-Driven Formats** | Excel · CSV · JSON · YAML · ZIP — same `DataRow` shape from every format |
+| 🧵 **Keyword-Driven Testing** | CSV-scripted test cases (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_*`, ...) resolved against a locator `ObjectRepository` — new scenarios need no Java. See [`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md) |
 | 🌐 **API Testing** | Rest-Assured — pure-HTTP Book Store flow (`BookStoreApiTest`), independent of the browser tests |
+| ♿ **Accessibility** | axe-core (WCAG/GIGW-adjacent) scanning — opt-in `accessibility` group, `testng-suites/demoqa-accessibility.xml` |
+| 🖼️ **Visual Regression** | AShot pixel-diff screenshots — opt-in `visual` group, `testng-suites/demoqa-visual.xml` |
+| ⏱️ **Performance Smoke** | JMeter response-time/response-code check — opt-in `mvn verify -Pperf` |
+| 📱 **Mobile (Appium)** | `AndroidDriver`/`IOSDriver` via `com.automation.mobile` — working example against Android's built-in Settings app, `-Dsite=mobile`. See [`mobile/README.md`](src/main/java/com/automation/mobile/README.md) |
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
-| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure |
+| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locator fallback (`SmartLocator`) |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
-| 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is) |
+| 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is; browser suites only — mobile isn't wired into CI yet) |
 
 ---
 
@@ -67,7 +72,9 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 - [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
 - [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
 - [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)
-- [🧵 Keyword-Driven & Data-Driven Testing (saucedemo)](#-keyword-driven--data-driven-testing-saucedemo)
+- [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
+- [♿🖼️⏱️ Specialized Testing — Accessibility, Visual Regression & Performance](#️️-specialized-testing--accessibility-visual-regression--performance)
+- [📱 Mobile Testing (Appium)](#-mobile-testing-appium)
 - [🚀 Running Tests Locally](#-running-tests-locally)
 - [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid)
 - [🔧 Configuration — `global.properties`](#-configuration--globalproperties)
@@ -78,7 +85,7 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 - [🔄 Jenkins CI/CD Setup](#-jenkins-cicd-setup)
 - [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
 - [🦊 GitLab CI/CD Pipeline](#-gitlab-cicd-pipeline)
-- [➕ Adding a New Site — 4 Steps](#-adding-a-new-site--4-steps)
+- [➕ Adding a New Site — Auto-Configured Across All 3 Testing Styles](#-adding-a-new-site--auto-configured-across-all-3-testing-styles)
 - [🧭 Debugging a Live Site Redesign — Lessons from a Real Session](#-debugging-a-live-site-redesign--lessons-from-a-real-session)
 - [🧰 Key Selenium Concepts Used](#-key-selenium-concepts-used)
 - [🩹 Common Errors and Fixes](#-common-errors-and-fixes)
@@ -106,8 +113,6 @@ Maven is a **build tool**. It downloads your dependencies (Selenium, TestNG…) 
 
 ### 🔰 What is the Page Object Model (POM)?
 POM is a **design pattern**: every web page gets its own Java class. The class knows how to interact with that page. Tests call the page class — they never interact with the browser directly. This keeps code clean and reusable.
-
-A production-ready, scalable Java + Selenium automation framework built for learning and real-world QA practice. Covers the demoqa.com test suite with Jenkins, GitHub Actions, and GitLab CI/CD integration, dual Allure + Extent reporting, and human-like interaction simulation.
 
 ---
 
@@ -188,11 +193,20 @@ For the full breakdown of what happens after step 5 — which files get written 
 |---|---|---|
 | Java | 17 | Programming language |
 | Selenium | 4.21.0 | Browser automation |
-| TestNG | 7.9.0 | Test runner, retry, grouping (`smoke`/`regression`) |
+| TestNG | 7.9.0 | Test runner, retry, grouping (`smoke`/`regression`/`accessibility`/`visual`) |
 | Maven | 3.9+ | Build and dependency management |
 | Allure | 2.27.0 | Interactive test report with history/trends |
 | ExtentReports | 5.1.2 | Self-contained HTML test report |
 | Rest-Assured | 5.4.0 | Pure-HTTP API testing (Book Store REST flow) |
+| Apache POI | 5.2.5 | Reads/writes the `.xlsx` data-driven format |
+| OpenCSV | 5.9 | Reads the `.csv` data-driven format |
+| Jackson | 2.17.1 | Reads the `.json` data-driven format |
+| SnakeYAML | 2.2 | Reads the `.yaml` data-driven format |
+| axe-core (Deque) | 4.9.1 | Accessibility (WCAG/GIGW-adjacent) scanning — `AccessibilityUtils` |
+| AShot | 1.5.4 | Pixel-level visual regression screenshots/diffing — `VisualRegressionUtils` |
+| Appium Java Client | 9.3.0 | Mobile automation (Android/iOS) — `com.automation.mobile` |
+| JMeter (via `jmeter-maven-plugin`) | 3.8.0 | Opt-in performance smoke check (`mvn verify -Pperf`) |
+| Lombok | 1.18.46 | Boilerplate reduction (`@Getter` etc.) on select POJOs |
 | JaCoCo | 0.8.12 | Code coverage instrumentation + HTML report |
 | Checkstyle | 3.5.0 (plugin) | Static analysis quality gate, opt-in via `mvn verify` |
 | WebDriverManager | 6.1.0 | Automatic browser driver download/version match |
@@ -213,20 +227,27 @@ selenium-automation-framework/
 ├── .github/workflows/github-ci.yml      # GitHub Actions pipeline (build → test → Allure→Pages)
 ├── docker-compose.yml                   # Selenium Grid (hub + chrome/firefox/edge nodes) + test runner
 ├── Dockerfile                           # Image the `tests` service in docker-compose builds
-├── pom.xml                              # Maven dependencies and build config
+├── pom.xml                              # Maven dependencies and build config (incl. opt-in `perf` profile)
 ├── checkstyle.xml                       # Code-quality ruleset, enforced by `mvn verify`
 ├── KEYWORD_DRIVEN_TESTING.md            # Deep-dive on the keyword-driven engine (see below)
 ├── DOCKER.md                            # Selenium Grid setup in detail
 ├── README.md                            # This file
 │
 ├── Scripts/
-│   └── new-site.sh                      # Scaffolds config + suite XMLs for a new site in one command
+│   └── new-site.sh                      # Scaffolds config + suites + all 3 testing styles (standard/keyword/file-driven) for a new site in one command
+│
+├── perf/
+│   └── basic-smoke.jmx                  # JMeter plan for the opt-in `mvn verify -Pperf` response-time smoke check
 │
 ├── testng-suites/                       # TestNG suite files
 │   ├── demoqa-smoke.xml                 # demoqa — quick sanity checks (smoke group)
 │   ├── demoqa-regression.xml            # demoqa — full test suite (regression group)
+│   ├── demoqa-accessibility.xml         # demoqa — opt-in axe-core scan (accessibility group)
+│   ├── demoqa-visual.xml                # demoqa — opt-in AShot visual regression (visual group)
 │   ├── saucedemo-smoke.xml              # saucedemo — quick sanity checks
-│   └── saucedemo-regression.xml         # saucedemo — full test suite
+│   ├── saucedemo-regression.xml         # saucedemo — full test suite
+│   ├── mobile-smoke.xml                 # mobile — opt-in Appium smoke check (smoke group)
+│   └── mobile-regression.xml            # mobile — opt-in Appium regression (regression group)
 │
 └── src/
     │
@@ -254,30 +275,52 @@ selenium-automation-framework/
     │   │   │   ├── ExtentManager.java           # Creates HTML report (singleton)
     │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json
     │   │   └── utils/
-    │   │       ├── HumanActions.java        # Human-like delays on every action
-    │   │       ├── ScreenshotUtil.java       # Captures screenshots on pass/failure
-    │   │       └── FailureDiagnostics.java   # Page-source + browser console dump on failure
+    │   │       ├── HumanActions.java            # Human-like delays on every action
+    │   │       ├── ScreenshotUtil.java           # Captures screenshots on pass/failure
+    │   │       ├── FailureDiagnostics.java       # Page-source + browser console dump on failure
+    │   │       ├── SmartLocator.java             # Tries a primary locator, falls back to alternates (self-healing)
+    │   │       ├── AccessibilityUtils.java       # axe-core wrapper — WCAG/GIGW-adjacent scanning
+    │   │       └── VisualRegressionUtils.java    # AShot wrapper — baseline capture + pixel-diff
     │   │
-    │   └── sites/                       # SITE-SPECIFIC Page Objects only
-    │       ├── demoqa/pages/            # 35+ Page Objects — Elements, Forms, Widgets, Interactions, Book Store
-    │       └── saucedemo/pages/
-    │           └── LoginPage.java       # Login page — used by 3 different test styles (see below)
+    │   ├── sites/                       # SITE-SPECIFIC Page Objects only
+    │   │   ├── demoqa/pages/            # 32 Page Objects — Elements, Forms, Widgets, Interactions, Book Store
+    │   │   └── saucedemo/pages/
+    │   │       └── LoginPage.java       # Login page — used by 3 different test styles (see below)
+    │   │
+    │   └── mobile/                      # Mobile (Appium) module — see mobile/README.md
+    │       ├── README.md                # Module-specific setup guide
+    │       ├── core/
+    │       │   ├── AppiumDriverFactory.java  # Creates AndroidDriver/IOSDriver from config
+    │       │   └── BaseMobilePage.java       # Mobile counterpart to BasePage — shared wait helpers
+    │       └── sites/settings/pages/
+    │           └── SettingsHomePage.java     # Example screen object (Android's built-in Settings app)
     │
     └── test/
-        ├── java/com/automation/sites/
-        │   ├── core/
-        │   │   ├── BaseTest.java            # Opens/closes browser per test
-        │   │   └── KeywordTestBase.java     # extends BaseTest — adds runKeywordTestCase(...)
-        │   ├── listeners/                   # SHARED TestNG listeners
-        │   │   ├── TestListener.java        # Connects results to Extent + Allure
-        │   │   ├── RetryAnalyzer.java        # Retries a failed test up to retry.count times
-        │   │   └── RetryListener.java        # Auto-attaches RetryAnalyzer to every @Test
-        │   ├── demoqa/tests/                 # 35+ test classes, incl. BookStoreApiTest (REST) and
-        │   │                                 # BookStoreApplicationTest (full UI E2E)
-        │   └── saucedemo/tests/
-        │       ├── LoginTest.java            # Classic hardcoded-values UI test
-        │       ├── LoginDataDrivenTest.java  # Same flow, values sourced from DataProvider
-        │       └── KeywordDrivenLoginTest.java # Same flow again, scripted as keyword rows (no Java per case)
+        ├── java/com/automation/
+        │   ├── sites/
+        │   │   ├── core/
+        │   │   │   ├── BaseTest.java            # Opens/closes browser per test
+        │   │   │   └── KeywordTestBase.java     # extends BaseTest — adds runKeywordTestCase(...)
+        │   │   ├── listeners/                   # SHARED TestNG listeners
+        │   │   │   ├── TestListener.java        # Connects results to Extent + Allure
+        │   │   │   ├── RetryAnalyzer.java        # Retries a failed test up to retry.count times
+        │   │   │   └── RetryListener.java        # Auto-attaches RetryAnalyzer to every @Test
+        │   │   ├── demoqa/tests/                 # 34 test classes, including:
+        │   │   │   │                             #   BookStoreApiTest        — REST, no browser
+        │   │   │   │                             #   BookStoreApplicationTest — full UI E2E
+        │   │   │   │                             #   KeywordDrivenTextBoxTest — keyword-driven port
+        │   │   │   │                             #   AccessibilityTest       — axe-core scan
+        │   │   │   │                             #   VisualRegressionTest    — AShot pixel-diff
+        │   │   └── saucedemo/tests/
+        │   │       ├── LoginTest.java            # Classic hardcoded-values UI test
+        │   │       ├── LoginDataDrivenTest.java  # Same flow, values sourced from DataProvider
+        │   │       └── KeywordDrivenLoginTest.java # Same flow again, scripted as keyword rows (no Java per case)
+        │   │
+        │   └── mobile/                          # Mobile test classes — mirrors sites/ above
+        │       ├── core/
+        │       │   └── MobileBaseTest.java      # Opens/closes the Appium driver per test
+        │       └── sites/settings/tests/
+        │           └── SettingsHomeTest.java    # Example test against the Settings screen object
         │
         └── resources/
             ├── logging.properties            # Silences noisy Selenium/CDP warnings
@@ -286,15 +329,19 @@ selenium-automation-framework/
             │   ├── global.properties             # Shared defaults for all sites
             │   ├── demoqa.properties             # demoqa-specific overrides (URL, timeout)
             │   ├── saucedemo.properties          # saucedemo-specific overrides
+            │   ├── mobile.properties.example     # Copy to mobile.properties, run with -Dsite=mobile
             │   └── _TEMPLATE.properties.example  # Copy this when adding a new site
             ├── objectrepository/
-            │   └── saucedemo.properties      # Keyword-engine locators: `saucedemo.login.username=id:user-name`
+            │   ├── demoqa.properties          # Keyword-engine locators for the Text Box flow
+            │   └── saucedemo.properties       # Keyword-engine locators: `saucedemo.login.username=id:user-name`
             └── testdata/
                 ├── login.csv / .json / .xlsx / .yaml / .zip   # Same data, 5 formats — DataProvider reads any
-                └── keyword/saucedemo_login_keywords.csv       # Scripted test cases for the keyword engine
+                └── keyword/
+                    ├── saucedemo_login_keywords.csv     # Scripted login test cases for the keyword engine
+                    └── demoqa_textbox_keywords.csv       # Scripted Text Box test cases for the keyword engine
 ```
 
-> **Two sites live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST). `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. See [Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing-saucedemo) below.
+> **Three modules live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST), and also carries the accessibility/visual-regression opt-in suites. `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. `mobile` is a separate Appium module for Android/iOS app testing, run with `-Dsite=mobile` rather than a browser. See [Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing) and [Mobile Testing (Appium)](#-mobile-testing-appium) below.
 
 ---
 
@@ -335,10 +382,10 @@ HumanActions.type(driver, locator, text)   // pause → type char by char
 HumanActions.pause()                       // random pause min-max ms
 HumanActions.postTestPause()               // longer pause after test ends
 ```
-`click()`/`type()` are annotated `@Step`, so every Page Object call — across all 35+ page classes, with zero per-page edits — shows up as its own expandable, timestamped step in the Allure report. See [📈 Test Reports](#-test-reports).
+`click()`/`type()` are annotated `@Step`, so every Page Object call — across all 32 page classes, with zero per-page edits — shows up as its own expandable, timestamped step in the Allure report. See [📈 Test Reports](#-test-reports).
 
 ### `DataProvider.java` / `DataProviderFactory.java` / `DataRow.java`
-The data-driven trio behind `@Test(dataProvider = ...)` methods. `DataProviderFactory` picks the right reader for whichever file extension it's handed (`.csv`, `.json`, `.xlsx`, `.yaml`, or a `.zip` bundling several); `DataProvider` exposes the TestNG-facing `Object[][]`; `DataRow` is the typed wrapper each test method actually receives, so a test doesn't need to know or care which file format backed it. See `LoginDataDrivenTest` for the pattern in use, and [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing-saucedemo) below.
+The data-driven trio behind `@Test(dataProvider = ...)` methods. `DataProviderFactory` picks the right reader for whichever file extension it's handed (`.csv`, `.json`, `.xlsx`, `.yaml`, or a `.zip` bundling several); `DataProvider` exposes the TestNG-facing `Object[][]`; `DataRow` is the typed wrapper each test method actually receives, so a test doesn't need to know or care which file format backed it. See `LoginDataDrivenTest` for the pattern in use, and [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing) below.
 
 ### `Keyword.java` / `KeywordStep.java` / `ObjectRepository.java` / `KeywordReader.java` / `KeywordEngine.java` / `KeywordTestBase.java`
 The keyword-driven engine — write new test *cases* as data-file rows instead of new Java methods. `Keyword` enumerates supported actions (`CLICK`, `TYPE`, `VERIFY_DISPLAYED`, `SWITCH_TO_FRAME`, ...); `ObjectRepository` loads locators from a `.properties` file (`type:value` pairs) kept separate from both the script and the test; `KeywordReader` groups a script file's rows into ordered `KeywordStep`s per test case; `KeywordEngine` executes that list against the live `WebDriver`; `KeywordTestBase` (extends `BaseTest`) gives test classes the one method they need — `runKeywordTestCase(objectRepo, scriptPath, testCase)`. Full walkthrough, including how to add a new scenario with zero new Java: **[`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md)**.
@@ -366,6 +413,15 @@ Singleton that creates one shared HTML report per test run. Saves to `target/ext
 
 ### `ScreenshotUtil.java`
 Takes a PNG screenshot (as bytes, and as base64 for embedding) on test pass or failure. Called automatically by `TestListener` — never call manually.
+
+### `SmartLocator.java`
+Tries a primary `By` locator, then falls back to one or more alternates before giving up — absorbs the class of breakage this framework has hit repeatedly in practice (a third-party site swapping one widget implementation for another under the same visible UI, e.g. demoqa's Check Box widget silently swapping `react-checkbox-tree` for `rc-tree`). Optional to use — a Page Object can still take a single hardcoded `By` where the markup is stable; reach for `SmartLocator` on elements that have already broken once.
+
+### `AccessibilityUtils.java`
+Thin wrapper around [axe-core](https://www.deque.com/axe/) (Deque's accessibility engine) for Selenium. Runs a WCAG/GIGW-adjacent scan against the current page and returns violations bucketed by severity (`critical`, `serious`, `moderate`, `minor`). Config-driven: `a11y.enabled` turns scanning on/off, `a11y.failOn` (default `critical,serious`) decides which severities actually fail the test versus just get logged/attached to Allure. See [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) below.
+
+### `VisualRegressionUtils.java`
+Thin wrapper around [AShot](https://github.com/pazone/ashot) for pixel-level screenshot diffing. First run for a given snapshot name captures and saves a baseline image (always passes); every run after that diffs the current screenshot against the committed baseline and fails if the difference exceeds a configurable threshold. See [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) below.
 
 ---
 
@@ -565,9 +621,9 @@ mvn test -Dtest=BookStoreApiTest
 
 ---
 
-## 🧵 Keyword-Driven & Data-Driven Testing (saucedemo)
+## 🧵 Keyword-Driven & Data-Driven Testing
 
-The second site in this framework, `saucedemo` (saucedemo.com's login page), exists specifically to demonstrate three different ways to write the *same* test, so a new project can pick whichever style fits:
+`saucedemo` (saucedemo.com's login page) exists specifically to demonstrate three different ways to write the *same* test, so a new project can pick whichever style fits:
 
 | Test class | Style | Where the values live |
 |---|---|---|
@@ -575,11 +631,84 @@ The second site in this framework, `saucedemo` (saucedemo.com's login page), exi
 | `LoginDataDrivenTest` | Data-driven | `testdata/login.{csv,json,xlsx,yaml,zip}` via `@Test(dataProvider = ...)` — same test method, 5 interchangeable file formats |
 | `KeywordDrivenLoginTest` | Keyword-driven | `testdata/keyword/saucedemo_login_keywords.csv` — each row is a step (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_DISPLAYED`, ...); locators come from `objectrepository/saucedemo.properties`, not the test |
 
-The keyword-driven style is the one worth understanding if the goal is letting non-Java teammates add coverage: a new scenario is a new block of CSV rows, no Java compile required, unless it needs an assertion outside the existing `Keyword` enum. Full details, including the exact CSV schema and a worked example of adding a new scenario, live in **[`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md)**.
+The keyword-driven style is the one worth understanding if the goal is letting non-Java teammates add coverage: a new scenario is a new block of CSV rows, no Java compile required, unless it needs an assertion outside the existing `Keyword` enum. `demoqa` carries a second, independent example of the same style — `KeywordDrivenTextBoxTest`, scripted from `testdata/keyword/demoqa_textbox_keywords.csv` against `objectrepository/demoqa.properties` — so you have two real reference implementations to copy from, not just one. Full details, including the exact CSV schema and a worked example of adding a new scenario, live in **[`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md)**.
 
 ```bash
 mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml
 ```
+
+Adding a brand-new site with all three styles already scaffolded is one command — see [➕ Adding a New Site](#-adding-a-new-site--auto-configured-across-all-3-testing-styles).
+
+---
+
+## ♿🖼️⏱️ Specialized Testing — Accessibility, Visual Regression & Performance
+
+Three opt-in test types beyond standard functional coverage — none run in CI by default (all three are extra network/compute cost per run), each is one explicit command:
+
+### Accessibility — axe-core
+`AccessibilityTest` runs a WCAG/GIGW-adjacent scan (via [axe-core](https://www.deque.com/axe/)) against demoqa pages and asserts on violation severity, not just "does the page look right." Relevant specifically for government-portal-style QA subject to GIGW accessibility guidelines, but useful for any UI.
+```bash
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml
+```
+- `a11y.enabled` (config) — turns scanning on/off without removing the test
+- `a11y.failOn` (config, default `critical,serious`) — which violation severities actually fail the test vs. just get logged/attached to Allure; tighten once known issues on a page are triaged
+- Violations are attached to the Allure report as a readable list, not just a pass/fail
+
+### Visual Regression — AShot
+`VisualRegressionTest` captures a pixel-level screenshot of a page and diffs it against a committed baseline image on every subsequent run, catching unintended layout/styling drift that a functional assertion wouldn't notice.
+```bash
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-visual.xml
+```
+- **First run per snapshot name always passes** — it's capturing the baseline. Commit that baseline image; from the second run on, it's a real regression check.
+- Only one demoqa page has a baseline so far — extend coverage to more pages as they stabilize (a page whose layout is still actively changing will just generate false-positive diffs).
+
+### Performance Smoke — JMeter
+A lightweight response-time/response-code check (not a load or capacity test) via the `perf` Maven profile, so `mvn test` — used everywhere else, CI included — is completely unaffected by its presence.
+```bash
+mvn verify -Pperf
+# tune concurrency/thresholds:
+mvn verify -Pperf -Dthreads=10 -DrampUp=5 -Dloops=5 -DmaxResponseMs=3000
+```
+Plan lives in `perf/basic-smoke.jmx`. Results land in `target/jmeter/results/`, an HTML report in `target/jmeter/reports/`.
+
+---
+
+## 📱 Mobile Testing (Appium)
+
+A separate Appium module (`com.automation.mobile`) for Android/iOS app testing, alongside — not instead of — the browser framework above. Same Page Object + TestNG + Allure/Extent shape as every web test, just against a mobile driver instead of a browser one.
+
+| Layer | Web equivalent | Mobile file |
+|---|---|---|
+| Driver factory | `DriverFactory` | `mobile/core/AppiumDriverFactory.java` |
+| Page Object base | `BasePage` | `mobile/core/BaseMobilePage.java` |
+| Test base | `sites/core/BaseTest` | `mobile/core/MobileBaseTest.java` (implements `DriverProvider`, so the existing `TestListener` screenshot-on-failure hookup works unmodified) |
+| Example screen + test | a `LoginPage` + `LoginTest` | `SettingsHomePage.java` + `SettingsHomeTest.java` — against Android's **built-in Settings app**, so the module runs end-to-end on any emulator/device with zero app-under-test setup |
+
+### Getting it running
+```bash
+# 1. Start the Appium server (separately installed — npm install -g appium)
+appium
+
+# 2. Copy the example config and fill in real values
+cp src/test/resources/config/mobile.properties.example \
+   src/test/resources/config/mobile.properties
+# edit mobile.device.name to match `adb devices`; leave mobile.app.path empty
+# and set mobile.app.package=com.android.settings / mobile.app.activity=.Settings
+# for the built-in example, or point both at your own app instead
+
+# 3. Run it — same ConfigReader mechanism as every other site, just
+#    with -Dsite=mobile, no framework code changes needed
+mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml
+```
+
+### Adding your own app
+1. Add screen objects under `com.automation.mobile.sites.<app>.pages`, extending `BaseMobilePage`, using real element IDs/accessibility labels pulled via `appium inspector` or `uiautomatorviewer` (the mobile equivalent of browser DevTools).
+2. Add test classes under `com.automation.mobile.sites.<app>.tests`, extending `MobileBaseTest` — same pattern as `SettingsHomeTest`.
+3. Point `mobile.app.path` (fresh install from a local `.apk`/`.ipa`) or `mobile.app.package` + `mobile.app.activity` (already-installed app) at your app in `mobile.properties`.
+
+Full setup guide, including remote/cloud grid config (BrowserStack, Sauce Labs): **[`src/main/java/com/automation/mobile/README.md`](src/main/java/com/automation/mobile/README.md)**.
+
+> **Known gaps, stated plainly:** only one screen (`SettingsHomePage`) is covered so far; it's not wired into any of the three CI pipelines yet, since all three currently assume a browser rather than an emulator/device; and it hasn't been run against a live emulator in the environment that built it — verify locally before treating it as a baseline. See the [Roadmap](#️-suggestions--roadmap) for the full list.
 
 ---
 
@@ -844,6 +973,8 @@ mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 @Test(groups = {"smoke", "regression"}) // both suites
 ```
 
+> `accessibility`, `visual`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly.
+
 ---
 
 ## 🔄 Jenkins CI/CD Setup
@@ -947,38 +1078,66 @@ Download and open in Chrome — full styling works when opened locally.
 
 ---
 
-## ➕ Adding a New Site — 4 Steps
+## ➕ Adding a New Site — Auto-Configured Across All 3 Testing Styles
 
-Zero changes to core framework files. `Scripts/new-site.sh` automates steps 1 and 4; Jenkins and GitLab auto-discover the new suite files on next run.
+Zero changes to core framework files. `Scripts/new-site.sh` scaffolds a
+working example of **all three** testing styles this framework supports in
+one command — standard Page Object tests, keyword-driven CSV scripts, and
+file-driven (data-driven) tests — so a new site is never left with only
+one. Jenkins/GitHub/GitLab all auto-discover the new suite files on next run.
 
-### Step 1 — Config + suite XMLs (one command)
+### Step 1 — Scaffold everything (one command)
 ```bash
 ./Scripts/new-site.sh mysite https://mysite.com
-# Creates: src/test/resources/config/mysite.properties
-#          testng-suites/mysite-regression.xml
 ```
+Creates:
+```
+src/test/resources/config/mysite.properties
+testng-suites/mysite-regression.xml
+testng-suites/mysite-smoke.xml
 
-### Step 2 — Page Objects
-```
-Create: src/test/java/com/automation/sites/mysite/pages/MyPage.java
-```
+# Type 1 — Standard
+src/main/java/.../sites/mysite/pages/MysiteHomePage.java
+src/test/java/.../sites/mysite/tests/MysiteHomeTest.java
 
-### Step 3 — Test Classes
-```java
-public class MyTest extends BaseTest {
-    @Test(priority = 1, groups = {"regression"}, description = "My test")
-    public void verifyMyFeature() {
-        MyPage page = new MyPage(getDriver());
-        page.navigate();
-        Assert.assertTrue(page.isLoaded());
-    }
-}
-```
+# Type 2 — Keyword-driven
+src/test/resources/objectrepository/mysite.properties
+src/test/resources/testdata/keyword/mysite_home_keywords.csv
+src/test/java/.../sites/mysite/tests/KeywordDrivenMysiteHomeTest.java
 
-### Step 4 — Run it
+# Type 3 — File-driven (data-driven)
+src/test/resources/testdata/mysite_home.csv
+src/test/java/.../sites/mysite/tests/MysiteHomeDataDrivenTest.java
+```
+All three land in the same `com.automation.sites.mysite.tests` package, so
+the generated regression/smoke suite XML picks up all of them automatically
+— no per-type suite wiring needed. Re-running the script against a site
+that already has a `config/<site>.properties` file refuses to run rather
+than clobbering existing work — remove the site's files first (or pick a
+new name) if you really want to regenerate.
+
+### Step 2 — Fill in the placeholders
+Each generated file is a real, compiling, runnable stub — not empty
+boilerplate — but every locator/URL is a generic placeholder (`css:body`,
+an empty `NAVIGATE`, one dummy data row) so it works against literally any
+site with zero setup. Replace them with real locators/data once you've
+inspected the actual site:
+- **Standard**: flesh out `MysiteHomePage.java` with real element locators
+  and page methods; add assertions to `MysiteHomeTest.java`.
+- **Keyword-driven**: add real `locatorKey` entries to
+  `objectrepository/mysite.properties`, then add rows/test cases to
+  `mysite_home_keywords.csv` — no Java changes needed for new scenarios.
+- **File-driven**: add real columns to `mysite_home.csv` (or swap the path
+  for a `.json`/`.yaml`/`.xlsx` file — `DataProviderFactory.fromFile(...)`
+  handles all of them identically) and use them in
+  `MysiteHomeDataDrivenTest.verifyHomePageLoads(DataRow row)`.
+
+### Step 3 — Run it
 ```bash
 mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
 ```
+Runs all three testing styles together. Filter to just one with `-Dgroups`,
+e.g. `-Dgroups=keyword-driven` or `-Dgroups=data-driven`.
 
 ---
 
@@ -1151,11 +1310,10 @@ Ideas for where this framework could go next, roughly ordered by effort-to-value
 - [ ] **Contract test for the debug-dump pattern** — now that three page objects (`BookStoreApplicationPage`, `ProfilePage`, `CheckBoxPage`) each hand-roll a near-identical `dumpPageForDebugging` method, it's a good candidate to promote into `core/utils` as a shared utility so future page objects get it for free.
 - [ ] **Secret-scanning in CI** — a `gitleaks`/`trufflehog` step on every PR would catch a credential accidentally committed in a config file or remote URL before it ever reaches `main`, rather than relying on manual review to spot it.
 - [x] ~~**Automated dependency updates**~~ — already handled: Dependabot is active on this repo (see the `dependabot/maven/*` and `dependabot/github_actions/*` branches) and keeps Selenium, TestNG, Jackson, and the GitHub Actions themselves current automatically.
-- [x] ~~**Accessibility (WCAG/GIGW-adjacent) scanning**~~ — done via `core/utils/AccessibilityUtils.java` (axe-core), see `AccessibilityTest.java` + `testng-suites/demoqa-accessibility.xml`. Opt-in only (`accessibility` group, not wired into CI) — `a11y.failOn` starts at `critical,serious`; tighten once known issues on each page are triaged.
-- [x] ~~**Keyword-driven testing beyond saucedemo**~~ — done: `KeywordDrivenTextBoxTest.java` + `demoqa_textbox_keywords.csv` + `objectrepository/demoqa.properties` port the existing engine to a demoqa flow. Still open: only the Text Box page so far — extend to more demoqa flows as needed.
-- [x] ~~**Mobile (Appium) support**~~ — scaffolded under `com.automation.mobile` (`AppiumDriverFactory`, `BaseMobilePage`, `mobile.properties.example`), see `mobile/README.md`. Deliberately not build-verified against a real device/app yet — needs real screen objects and a `MobileBaseTest` once a target `.apk` is available.
+- [x] ~~**Accessibility (WCAG/GIGW-adjacent) scanning**~~ — done via `core/utils/AccessibilityUtils.java` (axe-core), see `AccessibilityTest.java` + `testng-suites/demoqa-accessibility.xml`, and [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) above. Opt-in only (`accessibility` group, not wired into CI) — `a11y.failOn` starts at `critical,serious`; tighten once known issues on each page are triaged.
+- [x] ~~**Keyword-driven testing beyond saucedemo**~~ — done: `KeywordDrivenTextBoxTest.java` + `demoqa_textbox_keywords.csv` + `objectrepository/demoqa.properties` port the existing engine to a demoqa flow — see [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing) above. Still open: only the Text Box page so far — extend to more demoqa flows as needed.
+- [x] ~~**Mobile (Appium) support**~~ — `AppiumDriverFactory`, `BaseMobilePage`, `MobileBaseTest`, and a working example (`SettingsHomePage` + `SettingsHomeTest` against Android's built-in Settings app) under `com.automation.mobile`, plus `testng-suites/mobile-smoke.xml`/`mobile-regression.xml` — see [📱 Mobile Testing (Appium)](#-mobile-testing-appium) above and `mobile/README.md`. Still open: only one screen is covered, it's not wired into any CI pipeline yet (all three assume a browser, not an emulator), and it hasn't been run against a live emulator/device in this environment — verify locally before treating it as a baseline.
 - [x] ~~**Lightweight performance smoke check**~~ — done via the opt-in `perf` Maven profile (`jmeter-maven-plugin` + `perf/basic-smoke.jmx`), run with `mvn verify -Pperf`. Response-time/response-code smoke check only, not a load/capacity test — not wired into CI by default.
-- [ ] **Richer Slack notifications — cross-site totals** — the `notify` job(s) in both `github-ci.yml` and `.gitlab-ci.yml` now report real pass/fail/skip counts, but both inherit the existing artifact-merge collision where two sites' `testng-results.xml` share one path (see the `CAVEAT` comments in each file) — today's summary reflects one site's numbers, not a true cross-site total. Fixing this means having the `test` job write each site's surefire results to a distinct filename before upload.
 - [ ] **Build-verify the three new dependencies** — `axe-core`, `ashot`, and `appium-java-client` were added to `pom.xml` without network access to Maven Central in the environment that added them; run `mvn dependency:resolve` (or just `mvn test`) locally and bump versions if any have since moved.
 
 ---
@@ -1186,6 +1344,18 @@ Ideas for where this framework could go next, roughly ordered by effort-to-value
 | Regression test | Full suite — did anything break? |
 | dispatchEvent | JavaScript command to fire browser events that React/Vue listens to |
 | Debug dump | A full page-source snapshot written to `target/debug-dumps/` when a locator fails, for diagnosing site changes from real markup instead of guessing |
+| Keyword-driven testing | Writing test steps as rows in a data file (CSV) instead of Java methods — a new scenario is a new row, no code compile needed |
+| Data-driven testing | Running one test method many times with different input values pulled from an external file (CSV/JSON/Excel/YAML) |
+| Object Repository | A properties file mapping short names to locators (`login.username = id:user-name`), kept separate from both scripts and Java code |
+| axe-core | An accessibility-testing engine (by Deque) that scans a page's rendered DOM for WCAG violations — missing alt text, low contrast, bad ARIA, etc. |
+| Accessibility scan / WCAG | Automated check for whether a page is usable by people relying on assistive tech (screen readers, keyboard-only navigation); WCAG is the standard those checks are measured against |
+| Visual regression | Comparing a pixel screenshot of a page against a saved baseline image to catch unintended layout/styling changes a functional test wouldn't notice |
+| Baseline image | The "known good" reference screenshot a visual regression test diffs every future run against |
+| AShot | The Java library this framework uses to capture and pixel-diff screenshots for visual regression |
+| Appium | A mobile-app automation tool — same idea as Selenium, but drives native Android/iOS apps instead of a browser |
+| JMeter | A load/performance testing tool; used here only for a lightweight response-time smoke check, not real load testing |
+| Self-healing locator | A locator strategy that tries a primary element selector and automatically falls back to alternates if the primary breaks (see `SmartLocator.java`) |
+| Opt-in test type | A test suite that exists in the repo but isn't run by the default CI pipeline — must be triggered explicitly with its own suite file or Maven profile |
 
 ---
 
@@ -1194,7 +1364,7 @@ Ideas for where this framework could go next, roughly ordered by effort-to-value
 This started as a personal/portfolio framework, but it's structured to take contributions cleanly:
 
 1. **Before opening a PR**, run both gates locally — `mvn test` (must pass) and `mvn verify` (Checkstyle; see [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)). CI currently only runs the former, so `verify` catching something CI won't is expected, not a false positive.
-2. **New site?** Use `Scripts/new-site.sh` rather than hand-rolling config — see [➕ Adding a New Site](#-adding-a-new-site--4-steps).
+2. **New site?** Use `Scripts/new-site.sh` rather than hand-rolling config — see [➕ Adding a New Site](#-adding-a-new-site--auto-configured-across-all-3-testing-styles).
 3. **New Page Object method?** Route clicks/types through `HumanActions`, not raw `WebElement` calls — that's what keeps every action showing up as an Allure step for free.
 4. **Bug fixes**, especially ones like the DemoQA `200`-vs-`204` mismatch in [Common Errors and Fixes](#-common-errors-and-fixes), are exactly the kind of PR this project wants — a one-line fix plus a one-line addition to that table so the next person doesn't re-discover it the hard way.
 

@@ -1,0 +1,13 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Mobile Smoke Suite" parallel="none">
+  <test name="Mobile Smoke Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="smoke"/>
+      </run>
+    </groups>
+    <packages>
+      <package name="com.automation.mobile.sites.*"/>
+    </packages>
+  </test>
+</suite>

@@ -193,38 +193,9 @@ pipeline {
 
         unstable {
             echo 'UNSTABLE: one or more sites had test failures. Check Allure and Extent reports.'
-            script { notifySlack('UNSTABLE', '#FFCC00') }
         }
         failure {
             echo 'FAILED: check Build or Discover stage logs.'
-            script { notifySlack('FAILED', '#FF0000') }
         }
-    }
-}
-
-// Posts a build-result card to Slack via an Incoming Webhook. Reads the URL from the
-// SLACK_WEBHOOK_URL credential/environment variable (Manage Jenkins > Credentials, or a
-// Jenkins global env var of the same name) — if it isn't configured, this quietly no-ops
-// instead of failing the build, so notifications are opt-in per Jenkins instance.
-def notifySlack(String status, String color) {
-    try {
-        withCredentials([string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')]) {
-            def payload = """{
-                "attachments": [{
-                    "color": "${color}",
-                    "title": "${env.JOB_NAME} #${env.BUILD_NUMBER} — ${status}",
-                    "title_link": "${env.BUILD_URL}",
-                    "fields": [
-                        {"title": "Sites", "value": "${env.SITES_TO_RUN ?: 'n/a'}", "short": true},
-                        {"title": "Branch", "value": "${env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'n/a'}", "short": true}
-                    ]
-                }]
-            }"""
-            sh(script: "curl -s -X POST -H 'Content-type: application/json' --data '${payload}' \"\$SLACK_WEBHOOK_URL\"", returnStatus: true)
-        }
-    } catch (e) {
-        // No SLACK_WEBHOOK_URL credential configured on this Jenkins instance — notifications
-        // are opt-in, so skip quietly rather than failing an already-failed/unstable build.
-        echo "Slack notification skipped: ${e.message}"
     }
 }

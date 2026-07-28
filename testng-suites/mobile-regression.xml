@@ -1,0 +1,13 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Mobile Regression Suite" parallel="none">
+  <test name="Mobile Regression Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="regression"/>
+      </run>
+    </groups>
+    <packages>
+      <package name="com.automation.mobile.sites.*"/>
+    </packages>
+  </test>
+</suite>
