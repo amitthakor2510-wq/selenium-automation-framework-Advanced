@@ -3,11 +3,16 @@
 # Allure report published via GitLab Pages
 # ================================================================
 
-# No image was declared before, so every job ran on the runner's bare
-# shell executor with no JDK/Maven at all — `mvn` failed immediately
-# with "command not found" before a single test could run. Pin a
-# Debian-based Maven+Temurin17 image (matches the JDK 17 used by every
-# other pipeline in this repo) so apt-get/gpg/wget below all work too.
+# `image:` only takes effect on docker/kubernetes executors. This
+# runner is confirmed (from actual job logs) to be a shell executor —
+# "Preparing the shell executor... Using Shell (bash) executor" — so
+# this line has NO effect here: mvn/apt-get/gpg/wget all come from
+# whatever's actually installed on the host (bisagn) directly, not from
+# this image. Left in place only so this same file still works
+# unmodified if it's ever run on a docker-executor runner instead. Every
+# apt-get call below is guarded to check for root/passwordless-sudo
+# first and fail with clear instructions rather than a raw permission
+# error, since this host's gitlab-runner account has neither.
 image: maven:3.9.9-eclipse-temurin-17
 
 stages:
@@ -87,12 +92,21 @@ test:
     - |
       if ! command -v google-chrome &> /dev/null; then
         echo "Chrome not found - installing..."
-        apt-get update -qq
-        apt-get install -y -qq wget gnupg
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-        apt-get update -qq
-        apt-get install -y -qq google-chrome-stable
+        if [ "$(id -u)" = "0" ]; then
+          SUDO=""
+        elif sudo -n true 2>/dev/null; then
+          SUDO="sudo"
+        else
+          echo "ERROR: Chrome not installed, and this job has no root/sudo access to install it."
+          echo "One-time fix on this host: install Chrome yourself once (see docs/configuration.md), then re-run this job."
+          exit 1
+        fi
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq google-chrome-stable
       fi
       echo "Chrome: $(google-chrome --version)"
     # -Dallure.results.directory=target/allure-results/$SITE — GitLab
@@ -153,8 +167,29 @@ mobile-test:
     ANDROID_AVD_NAME: "gitlab_ci_avd"
   script:
     - echo "======= Running Mobile Tests ======="
-    - apt-get update -qq
-    - apt-get install -y -qq unzip wget
+    # apt-get needs root, and this runner's gitlab-runner service account
+    # doesn't have it (confirmed by a real failure: "Could not open lock
+    # file /var/lib/apt/lists/lock - Permission denied"). Rather than
+    # crash on that error, check first and fail with a clear one-time fix
+    # if these aren't already present — a lot cheaper than debugging a
+    # cryptic apt permission error again.
+    - |
+      need_pkgs=""
+      command -v unzip &> /dev/null || need_pkgs="$need_pkgs unzip"
+      command -v wget &> /dev/null || need_pkgs="$need_pkgs wget"
+      if [ -n "$need_pkgs" ]; then
+        if [ "$(id -u)" = "0" ]; then
+          apt-get update -qq && apt-get install -y -qq $need_pkgs
+        elif sudo -n true 2>/dev/null; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq $need_pkgs
+        else
+          echo "ERROR: missing required packages:$need_pkgs — and this job has no root/sudo access to install them."
+          echo "One-time fix on this host: run as an admin:"
+          echo "  sudo apt-get update && sudo apt-get install -y$need_pkgs"
+          echo "Then re-run this job."
+          exit 1
+        fi
+      fi
     # Same install-if-missing pattern as the Chrome step in the `test` job
     # above — cached across runs via .android-sdk/ in the global `cache:`
     # block, so this only actually downloads anything on a cold cache.
@@ -199,8 +234,27 @@ mobile-test:
         sleep 5
       done
     - |
+      # Don't `apt-get install npm` here — on a NodeSource-installed
+      # nodejs (which is what this host actually has), npm ships bundled
+      # in the same package. Separately apt-installing the Debian-archive
+      # `npm` package conflicts with that (it depends on ~25 node-*
+      # Debian packages that don't exist alongside a NodeSource install)
+      # and apt refuses the whole transaction — confirmed by a real run.
       if ! command -v node &> /dev/null; then
-        apt-get install -y -qq nodejs npm
+        if [ "$(id -u)" = "0" ]; then
+          apt-get install -y -qq nodejs
+        elif sudo -n true 2>/dev/null; then
+          sudo apt-get install -y -qq nodejs
+        else
+          echo "ERROR: node not installed, and this job has no root/sudo access to install it."
+          echo "One-time fix on this host: run 'sudo apt-get install -y nodejs' yourself once, then re-run this job."
+          exit 1
+        fi
+      fi
+      if ! command -v npm &> /dev/null; then
+        echo "ERROR: node is installed but npm isn't — that's unusual for a NodeSource install."
+        echo "Check 'node -v' and 'npm -v' manually on this host; don't apt-get install npm separately, it conflicts with NodeSource's bundled npm."
+        exit 1
       fi
     - |
       if ! command -v appium &> /dev/null; then
@@ -269,12 +323,21 @@ accessibility-visual-test:
       fi
     - |
       if ! command -v google-chrome &> /dev/null; then
-        apt-get update -qq
-        apt-get install -y -qq wget gnupg
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-        apt-get update -qq
-        apt-get install -y -qq google-chrome-stable
+        if [ "$(id -u)" = "0" ]; then
+          SUDO=""
+        elif sudo -n true 2>/dev/null; then
+          SUDO="sudo"
+        else
+          echo "ERROR: Chrome not installed, and this job has no root/sudo access to install it."
+          echo "One-time fix on this host: install Chrome yourself once (see docs/configuration.md), then re-run this job."
+          exit 1
+        fi
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq google-chrome-stable
       fi
     - mvn -B test
       -Dsite=demoqa
