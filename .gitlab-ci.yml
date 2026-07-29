@@ -162,9 +162,39 @@ test:
 mobile-test:
   stage: test
   interruptible: true
+  # This runner is a persistent shared shell host (not an isolated
+  # container), and every run uses the same hardcoded AVD name and the
+  # same Appium port (4723). Without this, two overlapping runs (a quick
+  # follow-up push, a manual retry, etc.) race on that same AVD/port —
+  # and the before_script/after_script `pkill -f "appium"` below then
+  # kills the OTHER run's already-healthy Appium server out from under
+  # it, well after that run's own readiness check passed. That produces
+  # a plain ConnectException/ClosedChannelException at newSession time
+  # (Appium simply isn't there anymore) rather than a real driver/test
+  # failure — confirmed by this exact failure mode. A fixed (not
+  # per-ref) resource_group value queues any overlapping run instead of
+  # letting two instances share the host at once.
+  resource_group: mobile-emulator-bisagn
   variables:
     ANDROID_SDK_ROOT: "$CI_PROJECT_DIR/.android-sdk"
     ANDROID_AVD_NAME: "gitlab_ci_avd"
+    # avdmanager/emulator default to $HOME/.android/avd, which is outside
+    # the .android-sdk/ cache path declared above — every run would
+    # recreate the AVD from scratch. Point them at a location that IS
+    # inside the cached tree instead.
+    ANDROID_AVD_HOME: "$CI_PROJECT_DIR/.android-sdk/avd"
+  # This runner is a shell executor on a persistent host (bisagn), not a
+  # fresh container per run — a leftover `emulator`/`appium` process from
+  # a killed/timed-out/failed job would otherwise sit there indefinitely,
+  # holding the emulator port and 4723 hostage and breaking every
+  # subsequent run. Clear any stragglers before starting, and clean up
+  # after regardless of how this job ends.
+  before_script:
+    - pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+    - pkill -f "appium" 2>/dev/null || true
+  after_script:
+    - pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+    - pkill -f "appium" 2>/dev/null || true
   script:
     - echo "======= Running Mobile Tests ======="
     # apt-get needs root, and this runner's gitlab-runner service account
@@ -206,7 +236,8 @@ mobile-test:
     - yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
     - sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "emulator" "system-images;android-30;default;x86_64" "platforms;android-30" > /dev/null
     - |
-      if [ ! -d "$ANDROID_SDK_ROOT/avd/${ANDROID_AVD_NAME}.avd" ]; then
+      mkdir -p "$ANDROID_AVD_HOME"
+      if [ ! -d "$ANDROID_AVD_HOME/${ANDROID_AVD_NAME}.avd" ]; then
         echo "no" | avdmanager create avd -n "$ANDROID_AVD_NAME" -k "system-images;android-30;default;x86_64" --force
       fi
     # If /dev/kvm isn't accessible to this runner (common the first time
@@ -221,10 +252,14 @@ mobile-test:
       if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
         echo "WARNING: /dev/kvm not accessible to this job — emulator will run in slow software mode."
       fi
-    - $ANDROID_SDK_ROOT/emulator/emulator -avd $ANDROID_AVD_NAME -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none &
+    - $ANDROID_SDK_ROOT/emulator/emulator -avd $ANDROID_AVD_NAME -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
     - |
       echo "Waiting for emulator to boot..."
-      "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device
+      if ! timeout 120 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
+        echo "ERROR: emulator did not come up within 120s — it may have crashed. Check emulator.log below."
+        cat emulator.log 2>/dev/null || true
+        exit 1
+      fi
       for i in $(seq 1 60); do
         boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
         if [ "$boot_completed" = "1" ]; then
@@ -259,6 +294,15 @@ mobile-test:
     - |
       if ! command -v appium &> /dev/null; then
         npm install -g appium
+      fi
+      # Checked independently of the appium binary above: this runner is a
+      # persistent shell executor (not a fresh container per run), so a prior
+      # run may have already installed appium without the uiautomator2 driver
+      # sticking around (or a newer appium install wiping driver state) —
+      # nesting this inside the `command -v appium` check meant it only ever
+      # ran once, ever, on this host, which is exactly what produced
+      # "Could not find a driver for automationName 'UiAutomator2'".
+      if ! appium driver list --installed 2>/dev/null | grep -q uiautomator2; then
         appium driver install uiautomator2
       fi
     - appium --log-timestamp --log-no-colors > appium.log 2>&1 &
@@ -289,6 +333,8 @@ mobile-test:
       - target/extent-reports/
       - target/screenshots/
       - target/surefire-reports/
+      - emulator.log
+      - appium.log
     reports:
       junit: target/surefire-reports/*.xml
   only:

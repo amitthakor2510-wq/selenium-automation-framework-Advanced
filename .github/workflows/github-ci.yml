@@ -250,15 +250,12 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            mvn -B test \
-              -Dsite=mobile \
-              -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml \
-              -Dmobile.app.package=com.android.settings \
-              -Dmobile.app.activity=.Settings \
-              -Dmobile.device.name=emulator-5554 \
-              -Dretry.count=${{ env.RETRY_COUNT }} \
-              -Dmaven.test.failure.ignore=true
+          # NOTE: this must be a SINGLE line. reactivecircus/android-emulator-runner
+          # does not execute a `\`-continued multi-line script as one shell command
+          # the way a normal `run:` step does — it runs only the first line and
+          # passes the trailing backslash through as a literal argument, which is
+          # why `mvn -B test \` alone used to fail with `Unknown lifecycle phase "\"`.
+          script: mvn -B test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings -Dmobile.device.name=emulator-5554 -Dretry.count=${{ env.RETRY_COUNT }} -Dmaven.test.failure.ignore=true
 
       # Same artifact-naming convention as the browser `test` job above
       # (allure-results-<job-identifier> / test-results-<job-identifier>-
@@ -281,6 +278,7 @@ jobs:
             target/extent-reports/
             target/screenshots/
             target/surefire-reports/
+            appium.log
           retention-days: 7
 
   # ================================================================
@@ -327,6 +325,10 @@ jobs:
       - name: Run Nightly Suite
         run: |
           echo "======= Running Nightly demoqa ${{ matrix.suite }} Suite ======="
+          if [ ! -f "testng-suites/demoqa-${{ matrix.suite }}.xml" ]; then
+            echo "testng-suites/demoqa-${{ matrix.suite }}.xml not found - skipping"
+            exit 0
+          fi
           mvn -B test \
             -Dsite=demoqa \
             -DsuiteXmlFile=testng-suites/demoqa-${{ matrix.suite }}.xml \

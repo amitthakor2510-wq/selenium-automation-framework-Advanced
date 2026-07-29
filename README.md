@@ -76,6 +76,7 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 - [Tech Stack](#%EF%B8%8F-tech-stack)
 - [Project Structure](#%EF%B8%8F-project-structure)
 - [Running Tests Locally](#-running-tests-locally)
+- [Conventions Cheatsheet](CONVENTIONS.md) — quick "how do I do X here" reference: writing a Page Object/Test, logging, config, reports, CI
 - **Deep dives (in `/docs`):**
   - [Architecture & Design](docs/architecture.md) — how a test runs, core files, page-object pattern, key Selenium concepts
   - [Testing Guide](docs/testing-guide.md) — retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression

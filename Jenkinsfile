@@ -101,17 +101,39 @@ pipeline {
                         fileName.replace("-${params.SUITE_TYPE}.xml", '')
                     }
 
+                    // "mobile" is excluded here and run as its own dedicated
+                    // stage below instead. Unlike every other discovered site,
+                    // it doesn't use the browser DriverFactory (-Dbrowser/
+                    // -Dheadless are meaningless for it) and needs a
+                    // completely different toolchain first — Android SDK,
+                    // an emulator, and an Appium server — none of which this
+                    // pipeline had set up. Running it through this generic
+                    // per-site loop meant every mobile run failed outright
+                    // with SessionNotCreatedException/ConnectException:
+                    // AppiumDriverFactory had nothing listening on
+                    // 127.0.0.1:4723 and no booted device to talk to.
+                    env.RUN_MOBILE = allSites.contains('mobile') ? 'true' : 'false'
+                    def browserSites = allSites.findAll { it != 'mobile' }
+
                     env.SITES_TO_RUN = (params.SITE == 'ALL')
-                            ? allSites.join(',')
-                            : params.SITE
+                            ? browserSites.join(',')
+                            : (params.SITE == 'mobile' ? '' : params.SITE)
+
+                    if (params.SITE != 'ALL' && params.SITE != 'mobile') {
+                        env.RUN_MOBILE = 'false'
+                    }
 
                     echo "Sites discovered: ${allSites.join(', ')}"
-                    echo "Sites this run: ${env.SITES_TO_RUN}"
+                    echo "Browser sites this run: ${env.SITES_TO_RUN}"
+                    echo "Mobile this run: ${env.RUN_MOBILE}"
                 }
             }
         }
 
         stage('Run Tests Per Site') {
+            when {
+                expression { env.SITES_TO_RUN?.trim() }
+            }
             steps {
                 script {
                     def sites = env.SITES_TO_RUN.split(',')
@@ -161,6 +183,123 @@ pipeline {
             }
         }
 
+        stage('Mobile Test') {
+            when {
+                expression { env.RUN_MOBILE == 'true' }
+            }
+            environment {
+                ANDROID_SDK_ROOT = "${WORKSPACE}/.android-sdk"
+                ANDROID_AVD_NAME = 'jenkins_avd'
+                ANDROID_AVD_HOME = "${WORKSPACE}/.android-sdk/avd"
+            }
+            steps {
+                script {
+                    // Same "install if missing" pattern as GitHub
+                    // Actions/GitLab CI use for their mobile jobs, so a
+                    // node that already has these cached only downloads
+                    // on a cold cache. This stage assumes the Jenkins
+                    // agent has KVM available (/dev/kvm) the same way the
+                    // other two pipelines require it — if it doesn't,
+                    // the emulator will still boot but very slowly.
+                    sh '''
+                        set -e
+                        if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+                            echo "WARNING: /dev/kvm not accessible to this agent — emulator will run in slow software mode."
+                        fi
+
+                        if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+                            echo "Android SDK not found - installing cmdline-tools..."
+                            mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+                            wget -q -O cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+                            unzip -q -o cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+                            mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+                            rm cmdline-tools.zip
+                        fi
+
+                        export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH"
+                        yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses > /dev/null 2>&1 || true
+                        sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "emulator" "system-images;android-30;default;x86_64" "platforms;android-30" > /dev/null
+
+                        mkdir -p "$ANDROID_AVD_HOME"
+                        if [ ! -d "$ANDROID_AVD_HOME/${ANDROID_AVD_NAME}.avd" ]; then
+                            echo "no" | avdmanager create avd -n "$ANDROID_AVD_NAME" -k "system-images;android-30;default;x86_64" --force
+                        fi
+
+                        if ! command -v node &> /dev/null; then
+                            echo "ERROR: Node.js not found on this agent — required for Appium. Install Node.js on the Jenkins agent, then re-run."
+                            exit 1
+                        fi
+                        if ! command -v appium &> /dev/null; then
+                            npm install -g appium
+                        fi
+                        # Checked independently of the appium binary above —
+                        # same reasoning as the GitLab CI fix: this agent may
+                        # persist across builds, so appium being present
+                        # doesn't guarantee the uiautomator2 driver is.
+                        if ! appium driver list --installed 2>/dev/null | grep -q uiautomator2; then
+                            appium driver install uiautomator2
+                        fi
+
+                        pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+                        pkill -f "appium" 2>/dev/null || true
+
+                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
+
+                        echo "Waiting for emulator to boot..."
+                        if ! timeout 120 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
+                            echo "ERROR: emulator did not come up within 120s — it may have crashed. Check emulator.log below."
+                            cat emulator.log 2>/dev/null || true
+                            exit 1
+                        fi
+                        for i in $(seq 1 60); do
+                            boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
+                            if [ "$boot_completed" = "1" ]; then
+                                echo "Emulator booted"
+                                break
+                            fi
+                            sleep 5
+                        done
+
+                        appium --log-timestamp --log-no-colors > appium.log 2>&1 &
+                        for i in $(seq 1 30); do
+                            if curl -s http://127.0.0.1:4723/status > /dev/null; then
+                                echo "Appium is up"
+                                break
+                            fi
+                            echo "Waiting for Appium... ($i)"
+                            sleep 2
+                        done
+                    '''
+
+                    def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
+                    int exitCode = sh(
+                            script: """
+                           mvn -B -ntp test \\
+                              -Dsite=mobile \\
+                              -DsuiteXmlFile=${suiteFile} \\
+                              -Dmobile.app.package=com.android.settings \\
+                              -Dmobile.app.activity=.Settings \\
+                              -Dmobile.device.name=\$ANDROID_AVD_NAME \\
+                              -Dretry.count=${params.RETRY_COUNT} \\
+                              -Dallure.results.directory=target/allure-results/mobile \\
+                              -Dmaven.test.failure.ignore=true
+                        """,
+                            returnStatus: true
+                    )
+
+                    sh '''
+                        pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+                        pkill -f "appium" 2>/dev/null || true
+                    '''
+
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Mobile suite had failures."
+                    }
+                }
+            }
+        }
+
         stage('Nightly Extra Coverage') {
             // Only demoqa has these two suite files, and they're
             // intentionally excluded from the regular SUITE_TYPE choice
@@ -200,6 +339,16 @@ pipeline {
                             if (exitCode != 0) {
                                 extraFailures.add(suite)
                             }
+                            // ExtentManager names the report "<site>-index.html"
+                            // with no suite-type distinction — since this stage
+                            // runs -Dsite=demoqa for both accessibility and
+                            // visual, and the regular per-site stage above may
+                            // have just run -Dsite=demoqa too (on a
+                            // cron-triggered build with the default SITE=ALL),
+                            // every one of these runs would otherwise overwrite
+                            // the exact same file. Rename it out of the way
+                            // immediately so each suite's report survives.
+                            sh "mv target/extent-reports/demoqa-index.html target/extent-reports/demoqa-${suite}-index.html 2>/dev/null || true"
                         } else {
                             echo "Skipping ${suite}: ${suiteFile} not found"
                         }
@@ -228,9 +377,15 @@ pipeline {
             // single generated report covers every suite that ran, not
             // just whichever happened to write last.
             script {
-                def resultDirs = env.SITES_TO_RUN
+                def resultDirs = env.SITES_TO_RUN?.trim()
                         ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
-                        : [[path: 'target/allure-results']]
+                        : []
+                if (env.RUN_MOBILE == 'true') {
+                    resultDirs += [[path: 'target/allure-results/mobile']]
+                }
+                if (!resultDirs) {
+                    resultDirs = [[path: 'target/allure-results']]
+                }
                 if (env.NIGHTLY_RESULT_DIRS) {
                     resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
                 }
