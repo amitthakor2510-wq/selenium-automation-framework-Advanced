@@ -225,11 +225,11 @@ pipeline {
                             echo "no" | avdmanager create avd -n "$ANDROID_AVD_NAME" -k "system-images;android-30;default;x86_64" --force
                         fi
 
-                        if ! command -v node &> /dev/null; then
+                        if ! command -v node > /dev/null 2>&1; then
                             echo "ERROR: Node.js not found on this agent — required for Appium. Install Node.js on the Jenkins agent, then re-run."
                             exit 1
                         fi
-                        if ! command -v appium &> /dev/null; then
+                        if ! command -v appium > /dev/null 2>&1; then
                             npm install -g appium
                         fi
                         # Checked independently of the appium binary above —

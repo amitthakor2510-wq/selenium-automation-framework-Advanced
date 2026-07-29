@@ -2,6 +2,7 @@ package com.automation.mobile.core;
 
 import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
+import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.testng.annotations.AfterMethod;
@@ -37,6 +38,15 @@ public class MobileBaseTest implements DriverProvider {
 
     @BeforeMethod(alwaysRun = true)
     public void setUp() {
+        // Same reasoning as BaseTest.setUp(): TestListener.onStart() (a
+        // <test>-level ITestListener callback) fires before TestNG has
+        // discovered this class's @Listeners annotation, so it never
+        // actually runs writeOnce() for a class registered this way — the
+        // mobile Allure report's Environment/Categories widgets would stay
+        // empty without this redundant call. writeOnce()'s internal guard
+        // keeps this cheap even though it now runs before every test method.
+        AllureEnvironmentWriter.writeOnce();
+
         String currentSite = ConfigReader.getActiveSite();
         String requestedSite = System.getProperty("site", "mobile");
         if (currentSite == null || !currentSite.equals(requestedSite)) {
