@@ -1,6 +1,7 @@
 package com.automation.core.base;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.utils.ElementUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -62,11 +63,6 @@ public abstract class BasePage {
     }
 
     protected boolean isDisplayed(By locator) {
-        try {
-            return !driver.findElements(locator).isEmpty()
-                && driver.findElement(locator).isDisplayed();
-        } catch (Exception e) {
-            return false;
-        }
+        return ElementUtils.isDisplayed(driver, locator);
     }
 }

@@ -73,6 +73,20 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+
+      <!-- Force a commons-io version new enough to have
+           FileTimes.fromUnixTime (added in 2.12.0), which WebDriverManager's
+           bundled commons-compress requires when extracting driver
+           tar.gz/zip archives. Without this pin, poi-ooxml transitively
+           pulls in an older commons-io that wins dependency mediation and
+           shadows the one WebDriverManager actually needs, causing:
+           NoSuchMethodError: FileTimes.fromUnixTime(long) at
+           TarArchiveEntry.parseTarHeaderUnwrapped during driver setup. -->
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.16.1</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -104,7 +118,13 @@
     <dependency>
       <groupId>io.github.bonigarcia</groupId>
       <artifactId>webdrivermanager</artifactId>
-      <version>6.1.0</version>
+      <!-- Pinned at 6.3.4 (not left on a range/LATEST) specifically because
+           this version is the first to default wdm.edgeDriverUrl to
+           https://msedgedriver.microsoft.com/. Microsoft retired the old
+           msedgedriver.azureedge.net CDN in mid-2025; 6.1.0 (previously
+           pinned here) still pointed at the dead domain, causing
+           UnknownHostException on every -Dbrowser=edge run. -->
+      <version>6.3.4</version>
     </dependency>
 
     <!-- Extent Reports (custom HTML report) -->

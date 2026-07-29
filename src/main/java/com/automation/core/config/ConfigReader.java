@@ -59,7 +59,7 @@ public class ConfigReader {
      * Resolve a key: system property wins, then properties file, then throws.
      * Use this only when the key is guaranteed to exist (e.g. "url").
      */
-    public static String get(String key) {
+    public static synchronized String get(String key) {
         init();
         String sys = System.getProperty(key);
         if (sys != null && !sys.isEmpty()) {
@@ -77,7 +77,7 @@ public class ConfigReader {
      * System property wins → properties file → defaultValue.
      * Never throws.
      */
-    public static String get(String key, String defaultValue) {
+    public static synchronized String get(String key, String defaultValue) {
         init();
         String sys = System.getProperty(key);
         if (sys != null && !sys.isEmpty()) {
@@ -107,7 +107,7 @@ public class ConfigReader {
         return Boolean.parseBoolean(value.trim());
     }
 
-    public static String getActiveSite() {
+    public static synchronized String getActiveSite() {
         init();
         return activeSite;
     }

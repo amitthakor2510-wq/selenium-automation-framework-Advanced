@@ -236,7 +236,7 @@ pipeline {
                         # same reasoning as the GitLab CI fix: this agent may
                         # persist across builds, so appium being present
                         # doesn't guarantee the uiautomator2 driver is.
-                        if ! appium driver list --installed 2>/dev/null | grep -q uiautomator2; then
+                        if ! appium driver list --installed 2>&1 | grep -qi uiautomator2; then
                             appium driver install uiautomator2
                         fi
 

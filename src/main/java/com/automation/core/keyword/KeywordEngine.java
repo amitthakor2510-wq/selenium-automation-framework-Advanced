@@ -1,6 +1,7 @@
 package com.automation.core.keyword;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
 import org.openqa.selenium.By;
@@ -196,10 +197,6 @@ public class KeywordEngine {
     }
 
     private boolean isDisplayed(By locator) {
-        try {
-            return !driver.findElements(locator).isEmpty() && driver.findElement(locator).isDisplayed();
-        } catch (Exception e) {
-            return false;
-        }
+        return ElementUtils.isDisplayed(driver, locator);
     }
 }

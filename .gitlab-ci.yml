@@ -302,7 +302,7 @@ mobile-test:
       # nesting this inside the `command -v appium` check meant it only ever
       # ran once, ever, on this host, which is exactly what produced
       # "Could not find a driver for automationName 'UiAutomator2'".
-      if ! appium driver list --installed 2>/dev/null | grep -q uiautomator2; then
+      if ! appium driver list --installed 2>&1 | grep -qi uiautomator2; then
         appium driver install uiautomator2
       fi
     - appium --log-timestamp --log-no-colors > appium.log 2>&1 &

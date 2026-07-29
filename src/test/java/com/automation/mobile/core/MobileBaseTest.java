@@ -60,8 +60,12 @@ public class MobileBaseTest implements DriverProvider {
         if (getDriver() != null) {
             try {
                 getDriver().quit();
-            } catch (Exception ignored) {
-                // session already gone (app crash, server restart) — still clean up below
+            } catch (Exception e) {
+                // Previously swallowed silently — same fix as BaseTest.java:
+                // log it so a failed Appium session teardown is visible
+                // instead of hidden.
+                java.util.logging.Logger.getLogger(MobileBaseTest.class.getName())
+                    .warning("[MobileBaseTest] driver.quit() failed: " + e.getMessage());
             } finally {
                 driver.remove();
             }

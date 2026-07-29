@@ -1,36 +1,14 @@
 package com.automation.core.data;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.opencsv.CSVReader;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.yaml.snakeyaml.Yaml;
-
 import com.automation.core.config.ConfigReader;
+import com.automation.core.data.readers.DataFileReaderRegistry;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 /**
  * Reads test data from Excel (.xlsx/.xls), CSV, JSON, YAML, or ZIP files.
@@ -47,6 +25,16 @@ import java.util.zip.ZipInputStream;
  *
  * First row is always treated as the header row (Excel/CSV). JSON/YAML are
  * lists of flat objects, one object per test data row.
+ *
+ * ── ARCHITECTURE ─────────────────────────────────────────────────────────
+ * The actual per-format parsing (Excel/CSV/JSON/YAML/ZIP) lives in
+ * com.automation.core.data.readers — one class per format behind the
+ * DataFileReader interface, picked by DataFileReaderRegistry based on file
+ * extension. This class only does two things: resolve the file path, and
+ * apply the DDT execute/tags filtering below. Previously all of that
+ * (five file formats + filtering + path resolution) lived in this one
+ * class; splitting it out means adding a new format no longer means
+ * editing this file at all.
  *
  * ── ROW FILTERING (DDT enhancement) ─────────────────────────────────────────
  * Every read()/readSheet() call automatically applies two optional filters,
@@ -69,6 +57,7 @@ import java.util.zip.ZipInputStream;
 public class DataProvider {
 
     private static final Logger logger = Logger.getLogger(DataProvider.class.getName());
+    private static final DataFileReaderRegistry REGISTRY = new DataFileReaderRegistry();
 
     private DataProvider() {}
 
@@ -93,26 +82,7 @@ public class DataProvider {
      */
     public static List<DataRow> readAll(String filePath) {
         File file = resolveFile(filePath);
-        String name = file.getName().toLowerCase();
-
-        logger.info("[DataProvider] Reading: " + file.getAbsolutePath());
-
-        if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-            return readExcel(file, null);
-        } else if (name.endsWith(".csv")) {
-            return readCsv(file);
-        } else if (name.endsWith(".json")) {
-            return readJson(file);
-        } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
-            return readYaml(file);
-        } else if (name.endsWith(".zip")) {
-            return readZip(file);
-        } else {
-            throw new RuntimeException(
-                "[DataProvider] Unsupported file type: " + name
-                    + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
-            );
-        }
+        return REGISTRY.readAll(file);
     }
 
     /**
@@ -123,7 +93,7 @@ public class DataProvider {
      */
     public static List<DataRow> readSheet(String filePath, String sheetName) {
         File file = resolveFile(filePath);
-        return filterRows(readExcel(file, sheetName));
+        return filterRows(REGISTRY.readExcelSheet(file, sheetName));
     }
 
     /**
@@ -163,300 +133,6 @@ public class DataProvider {
             result[i][0] = rows.get(i);
         }
         return result;
-    }
-
-    // ── Excel Reader ──────────────────────────────────────────────────────────
-
-    private static List<DataRow> readExcel(File file, String sheetName) {
-        List<DataRow> rows = new ArrayList<>();
-
-        try (InputStream is = new FileInputStream(file);
-             Workbook workbook = file.getName().endsWith(".xls")
-                 ? new HSSFWorkbook(is)
-                 : new XSSFWorkbook(is)) {
-
-            Sheet sheet = (sheetName != null)
-                ? workbook.getSheet(sheetName)
-                : workbook.getSheetAt(0);
-
-            if (sheet == null) {
-                throw new RuntimeException(
-                    "[DataProvider] Sheet '" + sheetName + "' not found in " + file.getName()
-                        + ". Available sheets: " + getSheetNames(workbook)
-                );
-            }
-
-            // First row = headers
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) {
-                logger.warning("[DataProvider] Excel file has no header row: " + file.getName());
-                return rows;
-            }
-
-            List<String> headers = new ArrayList<>();
-            for (Cell cell : headerRow) {
-                headers.add(getCellValue(cell));
-            }
-
-            // Data rows
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (isEmptyRow(row)) {
-                    continue;
-                }
-
-                Map<String, String> rowData = new LinkedHashMap<>();
-                for (int j = 0; j < headers.size(); j++) {
-                    Cell cell = row.getCell(j, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                    rowData.put(headers.get(j), getCellValue(cell));
-                }
-                rows.add(new DataRow(rowData, i));
-            }
-
-            logger.info("[DataProvider] Read " + rows.size() + " rows from sheet '"
-                + sheet.getSheetName() + "'");
-
-        } catch (IOException e) {
-            throw new RuntimeException("[DataProvider] Failed to read Excel: " + file.getPath(), e);
-        }
-
-        return rows;
-    }
-
-    private static String getCellValue(Cell cell) {
-        if (cell == null) {
-            return "";
-        }
-        DataFormatter formatter = new DataFormatter();
-        return formatter.formatCellValue(cell).trim();
-    }
-
-    private static boolean isEmptyRow(Row row) {
-        if (row == null) {
-            return true;
-        }
-        for (Cell cell : row) {
-            if (cell != null && cell.getCellType() != CellType.BLANK
-                && !getCellValue(cell).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static List<String> getSheetNames(Workbook workbook) {
-        List<String> names = new ArrayList<>();
-        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-            names.add(workbook.getSheetName(i));
-        }
-        return names;
-    }
-
-    // ── CSV Reader ────────────────────────────────────────────────────────────
-
-    private static List<DataRow> readCsv(File file) {
-        List<DataRow> rows = new ArrayList<>();
-
-        // Read explicitly as UTF-8 instead of relying on the JVM's platform
-        // default charset (new FileReader(file)), which corrupts non-ASCII
-        // data (accented names, currency symbols, etc.) on machines whose
-        // default charset isn't UTF-8 (e.g. some Windows CI agents).
-        try (CSVReader reader = new CSVReader(
-            new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
-
-            List<String[]> all = reader.readAll();
-            if (all.isEmpty()) {
-                return rows;
-            }
-
-            String[] headers = all.get(0);
-
-            for (int i = 1; i < all.size(); i++) {
-                String[] rowValues = all.get(i);
-                if (isEmptyArray(rowValues)) {
-                    continue;
-                }
-
-                Map<String, String> rowData = new LinkedHashMap<>();
-                for (int j = 0; j < headers.length; j++) {
-                    String value = (j < rowValues.length) ? rowValues[j] : "";
-                    rowData.put(headers[j], value);
-                }
-                rows.add(new DataRow(rowData, i));
-            }
-
-            logger.info("[DataProvider] Read " + rows.size() + " rows from CSV: " + file.getName());
-
-        } catch (Exception e) {
-            throw new RuntimeException("[DataProvider] Failed to read CSV: " + file.getPath(), e);
-        }
-
-        return rows;
-    }
-
-    private static boolean isEmptyArray(String[] arr) {
-        if (arr == null) {
-            return true;
-        }
-        for (String s : arr) {
-            if (s != null && !s.trim().isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // ── JSON Reader ───────────────────────────────────────────────────────────
-
-    /**
-     * Expects a JSON array of objects:
-     * [
-     *   { "username": "john", "password": "pass123", "expected": "success" },
-     *   { "username": "locked", "password": "pass123", "expected": "error" }
-     * ]
-     */
-    private static List<DataRow> readJson(File file) {
-        List<DataRow> rows = new ArrayList<>();
-
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            List<Map<String, String>> list = mapper.readValue(
-                file,
-                new TypeReference<List<Map<String, String>>>() {}
-            );
-
-            for (int i = 0; i < list.size(); i++) {
-                rows.add(new DataRow(list.get(i), i + 1));
-            }
-
-            logger.info("[DataProvider] Read " + rows.size() + " rows from JSON: " + file.getName());
-
-        } catch (IOException e) {
-            throw new RuntimeException("[DataProvider] Failed to read JSON: " + file.getPath(), e);
-        }
-
-        return rows;
-    }
-
-    // ── YAML Reader ───────────────────────────────────────────────────────────
-
-    /**
-     * Expects a YAML list of flat mappings, e.g.:
-     *
-     * - username: john
-     *   password: pass123
-     *   expected: success
-     *   tags: smoke, regression
-     * - username: locked
-     *   password: pass123
-     *   expected: error
-     *   execute: "no"
-     */
-    @SuppressWarnings("unchecked")
-    private static List<DataRow> readYaml(File file) {
-        List<DataRow> rows = new ArrayList<>();
-
-        try (InputStream is = new FileInputStream(file)) {
-            Yaml yaml = new Yaml();
-            Object loaded = yaml.load(is);
-
-            if (!(loaded instanceof List)) {
-                throw new RuntimeException(
-                    "[DataProvider] YAML root must be a list of rows: " + file.getName());
-            }
-
-            List<Object> list = (List<Object>) loaded;
-            for (int i = 0; i < list.size(); i++) {
-                Object entry = list.get(i);
-                if (!(entry instanceof Map)) {
-                    continue;
-                }
-
-                Map<String, String> rowData = new LinkedHashMap<>();
-                ((Map<Object, Object>) entry).forEach((k, v) ->
-                    rowData.put(String.valueOf(k), v == null ? "" : String.valueOf(v)));
-
-                rows.add(new DataRow(rowData, i + 1));
-            }
-
-            logger.info("[DataProvider] Read " + rows.size() + " rows from YAML: " + file.getName());
-
-        } catch (IOException e) {
-            throw new RuntimeException("[DataProvider] Failed to read YAML: " + file.getPath(), e);
-        }
-
-        return rows;
-    }
-
-    // ── ZIP Reader ────────────────────────────────────────────────────────────
-
-    /**
-     * Reads all supported files (.xlsx, .xls, .csv, .json) inside the ZIP.
-     * All rows from all files are combined into one list.
-     */
-    private static List<DataRow> readZip(File zipFile) {
-        List<DataRow> allRows = new ArrayList<>();
-
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile))) {
-            ZipEntry entry;
-
-            // Running counter for globally-unique row indices across all files
-            // in the zip. NOTE: previously this used an accumulated
-            // "rowOffset += rows.size()", which is wrong whenever a source
-            // file skips blank rows — getRowIndex() reflects the row's real
-            // position in its sheet/CSV, so adding a row *count* (not the max
-            // index actually consumed) can produce duplicate/misleading row
-            // numbers across files. A simple running counter avoids that.
-            int runningIndex = 0;
-
-            while ((entry = zis.getNextEntry()) != null) {
-                String entryName = entry.getName().toLowerCase();
-
-                // Skip directories and unsupported files
-                if (entry.isDirectory()
-                    || (!entryName.endsWith(".xlsx")
-                    && !entryName.endsWith(".xls")
-                    && !entryName.endsWith(".csv")
-                    && !entryName.endsWith(".json"))) {
-                    zis.closeEntry();
-                    continue;
-                }
-
-                logger.info("[DataProvider] Reading from ZIP entry: " + entry.getName());
-
-                // Extract entry to a temp file
-                File tempFile = extractToTemp(zis, entry.getName());
-                List<DataRow> rows = readAll(tempFile.getAbsolutePath());
-
-                for (DataRow row : rows) {
-                    runningIndex++;
-                    allRows.add(new DataRow(row.toMap(), runningIndex));
-                }
-
-                tempFile.deleteOnExit();
-                zis.closeEntry();
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException("[DataProvider] Failed to read ZIP: " + zipFile.getPath(), e);
-        }
-
-        logger.info("[DataProvider] Total rows read from ZIP: " + allRows.size());
-        return allRows;
-    }
-
-    private static File extractToTemp(ZipInputStream zis, String entryName) throws IOException {
-        String ext = entryName.substring(entryName.lastIndexOf('.'));
-        File tempFile = File.createTempFile("ddt_", ext);
-
-        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[4096];
-            int len;
-            while ((len = zis.read(buffer)) > 0) {
-                fos.write(buffer, 0, len);
-            }
-        }
-        return tempFile;
     }
 
     // ── Row filtering (DDT: execute column + tag selection) ─────────────────────

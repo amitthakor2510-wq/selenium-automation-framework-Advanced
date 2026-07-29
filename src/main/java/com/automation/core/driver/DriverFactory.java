@@ -7,6 +7,7 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.edge.EdgeOptions;
@@ -114,10 +115,22 @@ public final class DriverFactory {
 
     // ── Chrome ────────────────────────────────────────────────────────────────
 
+    // NOTE: pinning chromedriver to an older build (149.x) was tried and did
+    // NOT fix the Brave "Chrome instance exited" failure — it crashed
+    // identically to the auto-matched 150.x build. That rules out a
+    // driver/browser version mismatch as the cause. Since a real version
+    // mismatch normally produces an explicit "This version of ChromeDriver
+    // only supports Chrome version X" message rather than a silent crash,
+    // the real cause is the Brave process itself dying on launch for a
+    // reason ChromeDriver isn't surfacing (sandbox restriction, missing
+    // shared library, snap confinement, GPU init failure, etc). Reverted to
+    // normal auto-matched versioning; verboseLogging below is what actually
+    // gets us the real reason.
     private static WebDriver createChromeDriver(boolean headless) {
         WebDriverManager.chromedriver().setup();
         ChromeOptions options = buildChromeOptions(headless);
-        return new ChromeDriver(options);
+        ChromeDriverService service = buildVerboseLoggingService();
+        return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
     }
 
     // ── Brave ─────────────────────────────────────────────────────────────────
@@ -131,11 +144,50 @@ public final class DriverFactory {
                 "Brave browser binary not found. Install Brave or set -Dbrave.binary=/path/to/brave");
         }
 
-        WebDriverManager.chromedriver().setup();
+        // .browserBinary() points chromedriver's version-matching at Brave,
+        // so WebDriverManager downloads a chromedriver matched to Brave's
+        // actual Chromium engine.
+        WebDriverManager.chromedriver().browserBinary(braveBinary).setup();
         ChromeOptions options = buildChromeOptions(headless);
         options.setBinary(braveBinary);
         logger.info("[DriverFactory] Using Brave binary: " + braveBinary);
-        return new ChromeDriver(options);
+
+        // Verbose ChromeDriver logging: the generic SessionNotCreatedException
+        // we've been getting ("Chrome instance exited") hides the actual
+        // reason the Brave process died. This routes chromedriver's verbose
+        // log (which DOES include Brave's own stderr/crash output) to a file
+        // instead of losing it. Check this file after any failed run:
+        //   target/logs/chromedriver-brave.log
+        ChromeDriverService service = buildVerboseLoggingService();
+        return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+    }
+
+    /**
+     * Builds a ChromeDriverService with verbose logging enabled, writing to
+     * target/logs/chromedriver-&lt;browser&gt;.log. Returns null (falls back to
+     * default service) if the log directory can't be created, so this never
+     * blocks a run — it's purely a diagnostic aid.
+     */
+    private static ChromeDriverService buildVerboseLoggingService() {
+        try {
+            String browser = ConfigReader.get("browser", "chrome").toLowerCase();
+            File logDir = new File(System.getProperty("user.dir") + File.separator
+                + "target" + File.separator + "logs");
+            if (!logDir.exists() && !logDir.mkdirs()) {
+                logger.warning("[DriverFactory] Could not create log directory: " + logDir);
+                return null;
+            }
+            File logFile = new File(logDir, "chromedriver-" + browser + ".log");
+            logger.info("[DriverFactory] Verbose chromedriver log: " + logFile.getAbsolutePath());
+            return new ChromeDriverService.Builder()
+                .withVerbose(true)
+                .withLogFile(logFile)
+                .build();
+        } catch (Exception e) {
+            logger.warning("[DriverFactory] Could not set up verbose chromedriver logging: "
+                + e.getMessage());
+            return null;
+        }
     }
 
     private static String findBraveBinary() {
@@ -171,6 +223,27 @@ public final class DriverFactory {
     /** Shared ChromeOptions used by both Chrome and Brave */
     private static ChromeOptions buildChromeOptions(boolean headless) {
         ChromeOptions options = new ChromeOptions();
+
+        // ROOT CAUSE FIX (browser window staying open after quit()):
+        // No --user-data-dir was ever set, so Chrome/Brave launched against
+        // the OS default profile. Chromium is single-instance-per-profile —
+        // if a Brave window is already running on that profile, the process
+        // ChromeDriver just launched hands off to the already-running
+        // instance and exits immediately. ChromeDriver's session then has no
+        // real process left to signal, so quit() can't kill the actual
+        // browser and the window (and any others in that instance) stays
+        // open. Giving every session an isolated temp profile guarantees a
+        // genuinely new, independently-owned process that quit() can
+        // actually terminate.
+        try {
+            java.nio.file.Path tempProfile =
+                java.nio.file.Files.createTempDirectory("selenium-profile-");
+            options.addArguments("--user-data-dir=" + tempProfile.toAbsolutePath());
+        } catch (java.io.IOException e) {
+            logger.warning("[DriverFactory] Could not create temp profile dir: "
+                + e.getMessage());
+        }
+
         // Default (NORMAL) blocks driver.get() until the browser's full 'load'
         // event fires — on demoqa that means waiting for every ad/tracker script
         // too, not just the page's own content, which is what was making every
@@ -178,11 +251,26 @@ public final class DriverFactory {
         // explicit waits (visibilityOfElementLocated etc.) already gate on the
         // specific elements each page actually needs before touching them.
         options.setPageLoadStrategy(PageLoadStrategy.EAGER);
+
+        // ROOT CAUSE (confirmed by isolating each ChromeDriver default switch
+        // individually against the raw Brave binary): Brave's crashpad
+        // startup self-check crashes (SIGTRAP, "elf_dynamic_array_reader.h:
+        // tag not found") specifically when launched with the legacy
+        // --test-type=webdriver switch. ChromeDriver injects this switch by
+        // default on every session — it's not something we pass ourselves —
+        // so it can only be removed via the excludeSwitches capability.
+        // --enable-automation and --remote-debugging-port=0 were each tested
+        // alone and do NOT trigger the crash, so only "test-type" is excluded.
+        options.setExperimentalOption("excludeSwitches", java.util.List.of("test-type"));
+
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-extensions");
         options.addArguments("--remote-allow-origins=*");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-crash-reporter");
+        options.addArguments("--disable-breakpad");
+        options.addArguments("--noerrdialogs");
 
         String downloadPath = getDownloadPath();
         Map<String, Object> prefs = new HashMap<>();
@@ -240,10 +328,20 @@ public final class DriverFactory {
             options.setBinary(firefoxBinary);
         }
 
-        // Disable sandbox on Linux CI environments
-        options.addPreference("security.sandbox.content.level", 0);
-        options.addPreference("security.sandbox.gpu.level", 0);
-        options.addPreference("security.sandbox.media.level", 0);
+        // Disable sandbox ONLY on CI — containers (Jenkins/GitLab agents)
+        // often lack the Linux user-namespace permissions Firefox's sandbox
+        // needs to initialize, which can hang or crash the browser without
+        // this. Locally this is unnecessary and shows a security warning
+        // banner, so it's gated behind common CI env vars rather than
+        // applied unconditionally.
+        boolean isCi = System.getenv("CI") != null
+            || System.getenv("JENKINS_HOME") != null
+            || System.getenv("GITLAB_CI") != null;
+        if (isCi) {
+            options.addPreference("security.sandbox.content.level", 0);
+            options.addPreference("security.sandbox.gpu.level", 0);
+            options.addPreference("security.sandbox.media.level", 0);
+        }
 
         // Download preferences
         options.addPreference("browser.download.folderList", 2);
@@ -257,7 +355,16 @@ public final class DriverFactory {
             options.addArguments("--height=1080");
         }
 
-        return new FirefoxDriver(options);
+        FirefoxDriver driver = new FirefoxDriver(options);
+
+        // Firefox has no launch-time equivalent to Chrome/Edge's
+        // --start-maximized argument, so the window opens at Firefox's
+        // default size unless maximized after the fact.
+        if (!headless) {
+            driver.manage().window().maximize();
+        }
+
+        return driver;
     }
 
     private static String findFirefoxBinary() {

@@ -19,15 +19,12 @@ public class ScreenshotUtil {
         // Private constructor to hide the implicit public one
     }
 
-    // Keeps your original local file-saving logic intact
-    @SuppressWarnings("unused")
     public static String captureScreenshot(WebDriver driver, String testName) {
 
         String timestamp = LocalDateTime.now(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filePath = "target/screenshots/" + testName + "_" + timestamp + ".png";
 
         try {
-            // FIXED: Removed the stray variable declaration and verified clean type casting
             TakesScreenshot ts = (TakesScreenshot) driver;
             File src = ts.getScreenshotAs(OutputType.FILE);
 
@@ -36,6 +33,9 @@ public class ScreenshotUtil {
 
         } catch (IOException e) {
             logger.warning("IOException while saving file screenshot: " + e.getMessage());
+            // Nothing was actually written — returning filePath here would give
+            // callers (e.g. Allure attachments) a path to a file that doesn't exist.
+            return null;
         }
 
         return filePath;
@@ -45,7 +45,6 @@ public class ScreenshotUtil {
      * Captures a screenshot and converts it natively to a Base64 string for cloud environments.
      * This avoids broken image paths when viewing reports on GitHub Pages or unpacked ZIPs.
      */
-    @SuppressWarnings("unused")
     public static String captureScreenshotAsBase64(WebDriver driver) {
         if (driver == null) {
             return "";
@@ -58,7 +57,7 @@ public class ScreenshotUtil {
             return "";
         }
     }
-    @SuppressWarnings("unused")
+
     public static byte[] captureScreenshotAsBytes(WebDriver driver) {
         if (driver == null) {
             return new byte[0];
@@ -71,7 +70,6 @@ public class ScreenshotUtil {
         }
     }
 
-    @SuppressWarnings("unused")
     public static String toBase64(byte[] bytes) {
         if (bytes == null) {
             return "";

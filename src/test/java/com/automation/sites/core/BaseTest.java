@@ -77,8 +77,13 @@ public class BaseTest implements DriverProvider {
         if (getDriver() != null) {
             try {
                 getDriver().quit();
-            } catch (Exception ignored) {
-                // driver already gone — nothing to do, still clean up the ThreadLocal below
+            } catch (Exception e) {
+                // Previously swallowed silently — that hid real quit()
+                // failures (e.g. attaching to an already-running browser
+                // instance) that left the window open with no error shown.
+                // Log it so a failed teardown is visible instead of silent.
+                java.util.logging.Logger.getLogger(BaseTest.class.getName())
+                    .warning("[BaseTest] driver.quit() failed: " + e.getMessage());
             } finally {
                 driver.remove(); // Important for memory cleanup
             }
