@@ -11,6 +11,7 @@ import java.io.File;
 import java.net.URI;
 import java.net.URL;
 import java.time.Duration;
+import java.util.logging.Logger;
 
 /**
  * Mobile counterpart to core.driver.DriverFactory — same "one place creates
@@ -36,6 +37,8 @@ import java.time.Duration;
  * way com.automation.sites.demoqa.pages does for web.
  */
 public final class AppiumDriverFactory {
+
+    private static final Logger logger = Logger.getLogger(AppiumDriverFactory.class.getName());
 
     private AppiumDriverFactory() {
     }
@@ -70,6 +73,22 @@ public final class AppiumDriverFactory {
             }
             if (!appActivity.isEmpty()) {
                 options.setAppActivity(appActivity);
+            }
+            if (appPackage.isEmpty() && appActivity.isEmpty()) {
+                // Appium itself only logs this fact deep in its own server
+                // log ("Neither 'app' nor 'appPackage' was set..."), which is
+                // easy to miss — the session still starts "successfully",
+                // just sitting on whatever screen the device happened to be
+                // on (usually the home launcher), so every element lookup in
+                // the test then fails with a confusing NoSuchElementError
+                // that looks unrelated to configuration. Surface it here,
+                // in our own log, right where the driver is being built.
+                logger.warning("[AppiumDriverFactory] No mobile.app.path, mobile.app.package, or "
+                    + "mobile.app.activity set — the session will start with NO target app "
+                    + "(landing on whatever screen the device is already on, typically the home "
+                    + "launcher). If your test expects a specific app/screen, set "
+                    + "mobile.app.path (fresh install) or mobile.app.package + mobile.app.activity "
+                    + "(already-installed app) in mobile.properties or via -D overrides.");
             }
         }
 

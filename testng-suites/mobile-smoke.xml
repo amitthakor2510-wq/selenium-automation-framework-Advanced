@@ -1,5 +1,14 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="Mobile Smoke Suite" parallel="none">
+
+  <!-- RetryListener is an IAnnotationTransformer — must be registered here
+       (or via ServiceLoader), not via @Listeners on a test class, or it
+       silently never fires. See BaseTest.java for the full explanation.
+       Without this, CI's -Dretry.count has no effect on mobile runs. -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
   <test name="Mobile Smoke Tests" preserve-order="true">
     <groups>
       <run>
