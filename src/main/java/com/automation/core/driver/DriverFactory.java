@@ -16,6 +16,7 @@ import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.io.File;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
@@ -416,13 +417,26 @@ public final class DriverFactory {
         }
 
         // 3. Try finding firefox on PATH via which/where command
+        //
+        // Process streams/handles are explicitly closed and the process is
+        // waited on and destroyed — leaving them open leaks file descriptors
+        // over a long test run. "where" on Windows can also print more than
+        // one match (one per line), so only the first line is taken instead
+        // of treating the whole (possibly multi-line) output as a single path.
         try {
             String whichCmd = System.getProperty("os.name").toLowerCase().contains("win")
                 ? "where firefox" : "which firefox";
             Process p = Runtime.getRuntime().exec(whichCmd);
-            String result = new String(p.getInputStream().readAllBytes()).trim();
-            if (!result.isEmpty() && new File(result).exists()) {
-                return result;
+            String output;
+            try (InputStream in = p.getInputStream()) {
+                output = new String(in.readAllBytes());
+            } finally {
+                p.waitFor();
+                p.destroy();
+            }
+            String firstLine = output.lines().findFirst().orElse("").trim();
+            if (!firstLine.isEmpty() && new File(firstLine).exists()) {
+                return firstLine;
             }
         } catch (Exception ignored) {
             // fall through — geckodriver will search PATH itself
