@@ -34,6 +34,20 @@
          -Dretry.count=N; this is only the fallback default. -->
     <retry.count>2</retry.count>
 
+    <!-- Selenium Grid / Docker — mirrors global.properties' grid.enabled=false
+         and grid.url defaults. MUST live here (and in surefire's
+         systemPropertyVariables below) for the same reason retry.count does:
+         the Dockerfile's ENTRYPOINT passes -Dgrid.enabled=$GRID_ENABLED and
+         -Dgrid.url=$GRID_URL to `mvn test`, but that only reaches Maven's own
+         JVM. Without an explicit systemPropertyVariables entry referencing
+         ${grid.enabled}/${grid.url}, the forked surefire test JVM never sees
+         either value, ConfigReader falls back to global.properties'
+         grid.enabled=false, and DriverFactory tries to launch a local Chrome
+         binary that does not exist in the (deliberately browser-less) test
+         image — every containerized run fails immediately. -->
+    <grid.enabled>false</grid.enabled>
+    <grid.url>http://localhost:4444/wd/hub</grid.url>
+
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
@@ -287,6 +301,10 @@
             <headless>${headless}</headless>
             <human.pause.enabled>${human.pause.enabled}</human.pause.enabled>
             <retry.count>${retry.count}</retry.count>
+            <!-- Selenium Grid / Docker — see the grid.enabled/grid.url comment
+                 in <properties> above for why these must be listed explicitly. -->
+            <grid.enabled>${grid.enabled}</grid.enabled>
+            <grid.url>${grid.url}</grid.url>
             <!-- WDM cache — prevents re-downloading drivers on every run -->
             <wdm.cachePath>${wdm.cachePath}</wdm.cachePath>
             <wdm.forceDownload>${wdm.forceDownload}</wdm.forceDownload>

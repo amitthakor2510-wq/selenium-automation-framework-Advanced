@@ -101,13 +101,26 @@ public final class DriverFactory {
             URL hubUrl = URI.create(gridUrl).toURL();
             logger.info("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
                 + " (browser=" + browser + ", headless=" + headless + ")");
+            RemoteWebDriver remoteDriver;
             if (options instanceof ChromeOptions co) {
-                return new RemoteWebDriver(hubUrl, co);
+                remoteDriver = new RemoteWebDriver(hubUrl, co);
             } else if (options instanceof FirefoxOptions fo) {
-                return new RemoteWebDriver(hubUrl, fo);
+                remoteDriver = new RemoteWebDriver(hubUrl, fo);
             } else {
-                return new RemoteWebDriver(hubUrl, (EdgeOptions) options);
+                remoteDriver = new RemoteWebDriver(hubUrl, (EdgeOptions) options);
             }
+
+            // Without this, sendKeys() on a file input (upload.file.path, the
+            // Practice Form "Select Picture" field, etc.) fails with "File not
+            // found" — the path is only valid on the machine running this JVM
+            // (the "tests" container), not on the Grid node actually running the
+            // browser (the "chrome"/"firefox"/"edge" container). LocalFileDetector
+            // makes RemoteWebDriver recognize when a sendKeys() value is a real
+            // local file and transparently upload its bytes to the node first,
+            // which is exactly what local (non-Grid) WebDriver sessions get for
+            // free by sharing a filesystem with the browser.
+            remoteDriver.setFileDetector(new org.openqa.selenium.remote.LocalFileDetector());
+            return remoteDriver;
         } catch (MalformedURLException e) {
             throw new RuntimeException("[DriverFactory] Invalid grid.url: " + gridUrl, e);
         }

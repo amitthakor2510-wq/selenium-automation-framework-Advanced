@@ -1,5 +1,3 @@
-version: "3.9"
-
 # =============================================================================
 # selenium-automation-framework — Docker Selenium Grid
 #
@@ -92,3 +90,4 @@ services:
       - ./target/extent-reports:/workspace/target/extent-reports
       - ./target/surefire-reports:/workspace/target/surefire-reports
       - ./target/debug-dumps:/workspace/target/debug-dumps
+      - ./target/screenshots:/workspace/target/screenshots

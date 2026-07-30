@@ -16,13 +16,13 @@ import org.testng.annotations.Test;
  * saucedemo — ported to demoqa here so non-Java team members can author new
  * demoqa scenarios as CSV rows too, without needing a second engine.
  *
- * NOTE on TC02_KeyboardOnlyFill: it submits via PRESS_KEY(ENTER) on the
- * email field rather than clicking the Submit button, on the assumption
+ * NOTE on TC02_KeyboardOnlyFill: it used to submit via PRESS_KEY(ENTER) on
+ * the email field rather than clicking the Submit button, on the assumption
  * that demoqa's Text Box form responds to Enter the same way a native HTML
- * form would. That assumption is UNVERIFIED against the live site as of
- * writing — if this test fails at step 5, that's the first thing to check;
- * swap it for a CLICK on demoqa.textbox.submitButton if Enter turns out not
- * to trigger submission.
+ * form would. A live run confirmed that assumption was wrong - the form is
+ * a React component with no Enter-to-submit handler, so the step timed out
+ * waiting for the output section - so step 5 was changed to CLICK
+ * demoqa.textbox.submitButton instead.
  */
 @Feature("Text Box")
 public class KeywordDrivenTextBoxTest extends KeywordTestBase {

@@ -265,12 +265,27 @@ public class DroppablePage extends BasePage {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", inner);
         HumanActions.pause();
 
-        drag  = driver.findElement(preventDrag);
-        inner = driver.findElement(innerNotGreedy);
-        smoothDragToElement(drag, inner);
-
-        wait.until(ExpectedConditions.textToBe(innerNotGreedyText, "Dropped!"));
-        wait.until(ExpectedConditions.textToBe(outerNotGreedyText, "Dropped!"));
+        int attempts = 0;
+        boolean success = false;
+        while (attempts < 3 && !success) {
+            drag  = driver.findElement(preventDrag);
+            inner = driver.findElement(innerNotGreedy);
+            smoothDragToElement(drag, inner);
+            try {
+                Duration timeout = Duration.ofSeconds(ConfigReader.getInt("timeout", 10));
+                new WebDriverWait(driver, timeout).until(ExpectedConditions.textToBe(innerNotGreedyText, "Dropped!"));
+                new WebDriverWait(driver, timeout).until(ExpectedConditions.textToBe(outerNotGreedyText, "Dropped!"));
+                success = true;
+            } catch (Exception e) {
+                attempts++;
+                HumanActions.pause();
+            }
+        }
+        if (!success) {
+            // Let the caller's own assertion report the final (possibly still-wrong) state.
+            smoothDragToElement(driver.findElement(preventDrag), driver.findElement(innerNotGreedy));
+            HumanActions.pause();
+        }
     }
 
     public void dragToInnerGreedy() {
@@ -279,11 +294,26 @@ public class DroppablePage extends BasePage {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", inner);
         HumanActions.pause();
 
-        drag  = driver.findElement(preventDrag);
-        inner = driver.findElement(innerGreedy);
-        smoothDragToElement(drag, inner);
-
-        wait.until(ExpectedConditions.textToBe(innerGreedyText, "Dropped!"));
+        int attempts = 0;
+        boolean success = false;
+        while (attempts < 3 && !success) {
+            drag  = driver.findElement(preventDrag);
+            inner = driver.findElement(innerGreedy);
+            smoothDragToElement(drag, inner);
+            try {
+                new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
+                    .until(ExpectedConditions.textToBe(innerGreedyText, "Dropped!"));
+                success = true;
+            } catch (Exception e) {
+                attempts++;
+                HumanActions.pause();
+            }
+        }
+        if (!success) {
+            // Let the caller's own assertion report the final (possibly still-wrong) state.
+            smoothDragToElement(driver.findElement(preventDrag), driver.findElement(innerGreedy));
+            HumanActions.pause();
+        }
     }
 
     public String getOuterNotGreedyText() {

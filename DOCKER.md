@@ -34,9 +34,9 @@ docker compose down -v
 ```
 
 Reports land back on the host under `target/allure-results`,
-`target/extent-reports`, `target/surefire-reports`, and `target/debug-dumps`
-via the volume mounts in `docker-compose.yml`, so `mvn allure:serve` still
-works locally after a containerized run.
+`target/extent-reports`, `target/surefire-reports`, `target/debug-dumps`, and
+`target/screenshots` via the volume mounts in `docker-compose.yml`, so
+`mvn allure:serve` still works locally after a containerized run.
 
 ## How it connects (what changed in the framework itself)
 - `DriverFactory.createDriver()` now checks `grid.enabled`. When true, it
@@ -47,6 +47,14 @@ works locally after a containerized run.
   `grid.url=http://localhost:4444/wd/hub` as defaults, overridable with
   `-Dgrid.enabled=true -Dgrid.url=...` the same way every other config key
   works.
+- `pom.xml` declares matching `grid.enabled`/`grid.url` defaults under
+  `<properties>` and forwards both through the surefire plugin's
+  `<systemPropertyVariables>`. This step is what actually gets the
+  Dockerfile's `-Dgrid.enabled=$GRID_ENABLED -Dgrid.url=$GRID_URL` from
+  Maven's own process into the forked JVM that runs the tests — the same
+  pattern already used for `site`, `browser`, `headless`, etc. Without it,
+  the container would silently ignore `GRID_ENABLED=true` and try to
+  launch a local Chrome binary that isn't in the image.
 - The Docker image itself never installs a browser — it only drives the
   Grid — so the image stays small and browser versions upgrade independently
   by bumping the `selenium/node-*` image tags in `docker-compose.yml`.

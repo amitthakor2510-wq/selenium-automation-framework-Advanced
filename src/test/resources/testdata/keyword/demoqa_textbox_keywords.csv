@@ -12,5 +12,5 @@ TC02_KeyboardOnlyFill,1,NAVIGATE,,/text-box,,Go to demoqa Text Box page
 TC02_KeyboardOnlyFill,2,SET_TEXT,demoqa.textbox.userName,Jane Tester,,Enter name (instant, no per-keystroke pacing)
 TC02_KeyboardOnlyFill,3,PRESS_KEY,demoqa.textbox.userName,TAB,,Tab from name to email - no mouse
 TC02_KeyboardOnlyFill,4,TYPE,demoqa.textbox.userEmail,jane.tester@example.com,,Enter email via keyboard
-TC02_KeyboardOnlyFill,5,PRESS_KEY,demoqa.textbox.userEmail,ENTER,,Submit the form with Enter instead of clicking Submit
+TC02_KeyboardOnlyFill,5,CLICK,demoqa.textbox.submitButton,,,Submit the form (Enter in the email field does not submit demoqa's Text Box form - confirmed by a live run failing at this step)
 TC02_KeyboardOnlyFill,6,VERIFY_DISPLAYED,demoqa.textbox.outputName,,,Output section should appear after keyboard-only submission

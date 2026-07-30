@@ -12,18 +12,33 @@ timeout=10               # seconds to wait for elements before failing
                           # (per-site overrides live in <site>.properties —
                           #  see demoqa.properties, bumped to 20s for its
                           #  slower-rendering book store page)
+timeout.long=15          # seconds to wait for elements with known delays
+                          # (timer alerts, dynamic buttons)
+
+# ── File Upload/Download ──────────────────────────────────────────
+download.folder.path=target/downloads       # where downloaded files land
+upload.file.path=target/test-upload.txt     # file used by upload tests — must exist
 
 # ── Retry ──────────────────────────────────────────────────────────
 retry.count=2             # automatic re-runs of a failed test (see Retry & Resilience)
 
 # ── Human Pause ────────────────────────────────────────────────────
 human.pause.enabled=true       # false = skip all pauses for fast runs
-human.pause.min=400            # min ms before each click/type action
-human.pause.max=1200           # max ms before each click/type action
-human.pause.postTest.min=500   # min ms after each test finishes
-human.pause.postTest.max=1500  # max ms after each test finishes
-human.pause.typing.min=40      # min ms between keystrokes when typing
-human.pause.typing.max=120     # max ms between keystrokes when typing
+human.pause.min=100            # min ms before each click/type action
+human.pause.max=300            # max ms before each click/type action
+human.pause.postTest.min=150   # min ms after each test finishes
+human.pause.postTest.max=400   # max ms after each test finishes
+human.pause.typing.min=10      # min ms between keystrokes when typing
+human.pause.typing.max=30      # max ms between keystrokes when typing
+
+# ── Selenium Grid / Docker ────────────────────────────────────────
+grid.enabled=false                              # true = drive a RemoteWebDriver against grid.url instead of a local browser
+grid.url=http://localhost:4444/wd/hub           # Selenium Grid hub endpoint (see Dockerized Selenium Grid below)
+
+# ── Data-Driven Testing (DDT) Filters ─────────────────────────────
+data.tags=                          # comma-separated tag filter, e.g. -Ddata.tags=smoke,regression
+                                     # (blank = run every row regardless of its "tags" column)
+data.execute.column=execute         # column DataProvider checks to skip a row (no/false/0/skip = excluded)
 ```
 
 Any key can be overridden at runtime:

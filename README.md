@@ -262,7 +262,7 @@ flowchart LR
 
     subgraph WEB["🌐 sites — browser tests"]
         direction TB
-        DQ["demoqa<br/>32 pages · 34 tests"]
+        DQ["demoqa<br/>32 pages · 35 tests"]
         SD["saucedemo<br/>3 test styles"]
         DQ ~~~ SD
     end
