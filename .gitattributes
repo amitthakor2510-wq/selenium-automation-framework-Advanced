@@ -1,0 +1,36 @@
+# ================================================================
+# .gitattributes — Selenium Automation Framework
+# Keeps history lean and prevents the kind of bloat that shrank
+# .git from 223MB -> ~560KB after purging committed Allure binaries.
+# ================================================================
+
+# --- Line endings ---------------------------------------------------
+# Normalize everything to LF in the repo, let git convert on checkout
+# per-platform. Prevents "every line changed" diffs from CRLF/LF churn,
+# which is a common source of oversized, slow-to-negotiate pushes.
+* text=auto eol=lf
+
+# --- Explicit binary types --------------------------------------------
+# Never let git try to diff/merge these as text (wastes time, produces
+# garbage diffs, and can bloat pack negotiation).
+*.jar   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
+*.tgz   binary
+*.tar   binary
+*.class binary
+*.apk   binary
+*.ipa   binary
+
+# --- Paths that must never be tracked, even by accident ----------------
+# .gitignore already excludes these, but .gitattributes' export-ignore
+# adds a second layer: even if one of these ever gets force-added, it's
+# excluded from `git archive` / release-artifact exports so it can't
+# leak into a zip/tarball of the repo.
+.allure/            export-ignore
+target/             export-ignore
+*.log               export-ignore
