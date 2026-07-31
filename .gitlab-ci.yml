@@ -477,10 +477,15 @@ report:
       - target/screenshots/
     reports:
       junit: target/surefire-reports/*.xml
+  # accessibility-visual-test only runs on scheduled pipelines (see its
+  # `rules:` above) — on a normal push/MR pipeline that job never exists,
+  # so listing it here made GitLab try to fetch artifacts from a job that
+  # was never created, which is what produced the "unable to fetch data"
+  # warning. It's opt-in/nightly-only, so its results aren't needed for
+  # every regular report anyway.
   dependencies:
     - test
     - mobile-test
-    - accessibility-visual-test
   only:
     - main
     - master
