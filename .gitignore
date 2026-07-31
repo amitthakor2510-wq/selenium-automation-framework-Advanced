@@ -44,3 +44,4 @@ allure/
 .allure/
 target/allure-report/.allure/
 src/test/resources/config/mobile.properties
+src/test/resources/config/mobile.properties
