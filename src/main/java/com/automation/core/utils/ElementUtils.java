@@ -47,4 +47,46 @@ public final class ElementUtils {
             throw e;
         }
     }
+
+    /**
+     * Safely embeds an arbitrary string as an XPath 1.0 string literal.
+     * <p>
+     * Several Page Objects build locators like
+     * {@code "//div[text()='" + value + "']"} by directly concatenating a
+     * runtime value (a day number, a dropdown option, free-text test data)
+     * into the expression. That works only as long as {@code value} never
+     * contains a single quote — a value like {@code O'Brien} produces a
+     * syntactically invalid XPath expression instead of a clear "not found"
+     * result. XPath 1.0 has no escape character for quotes inside a
+     * quoted literal, so the standard workaround is used here:
+     * <ul>
+     *   <li>no single quote in the value → wrap in {@code '...'}</li>
+     *   <li>single quotes but no double quotes → wrap in {@code "..."}</li>
+     *   <li>both present → split on {@code '} and rebuild with
+     *       {@code concat(...)}, alternating single/double-quoted chunks</li>
+     * </ul>
+     * The returned string is the literal ready to drop straight into an
+     * XPath expression, e.g. {@code "//div[text()=" + xpathLiteral(value) + "]"}.
+     */
+    public static String xpathLiteral(String value) {
+        if (value == null) {
+            return "''";
+        }
+        if (!value.contains("'")) {
+            return "'" + value + "'";
+        }
+        if (!value.contains("\"")) {
+            return "\"" + value + "\"";
+        }
+        String[] parts = value.split("'", -1);
+        StringBuilder sb = new StringBuilder("concat(");
+        for (int i = 0; i < parts.length; i++) {
+            sb.append("'").append(parts[i]).append("'");
+            if (i < parts.length - 1) {
+                sb.append(", \"'\", ");
+            }
+        }
+        sb.append(")");
+        return sb.toString();
+    }
 }

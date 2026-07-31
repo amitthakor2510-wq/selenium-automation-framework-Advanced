@@ -43,5 +43,12 @@ build/
 allure/
 .allure/
 target/allure-report/.allure/
-src/test/resources/config/mobile.properties
+
+### Framework config — device/instance-specific, not committed ###
+# demoqa.properties / saucedemo.properties ARE tracked on purpose (no
+# secrets, just public URL/timeout values). mobile.properties is different:
+# it holds a real device serial/IP (mobile.device.name) and possibly a
+# local .apk/.ipa path, so it's excluded here instead of relying on nobody
+# ever running `git add -A` before it's created. Keep only the .example
+# template tracked, same pattern as _TEMPLATE.properties.example.
 src/test/resources/config/mobile.properties

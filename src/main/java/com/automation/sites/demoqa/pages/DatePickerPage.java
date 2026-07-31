@@ -3,6 +3,7 @@ package com.automation.sites.demoqa.pages;
 import java.util.logging.Logger;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.SmartLocator;
 import org.openqa.selenium.By;
@@ -60,7 +61,7 @@ public class DatePickerPage extends BasePage {
         By dayLocator = By.xpath(
             "//div[contains(@class,'react-datepicker__day')" +
                 " and not(contains(@class,'outside-month'))" +
-                " and text()='" + day + "']"
+                " and text()=" + ElementUtils.xpathLiteral(day) + "]"
         );
         wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
         HumanActions.click(driver, dayLocator);

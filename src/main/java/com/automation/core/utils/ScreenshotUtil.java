@@ -24,15 +24,27 @@ public class ScreenshotUtil {
             return null;
         }
 
-        String timestamp = LocalDateTime.now(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        String filePath = "target/screenshots/" + testName + "_" + timestamp + ".png";
+        // BUG FIX: the previous "yyyyMMdd_HHmmss" timestamp only had
+        // second-level precision and Files.copy() was called without
+        // REPLACE_EXISTING. Two screenshots for the same testName within
+        // the same second (e.g. back-to-back SCREENSHOT keyword steps, or
+        // just a fast test) collided on the same file path, Files.copy()
+        // threw FileAlreadyExistsException, and that was silently swallowed
+        // by the catch block below — losing the second screenshot with no
+        // visible error. Millisecond precision plus a short random suffix
+        // makes same-run collisions effectively impossible, and
+        // REPLACE_EXISTING means even a genuine collision no longer fails.
+        String timestamp = LocalDateTime.now(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmssSSS"));
+        String uniqueSuffix = Long.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextLong());
+        String filePath = "target/screenshots/" + testName + "_" + timestamp + "_" + uniqueSuffix + ".png";
 
         try {
             TakesScreenshot ts = (TakesScreenshot) driver;
             File src = ts.getScreenshotAs(OutputType.FILE);
 
             Files.createDirectories(Paths.get("target/screenshots"));
-            Files.copy(src.toPath(), Paths.get(filePath));
+            Files.copy(src.toPath(), Paths.get(filePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
         } catch (IOException e) {
             logger.warning("IOException while saving file screenshot: " + e.getMessage());

@@ -97,7 +97,13 @@ public class KeywordEngine {
         if (path.startsWith("http://") || path.startsWith("https://")) {
             driver.get(path);
         } else {
+            // Strip a trailing slash from the configured base URL so a config
+            // file with e.g. url=https://demoqa.com/ can't produce a double
+            // slash (https://demoqa.com//webtables) when concatenated below.
             String baseUrl = ConfigReader.get("url");
+            if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
             driver.get(path.isEmpty() ? baseUrl
                 : baseUrl + (path.startsWith("/") ? path : "/" + path));
         }

@@ -26,10 +26,16 @@ public final class DataFileReaderRegistry {
     /** True if this registry has a reader for the given file's extension. */
     public boolean supports(File file) {
         String name = file.getName().toLowerCase();
+        // BUG FIX: .zip was handled by readAll()/ZipDataFileReader but was
+        // missing here, so supports() incorrectly reported false for a file
+        // type this registry actually reads — any caller that gates on
+        // supports() before calling readAll() would wrongly reject valid
+        // zip data files.
         return name.endsWith(".xlsx") || name.endsWith(".xls")
             || name.endsWith(".csv")
             || name.endsWith(".json")
-            || name.endsWith(".yaml") || name.endsWith(".yml");
+            || name.endsWith(".yaml") || name.endsWith(".yml")
+            || name.endsWith(".zip");
     }
 
     /** Reads a file, auto-detecting format by extension. ZIP files are read via ZipDataFileReader. */

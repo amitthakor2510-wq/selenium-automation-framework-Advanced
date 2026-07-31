@@ -5,10 +5,10 @@ package com.automation.core.keyword;
  * test script (Excel/CSV/JSON/YAML, read via DataProvider) is just a list
  * of rows naming one of these per step — no Java per test case required.
  *
- * Includes both UI keywords (CLICK, TYPE, SELECT ...) and keyboard-specific
- * ones (PRESS_KEY, TAB_TO) for keyboard-driven / accessibility-style checks
- * that a screen-and-mouse click alone doesn't cover — e.g. verifying a form
- * can be completed and submitted using only Tab/Enter/Space/Arrow keys.
+ * Includes both UI keywords (CLICK, TYPE, SELECT ...) and a keyboard-specific
+ * one (PRESS_KEY) for keyboard-driven / accessibility-style checks that a
+ * screen-and-mouse click alone doesn't cover — e.g. verifying a form can be
+ * completed and submitted using only Tab/Enter/Space/Arrow keys.
  */
 public enum Keyword {
     NAVIGATE,             // testData = path relative to site base URL (or absolute http(s) URL)

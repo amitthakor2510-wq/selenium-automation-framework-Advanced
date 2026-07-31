@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -60,7 +61,7 @@ public class SelectMenuPage extends BasePage {
 
         // Click the matching option
         By option = By.xpath(
-            "//div[contains(@class,'option') and normalize-space(.)='" + value + "']"
+            "//div[contains(@class,'option') and normalize-space(.)=" + ElementUtils.xpathLiteral(value) + "]"
         );
         WebElement opt = wait.until(ExpectedConditions.elementToBeClickable(option));
         HumanActions.pause();

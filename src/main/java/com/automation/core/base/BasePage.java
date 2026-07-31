@@ -30,7 +30,13 @@ public abstract class BasePage {
      * e.g. navigateTo("")           → driver.get("https://demoqa.com")
      */
     protected void navigateTo(String path) {
+        // Strip a trailing slash from the configured base URL so a config
+        // file with e.g. url=https://demoqa.com/ can't produce a double
+        // slash (https://demoqa.com//webtables) when concatenated below.
         String baseUrl = ConfigReader.get("url");
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
         if (path == null || path.isEmpty()) {
             driver.get(baseUrl);
         } else {
