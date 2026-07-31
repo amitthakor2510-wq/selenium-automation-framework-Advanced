@@ -48,7 +48,7 @@ pipeline {
 
     options {
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '20'))
+        buildDiscarder(logRotator(numToKeepStr: '10'))
         // A second build of the same job (e.g. two pushes to the same branch
         // in quick succession) aborts whichever earlier run is still queued/
         // executing instead of both running to completion — the first run's
@@ -71,6 +71,41 @@ pipeline {
     }
 
     stages {
+
+        stage('Cleanup (Stale Processes)') {
+            // Runs FIRST, before checkout, so a crashed previous build never
+            // leaves an orphaned emulator/Appium/ADB process holding CPU,
+            // RAM, or a device lock that this build then contends with or
+            // silently reuses. Safe to run even when nothing is stale —
+            // every command below is best-effort (|| true), so a clean
+            // agent just no-ops through this stage in well under a second.
+            //
+            // NOTE on the Jenkins Process Tree Killer: this pipeline never
+            // sets JENKINS_NODE_COOKIE=dontKillMe and never wraps background
+            // processes in setsid/nohup+disown — so Jenkins' own launcher
+            // still owns every process this build starts (see the Mobile
+            // Test stage's `&`-backgrounded emulator/appium) and will reap
+            // the whole process tree automatically if the build is aborted
+            // or the agent disconnects mid-run. This Cleanup stage is a
+            // second, independent safety net for the case that actually
+            // bit us before: a PREVIOUS build's processes surviving because
+            // that build's agent/JVM died hard enough that even the tree
+            // killer never got to run its cleanup.
+            steps {
+                sh '''
+                    echo "Killing any orphaned node/adb/qemu processes from a previous crashed run..."
+                    killall -9 node 2>/dev/null || true
+                    killall -9 adb 2>/dev/null || true
+                    killall -9 qemu-system-x86_64 2>/dev/null || true
+
+                    echo "Removing stale AVD/adb lock files..."
+                    find "${HOME}/.android" -name "*.lock" -delete 2>/dev/null || true
+                    find /tmp -maxdepth 1 -name "*.lock" -delete 2>/dev/null || true
+
+                    echo "Cleanup complete."
+                '''
+            }
+        }
 
         stage('Checkout') {
             steps {
@@ -191,6 +226,15 @@ pipeline {
                 ANDROID_SDK_ROOT = "${WORKSPACE}/.android-sdk"
                 ANDROID_AVD_NAME = 'jenkins_avd'
                 ANDROID_AVD_HOME = "${WORKSPACE}/.android-sdk/avd"
+                // Local hardware boots the AVD slower than a dedicated cloud
+                // CI runner, especially with Jenkins/GitLab background load
+                // competing for the same CPU/IO at the same time — the
+                // default 5s adb server timeout is tuned for the latter, not
+                // this box, and causes spurious "device offline"/timeout
+                // errors under contention. Exported here so every `sh` step
+                // in this stage (adb wait-for-device, appium's own adb
+                // calls, etc.) picks it up automatically.
+                ANDROID_ADB_SERVER_TIMEOUT = '120'
             }
             steps {
                 script {
@@ -414,6 +458,40 @@ pipeline {
             archiveArtifacts allowEmptyArchive: true,
                     artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**',
                     fingerprint: true
+
+            // ── ADB memory-leak cleanup ────────────────────────────────
+            // "adb reconnect offline" forces adb to drop and re-probe any
+            // device/emulator connection it still thinks is live, which is
+            // the fix for the specific case that bit us on this box: a
+            // build that ran the Mobile Test stage leaves adb's own server
+            // process running (by design — it's meant to be reused by the
+            // next build to skip a slow cold restart), but each new
+            // emulator boot across many local runs was gradually growing
+            // that server's memory footprint. Only runs when the mobile
+            // stage actually executed and left an adb binary behind — a
+            // browser-only build (RUN_MOBILE == 'false') has neither, so
+            // this step is a deliberate no-op there rather than an error.
+            script {
+                if (env.RUN_MOBILE == 'true') {
+                    sh '''
+                        ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
+                        if [ -x "$ADB_BIN" ]; then
+                            "$ADB_BIN" reconnect offline 2>/dev/null || true
+                        fi
+                    '''
+                }
+            }
+
+            // ── Workspace cleanup ──────────────────────────────────────
+            // Runs last, after artifacts are already archived above, so
+            // nothing needed by this build's own report/archive steps is
+            // lost — this only clears disk for the NEXT build (and the
+            // NVMe SSD's free space generally, given how much target/
+            // and .android-sdk/ accumulate per run on this box).
+            cleanWs(
+                    deleteDirs: true,
+                    notFailBuild: true
+            )
         }
 
         unstable {

@@ -17,11 +17,10 @@ import java.util.logging.Logger;
  * Mobile counterpart to core.driver.DriverFactory — same "one place creates
  * the driver" pattern, retargeted at Appium instead of a local/grid browser.
  *
- * THIS IS A SCAFFOLD, not a finished module: it compiles and follows this
- * framework's conventions (ConfigReader-driven config, single factory
- * method, capability building split out for readability), but it has not
- * been run against a real device/emulator or a real .apk/.ipa, since none
- * were available at the time this was added. Before first use:
+ * Verified end-to-end against a real Genymotion emulator (Android 15/API 35)
+ * and a real Samsung Galaxy S24 device — see the "Verified" section and the
+ * "Real Device Walkthrough" in mobile/README.md for the exact steps. Before
+ * pointing this at a different app:
  *
  *   1. Start an Appium server (npm install -g appium && appium), or point
  *      appium.server.url at a remote/cloud grid (BrowserStack, Sauce Labs,
@@ -110,6 +109,16 @@ public final class AppiumDriverFactory {
         String appPath = ConfigReader.get("mobile.app.path", "");
         if (!appPath.isEmpty()) {
             options.setApp(new File(appPath).getAbsolutePath());
+        } else {
+            // iOS/XCUITest has no package+activity equivalent to Android's
+            // already-installed-app targeting — mobile.app.path is the only
+            // way to point at an app here. Same reasoning as the Android
+            // branch above: warn plainly in our own log rather than letting
+            // this surface only as a confusing NoSuchElementError later.
+            logger.warning("[AppiumDriverFactory] No mobile.app.path set for iOS — the session "
+                + "will start with NO target app (landing on whatever screen the simulator/device "
+                + "is already on). Set mobile.app.path to a .ipa/.app in mobile.properties or via "
+                + "-D overrides if your test expects a specific app/screen.");
         }
 
         String platformVersion = ConfigReader.get("mobile.platform.version", "");

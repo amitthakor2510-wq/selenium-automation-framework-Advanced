@@ -20,6 +20,9 @@ public class ScreenshotUtil {
     }
 
     public static String captureScreenshot(WebDriver driver, String testName) {
+        if (driver == null) {
+            return null;
+        }
 
         String timestamp = LocalDateTime.now(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filePath = "target/screenshots/" + testName + "_" + timestamp + ".png";
@@ -35,6 +38,13 @@ public class ScreenshotUtil {
             logger.warning("IOException while saving file screenshot: " + e.getMessage());
             // Nothing was actually written — returning filePath here would give
             // callers (e.g. Allure attachments) a path to a file that doesn't exist.
+            return null;
+        } catch (Exception e) {
+            // A driver session that's already crashed/quit (e.g. WebDriverException,
+            // NoSuchSessionException) must not turn a genuine test failure into a
+            // secondary uncaught exception here — same defensive rule this class's
+            // other two capture methods (and FailureDiagnostics) already follow.
+            logger.warning("Could not capture file screenshot: " + e.getMessage());
             return null;
         }
 

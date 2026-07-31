@@ -28,6 +28,9 @@ demoqa-only accessibility/visual suite — plus Allure + Extent reporting.
 
 ### Pipeline stages
 ```
+Cleanup (Stale Processes) → kills any orphaned node/adb/qemu-system-x86_64 processes and
+                           stale AVD/adb *.lock files left behind by a crashed previous
+                           run, before checkout — best-effort, no-ops on a clean agent
 Checkout                → git checkout
 Build                    → mvn clean compile test-compile (fails fast on compile errors)
 Discover Site Projects   → globs testng-suites/*-<SUITE_TYPE>.xml to find browser sites;
@@ -36,9 +39,17 @@ Run Tests Per Site       → one parallel branch per discovered browser site
 Mobile Test              → only runs when a mobile-<SUITE_TYPE>.xml suite exists (or
                            SITE=mobile/ALL): installs the Android SDK, creates/boots an
                            AVD, installs Appium + the uiautomator2 driver, then runs the
-                           mobile suite against it
+                           mobile suite against it. ANDROID_ADB_SERVER_TIMEOUT=120 is set
+                           for this stage to tolerate a slower local emulator boot under
+                           resource contention (Jenkins + GitLab + Appium sharing one box)
 Nightly Extra Coverage   → demoqa accessibility + visual suites, only on the cron trigger
 ```
+
+Build history is capped to the last 10 builds (`buildDiscarder`). The
+`post { always { ... } }` block also runs `adb reconnect offline` (only
+when the Mobile Test stage ran) and `cleanWs()` after archiving
+artifacts, to keep adb's connection state and workspace disk usage from
+creeping up across many local runs.
 
 ### After build — where to look
 ```
@@ -154,5 +165,35 @@ GitLab Pages URL → /allure-report      (full merged Allure report, all sites +
 GitLab Pages URL → /extent-report      (Extent HTML report)
 GitLab Job → Browse Artifacts → target/extent-reports/, target/allure-results/
 ```
+
+---
+
+## 🖥️ Running Jenkins + a self-hosted GitLab + Appium/emulator on one local machine
+
+If Jenkins and GitLab are both self-hosted on the same box that also runs
+the Appium/emulator stack for mobile tests (rather than each on separate
+infrastructure), a Jenkins build triggered by a GitHub push can starve
+GitLab's own background processes of CPU/IO while it compiles and boots
+the emulator at the same time — this showed up as GitLab's pipeline UI
+throwing "unable to fetch pipeline jobs/data" errors specifically during
+overlapping Jenkins+emulator load, not as an actual pipeline config bug.
+Confirm this is what's happening by watching `sudo gitlab-ctl tail puma`
+and `sudo gitlab-ctl tail sidekiq` during a push.
+
+Fixes applied for this setup:
+- **`/etc/gitlab/gitlab.rb`**: capped `sidekiq['concurrency']` to 5,
+  `puma['worker_processes']` to 2, trimmed PostgreSQL/Redis memory
+  ceilings, and disabled the bundled Prometheus monitoring stack
+  (`prometheus_monitoring['enable'] = false`) — all overkill for a
+  single-user local instance. Apply with `sudo gitlab-ctl reconfigure &&
+  sudo gitlab-ctl restart` after editing. Only use setting names that
+  appear (even commented-out) in your own `gitlab.rb` — an unrecognized
+  key like a stale `grafana[...]` line makes `reconfigure` fail outright
+  with `Mixlib::Config::UnknownConfigOptionError` rather than being
+  silently ignored.
+- **`Jenkinsfile`**: added a `Cleanup (Stale Processes)` stage that runs
+  first, before checkout, killing any orphaned `node`/`adb`/
+  `qemu-system-x86_64` processes and stale AVD/adb lock files left by a
+  previous crashed run — see the Pipeline stages diagram above.
 
 ---

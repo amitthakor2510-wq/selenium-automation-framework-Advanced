@@ -1,4 +1,4 @@
-# Conventions Cheatsheet
+# 🧭 Conventions Cheatsheet
 
 Quick reference for this project's own conventions — for when you're back in
 this codebase after a few weeks away and don't want to re-derive everything
@@ -12,7 +12,17 @@ For a worked example of every convention below in actual code, see
 they compile and get Checkstyle-checked like anything else, but live in a
 package no suite XML matches, so they never actually run.
 
-## Starting a new site
+## 📋 Table of Contents
+- [Starting a New Site](#-starting-a-new-site)
+- [Writing a Page Object](#-writing-a-page-object)
+- [Writing a Test](#-writing-a-test)
+- [Logging](#-logging)
+- [Config](#️-config)
+- [Reports](#-reports)
+- [CI Pipelines](#-ci-pipelines)
+- [Before Committing](#-before-committing)
+
+## 🆕 Starting a New Site
 
 Don't hand-write the scaffolding — run:
 ```
@@ -22,7 +32,7 @@ It sets up all three testing styles (standard Page Object, keyword-driven,
 data-driven) at once. See [docs/extending.md](docs/extending.md) for what it
 generates and why all three exist.
 
-## Writing a Page Object
+## 📄 Writing a Page Object
 
 - Extend `BasePage`, call `super(driver)` and nothing else in the constructor.
 - Every locator is a `private final By` field at the top of the class —
@@ -43,7 +53,7 @@ generates and why all three exist.
 - Page objects return data/booleans — they never call `Assert.*`. Keeps them
   reusable across regression, smoke, and keyword-driven CSV steps.
 
-## Writing a Test
+## 🧪 Writing a Test
 
 - Extend `BaseTest`. Create your page object in `@BeforeMethod`, not as a
   field initializer — `getDriver()` isn't valid until `BaseTest.setUp()` has
@@ -56,7 +66,7 @@ generates and why all three exist.
 - Assertions use TestNG's `Assert`, not AssertJ/Hamcrest/etc. — nothing else
   is a dependency in this project.
 
-## Logging
+## 📝 Logging
 
 - Every class gets its own `private static final Logger logger =
   Logger.getLogger(<ClassName>.class.getName());` — copy-paste the class
@@ -65,7 +75,7 @@ generates and why all three exist.
   found and fixed across 19 files in this codebase.
 - **Never** `System.out.println` / `System.err.println`. Same 19-file bug.
 
-## Config
+## ⚙️ Config
 
 - Site-specific values live in `src/test/resources/config/<site>.properties`
   — copy `_TEMPLATE.properties.example` to start a new one, or let
@@ -74,7 +84,7 @@ generates and why all three exist.
   can override anything without touching a committed file.
 - Shared/global defaults live in `global.properties`.
 
-## Reports
+## 📊 Reports
 
 - Allure results write to `target/allure-results/` (per-site subdirectories
   in CI — see any `-Dallure.results.directory=...` override in the pipeline
@@ -82,7 +92,7 @@ generates and why all three exist.
 - See [docs/reports-and-quality.md](docs/reports-and-quality.md) for how
   each CI pipeline publishes these.
 
-## CI pipelines
+## 🔄 CI Pipelines
 
 Three pipelines (Jenkins, GitLab, GitHub Actions) all run the same suites —
 see [docs/ci-cd.md](docs/ci-cd.md) for specifics per platform. The short
@@ -91,7 +101,7 @@ version: every commit runs `demoqa` + `saucedemo` + `mobile` regression/smoke;
 every commit — they're slower and more flake-prone than the functional
 suites.
 
-## Before committing
+## ✅ Before Committing
 
 ```
 mvn clean compile

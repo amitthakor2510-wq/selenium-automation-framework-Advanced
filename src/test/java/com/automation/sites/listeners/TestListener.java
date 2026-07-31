@@ -50,7 +50,18 @@ import java.util.Arrays;
  */
 public class TestListener implements ITestListener, IInvokedMethodListener {
 
-    private static final ExtentReports extent = ExtentManager.getInstance();
+    // NOT cached in a static final field on purpose: ExtentManager.reset()
+    // (called from onFinish() below) clears ExtentManager's internal
+    // per-site map so a second site run in the same JVM gets a fresh
+    // ExtentReports instance. A static final field here would have grabbed
+    // the instance once at class-load time and kept writing to the first
+    // site's already-flushed report forever, silently defeating the whole
+    // point of ExtentManager.reset(). getInstance() is cheap (a
+    // ConcurrentHashMap lookup), so fetching it fresh each time costs nothing.
+    private static ExtentReports extent() {
+        return ExtentManager.getInstance();
+    }
+
     private static final ThreadLocal<ExtentTest> test = new ThreadLocal<>();
 
     // ── Helper: grab driver from test instance ───────────────────────────────
@@ -204,8 +215,8 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         String description = result.getMethod().getDescription();
 
         ExtentTest extentTest;
-        synchronized (extent) {
-            extentTest = extent.createTest(
+        synchronized (TestListener.class) {
+            extentTest = extent().createTest(
                 testName,
                 (description != null && !description.isEmpty()) ? description : ""
             );
@@ -287,7 +298,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
 
     @Override
     public void onFinish(ITestContext context) {
-        extent.flush();
+        extent().flush();
         // Reset the ExtentManager singleton after each suite finishes.
         // Without this, if two sites run sequentially in the same JVM (e.g. a
         // future single-mvn multi-site run), the second site inherits the first

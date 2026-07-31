@@ -1,16 +1,22 @@
-# Running the framework in Docker
+# 🐳 Running the Framework in Docker
 
 Two new files at the project root — `Dockerfile` and `docker-compose.yml` — let
 you run the whole suite against a disposable Selenium Grid instead of a
 locally installed browser. `.dockerignore` keeps the build context small.
 
-## What it spins up
+## 📋 Table of Contents
+- [What It Spins Up](#-what-it-spins-up)
+- [Quick Start](#-quick-start)
+- [How It Connects](#-how-it-connects-what-changed-in-the-framework-itself)
+- [Running Without Docker Compose](#-running-without-docker-compose-single-container-against-an-existing-grid)
+
+## 🧩 What It Spins Up
 - `selenium-hub` — the Grid router
 - `chrome`, `firefox`, `edge` — one node per browser (each exposes a noVNC
   viewer so you can watch a run live)
 - `tests` — builds this project and runs `mvn test` against the hub
 
-## Quick start
+## ⚡ Quick Start
 
 ```bash
 # 1. Start the grid (leave it running across multiple test runs)
@@ -38,7 +44,7 @@ Reports land back on the host under `target/allure-results`,
 `target/screenshots` via the volume mounts in `docker-compose.yml`, so
 `mvn allure:serve` still works locally after a containerized run.
 
-## How it connects (what changed in the framework itself)
+## 🔌 How It Connects (What Changed in the Framework Itself)
 - `DriverFactory.createDriver()` now checks `grid.enabled`. When true, it
   builds a `RemoteWebDriver` pointed at `grid.url` instead of launching a
   local browser binary — same `ChromeOptions`/`FirefoxOptions`/`EdgeOptions`
@@ -59,7 +65,7 @@ Reports land back on the host under `target/allure-results`,
   Grid — so the image stays small and browser versions upgrade independently
   by bumping the `selenium/node-*` image tags in `docker-compose.yml`.
 
-## Running without Docker Compose (single container against an existing grid)
+## 🧱 Running Without Docker Compose (Single Container Against an Existing Grid)
 ```bash
 docker build -t selenium-framework .
 docker run --rm \

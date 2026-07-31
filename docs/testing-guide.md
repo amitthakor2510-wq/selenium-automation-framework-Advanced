@@ -210,7 +210,7 @@ mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml
 
 Full setup guide, including remote/cloud grid config (BrowserStack, Sauce Labs): **[`src/main/java/com/automation/mobile/README.md`](../src/main/java/com/automation/mobile/README.md)**.
 
-> **Known gaps, stated plainly:** only one screen (`SettingsHomePage`) is covered so far; it's not wired into any of the three CI pipelines yet, since all three currently assume a browser rather than an emulator/device; and it hasn't been run against a live emulator in the environment that built it — verify locally before treating it as a baseline. See the [Roadmap](roadmap.md) for the full list.
+> **Known gaps, stated plainly:** only one screen (`SettingsHomePage`) is covered so far, and iOS (`IOSDriver`) hasn't been run against a real simulator/device — only the Android path is confirmed live. The Android path itself **is** wired into all three CI pipelines (Jenkins, GitHub Actions, GitLab CI each boot an emulator + Appium server and run the mobile suite) and has been verified end-to-end against a real emulator (Genymotion, Android 15/API 35). See [✅ Verified](../src/main/java/com/automation/mobile/README.md#-verified) in the mobile module's own README, and the [Roadmap](roadmap.md) for the full list of what's still open.
 
 ---
 

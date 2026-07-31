@@ -22,6 +22,9 @@ import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  * Single place responsible for creating a WebDriver instance.
@@ -253,6 +256,7 @@ public final class DriverFactory {
             java.nio.file.Path tempProfile =
                 java.nio.file.Files.createTempDirectory("selenium-profile-");
             options.addArguments("--user-data-dir=" + tempProfile.toAbsolutePath());
+            registerTempProfileCleanup(tempProfile);
         } catch (java.io.IOException e) {
             logger.warning("[DriverFactory] Could not create temp profile dir: "
                 + e.getMessage());
@@ -476,6 +480,48 @@ public final class DriverFactory {
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
+
+    // Every --user-data-dir temp profile created by buildChromeOptions() is
+    // tracked here so a single JVM shutdown hook can clean all of them up at
+    // once. Without this, each session's temp dir (created fresh per test to
+    // guarantee quit() can actually kill the browser — see the comment in
+    // buildChromeOptions()) was never deleted, leaking one directory per test
+    // run indefinitely. Deleting at JVM-exit time (not right after quit())
+    // avoids racing Chrome's own child process, which can still hold a lock
+    // on profile files for a moment after the WebDriver session reports closed.
+    private static final List<File> TEMP_PROFILE_DIRS =
+        Collections.synchronizedList(new ArrayList<>());
+    private static volatile boolean cleanupHookRegistered = false;
+
+    private static synchronized void registerTempProfileCleanup(java.nio.file.Path tempProfile) {
+        TEMP_PROFILE_DIRS.add(tempProfile.toFile());
+        if (!cleanupHookRegistered) {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                for (File dir : TEMP_PROFILE_DIRS) {
+                    deleteRecursively(dir);
+                }
+            }, "selenium-profile-cleanup"));
+            cleanupHookRegistered = true;
+        }
+    }
+
+    private static void deleteRecursively(File file) {
+        if (file == null || !file.exists()) {
+            return;
+        }
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                deleteRecursively(child);
+            }
+        }
+        if (!file.delete()) {
+            // Best-effort only — a lingering lock file or open handle here
+            // just means one leftover temp dir, not a build failure.
+            logger.fine("[DriverFactory] Could not delete temp profile file/dir: "
+                + file.getAbsolutePath());
+        }
+    }
 
     private static String getDownloadPath() {
         String path = System.getProperty("user.dir")
