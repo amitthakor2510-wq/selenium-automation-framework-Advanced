@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
@@ -39,7 +40,7 @@ public class YamlDataFileReader implements DataFileReader {
             Object loaded = yaml.load(is);
 
             if (!(loaded instanceof List)) {
-                throw new RuntimeException(
+                throw new DataFileException(
                     "[YamlDataFileReader] YAML root must be a list of rows: " + file.getName());
             }
 
@@ -60,7 +61,7 @@ public class YamlDataFileReader implements DataFileReader {
             logger.info("[YamlDataFileReader] Read " + rows.size() + " rows from YAML: " + file.getName());
 
         } catch (IOException e) {
-            throw new RuntimeException("[YamlDataFileReader] Failed to read YAML: " + file.getPath(), e);
+            throw new DataFileException("[YamlDataFileReader] Failed to read YAML: " + file.getPath(), e);
         }
 
         return rows;

@@ -2,6 +2,7 @@ package com.automation.core.keyword;
 
 import com.automation.core.data.DataProvider;
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.KeywordExecutionException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -45,7 +46,7 @@ public final class KeywordReader {
     public static List<KeywordStep> readTestCase(String filePath, String testCase) {
         List<KeywordStep> steps = readAll(filePath).get(testCase);
         if (steps == null) {
-            throw new RuntimeException("[KeywordReader] No rows found for testCase='"
+            throw new KeywordExecutionException("[KeywordReader] No rows found for testCase='"
                 + testCase + "' in " + filePath);
         }
         return steps;

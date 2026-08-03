@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 import com.opencsv.CSVReader;
 
 import java.io.File;
@@ -53,7 +54,7 @@ public class CsvDataFileReader implements DataFileReader {
             logger.info("[CsvDataFileReader] Read " + rows.size() + " rows from CSV: " + file.getName());
 
         } catch (Exception e) {
-            throw new RuntimeException("[CsvDataFileReader] Failed to read CSV: " + file.getPath(), e);
+            throw new DataFileException("[CsvDataFileReader] Failed to read CSV: " + file.getPath(), e);
         }
 
         return rows;

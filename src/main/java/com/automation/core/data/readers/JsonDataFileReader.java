@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -40,7 +41,7 @@ public class JsonDataFileReader implements DataFileReader {
             logger.info("[JsonDataFileReader] Read " + rows.size() + " rows from JSON: " + file.getName());
 
         } catch (IOException e) {
-            throw new RuntimeException("[JsonDataFileReader] Failed to read JSON: " + file.getPath(), e);
+            throw new DataFileException("[JsonDataFileReader] Failed to read JSON: " + file.getPath(), e);
         }
 
         return rows;

@@ -1,6 +1,7 @@
 package com.automation.core.keyword;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.KeywordExecutionException;
 
 /**
  * One row of a keyword-driven test script.
@@ -39,7 +40,7 @@ public class KeywordStep {
         try {
             return Integer.parseInt(raw.trim());
         } catch (NumberFormatException e) {
-            throw new RuntimeException("[KeywordStep] stepNo must be numeric, got: '" + raw
+            throw new KeywordExecutionException("[KeywordStep] stepNo must be numeric, got: '" + raw
                 + "' (row " + row.getRowIndex() + ")");
         }
     }

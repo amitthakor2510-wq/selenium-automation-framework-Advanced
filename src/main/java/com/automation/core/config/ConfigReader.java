@@ -1,5 +1,7 @@
 package com.automation.core.config;
 
+import com.automation.core.exceptions.ConfigException;
+
 import java.io.InputStream;
 import java.util.Properties;
 
@@ -63,14 +65,14 @@ public class ConfigReader {
         try (InputStream input = ConfigReader.class.getClassLoader().getResourceAsStream(path)) {
             if (input == null) {
                 if (required) {
-                    throw new RuntimeException("Required config file missing: " + path);
+                    throw new ConfigException("Required config file missing: " + path);
                 }
                 logger.info("[ConfigReader] Optional config not found: " + path);
                 return;
             }
             propertiesTL.get().load(input);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to load config file: " + path, e);
+        } catch (java.io.IOException e) {
+            throw new ConfigException("Failed to load config file: " + path, e);
         }
     }
 
@@ -86,7 +88,7 @@ public class ConfigReader {
         }
         String val = propertiesTL.get().getProperty(key);
         if (val == null) {
-            throw new RuntimeException("Missing config key: " + key);
+            throw new ConfigException("Missing config key: " + key);
         }
         return val;
     }

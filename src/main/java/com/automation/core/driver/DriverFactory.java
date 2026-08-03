@@ -3,6 +3,7 @@ package com.automation.core.driver;
 import java.util.logging.Logger;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.exceptions.DriverInitializationException;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebDriver;
@@ -64,7 +65,7 @@ public final class DriverFactory {
             case "brave":
                 return createBraveDriver(headless);
             default:
-                throw new RuntimeException("Browser not supported: " + browser
+                throw new DriverInitializationException("Browser not supported: " + browser
                     + ". Supported: chrome, firefox, edge, brave");
         }
     }
@@ -97,7 +98,7 @@ public final class DriverFactory {
                 options = edgeOptions;
                 break;
             default:
-                throw new RuntimeException("Browser not supported on grid: " + browser
+                throw new DriverInitializationException("Browser not supported on grid: " + browser
                     + ". Supported: chrome, firefox, edge, brave");
         }
 
@@ -126,7 +127,7 @@ public final class DriverFactory {
             remoteDriver.setFileDetector(new org.openqa.selenium.remote.LocalFileDetector());
             return remoteDriver;
         } catch (MalformedURLException e) {
-            throw new RuntimeException("[DriverFactory] Invalid grid.url: " + gridUrl, e);
+            throw new DriverInitializationException("[DriverFactory] Invalid grid.url: " + gridUrl, e);
         }
     }
 
@@ -157,7 +158,7 @@ public final class DriverFactory {
         // Locate Brave binary — check common install paths across OSes
         String braveBinary = findBraveBinary();
         if (braveBinary == null) {
-            throw new RuntimeException(
+            throw new DriverInitializationException(
                 "Brave browser binary not found. Install Brave or set -Dbrave.binary=/path/to/brave");
         }
 

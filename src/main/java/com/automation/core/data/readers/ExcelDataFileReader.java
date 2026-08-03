@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -45,7 +46,7 @@ public class ExcelDataFileReader implements DataFileReader {
                 : workbook.getSheetAt(0);
 
             if (sheet == null) {
-                throw new RuntimeException(
+                throw new DataFileException(
                     "[ExcelDataFileReader] Sheet '" + sheetName + "' not found in " + file.getName()
                         + ". Available sheets: " + getSheetNames(workbook)
                 );
@@ -82,7 +83,7 @@ public class ExcelDataFileReader implements DataFileReader {
                 + sheet.getSheetName() + "'");
 
         } catch (IOException e) {
-            throw new RuntimeException("[ExcelDataFileReader] Failed to read Excel: " + file.getPath(), e);
+            throw new DataFileException("[ExcelDataFileReader] Failed to read Excel: " + file.getPath(), e);
         }
 
         return rows;

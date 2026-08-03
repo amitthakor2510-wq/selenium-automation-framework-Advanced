@@ -1,5 +1,6 @@
 package com.automation.core.keyword;
 
+import com.automation.core.exceptions.KeywordExecutionException;
 import org.openqa.selenium.By;
 
 import java.io.IOException;
@@ -47,11 +48,11 @@ public class ObjectRepository {
         try (InputStream is = ObjectRepository.class.getClassLoader()
             .getResourceAsStream(classpathResource)) {
             if (is == null) {
-                throw new RuntimeException("[ObjectRepository] Not found on classpath: " + classpathResource);
+                throw new KeywordExecutionException("[ObjectRepository] Not found on classpath: " + classpathResource);
             }
             repo.locators.load(is);
         } catch (IOException e) {
-            throw new RuntimeException("[ObjectRepository] Failed to load: " + classpathResource, e);
+            throw new KeywordExecutionException("[ObjectRepository] Failed to load: " + classpathResource, e);
         }
         return repo;
     }
@@ -60,7 +61,7 @@ public class ObjectRepository {
     public By get(String key) {
         String raw = locators.getProperty(key);
         if (raw == null) {
-            throw new RuntimeException("[ObjectRepository] No locator for key '" + key
+            throw new KeywordExecutionException("[ObjectRepository] No locator for key '" + key
                 + "' in " + sourcePath + ". Known keys: " + locators.keySet());
         }
         return parse(key, raw.trim());
@@ -69,7 +70,7 @@ public class ObjectRepository {
     private static By parse(String key, String raw) {
         int sep = raw.indexOf(':');
         if (sep < 0) {
-            throw new RuntimeException("[ObjectRepository] Locator for '" + key
+            throw new KeywordExecutionException("[ObjectRepository] Locator for '" + key
                 + "' must be in 'type:value' form, got: '" + raw + "'");
         }
         String type = raw.substring(0, sep).trim().toLowerCase();
@@ -85,7 +86,7 @@ public class ObjectRepository {
             case "partiallinktext": return By.partialLinkText(value);
             case "tag": return By.tagName(value);
             default:
-                throw new RuntimeException("[ObjectRepository] Unknown locator type '" + type
+                throw new KeywordExecutionException("[ObjectRepository] Unknown locator type '" + type
                     + "' for key '" + key + "'. Supported: id, name, css, xpath, class, "
                     + "linktext, partiallinktext, tag");
         }

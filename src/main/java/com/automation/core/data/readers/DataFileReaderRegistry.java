@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 
 import java.io.File;
 import java.util.List;
@@ -55,7 +56,7 @@ public final class DataFileReaderRegistry {
         } else if (name.endsWith(".zip")) {
             return zipReader.read(file);
         } else {
-            throw new RuntimeException(
+            throw new DataFileException(
                 "[DataFileReaderRegistry] Unsupported file type: " + name
                     + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
             );

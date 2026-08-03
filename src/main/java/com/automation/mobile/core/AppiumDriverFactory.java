@@ -1,6 +1,7 @@
 package com.automation.mobile.core;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.exceptions.DriverInitializationException;
 import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.android.options.UiAutomator2Options;
 import io.appium.java_client.ios.IOSDriver;
@@ -49,7 +50,7 @@ public final class AppiumDriverFactory {
         return switch (platform) {
             case "android" -> createAndroidDriver(serverUrl);
             case "ios" -> createIosDriver(serverUrl);
-            default -> throw new RuntimeException("[AppiumDriverFactory] mobile.platform not supported: "
+            default -> throw new DriverInitializationException("[AppiumDriverFactory] mobile.platform not supported: "
                 + platform + ". Supported: android, ios");
         };
     }
@@ -136,7 +137,7 @@ public final class AppiumDriverFactory {
         try {
             return URI.create(serverUrl).toURL();
         } catch (Exception e) {
-            throw new RuntimeException("[AppiumDriverFactory] Invalid appium.server.url: " + serverUrl, e);
+            throw new DriverInitializationException("[AppiumDriverFactory] Invalid appium.server.url: " + serverUrl, e);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.automation.core.data;
 
+import com.automation.core.exceptions.DataFileException;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -42,7 +44,7 @@ public class DataRow {
     public String getRequired(String columnName) {
         String value = get(columnName);
         if (value.isEmpty()) {
-            throw new RuntimeException(
+            throw new DataFileException(
                 "Required column '" + columnName + "' is missing or empty in row " + rowIndex
                     + ". Available columns: " + data.keySet()
             );

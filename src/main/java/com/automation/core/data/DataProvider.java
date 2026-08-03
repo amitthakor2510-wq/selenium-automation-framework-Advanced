@@ -2,6 +2,7 @@ package com.automation.core.data;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.data.readers.DataFileReaderRegistry;
+import com.automation.core.exceptions.DataFileException;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -238,7 +239,7 @@ public class DataProvider {
             // fall through to "not found" below
         }
 
-        throw new RuntimeException(
+        throw new DataFileException(
             "[DataProvider] File not found: " + filePath
                 + "\nTried: absolute path, project-relative, and classpath."
         );

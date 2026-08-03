@@ -1,6 +1,7 @@
 package com.automation.core.keyword;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.exceptions.KeywordExecutionException;
 import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -58,7 +59,7 @@ public class KeywordEngine {
             } catch (AssertionError e) {
                 throw e; // verification failures already carry a clear message
             } catch (Exception e) {
-                throw new RuntimeException("[KeywordEngine] Step failed: " + step, e);
+                throw new KeywordExecutionException("[KeywordEngine] Step failed: " + step, e);
             }
         }
     }
@@ -87,7 +88,7 @@ public class KeywordEngine {
             case DISMISS_ALERT -> driver.switchTo().alert().dismiss();
             case SCREENSHOT -> ScreenshotUtil.captureScreenshot(driver,
                 step.getTestData().isEmpty() ? step.getTestCase() + "_step" + step.getStepNo() : step.getTestData());
-            default -> throw new RuntimeException("[KeywordEngine] Unhandled keyword: " + step.getKeyword());
+            default -> throw new KeywordExecutionException("[KeywordEngine] Unhandled keyword: " + step.getKeyword());
         }
     }
 
@@ -125,7 +126,7 @@ public class KeywordEngine {
             double seconds = Double.parseDouble(secondsRaw.trim());
             Thread.sleep((long) (seconds * 1000));
         } catch (NumberFormatException e) {
-            throw new RuntimeException("[KeywordEngine] WAIT_SECONDS testData must be numeric, got: '" + secondsRaw + "'");
+            throw new KeywordExecutionException("[KeywordEngine] WAIT_SECONDS testData must be numeric, got: '" + secondsRaw + "'");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -150,7 +151,7 @@ public class KeywordEngine {
         try {
             return Keys.valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("[KeywordEngine] Unknown key: '" + raw
+            throw new KeywordExecutionException("[KeywordEngine] Unknown key: '" + raw
                 + "'. Use a org.openqa.selenium.Keys name, e.g. ENTER, TAB, ESCAPE, ARROW_DOWN, SPACE");
         }
     }
@@ -192,7 +193,7 @@ public class KeywordEngine {
 
     private By locator(KeywordStep step) {
         if (step.getLocatorKey().isEmpty()) {
-            throw new RuntimeException("[KeywordEngine] " + step.getKeyword()
+            throw new KeywordExecutionException("[KeywordEngine] " + step.getKeyword()
                 + " requires a locatorKey (step " + step.getStepNo() + " of " + step.getTestCase() + ")");
         }
         return repo.get(step.getLocatorKey());

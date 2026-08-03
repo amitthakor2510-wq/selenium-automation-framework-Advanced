@@ -1,7 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
-
+import com.automation.core.exceptions.DataFileException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -73,7 +73,7 @@ public class ZipDataFileReader implements DataFileReader {
             }
 
         } catch (IOException e) {
-            throw new RuntimeException("[ZipDataFileReader] Failed to read ZIP: " + zipFile.getPath(), e);
+            throw new DataFileException("[ZipDataFileReader] Failed to read ZIP: " + zipFile.getPath(), e);
         }
 
         logger.info("[ZipDataFileReader] Total rows read from ZIP: " + allRows.size());
