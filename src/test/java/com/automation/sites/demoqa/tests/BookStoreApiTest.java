@@ -2,8 +2,8 @@ package com.automation.sites.demoqa.tests;
 
 import java.util.logging.Logger;
 
-import com.automation.core.config.ConfigReader;
-import io.restassured.RestAssured;
+import com.automation.core.api.ApiClient;
+import com.automation.sites.core.BaseApiTest;
 import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.*;
@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 /**
@@ -34,8 +33,12 @@ import static org.hamcrest.Matchers.*;
  *  Test 9  → DELETE /Account/v1/User/{UUID}   — delete the account (cleanup)
  *
  * No browser is used — this is pure HTTP, independent of the Selenium tests.
+ *
+ * Extends BaseApiTest, which wires ConfigReader + ApiClient (base URI,
+ * request/response logging) in one @BeforeClass instead of each API test
+ * class repeating that setup.
  */
-public class BookStoreApiTest {
+public class BookStoreApiTest extends BaseApiTest {
 
     private static final Logger logger = Logger.getLogger(BookStoreApiTest.class.getName());
 
@@ -47,10 +50,11 @@ public class BookStoreApiTest {
     private static String authToken;
     private static String sampleIsbn;
 
+    // BaseApiTest's setUpApiClient() @BeforeClass runs before this one —
+    // TestNG always runs superclass configuration methods before the
+    // subclass's own of the same type, no explicit ordering needed.
     @BeforeClass(alwaysRun = true)
-    public void setBaseUri() {
-        ConfigReader.reset();
-        RestAssured.baseURI = ConfigReader.get("url"); // https://demoqa.com
+    public void logTestStart() {
         logger.info("=== Book Store API Test Started — user: " + API_USERNAME + " ===");
     }
 
@@ -61,8 +65,7 @@ public class BookStoreApiTest {
     @Test(priority = 1, groups = {"smoke", "regression", "api"},
         description = "API - Create a new account returns userId + username")
     public void createAccount_ShouldReturnUserIdAndUsername() {
-        Response response = given()
-            .contentType("application/json")
+        Response response = ApiClient.jsonRequest()
             .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
             .when()
             .post("/Account/v1/User")
@@ -84,8 +87,7 @@ public class BookStoreApiTest {
         description = "API - Generate an auth token for the new account",
         dependsOnMethods = "createAccount_ShouldReturnUserIdAndUsername")
     public void generateToken_ShouldReturnValidToken() {
-        Response response = given()
-            .contentType("application/json")
+        Response response = ApiClient.jsonRequest()
             .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
             .when()
             .post("/Account/v1/GenerateToken")
@@ -107,8 +109,7 @@ public class BookStoreApiTest {
         description = "API - Authorized endpoint confirms valid credentials",
         dependsOnMethods = "generateToken_ShouldReturnValidToken")
     public void isAuthorized_ShouldReturnTrueForValidCredentials() {
-        given()
-            .contentType("application/json")
+        ApiClient.jsonRequest()
             .body(Map.of("userName", API_USERNAME, "password", API_PASSWORD))
             .when()
             .post("/Account/v1/Authorized")
@@ -126,7 +127,7 @@ public class BookStoreApiTest {
     @Test(priority = 4, groups = {"smoke", "regression", "api"},
         description = "API - Book catalogue is non-empty; capture an ISBN for later tests")
     public void getBooksList_ShouldReturnNonEmptyCatalogue() {
-        Response response = given()
+        Response response = ApiClient.request()
             .when()
             .get("/BookStore/v1/Books")
             .then()
@@ -147,7 +148,7 @@ public class BookStoreApiTest {
         description = "API - Fetch a single book by ISBN returns matching data",
         dependsOnMethods = "getBooksList_ShouldReturnNonEmptyCatalogue")
     public void getBookByIsbn_ShouldReturnMatchingBook() {
-        given()
+        ApiClient.request()
             .queryParam("ISBN", sampleIsbn)
             .when()
             .get("/BookStore/v1/Book")
@@ -167,9 +168,7 @@ public class BookStoreApiTest {
         description = "API - Add the sample book to the account's collection",
         dependsOnMethods = {"generateToken_ShouldReturnValidToken", "getBookByIsbn_ShouldReturnMatchingBook"})
     public void addBookToUserCollection_ShouldSucceed() {
-        given()
-            .contentType("application/json")
-            .header("Authorization", "Bearer " + authToken)
+        ApiClient.authorizedRequest(authToken)
             .body(Map.of(
                 "userId", userId,
                 "collectionOfIsbns", List.of(Map.of("isbn", sampleIsbn))
@@ -191,8 +190,7 @@ public class BookStoreApiTest {
         description = "API - User detail endpoint lists the added book",
         dependsOnMethods = "addBookToUserCollection_ShouldSucceed")
     public void getUserDetails_ShouldIncludeAddedBook() {
-        given()
-            .header("Authorization", "Bearer " + authToken)
+        ApiClient.authorizedRequest(authToken)
             .when()
             .get("/Account/v1/User/" + userId)
             .then()
@@ -211,9 +209,7 @@ public class BookStoreApiTest {
         description = "API - Delete the book from the account's collection",
         dependsOnMethods = "getUserDetails_ShouldIncludeAddedBook")
     public void deleteBookFromCollection_ShouldSucceed() {
-        given()
-            .contentType("application/json")
-            .header("Authorization", "Bearer " + authToken)
+        ApiClient.authorizedRequest(authToken)
             .body(Map.of("isbn", sampleIsbn, "userId", userId))
             .when()
             .delete("/BookStore/v1/Book")
@@ -228,8 +224,7 @@ public class BookStoreApiTest {
         List<String> remainingIsbns = List.of();
         boolean removed = false;
         for (int attempt = 1; attempt <= 3 && !removed; attempt++) {
-            remainingIsbns = given()
-                .header("Authorization", "Bearer " + authToken)
+            remainingIsbns = ApiClient.authorizedRequest(authToken)
                 .when()
                 .get("/Account/v1/User/" + userId)
                 .then()
@@ -259,8 +254,7 @@ public class BookStoreApiTest {
         description = "API - Delete the account used by this test class",
         dependsOnMethods = "deleteBookFromCollection_ShouldSucceed", alwaysRun = true)
     public void deleteUserAccount_ShouldCleanUp() {
-        given()
-            .header("Authorization", "Bearer " + authToken)
+        ApiClient.authorizedRequest(authToken)
             .when()
             .delete("/Account/v1/User/" + userId)
             .then()

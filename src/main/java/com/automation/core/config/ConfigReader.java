@@ -11,33 +11,52 @@ import java.util.Properties;
  *   3. -Dkey=value JVM system properties - run-time overrides (Jenkins/CLI)
  *
  * The active site is chosen with -Dsite=<siteName> (defaults to "demoqa").
+ *
+ * State is held per-thread (ThreadLocal), not as shared statics. Previously
+ * a single shared Properties object meant one thread calling reset() (e.g.
+ * in an @AfterMethod) could wipe config out from under another thread still
+ * mid-test in TestNG parallel="methods"/"classes" runs — a real race
+ * condition. Each thread now owns its own config lifecycle independently.
+ *
+ * Note: -Dsite is still a single JVM-wide system property, so it can't
+ * differ per thread on its own. If per-thread site selection is ever
+ * needed (e.g. demoqa and saucedemo suites in the same parallel run), add
+ * a setActiveSite(String) that writes to activeSiteTL directly instead of
+ * reading System.getProperty("site").
  */
 public class ConfigReader {
 
-    private static final Properties properties = new Properties();
-    private static volatile boolean initialized = false;
-    private static String activeSite;
+    private static final ThreadLocal<Properties> propertiesTL =
+        ThreadLocal.withInitial(Properties::new);
+    private static final ThreadLocal<Boolean> initializedTL =
+        ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<String> activeSiteTL = new ThreadLocal<>();
     private static final java.util.logging.Logger logger =
         java.util.logging.Logger.getLogger(ConfigReader.class.getName());
 
     private ConfigReader() {
     }
 
-    public static synchronized void init() {
-        if (initialized) {
+    public static void init() {
+        if (initializedTL.get()) {
             return;
         }
 
-        activeSite = System.getProperty("site", "demoqa");
+        String site = System.getProperty("site", "demoqa");
+        activeSiteTL.set(site);
         loadFromClasspath("config/global.properties", true);
-        loadFromClasspath("config/" + activeSite + ".properties", false);
-        initialized = true;
+        loadFromClasspath("config/" + site + ".properties", false);
+        initializedTL.set(true);
     }
 
-    public static synchronized void reset() {
-        properties.clear();
-        initialized = false;
-        activeSite = null;
+    /**
+     * Clears this thread's config state only. Safe to call from any test
+     * thread without affecting config already loaded on other threads.
+     */
+    public static void reset() {
+        propertiesTL.get().clear();
+        initializedTL.set(false);
+        activeSiteTL.remove();
     }
 
     private static void loadFromClasspath(String path, boolean required) {
@@ -49,7 +68,7 @@ public class ConfigReader {
                 logger.info("[ConfigReader] Optional config not found: " + path);
                 return;
             }
-            properties.load(input);
+            propertiesTL.get().load(input);
         } catch (Exception e) {
             throw new RuntimeException("Failed to load config file: " + path, e);
         }
@@ -59,13 +78,13 @@ public class ConfigReader {
      * Resolve a key: system property wins, then properties file, then throws.
      * Use this only when the key is guaranteed to exist (e.g. "url").
      */
-    public static synchronized String get(String key) {
+    public static String get(String key) {
         init();
         String sys = System.getProperty(key);
         if (sys != null && !sys.isEmpty()) {
             return sys;
         }
-        String val = properties.getProperty(key);
+        String val = propertiesTL.get().getProperty(key);
         if (val == null) {
             throw new RuntimeException("Missing config key: " + key);
         }
@@ -77,13 +96,13 @@ public class ConfigReader {
      * System property wins → properties file → defaultValue.
      * Never throws.
      */
-    public static synchronized String get(String key, String defaultValue) {
+    public static String get(String key, String defaultValue) {
         init();
         String sys = System.getProperty(key);
         if (sys != null && !sys.isEmpty()) {
             return sys;
         }
-        return properties.getProperty(key, defaultValue);
+        return propertiesTL.get().getProperty(key, defaultValue);
     }
 
     /**
@@ -107,8 +126,8 @@ public class ConfigReader {
         return Boolean.parseBoolean(value.trim());
     }
 
-    public static synchronized String getActiveSite() {
+    public static String getActiveSite() {
         init();
-        return activeSite;
+        return activeSiteTL.get();
     }
 }
