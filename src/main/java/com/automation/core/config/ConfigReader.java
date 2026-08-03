@@ -13,6 +13,11 @@ import java.util.Properties;
  *   3. -Dkey=value JVM system properties - run-time overrides (Jenkins/CLI)
  *
  * The active site is chosen with -Dsite=<siteName> (defaults to "demoqa").
+ * Before any config is loaded, SiteRegistry.validate(site) checks the site
+ * is registered and has every resource it requires (config file, and an
+ * object repository if it runs keyword-driven tests) — so a missing piece
+ * fails immediately with a specific message instead of surfacing later as
+ * a confusing NPE deep in a page object or the keyword engine.
  *
  * State is held per-thread (ThreadLocal), not as shared statics. Previously
  * a single shared Properties object meant one thread calling reset() (e.g.
@@ -46,6 +51,7 @@ public class ConfigReader {
 
         String site = System.getProperty("site", "demoqa");
         activeSiteTL.set(site);
+        SiteRegistry.validate(site);
         loadFromClasspath("config/global.properties", true);
         loadFromClasspath("config/" + site + ".properties", false);
         initializedTL.set(true);
