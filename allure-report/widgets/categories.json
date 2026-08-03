@@ -1,1 +1,1 @@
-{"total":0,"items":[]}
+{"total":2,"items":[{"uid":"f04fae71971c7832d162f03fd286e673","name":"Driver / infrastructure issues","statistic":{"failed":0,"broken":34,"skipped":0,"passed":0,"unknown":0,"total":34}},{"uid":"49b37d27438f09fcc4cc1dd7f9b2d2c7","name":"Ignored / skipped","statistic":{"failed":0,"broken":0,"skipped":130,"passed":0,"unknown":0,"total":130}}]}
