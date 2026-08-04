@@ -49,7 +49,7 @@
     <grid.url>http://localhost:4444/wd/hub</grid.url>
 
     <!-- Allure + AspectJ versions -->
-    <allure.version>2.27.0</allure.version>
+    <allure.version>2.35.4</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
 
     <!-- Lombok — pinned explicitly (previously undeclared even though
@@ -250,7 +250,7 @@
         <plugin>
           <groupId>io.qameta.allure</groupId>
           <artifactId>allure-maven</artifactId>
-          <version>2.12.0</version>
+          <version>3.0.3</version>
           <configuration>
             <reportVersion>${allure.version}</reportVersion>
             <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
@@ -364,7 +364,7 @@
       <plugin>
         <groupId>io.qameta.allure</groupId>
         <artifactId>allure-maven</artifactId>
-        <version>2.12.0</version>
+        <version>3.0.3</version>
         <configuration>
           <reportVersion>${allure.version}</reportVersion>
           <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
