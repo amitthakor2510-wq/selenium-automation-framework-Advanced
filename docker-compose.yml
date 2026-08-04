@@ -7,6 +7,17 @@
 #   docker compose run --rm -e BROWSER=firefox -e SITE=saucedemo -e SUITE=testng-suites/saucedemo-regression.xml tests
 #   open http://localhost:4444/ui to watch the grid / live VNC view per node
 #   docker compose down -v                                  # tear everything down
+#
+# SCALABILITY: SE_NODE_MAX_SESSIONS=3 (below, per node) matches
+# testng-suites/*.xml's parallel="classes" thread-count="3" — the tests
+# container can now actually run 3 concurrent WebDriver sessions against a
+# given browser node instead of the 4th+ (there is no 4th here, but a future
+# thread-count bump) queuing behind SE_NODE_MAX_SESSIONS=2. shm_size is
+# bumped to 3gb per node (was 2gb) to give each of those concurrent
+# browser processes its own /dev/shm headroom. Raise all three together
+# (testng-suites thread-count, SE_NODE_MAX_SESSIONS, shm_size) if you
+# increase parallelism further — and make sure the host actually has the
+# RAM/CPU for that many concurrent full browser processes.
 # =============================================================================
 
 services:
@@ -27,7 +38,7 @@ services:
   chrome:
     image: selenium/node-chrome:4.21.0
     container_name: selenium-chrome
-    shm_size: 2gb
+    shm_size: 3gb
     depends_on:
       selenium-hub:
         condition: service_healthy
@@ -35,14 +46,14 @@ services:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_MAX_SESSIONS=3
     ports:
       - "7900:7900"   # noVNC — watch the browser live at http://localhost:7900 (pwd: secret)
 
   firefox:
     image: selenium/node-firefox:4.21.0
     container_name: selenium-firefox
-    shm_size: 2gb
+    shm_size: 3gb
     depends_on:
       selenium-hub:
         condition: service_healthy
@@ -50,14 +61,14 @@ services:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_MAX_SESSIONS=3
     ports:
       - "7901:7900"
 
   edge:
     image: selenium/node-edge:4.21.0
     container_name: selenium-edge
-    shm_size: 2gb
+    shm_size: 3gb
     depends_on:
       selenium-hub:
         condition: service_healthy
@@ -65,7 +76,7 @@ services:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
+      - SE_NODE_MAX_SESSIONS=3
     ports:
       - "7902:7900"
 

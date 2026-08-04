@@ -1,5 +1,21 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="SauceDemo Smoke Suite" parallel="none">
+<!-- PARALLEL EXECUTION: classes (not methods) + thread-count=3.
+     The framework's shared state (ConfigReader, driver in BaseTest,
+     ExtentManager, LocatorRepository) is all ThreadLocal/ConcurrentHashMap-backed
+     and safe for concurrent classes. "methods" is deliberately NOT used:
+     some test classes (e.g. BookStoreApplicationTest) keep page-object
+     references in plain instance fields set up once and reused across
+     that class's own @Test methods — TestNG normally shares ONE instance
+     of a class across its methods, so running those methods concurrently
+     on the same instance would race on those fields. "classes" gives each
+     test class its own thread (and therefore its own driver, via
+     BaseTest's ThreadLocal<WebDriver>) while keeping methods within a
+     class sequential, which is safe with today's code as-is.
+     thread-count=3 matches docker-compose.yml's SE_NODE_MAX_SESSIONS=3
+     and pom.xml's surefire -Xmx2048m — raise all three together if you
+     increase this. Override per-run with -Dtestng.thread-count=N if
+     needed (or edit thread-count directly). -->
+<suite name="SauceDemo Smoke Suite" parallel="classes" thread-count="3">
 
   <!-- RetryListener is an IAnnotationTransformer — must be registered here
        (or via ServiceLoader), not via @Listeners on a test class, or it

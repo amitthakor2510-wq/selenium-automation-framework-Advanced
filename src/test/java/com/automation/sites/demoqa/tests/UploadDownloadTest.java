@@ -2,6 +2,7 @@ package com.automation.sites.demoqa.tests;
 
 import java.util.logging.Logger;
 
+import com.automation.core.driver.DriverFactory;
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.UploadDownloadPage;
 import org.testng.Assert;
@@ -57,16 +58,17 @@ public class UploadDownloadTest extends BaseTest {
         }
 
         // ── Download folder ────────────────────────────────────────────────
-        downloadFolderPath = System.getProperty("user.dir")
-            + "/target/downloads";
-        File downloadDir = new File(downloadFolderPath);
-
-        boolean dirCreated = downloadDir.mkdirs();
-        if (!dirCreated && !downloadDir.exists()) {
-            throw new RuntimeException(
-                "Could not create download directory: " + downloadFolderPath
-            );
-        }
+        // SCALABILITY: must be the exact same per-thread-isolated path
+        // DriverFactory configured THIS thread's browser to actually save
+        // downloads into (see DriverFactory.getDownloadPath()'s javadoc) —
+        // previously this recomputed "target/downloads" independently,
+        // which happened to match by coincidence when nothing ran in
+        // parallel, but would silently point at the wrong (shared, and now
+        // no longer used by the browser) directory now that sessions each
+        // get their own thread-<id> subfolder under parallel="classes".
+        // Calling the same method DriverFactory itself uses guarantees this
+        // can't drift out of sync with what the browser was actually told.
+        downloadFolderPath = DriverFactory.getDownloadPath();
 
         logger.info("[UploadDownloadTest] Upload path : " + uploadFilePath);
         logger.info("[UploadDownloadTest] Download dir: " + downloadFolderPath);

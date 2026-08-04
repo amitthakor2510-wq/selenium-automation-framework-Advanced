@@ -589,10 +589,38 @@ public final class DriverFactory {
         }
     }
 
-    private static String getDownloadPath() {
+    /**
+     * SCALABILITY: isolated per-thread download directory.
+     * <p>
+     * Previously this returned the single shared path {@code target/downloads}
+     * for every session — harmless back when suites only ever ran
+     * parallel="none", but now that testng-suites/*.xml run
+     * parallel="classes" thread-count="3" (multiple concurrent browser
+     * sessions, one per thread), every one of those sessions was still being
+     * told to save downloads into the exact same folder. Two classes that
+     * happen to download a file with the same name at the same time (today:
+     * only {@code UploadDownloadTest} downloads anything, but that stops
+     * being true the moment a second download test is added, or this class
+     * is copied for another site) would race on that shared file, and a
+     * stale leftover from one thread's earlier run could make another
+     * thread's freshly-started download check pass before its own file
+     * actually landed. Same class of problem — and same fix — as the
+     * per-session {@code --user-data-dir} temp profile isolation above:
+     * give each thread (i.e. each concurrent WebDriver session) its own
+     * subdirectory instead of sharing one.
+     * <p>
+     * Public (not private) so callers that need to know where THIS
+     * thread's browser is actually configured to download to — e.g.
+     * {@code UploadDownloadTest} asserting a download landed — can call the
+     * exact same method DriverFactory itself uses when building browser
+     * options, instead of recomputing the path a second time and risking
+     * the two copies drifting apart.
+     */
+    public static String getDownloadPath() {
         String path = System.getProperty("user.dir")
             + File.separator + "target"
-            + File.separator + "downloads";
+            + File.separator + "downloads"
+            + File.separator + "thread-" + Thread.currentThread().getId();
         new File(path).mkdirs();
         return path;
     }

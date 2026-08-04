@@ -327,9 +327,25 @@
             "-javaagent:${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"
             "-Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties"
             -Xms256m
-            -Xmx1024m
+            -Xmx2048m
             -XX:+UseG1GC
           </argLine>
+          <!-- SCALABILITY: TestNG's own suite-level parallel="classes"
+               thread-count="3" (see testng-suites/*.xml) runs inside this
+               ONE forked JVM — Surefire itself still only forks 1 process
+               (the default), which is correct here: TestNG manages its own
+               thread pool for the classes/methods in a <suite>, so a
+               second layer of Surefire-level forking/threadCount would just
+               add JVM startup overhead without adding real concurrency.
+               What DOES need to grow for 3 concurrent WebDriver sessions in
+               one JVM is heap (bumped to -Xmx2048m above, from 1024m) — each
+               session carries its own Selenium client-side buffers, log
+               entries (goog:loggingPrefs captures full browser console
+               logs per session), and Allure/Extent reporting state. Raise
+               this together with testng-suites' thread-count and
+               docker-compose.yml's SE_NODE_MAX_SESSIONS if you increase
+               parallelism further. -->
+          <parallel>none</parallel>
           <environmentVariables>
             <MOZ_DISABLE_CONTENT_SANDBOX>1</MOZ_DISABLE_CONTENT_SANDBOX>
           </environmentVariables>
