@@ -3,12 +3,12 @@ launch_status_broken 34
 launch_status_passed 9
 launch_status_skipped 130
 launch_status_unknown 1
-launch_time_duration 42780
+launch_time_duration 39972
 launch_time_min_duration 0
-launch_time_max_duration 6017
-launch_time_sum_duration 16722
-launch_time_start 1785824044701
-launch_time_stop 1785824087481
+launch_time_max_duration 4974
+launch_time_sum_duration 15124
+launch_time_start 1785824047268
+launch_time_stop 1785824087240
 launch_problems_driver_/_infrastructure_issues 34
 launch_problems_ignored_/_skipped 130
 launch_retries_retries 81
