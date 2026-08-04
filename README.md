@@ -47,7 +47,7 @@
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
-| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locator fallback (`SmartLocator`) |
+| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locators (`SelfHealingEngine` — automatic DOM-similarity recovery on every page object, `SmartLocator` for explicit hand-picked fallbacks) |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
 | 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is, including a dedicated mobile/Appium job in each) |
 
@@ -177,13 +177,17 @@ selenium-automation-framework/
     │   │   ├── report/
     │   │   │   ├── ExtentManager.java           # Creates HTML report (singleton)
     │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json
-    │   │   └── utils/
-    │   │       ├── HumanActions.java            # Human-like delays on every action
-    │   │       ├── ScreenshotUtil.java           # Captures screenshots on pass/failure
-    │   │       ├── FailureDiagnostics.java       # Page-source + browser console dump on failure
-    │   │       ├── SmartLocator.java             # Tries a primary locator, falls back to alternates (self-healing)
-    │   │       ├── AccessibilityUtils.java       # axe-core wrapper — WCAG/GIGW-adjacent scanning
-    │   │       └── VisualRegressionUtils.java    # AShot wrapper — baseline capture + pixel-diff
+    │   │   ├── utils/
+    │   │   │   ├── HumanActions.java            # Human-like delays on every action
+    │   │   │   ├── ScreenshotUtil.java           # Captures screenshots on pass/failure
+    │   │   │   ├── FailureDiagnostics.java       # Page-source + browser console dump on failure
+    │   │   │   ├── SmartLocator.java             # Tries a primary locator, falls back to alternates
+    │   │   │   ├── AccessibilityUtils.java       # axe-core wrapper — WCAG/GIGW-adjacent scanning
+    │   │   │   └── VisualRegressionUtils.java    # AShot wrapper — baseline capture + pixel-diff
+    │   │   └── selfhealing/                      # Automatic self-healing locators (see docs/architecture.md)
+    │   │       ├── SelfHealingEngine.java        # Auto re-finds a broken locator by DOM similarity
+    │   │       ├── LocatorRepository.java        # Persists known-good element fingerprints across runs
+    │   │       └── ElementFingerprint.java / HealingEvent.java / SelfHealingReportWriter.java
     │   │
     │   ├── sites/                       # SITE-SPECIFIC Page Objects only
     │   │   ├── demoqa/pages/            # 32 Page Objects — Elements, Forms, Widgets, Interactions, Book Store
@@ -257,7 +261,7 @@ flowchart LR
         DRV["DriverFactory"]
         KW["Keyword Engine"]
         DATA["DataProvider"]
-        UTIL["Screenshot · SmartLocator<br/>Accessibility · Visual"]
+        UTIL["Screenshot · SmartLocator<br/>SelfHealingEngine<br/>Accessibility · Visual"]
         CFG ~~~ DRV ~~~ KW ~~~ DATA ~~~ UTIL
     end
 

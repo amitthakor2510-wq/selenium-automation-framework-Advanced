@@ -1,6 +1,7 @@
 package com.automation.core.base;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.selfhealing.SelfHealingEngine;
 import com.automation.core.utils.ElementUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -56,12 +57,20 @@ public abstract class BasePage {
         scrollAndJsClick(el);
     }
 
+    /**
+     * Routed through SelfHealingEngine: if {@code locator} no longer matches
+     * anything (the page's markup drifted since this Page Object was
+     * written), the engine re-finds the element by similarity against the
+     * fingerprint captured the last time this exact locator succeeded,
+     * rather than failing the test outright. See SelfHealingEngine's class
+     * doc for the full mechanics; self-healing.enabled=false disables it.
+     */
     protected WebElement waitVisible(By locator) {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        return SelfHealingEngine.find(driver, wait, locator);
     }
 
     protected WebElement waitClickable(By locator) {
-        return wait.until(ExpectedConditions.elementToBeClickable(locator));
+        return SelfHealingEngine.findClickable(driver, wait, locator);
     }
 
     protected String getText(By locator) {

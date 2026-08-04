@@ -1,11 +1,11 @@
 package com.automation.core.utils;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.selfhealing.SelfHealingEngine;
 import io.qameta.allure.Step;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
@@ -112,9 +112,16 @@ public final class HumanActions {
         }
     }
 
+    /**
+     * Routed through SelfHealingEngine (instead of a bare
+     * wait.until(ExpectedConditions.elementToBeClickable(...))) so that the
+     * two most-used interaction methods in the whole framework — click()
+     * and type() — automatically recover when a page's markup drifts,
+     * rather than failing every test that touches the moved element.
+     */
     private static WebElement waitFor(WebDriver driver, By locator) {
-        return new WebDriverWait(driver,
-            Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-            .until(ExpectedConditions.elementToBeClickable(locator));
+        WebDriverWait wait = new WebDriverWait(driver,
+            Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
+        return SelfHealingEngine.findClickable(driver, wait, locator);
     }
 }

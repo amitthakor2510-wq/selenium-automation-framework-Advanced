@@ -16,6 +16,7 @@
 | `ElementNotInteractableException` | Element hidden or disabled | Use `presenceOfElementLocated`, then JS click |
 | `Cannot resolve symbol 'Step'` (IDE) in `src/main/java` code | `allure-testng` (which transitively brings `@Step`) is declared `scope=test`, invisible to main code | Add `io.qameta.allure:allure-java-commons` as its own dependency with the default (compile) scope — already done in this pom |
 | `Expected status code <200> but was <204>` on `DELETE /Account/v1/User/{UUID}` | DemoQA's Swagger docs say `200`; the live endpoint actually returns `204 No Content` | Assert `204`, not the documented `200` — already fixed in `BookStoreApiTest` |
+| `TimeoutException` even though the element clearly exists in the browser | `SelfHealingEngine` tried to heal and the best DOM candidate scored below `self-healing.threshold` (or no fingerprint existed yet to heal against) | Check the test log for a `[SelfHealing] ... broke and no candidate matched closely enough` warning (it logs the best score it found); if that score looks right, lower `self-healing.threshold` slightly — otherwise fix the locator directly, since healing is a safety net, not a substitute for an accurate locator |
 
 ---
 
@@ -55,7 +56,9 @@
 | AShot | The Java library this framework uses to capture and pixel-diff screenshots for visual regression |
 | Appium | A mobile-app automation tool — same idea as Selenium, but drives native Android/iOS apps instead of a browser |
 | JMeter | A load/performance testing tool; used here only for a lightweight response-time smoke check, not real load testing |
-| Self-healing locator | A locator strategy that tries a primary element selector and automatically falls back to alternates if the primary breaks (see `SmartLocator.java`) |
+| Self-healing locator (manual) | A locator strategy that tries a primary element selector and automatically falls back to alternates a developer explicitly wrote (see `SmartLocator.java`) |
+| Self-healing locator (automatic) | Framework-wide auto-recovery: when any locator breaks, `SelfHealingEngine` re-finds the element by scoring live DOM elements against a fingerprint saved the last time that locator succeeded — no explicit fallback required (see [🩹 Self-Healing Locators](architecture.md#-self-healing-locators)) |
+| Element fingerprint | The identifying snapshot (`tag`, `id`, `name`, classes, text, key attributes) `SelfHealingEngine` captures for every successfully-found element, used as the baseline to heal against if that locator later breaks |
 | Opt-in test type | A test suite that exists in the repo but isn't run by the default CI pipeline — must be triggered explicitly with its own suite file or Maven profile |
 
 ---

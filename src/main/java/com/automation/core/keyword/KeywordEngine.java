@@ -2,6 +2,7 @@ package com.automation.core.keyword;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.KeywordExecutionException;
+import com.automation.core.selfhealing.SelfHealingEngine;
 import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -199,8 +200,9 @@ public class KeywordEngine {
         return repo.get(step.getLocatorKey());
     }
 
+    /** Routed through SelfHealingEngine — see BasePage.waitVisible for why. */
     private WebElement waitVisible(By locator) {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        return SelfHealingEngine.find(driver, wait, locator);
     }
 
     private boolean isDisplayed(By locator) {

@@ -141,6 +141,7 @@ A quick-reference map first — expand **📖 Full details** below each group fo
 | `ExtentManager.java` | Builds the Extent HTML report |
 | `ScreenshotUtil.java` | Takes the pass/fail screenshot |
 | `SmartLocator.java` | Tries a locator, falls back to alternates if it breaks |
+| `SelfHealingEngine.java` | Auto-recovers a broken locator by DOM-similarity matching |
 | `AccessibilityUtils.java` | Runs an axe-core accessibility scan |
 | `VisualRegressionUtils.java` | Pixel-diffs a screenshot against a saved baseline |
 
@@ -215,7 +216,10 @@ Singleton that creates one shared HTML report per test run. Saves to `target/ext
 Takes a PNG screenshot (as bytes, and as base64 for embedding) on test pass or failure. Called automatically by `TestListener` — never call manually.
 
 ### `SmartLocator.java`
-Tries a primary `By` locator, then falls back to one or more alternates before giving up — absorbs the class of breakage this framework has hit repeatedly in practice (a third-party site swapping one widget implementation for another under the same visible UI, e.g. demoqa's Check Box widget silently swapping `react-checkbox-tree` for `rc-tree`). Optional to use — a Page Object can still take a single hardcoded `By` where the markup is stable; reach for `SmartLocator` on elements that have already broken once.
+Tries a primary `By` locator, then falls back to one or more alternates before giving up — absorbs the class of breakage this framework has hit repeatedly in practice (a third-party site swapping one widget implementation for another under the same visible UI, e.g. demoqa's Check Box widget silently swapping `react-checkbox-tree` for `rc-tree`). Optional to use — a Page Object can still take a single hardcoded `By` where the markup is stable; reach for `SmartLocator` on elements that have already broken once. Its own primary-locator lookup goes through `SelfHealingEngine` too (see below), so even the "primary" candidate gets one automatic recovery attempt before SmartLocator moves on to an explicit fallback.
+
+### `SelfHealingEngine.java` / `LocatorRepository.java`
+The automatic, framework-wide counterpart to `SmartLocator`. Full explanation: [🩹 Self-Healing Locators](#-self-healing-locators) below.
 
 ### `AccessibilityUtils.java`
 Thin wrapper around [axe-core](https://www.deque.com/axe/) (Deque's accessibility engine) for Selenium. Runs a WCAG/GIGW-adjacent scan against the current page and returns violations bucketed by severity (`critical`, `serious`, `moderate`, `minor`). Config-driven: `a11y.enabled` turns scanning on/off, `a11y.failOn` (default `critical,serious`) decides which severities actually fail the test versus just get logged/attached to Allure. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility-visual-regression--performance) below.
@@ -224,6 +228,44 @@ Thin wrapper around [axe-core](https://www.deque.com/axe/) (Deque's accessibilit
 Thin wrapper around [AShot](https://github.com/pazone/ashot) for pixel-level screenshot diffing. First run for a given snapshot name captures and saves a baseline image (always passes); every run after that diffs the current screenshot against the committed baseline and fails if the difference exceeds a configurable threshold. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility-visual-regression--performance) below.
 
 </details>
+
+---
+
+## 🩹 Self-Healing Locators
+
+Every locator in this framework eventually goes through one of three chokepoints: `BasePage.waitVisible`/`waitClickable`, `HumanActions.click`/`type` (the two most-used interaction methods — 218 call sites across 32 page classes), or `KeywordEngine`'s own element resolution. As of this feature, all three route through `SelfHealingEngine` instead of a bare `wait.until(ExpectedConditions...)` — so every existing Page Object gets self-healing for free, with zero per-page changes.
+
+**How it heals, in order:**
+
+1. Try the locator normally, with the caller's own configured timeout.
+2. **On success** — snapshot the element's identifying attributes (tag, `id`, `name`, class list, visible text, a handful of common attributes like `role`/`aria-label`/`data-testid`, and its parent tag) into an `ElementFingerprint`, and store it in `LocatorRepository` keyed by *page URL + locator*.
+3. **On failure** (`TimeoutException`) — look up the fingerprint saved the last time that exact locator succeeded (this run, or a previous one — the repository is loaded from disk at startup), scan the live DOM for elements sharing the same tag, and score each one against the fingerprint:
+
+| Signal | Weight |
+|---|---|
+| `id` exact match | 30% |
+| `name` exact match | 20% |
+| Class-list overlap (Jaccard similarity) | 20% |
+| Visible-text similarity (normalized edit distance) | 15% |
+| Tracked attributes (`type`, `placeholder`, `aria-label`, `role`, `href`, `title`, `data-testid`) | 10% |
+| Same parent tag | 5% |
+
+4. If the best-scoring candidate clears `self-healing.threshold` (default `0.55`), the engine uses it, logs a `WARNING` (so the drift is visible even though the test still passes), and records the heal for the end-of-run report. If nothing clears the threshold — or nothing was ever fingerprinted for that locator in the first place — the original `TimeoutException` propagates exactly as it always did. Healing only ever recovers a run; it never invents a match that isn't really there.
+
+**Where the output goes:**
+- `target/self-healing/locator-repository.json` — the fingerprint store, persisted between runs so healing works from the *first* locator failure of a fresh run, not just after this run has already seen the element once.
+- `target/self-healing/healing-report.json` — written only if at least one heal happened; a flat list of `{elementKey, originalLocator, healedDescription, score, timestamp}`, meant to be reviewed (or wired into CI as a build artifact) so a locator that quietly drifted still gets fixed properly instead of staying invisible behind a passing test.
+
+**Config** (`global.properties`, all overridable with `-Dkey=value`):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `self-healing.enabled` | `true` | Master switch. `false` restores plain fail-on-first-miss behavior. |
+| `self-healing.threshold` | `0.55` | Minimum similarity score to accept a healed match. |
+| `self-healing.repository.path` | `target/self-healing/locator-repository.json` | Where fingerprints persist between runs. |
+| `self-healing.report.path` | `target/self-healing/healing-report.json` | Where the end-of-run heal summary is written. |
+
+**What this is not:** it can't heal a locator that has *never* successfully resolved (no fingerprint to compare against — a typo in a brand-new locator still fails immediately, as it should), and it isn't visual/screenshot matching — purely DOM attribute/text/structure similarity. For a locator you already know is fragile and want an explicit, hand-picked (not scored) fallback for, `SmartLocator` is still the right tool — see above.
 
 ---
 
