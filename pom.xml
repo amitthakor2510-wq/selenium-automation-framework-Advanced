@@ -50,7 +50,7 @@
 
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
-    <aspectj.version>1.9.25</aspectj.version>
+    <aspectj.version>1.9.25.1</aspectj.version>
 
     <!-- Lombok — pinned explicitly (previously undeclared even though
          RegistrationPage.java uses @Getter, so it was resolving from an
