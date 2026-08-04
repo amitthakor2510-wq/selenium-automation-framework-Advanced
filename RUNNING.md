@@ -19,7 +19,13 @@ One place for every way to run this framework, and where the results land afterw
 
 ## ✅ Prerequisites
 - Java 17 — `java -version`
-- Maven 3.9+ — `mvn -version`
+- Maven 3.9+ — `mvn -version` — **or skip installing Maven entirely and use
+  the bundled wrapper**: `./mvnw -version` (Windows: `mvnw.cmd -version`).
+  The wrapper downloads the exact pinned Maven version on first run and
+  every `mvn ...` command below works identically as `./mvnw ...` — this is
+  what CI itself should move to for fully reproducible builds. See
+  [`.mvn/wrapper/maven-wrapper.properties`](.mvn/wrapper/maven-wrapper.properties)
+  for the pinned version.
 - Chrome/Firefox/Edge installed locally **or** Docker (see below) — you don't need both
 - Docker + Compose plugin — `docker compose version` (only for the Docker path)
 - Node.js + `npm install -g appium` — only for the mobile path

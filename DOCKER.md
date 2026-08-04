@@ -22,6 +22,14 @@ locally installed browser. `.dockerignore` keeps the build context small.
 # 1. Start the grid (leave it running across multiple test runs)
 docker compose up -d selenium-hub chrome firefox edge
 
+# 1b. First time only: pre-create the report/output folders that get
+#     volume-mounted into the container, so they're writable by the
+#     container's non-root user (uid 1000 — see "Running as Non-Root"
+#     below). Skip this and Docker will auto-create them owned by root on
+#     first run, which the container user then can't write into.
+mkdir -p target/{allure-results,extent-reports,surefire-reports,debug-dumps,screenshots}
+chmod -R 777 target
+
 # 2. Run the default suite (demoqa smoke, chrome, headless)
 docker compose run --rm tests
 
@@ -64,6 +72,22 @@ Reports land back on the host under `target/allure-results`,
 - The Docker image itself never installs a browser — it only drives the
   Grid — so the image stays small and browser versions upgrade independently
   by bumping the `selenium/node-*` image tags in `docker-compose.yml`.
+
+## 🔒 Running as Non-Root
+The `tests` image runs as a dedicated non-root user (`automation`, uid/gid
+`1000`) rather than root — nothing at runtime needs root, since the image
+never installs OS packages and the browsers themselves live in the separate
+`selenium/node-*` containers, not this one. The one thing this changes for
+you: the six `target/...` folders bind-mounted into the container (see
+`docker-compose.yml`) must be writable by uid 1000. Docker auto-creates a
+bind-mount source directory that doesn't yet exist on the host, but does so
+owned by root with normal (non-world-writable) permissions — which the
+container's non-root user then can't write into, and every test run fails
+at the first attempt to write a screenshot/report. Step 1b above
+(`mkdir -p ... && chmod -R 777 target`) avoids that by creating those
+folders yourself, once, before the first `docker compose run`. If your host
+UID happens to already be `1000` (the default first user on many Linux
+distros), a plain `mkdir -p target/...` without the `chmod` is enough.
 
 ## 🧱 Running Without Docker Compose (Single Container Against an Existing Grid)
 ```bash

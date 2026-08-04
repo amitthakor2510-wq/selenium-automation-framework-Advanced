@@ -52,6 +52,11 @@
     <allure.version>2.27.0</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
 
+    <!-- OWASP dependency-check version — see the "security" profile below.
+         Kept as its own property (not inlined) so it can be bumped without
+         hunting through the profile block. -->
+    <dependency-check.version>10.0.4</dependency-check.version>
+
     <!-- Lombok — pinned explicitly (previously undeclared even though
          RegistrationPage.java uses @Getter, so it was resolving from an
          unpinned transitive version). 1.18.30+ is required for JDK 21+:
@@ -505,6 +510,60 @@
         <rampUp>2</rampUp>
         <loops>3</loops>
         <maxResponseMs>5000</maxResponseMs>
+      </properties>
+    </profile>
+
+    <!-- Opt-in dependency vulnerability scan (OWASP Dependency-Check),
+         same pattern as the "perf" profile above: a profile, not a plugin
+         under <build><plugins>, so `mvn test` (used everywhere else in
+         this project, CI included) is completely unaffected by its
+         presence, and CI doesn't silently start failing builds on a newly
+         published CVE with no warning. Run explicitly with:
+           mvn verify -Psecurity
+           mvn verify -Psecurity -DfailBuildOnCVSS=7
+         First run downloads/builds the NVD CVE database locally and is
+         slow (several minutes); subsequent runs reuse the cached copy in
+         ~/.m2/repository/org/owasp/dependency-check-data. Report lands at
+         target/dependency-check-report.html. failBuildOnCVSS defaults to
+         11 (i.e. never fails the build) so adopting this profile in CI is
+         a deliberate, separate decision from just wanting the report —
+         set it explicitly (7 is a common "fail on High/Critical" cutoff)
+         once the team is ready to gate merges on it. -->
+    <profile>
+      <id>security</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>${dependency-check.version}</version>
+            <configuration>
+              <failBuildOnCVSS>${failBuildOnCVSS}</failBuildOnCVSS>
+              <formats>
+                <format>HTML</format>
+                <format>JSON</format>
+              </formats>
+              <suppressionFiles>
+                <suppressionFile>owasp-suppressions.xml</suppressionFile>
+              </suppressionFiles>
+            </configuration>
+            <executions>
+              <execution>
+                <id>dependency-check</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <!-- 11 is above the maximum possible CVSS score (10), so this is
+             effectively "report only, never fail" until a run explicitly
+             overrides it, e.g. -DfailBuildOnCVSS=7. -->
+        <failBuildOnCVSS>11</failBuildOnCVSS>
       </properties>
     </profile>
   </profiles>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check suppression file, referenced by pom.xml's
+  "security" profile (mvn verify -Psecurity). Empty by default: nothing is
+  suppressed yet.
+
+  Use this file only for reviewed false positives or accepted-risk findings
+  that the team has consciously signed off on, never to blanket-silence a
+  real, unpatched vulnerability just to make a build pass. Each suppression
+  entry should say who approved it, when, and why (e.g. "CVE applies to a
+  code path we don't use" or "fixed in a version we can't yet upgrade to,
+  tracked in TICKET-123").
+
+  Suppression syntax reference:
+  https://jeremylong.github.io/DependencyCheck/general/suppression.html
+
+  Sample entry to copy/adapt when a real suppression is needed:
+
+    &lt;suppress&gt;
+       &lt;notes&gt;Reviewed 2026-08-04 by NAME: false positive, this CVE
+       affects a native code path this project never exercises.&lt;/notes&gt;
+       &lt;packageUrl regex="true"&gt;^pkg:maven/some\.group/some-artifact@.*$&lt;/packageUrl&gt;
+       &lt;cve&gt;CVE-0000-00000&lt;/cve&gt;
+    &lt;/suppress&gt;
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+</suppressions>

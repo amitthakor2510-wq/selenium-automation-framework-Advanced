@@ -47,6 +47,7 @@
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
+| 🔒 **Dependency Vulnerability Scan** | OWASP Dependency-Check — opt-in `mvn verify -Psecurity`, HTML+JSON report at `target/dependency-check-report.html`. Report-only by default (`failBuildOnCVSS=11`); pass `-DfailBuildOnCVSS=7` to gate a build on High/Critical CVEs once the team's ready to enforce it |
 | 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locators (`SelfHealingEngine` — automatic DOM-similarity recovery on every page object, `SmartLocator` for explicit hand-picked fallbacks) |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
 | 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is, including a dedicated mobile/Appium job in each) |

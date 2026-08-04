@@ -26,6 +26,14 @@
 *.apk   binary
 *.ipa   binary
 
+# --- Maven Wrapper ------------------------------------------------------
+# mvnw is a POSIX shell script — must stay LF even on a Windows checkout
+# or it fails to execute ("bad interpreter"/syntax errors from stray CR).
+# mvnw.cmd is the Windows counterpart and conventionally ships CRLF.
+# Both override the blanket `eol=lf` above.
+/mvnw     text eol=lf
+/mvnw.cmd text eol=crlf
+
 # --- Paths that must never be tracked, even by accident ----------------
 # .gitignore already excludes these, but .gitattributes' export-ignore
 # adds a second layer: even if one of these ever gets force-added, it's
