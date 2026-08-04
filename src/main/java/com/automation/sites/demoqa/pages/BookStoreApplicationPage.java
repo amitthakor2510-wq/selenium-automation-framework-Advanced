@@ -96,23 +96,9 @@ public class BookStoreApplicationPage extends BasePage {
         HumanActions.pause();
     }
 
-    // Writes the full page source to target/debug-dumps so a failing,
-    // never-before-verified locator can be fixed from real markup instead
-    // of another guess. Same pattern used in CheckBoxPage.
-    private void dumpPageForDebugging(String label) {
-        try {
-            java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
-            java.nio.file.Files.createDirectories(dir);
-            String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
-                + "-" + System.currentTimeMillis() + ".html";
-            java.nio.file.Path file = dir.resolve(fileName);
-            java.nio.file.Files.writeString(file, driver.getPageSource());
-            logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
-        } catch (Exception writeEx) {
-            logger.fine("  DEBUG could not write page source dump: " + writeEx.getMessage());
-        }
-        logger.fine("  DEBUG current URL: " + driver.getCurrentUrl());
-    }
+    // dumpPageForDebugging(label) is inherited from BasePage — see there
+    // for the shared implementation (was a duplicate of this class's own
+    // copy until consolidated).
 
     public void navigateToProfile() {
         navigateTo("/profile");

@@ -7,6 +7,7 @@ import com.automation.core.exceptions.DriverInitializationException;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -47,73 +48,137 @@ public final class DriverFactory {
     private DriverFactory() {
     }
 
+    // ── Selenium Grid / Docker (RemoteWebDriver) ────────────────────────────────
+
+    /**
+     * Grid-specific FirefoxOptions — deliberately NOT the same object
+     * createFirefoxDriver() builds for local runs: that one probes for a
+     * host-specific Firefox binary path, which is meaningless for a Grid
+     * node running in its own container. Extracted verbatim from the
+     * former switch/case in createRemoteDriver — no behavior change.
+     */
+    private static FirefoxOptions buildFirefoxRemoteOptions(boolean headless) {
+        FirefoxOptions ffOptions = new FirefoxOptions();
+        ffOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+        if (headless) {
+            ffOptions.addArguments("-headless");
+        }
+        return ffOptions;
+    }
+
+    /**
+     * Grid-specific EdgeOptions — same reasoning as buildFirefoxRemoteOptions:
+     * the local createEdgeDriver() options (download prefs, notifications,
+     * etc.) are host-specific and not what a Grid node needs. Extracted
+     * verbatim from the former switch/case in createRemoteDriver.
+     */
+    private static EdgeOptions buildEdgeRemoteOptions(boolean headless) {
+        EdgeOptions edgeOptions = new EdgeOptions();
+        edgeOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+        if (headless) {
+            edgeOptions.addArguments("--headless=new");
+        }
+        return edgeOptions;
+    }
+
+    /**
+     * Registry mapping browser name to its BrowserProvider. This is the
+     * one place a new browser gets added — createDriver() and
+     * createRemoteDriver() below never branch on browser name themselves,
+     * they just look it up here. Each provider delegates straight to the
+     * existing per-browser methods below (createChromeDriver,
+     * buildChromeOptions, etc.) — none of that logic changed, only how
+     * it's dispatched to.
+     */
+    private static final Map<String, BrowserProvider> PROVIDERS = new HashMap<>();
+
+    static {
+        PROVIDERS.put("chrome", new BrowserProvider() {
+            @Override
+            public WebDriver createLocalDriver(boolean headless) {
+                return createChromeDriver(headless);
+            }
+
+            @Override
+            public Capabilities buildRemoteOptions(boolean headless) {
+                // Matches the original: chrome and brave shared the same
+                // grid options (buildChromeOptions), with no Brave-binary
+                // path set for the remote case — the Grid node's own
+                // browser image is what actually runs, not this host's
+                // Brave install.
+                return buildChromeOptions(headless);
+            }
+        });
+
+        PROVIDERS.put("brave", new BrowserProvider() {
+            @Override
+            public WebDriver createLocalDriver(boolean headless) {
+                return createBraveDriver(headless);
+            }
+
+            @Override
+            public Capabilities buildRemoteOptions(boolean headless) {
+                return buildChromeOptions(headless);
+            }
+        });
+
+        PROVIDERS.put("firefox", new BrowserProvider() {
+            @Override
+            public WebDriver createLocalDriver(boolean headless) {
+                return createFirefoxDriver(headless);
+            }
+
+            @Override
+            public Capabilities buildRemoteOptions(boolean headless) {
+                return buildFirefoxRemoteOptions(headless);
+            }
+        });
+
+        PROVIDERS.put("edge", new BrowserProvider() {
+            @Override
+            public WebDriver createLocalDriver(boolean headless) {
+                return createEdgeDriver(headless);
+            }
+
+            @Override
+            public Capabilities buildRemoteOptions(boolean headless) {
+                return buildEdgeRemoteOptions(headless);
+            }
+        });
+    }
+
     public static WebDriver createDriver() {
         String browser = ConfigReader.get("browser", "chrome").toLowerCase();
         boolean headless = ConfigReader.getBoolean("headless", false);
 
-        if (ConfigReader.getBoolean("grid.enabled", false)) {
-            return createRemoteDriver(browser, headless);
+        BrowserProvider provider = PROVIDERS.get(browser);
+        if (provider == null) {
+            throw new DriverInitializationException("Browser not supported: " + browser
+                + ". Supported: " + PROVIDERS.keySet());
         }
 
-        switch (browser) {
-            case "chrome":
-                return createChromeDriver(headless);
-            case "firefox":
-                return createFirefoxDriver(headless);
-            case "edge":
-                return createEdgeDriver(headless);
-            case "brave":
-                return createBraveDriver(headless);
-            default:
-                throw new DriverInitializationException("Browser not supported: " + browser
-                    + ". Supported: chrome, firefox, edge, brave");
+        if (ConfigReader.getBoolean("grid.enabled", false)) {
+            return createRemoteDriver(browser, provider, headless);
         }
+
+        return provider.createLocalDriver(headless);
     }
 
-    // ── Selenium Grid / Docker (RemoteWebDriver) ────────────────────────────────
-
-    private static WebDriver createRemoteDriver(String browser, boolean headless) {
+    private static WebDriver createRemoteDriver(String browser, BrowserProvider provider, boolean headless) {
         String gridUrl = ConfigReader.get("grid.url", "http://localhost:4444/wd/hub");
-
-        Object options;
-        switch (browser) {
-            case "chrome":
-            case "brave":
-                options = buildChromeOptions(headless);
-                break;
-            case "firefox":
-                FirefoxOptions ffOptions = new FirefoxOptions();
-                ffOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
-                if (headless) {
-                    ffOptions.addArguments("-headless");
-                }
-                options = ffOptions;
-                break;
-            case "edge":
-                EdgeOptions edgeOptions = new EdgeOptions();
-                edgeOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
-                if (headless) {
-                    edgeOptions.addArguments("--headless=new");
-                }
-                options = edgeOptions;
-                break;
-            default:
-                throw new DriverInitializationException("Browser not supported on grid: " + browser
-                    + ". Supported: chrome, firefox, edge, brave");
-        }
+        Capabilities options = provider.buildRemoteOptions(headless);
 
         try {
             URL hubUrl = URI.create(gridUrl).toURL();
             logger.info("[DriverFactory] Connecting to Selenium Grid at " + gridUrl
                 + " (browser=" + browser + ", headless=" + headless + ")");
-            RemoteWebDriver remoteDriver;
-            if (options instanceof ChromeOptions co) {
-                remoteDriver = new RemoteWebDriver(hubUrl, co);
-            } else if (options instanceof FirefoxOptions fo) {
-                remoteDriver = new RemoteWebDriver(hubUrl, fo);
-            } else {
-                remoteDriver = new RemoteWebDriver(hubUrl, (EdgeOptions) options);
-            }
+
+            // Capabilities-typed constructor works identically for
+            // ChromeOptions/FirefoxOptions/EdgeOptions (all implement
+            // Capabilities) — replaces the former instanceof chain that
+            // picked a browser-specific RemoteWebDriver constructor
+            // overload; same resulting session either way.
+            RemoteWebDriver remoteDriver = new RemoteWebDriver(hubUrl, options);
 
             // Without this, sendKeys() on a file input (upload.file.path, the
             // Practice Form "Select Picture" field, etc.) fails with "File not

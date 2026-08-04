@@ -4,15 +4,22 @@ import com.automation.core.data.DataRow;
 import com.automation.core.exceptions.DataFileException;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
  * Picks the right DataFileReader for a file by extension. This is the one
  * place that knows "which reader handles which extension" — adding a new
- * format means adding one case here and one new DataFileReader class,
- * instead of editing a single class that already knew about five unrelated
- * formats (what DataProvider used to be).
+ * format means adding one new DataFileReader class and one line to
+ * readersByExtension below, instead of editing a single class that
+ * already knew about five unrelated formats (what DataProvider used to
+ * be) — or, as this class itself was until now, an if/else-if chain
+ * duplicated across supports() and readAll() that had to be kept in sync
+ * by hand (a real .zip-support bug here was exactly what that duplication
+ * caused, before this fix). Same registry-over-branching approach as
+ * DriverFactory's BrowserProvider.
  */
 public final class DataFileReaderRegistry {
 
@@ -24,47 +31,51 @@ public final class DataFileReaderRegistry {
     private final YamlDataFileReader yamlReader = new YamlDataFileReader();
     private final ZipDataFileReader zipReader = new ZipDataFileReader(this);
 
+    // Extension (lowercase, no dot) -> the one reader that handles it. Two
+    // extensions can map to the same reader instance (xlsx/xls, yaml/yml)
+    // — that's the whole point of a Map over an if/else chain: each
+    // extension is declared exactly once, here, instead of once per
+    // branch in two separate methods.
+    private final Map<String, DataFileReader> readersByExtension = new HashMap<>();
+
+    {
+        readersByExtension.put("xlsx", excelReader);
+        readersByExtension.put("xls", excelReader);
+        readersByExtension.put("csv", csvReader);
+        readersByExtension.put("json", jsonReader);
+        readersByExtension.put("yaml", yamlReader);
+        readersByExtension.put("yml", yamlReader);
+        readersByExtension.put("zip", zipReader);
+    }
+
     /** True if this registry has a reader for the given file's extension. */
     public boolean supports(File file) {
-        String name = file.getName().toLowerCase();
-        // BUG FIX: .zip was handled by readAll()/ZipDataFileReader but was
-        // missing here, so supports() incorrectly reported false for a file
-        // type this registry actually reads — any caller that gates on
-        // supports() before calling readAll() would wrongly reject valid
-        // zip data files.
-        return name.endsWith(".xlsx") || name.endsWith(".xls")
-            || name.endsWith(".csv")
-            || name.endsWith(".json")
-            || name.endsWith(".yaml") || name.endsWith(".yml")
-            || name.endsWith(".zip");
+        return readersByExtension.containsKey(extensionOf(file));
     }
 
     /** Reads a file, auto-detecting format by extension. ZIP files are read via ZipDataFileReader. */
     public List<DataRow> readAll(File file) {
-        String name = file.getName().toLowerCase();
-
-        logger.info("[DataFileReaderRegistry] Reading: " + file.getAbsolutePath());
-
-        if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-            return excelReader.read(file);
-        } else if (name.endsWith(".csv")) {
-            return csvReader.read(file);
-        } else if (name.endsWith(".json")) {
-            return jsonReader.read(file);
-        } else if (name.endsWith(".yaml") || name.endsWith(".yml")) {
-            return yamlReader.read(file);
-        } else if (name.endsWith(".zip")) {
-            return zipReader.read(file);
-        } else {
+        String extension = extensionOf(file);
+        DataFileReader reader = readersByExtension.get(extension);
+        if (reader == null) {
             throw new DataFileException(
-                "[DataFileReaderRegistry] Unsupported file type: " + name
-                    + ". Supported: .xlsx, .xls, .csv, .json, .yaml, .yml, .zip"
+                "[DataFileReaderRegistry] Unsupported file type: " + file.getName()
+                    + ". Supported: " + String.join(", ", readersByExtension.keySet())
             );
         }
+
+        logger.info("[DataFileReaderRegistry] Reading: " + file.getAbsolutePath());
+        return reader.read(file);
     }
 
     /** Reads a specific Excel sheet by name — the one format-specific extra the generic API doesn't cover. */
     public List<DataRow> readExcelSheet(File file, String sheetName) {
         return excelReader.readSheet(file, sheetName);
+    }
+
+    private static String extensionOf(File file) {
+        String name = file.getName().toLowerCase();
+        int dot = name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot + 1) : "";
     }
 }

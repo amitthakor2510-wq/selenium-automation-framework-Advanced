@@ -406,6 +406,39 @@ pipeline {
                 }
             }
         }
+
+        stage('Performance Smoke (Nightly)') {
+            // Same cron-only gating as "Nightly Extra Coverage" above —
+            // perf/basic-smoke.jmx is a lightweight response-time smoke
+            // check (see the .jmx file's own TestPlan.comments), not a
+            // load/capacity test, so it runs alongside the other nightly
+            // extras rather than on every build. Uses the pom.xml `perf`
+            // Maven profile — jmeter-maven-plugin resolves JMeter itself
+            // via Maven into .m2/repository, so there's no separate
+            // JMeter download/cache to manage here.
+            when {
+                expression {
+                    currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                }
+            }
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp verify -Pperf',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        // Same reasoning as the .gitlab-ci.yml equivalent:
+                        // a transient slow response from a site this repo
+                        // doesn't control shouldn't fail the whole nightly
+                        // build the way a real functional regression
+                        // should — mark UNSTABLE, don't throw.
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Performance smoke check reported issues (exit ${exitCode}) — see target/jmeter/reports"
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -456,7 +489,7 @@ pipeline {
 
             // ── Archive raw artifacts ─────────────────────────────────
             archiveArtifacts allowEmptyArchive: true,
-                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**',
+                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
                     fingerprint: true
 
             // ── ADB memory-leak cleanup ────────────────────────────────

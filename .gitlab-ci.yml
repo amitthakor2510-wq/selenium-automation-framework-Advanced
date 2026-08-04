@@ -404,6 +404,36 @@ accessibility-visual-test:
       - target/surefire-reports/
     reports:
       junit: target/surefire-reports/*.xml
+
+# ================================================================
+# Performance smoke — perf/basic-smoke.jmx via the pom.xml `perf` Maven
+# profile (jmeter-maven-plugin resolves JMeter itself via Maven, into the
+# already-cached .m2/repository/ — no separate download/cache needed).
+# NOT a load/capacity test — see the .jmx file's own TestPlan.comments.
+# A handful of threads hitting each site's home page, asserting HTTP 200
+# and a response-time ceiling, as a fast "did this get noticeably slower"
+# signal alongside the functional suites. allow_failure: true because a
+# transient slow response from demoqa.com/saucedemo.com (sites this repo
+# doesn't control) shouldn't block a pipeline the way a real functional
+# regression should.
+# ================================================================
+perf-smoke:
+  stage: test
+  interruptible: true
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - echo "======= Running perf/basic-smoke.jmx (mvn verify -Pperf) ======="
+    - mvn -B verify -Pperf
+  artifacts:
+    name: "perf-results-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/jmeter/results/
+      - target/jmeter/reports/
+
 # Allure → GitLab Pages  |  Extent → artifact
 # ================================================================
 report:

@@ -71,4 +71,35 @@ public abstract class BasePage {
     protected boolean isDisplayed(By locator) {
         return ElementUtils.isDisplayed(driver, locator);
     }
+
+    /**
+     * Writes the current page source to target/debug-dumps/ for offline
+     * inspection when a page object hits an unexpected state (element not
+     * found after a wait, URL not reached, etc.) — call this right before
+     * throwing/failing so the dump captures the actual DOM at that moment.
+     *
+     * Moved here from 3 separate copy-pasted private implementations
+     * (BookStoreApplicationPage, CheckBoxPage, ProfilePage) that had
+     * drifted slightly — one used logger.info while the other two used
+     * logger.fine for the identical situation, an inconsistency rather
+     * than an intentional difference. Uses this page's own runtime class
+     * for the logger name (Logger.getLogger(getClass().getName())) so log
+     * output still reads as coming from e.g. CheckBoxPage, not BasePage.
+     */
+    protected void dumpPageForDebugging(String label) {
+        java.util.logging.Logger logger =
+            java.util.logging.Logger.getLogger(getClass().getName());
+        try {
+            java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
+            java.nio.file.Files.createDirectories(dir);
+            String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
+                + "-" + System.currentTimeMillis() + ".html";
+            java.nio.file.Path file = dir.resolve(fileName);
+            java.nio.file.Files.writeString(file, driver.getPageSource());
+            logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
+        } catch (Exception writeEx) {
+            logger.fine("  DEBUG could not write page source dump: " + writeEx.getMessage());
+        }
+        logger.fine("  DEBUG current URL: " + driver.getCurrentUrl());
+    }
 }
