@@ -52,3 +52,33 @@ target/allure-report/.allure/
 # ever running `git add -A` before it's created. Keep only the .example
 # template tracked, same pattern as _TEMPLATE.properties.example.
 src/test/resources/config/mobile.properties
+
+### Self-healing locator cache — deliberately lives outside target/ so ###
+### `mvn clean` doesn't wipe it (see LocatorRepository.java /           ###
+### global.properties self-healing.repository.path); Jenkins caches it  ###
+### into $JENKINS_HOME between builds instead, so it must never be      ###
+### committed to git.                                                   ###
+self-healing-data/
+
+### Android SDK / emulator / Appium — all three CI pipelines (Jenkins,  ###
+### GitHub Actions, GitLab CI) install/cache these at the workspace     ###
+### root, and GitLab's `cache:` config even persists .android-sdk/      ###
+### across runs the same way — none of this is under target/, so       ###
+### without these entries a local mobile run (or a debugging run of    ###
+### the CI steps outside CI) leaves them untracked and one `git add -A`###
+### away from being committed.                                         ###
+.android-sdk/
+cmdline-tools.zip
+# emulator.log / appium.log already caught by the *.log rule above.
+
+### Allure CLI / report output generated OUTSIDE target/ ###
+# Jenkins' Allure plugin writes its generated report to <workspace>/allure-report
+# (not target/allure-report — see Jenkinsfile's `allure([...])` post step), and
+# GitLab CI's Pages job downloads the Allure CLI tarball and generates into
+# public/ at the project root (see .gitlab-ci.yml allure-report job). Both are
+# root-level artifacts distinct from the target/allure-report/ path GitHub/GitLab
+# test jobs use (already covered by target/ above).
+/allure-report/
+/allure-2.27.0.tgz
+/allure-cli/
+/public/

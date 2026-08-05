@@ -102,3 +102,11 @@ services:
       - ./target/surefire-reports:/workspace/target/surefire-reports
       - ./target/debug-dumps:/workspace/target/debug-dumps
       - ./target/screenshots:/workspace/target/screenshots
+      # Self-healing locator baseline (see LocatorRepository.java) — this
+      # one isn't just "nice to persist" like the reports above, it's load-
+      # bearing for the feature: `docker compose run --rm tests` throws the
+      # whole container away after every run, so without this mount the
+      # baseline would be written inside the dead container and never seen
+      # again — self-healing would silently never have anything to heal
+      # against, the exact same bug as the target/ path it was moved out of.
+      - ./self-healing-data:/workspace/self-healing-data

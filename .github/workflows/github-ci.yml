@@ -235,6 +235,22 @@ jobs:
             sleep 2
           done
 
+      - name: Provision mobile.properties from template
+        # mobile.properties is deliberately gitignored (see .gitignore —
+        # it's meant to hold a real local device serial, not something to
+        # commit), so a fresh checkout here never has it. But
+        # SiteRegistry.validate("mobile") requires the file to exist on
+        # the classpath before ANY mobile test can even start, regardless
+        # of the fact that this job overrides every value that actually
+        # matters (mobile.device.name, mobile.app.package/activity) via
+        # -D flags below. Materialize it from the tracked .example
+        # template — same file the header comment already tells a human
+        # to copy, just automated for CI where -D flags fill in the real
+        # values instead of hand-edited ones.
+        run: |
+          cp src/test/resources/config/mobile.properties.example \
+             src/test/resources/config/mobile.properties
+
       # Boots an emulator, waits for it to fully come up, runs the given
       # script against it, then tears it down again — all in one step.
       # Targets the built-in Android "Settings" app (see

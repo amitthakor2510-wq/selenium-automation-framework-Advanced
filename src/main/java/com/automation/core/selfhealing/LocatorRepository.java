@@ -21,7 +21,7 @@ import java.util.logging.Logger;
  * self-healing engine has successfully located, keyed by a per-page,
  * per-locator string (see {@link SelfHealingEngine#elementKey}).
  *
- * Loaded once from target/self-healing/locator-repository.json (fingerprints
+ * Loaded once from self-healing-data/locator-repository.json (fingerprints
  * captured by a *previous* run) so healing works from the very first
  * locator failure of a fresh run, not only after this run has already seen
  * the element succeed once. Updated in memory as the run progresses and
@@ -29,6 +29,20 @@ import java.util.logging.Logger;
  * idiom DriverFactory already uses for temp profile directories, chosen for
  * the same reason: avoid contending disk I/O from every parallel test
  * thread on every successful find.
+ *
+ * BUG FIX: this used to default to target/self-healing/locator-repository.json.
+ * target/ is Maven's build output directory — every CI pipeline here runs
+ * `mvn clean` before tests (see Jenkinsfile/.github/.gitlab-ci.yml Build
+ * stage), which deletes the whole directory, repository file included,
+ * before the very first test of every single run. The "loaded once ... so
+ * healing works from the very first locator failure of a fresh run" promise
+ * above was never actually true in CI as a result — there was never a prior
+ * run's baseline left to load, only whatever this run had already
+ * fingerprinted earlier in the same run. Moved out of target/ so a plain
+ * `mvn clean test` (local or CI) no longer wipes it. Jenkins additionally
+ * wipes the *entire* workspace after every build via cleanWs() — see the
+ * "Self-Healing Repository" cache/restore steps added around that in
+ * Jenkinsfile, which is what makes this survive there too.
  */
 public final class LocatorRepository {
 
@@ -116,7 +130,7 @@ public final class LocatorRepository {
 
     private static Path repositoryPath() {
         return Paths.get(ConfigReader.get("self-healing.repository.path",
-            "target/self-healing/locator-repository.json"));
+            "self-healing-data/locator-repository.json"));
     }
 
     static ObjectMapper mapper() {

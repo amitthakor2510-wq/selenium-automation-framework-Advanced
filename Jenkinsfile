@@ -107,6 +107,34 @@ pipeline {
             }
         }
 
+        stage('Restore Self-Healing Cache') {
+            // cleanWs() in post{} wipes the ENTIRE workspace after every
+            // build (deliberately — see the comment there), which means
+            // self-healing-data/locator-repository.json (moved out of
+            // target/ specifically so `mvn clean` wouldn't eat it — see
+            // LocatorRepository.java) still wouldn't survive to the next
+            // Jenkins build without this: the post{} block's "Cache
+            // Self-Healing Repository" step copies it out to
+            // $JENKINS_HOME (which cleanWs never touches) right before
+            // cleanWs runs, and this step copies it back in before
+            // `checkout scm` so this build's very first locator failure
+            // has a real cross-run baseline to heal against, same as a
+            // local dev machine that never wipes its workspace gets for
+            // free.
+            steps {
+                sh '''
+                    CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
+                    if [ -f "$CACHE_DIR/locator-repository.json" ]; then
+                        mkdir -p self-healing-data
+                        cp "$CACHE_DIR/locator-repository.json" self-healing-data/locator-repository.json
+                        echo "Restored self-healing locator baseline from $CACHE_DIR"
+                    else
+                        echo "No cached self-healing locator baseline yet — this run starts cold (expected on the first run, or after the cache dir is cleared)."
+                    fi
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -253,15 +281,31 @@ pipeline {
                 ANDROID_ADB_SERVER_TIMEOUT = '120'
             }
             steps {
-                script {
-                    // Same "install if missing" pattern as GitHub
-                    // Actions/GitLab CI use for their mobile jobs, so a
-                    // node that already has these cached only downloads
-                    // on a cold cache. This stage assumes the Jenkins
-                    // agent has KVM available (/dev/kvm) the same way the
-                    // other two pipelines require it — if it doesn't,
-                    // the emulator will still boot but very slowly.
-                    sh '''
+                // Every other stage in this pipeline (Run Tests Per Site,
+                // Performance Smoke) captures its own exit code and marks
+                // the BUILD unstable instead of letting a failure propagate
+                // — this stage is the one exception, and it's what actually
+                // fails builds like this one. The emulator setup script
+                // below still has `set -e` and an explicit `exit 1` on a
+                // stuck/offline emulator (e.g. no real KVM acceleration on
+                // this agent — a slow/flaky boot, not a code regression),
+                // so without catchError() here that `sh` step throws,
+                // fails this stage, and — because a failed (not unstable)
+                // stage stops the pipeline — skips the unrelated Nightly
+                // Extra Coverage and Performance Smoke stages too. Wrapping
+                // in catchError makes a bad mobile-emulator boot behave
+                // exactly like a failed browser test: mark UNSTABLE, keep
+                // going, still report accurately in post{}.
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                    script {
+                        // Same "install if missing" pattern as GitHub
+                        // Actions/GitLab CI use for their mobile jobs, so a
+                        // node that already has these cached only downloads
+                        // on a cold cache. This stage assumes the Jenkins
+                        // agent has KVM available (/dev/kvm) the same way the
+                        // other two pipelines require it — if it doesn't,
+                        // the emulator will still boot but very slowly.
+                        sh '''
                         set -e
                         if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
                             echo "WARNING: /dev/kvm not accessible to this agent — emulator will run in slow software mode."
@@ -342,11 +386,22 @@ pipeline {
                             echo "Waiting for Appium... ($i)"
                             sleep 2
                         done
+
+                        # mobile.properties is deliberately gitignored (real local
+                        # device values, not something to commit) — cleanWs() in
+                        # post{} wipes the whole workspace every build, so it never
+                        # exists here either way. SiteRegistry.validate("mobile")
+                        # requires it to exist before any mobile test starts, even
+                        # though every value that matters is overridden via -D flags
+                        # below. Materialize it from the tracked .example template,
+                        # same as the GitHub Actions / GitLab CI mobile jobs.
+                        cp src/test/resources/config/mobile.properties.example \\
+                           src/test/resources/config/mobile.properties
                     '''
 
-                    def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
-                    int exitCode = sh(
-                            script: """
+                        def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
+                        int exitCode = sh(
+                                script: """
                            mvn -B -ntp test \\
                               -Dsite=mobile \\
                               -DsuiteXmlFile=${suiteFile} \\
@@ -357,19 +412,20 @@ pipeline {
                               -Dallure.results.directory=target/allure-results/mobile \\
                               -Dmaven.test.failure.ignore=true
                         """,
-                            returnStatus: true
-                    )
+                                returnStatus: true
+                        )
 
-                    sh '''
+                        sh '''
                         pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
                         pkill -f "appium" 2>/dev/null || true
                     '''
 
-                    if (exitCode != 0) {
-                        currentBuild.result = 'UNSTABLE'
-                        echo "Mobile suite had failures."
+                        if (exitCode != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                            echo "Mobile suite had failures."
+                        }
                     }
-                }
+                } // catchError
             }
         }
 
@@ -549,6 +605,19 @@ pipeline {
                     '''
                 }
             }
+
+            // ── Cache Self-Healing Repository ──────────────────────────
+            // See "Restore Self-Healing Cache" stage above for the full
+            // reasoning — this is the write half of that same round trip.
+            // Must run before cleanWs() below, which deletes the workspace
+            // (including self-healing-data/) unconditionally.
+            sh '''
+                CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
+                if [ -f "self-healing-data/locator-repository.json" ]; then
+                    mkdir -p "$CACHE_DIR"
+                    cp self-healing-data/locator-repository.json "$CACHE_DIR/locator-repository.json"
+                fi
+            '''
 
             // ── Workspace cleanup ──────────────────────────────────────
             // Runs last, after artifacts are already archived above, so
