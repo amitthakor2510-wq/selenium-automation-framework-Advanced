@@ -226,6 +226,22 @@ pipeline {
                 ANDROID_SDK_ROOT = "${WORKSPACE}/.android-sdk"
                 ANDROID_AVD_NAME = 'jenkins_avd'
                 ANDROID_AVD_HOME = "${WORKSPACE}/.android-sdk/avd"
+                // This box also runs Amit's own persistent Genymotion device
+                // (serial 127.0.0.1:6562 — see mobile/README.md) connected to
+                // the same adb server around the clock, independent of any
+                // Jenkins build. Once this stage's own AVD boots alongside
+                // it, adb has *two* devices registered and every bare adb
+                // call (wait-for-device, shell, reconnect) errors out with
+                // "more than one device/emulator" — that's what actually
+                // failed this build, not a stale/leftover process (the
+                // Cleanup stage already handles that case). Pinning the CI
+                // emulator to a fixed, known port makes its serial
+                // deterministic so every adb/Appium call in this stage can
+                // target it explicitly and leave the Genymotion device
+                // alone. ANDROID_SERIAL is adb's own env var for "use this
+                // serial when none is passed via -s" — exporting it here
+                // means every `sh` step below picks it up automatically.
+                ANDROID_SERIAL = 'emulator-5554'
                 // Local hardware boots the AVD slower than a dedicated cloud
                 // CI runner, especially with Jenkins/GitLab background load
                 // competing for the same CPU/IO at the same time — the
@@ -287,9 +303,22 @@ pipeline {
                         pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
                         pkill -f "appium" 2>/dev/null || true
 
-                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
+                        # -port 5554 pins this emulator's adb serial to the
+                        # fixed "emulator-5554" (ANDROID_SERIAL above) instead
+                        # of letting adb auto-assign whichever even-numbered
+                        # port is free — auto-assignment is exactly how the
+                        # Genymotion device and this AVD could otherwise end
+                        # up ambiguous to a bare `adb` call.
+                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
 
                         echo "Waiting for emulator to boot..."
+                        # ANDROID_SERIAL=emulator-5554 (exported above) scopes
+                        # every adb call below to just this stage's own AVD,
+                        # even though Amit's persistent Genymotion device
+                        # (127.0.0.1:6562) is also connected to this same adb
+                        # server — without it, adb refuses any command with
+                        # "error: more than one device/emulator" the moment
+                        # both devices are registered.
                         if ! timeout 120 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
                             echo "ERROR: emulator did not come up within 120s — it may have crashed. Check emulator.log below."
                             cat emulator.log 2>/dev/null || true
@@ -323,7 +352,7 @@ pipeline {
                               -DsuiteXmlFile=${suiteFile} \\
                               -Dmobile.app.package=com.android.settings \\
                               -Dmobile.app.activity=.Settings \\
-                              -Dmobile.device.name=\$ANDROID_AVD_NAME \\
+                              -Dmobile.device.name=\$ANDROID_SERIAL \\
                               -Dretry.count=${params.RETRY_COUNT} \\
                               -Dallure.results.directory=target/allure-results/mobile \\
                               -Dmaven.test.failure.ignore=true
@@ -509,7 +538,13 @@ pipeline {
                     sh '''
                         ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
                         if [ -x "$ADB_BIN" ]; then
-                            "$ADB_BIN" reconnect offline 2>/dev/null || true
+                            # This post block runs outside the Mobile Test
+                            # stage's own `environment {}`, so ANDROID_SERIAL
+                            # isn't set here automatically — export it so this
+                            # reconnect targets only the CI emulator and
+                            # doesn't touch (or error out against) the
+                            # separately-connected Genymotion device.
+                            ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
                         fi
                     '''
                 }

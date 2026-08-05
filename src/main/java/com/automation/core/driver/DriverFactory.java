@@ -215,6 +215,19 @@ public final class DriverFactory {
     // no hook to intervene earlier, since the ChromeDriver/EdgeDriver
     // constructor does the whole find-port-then-bind sequence internally.
     //
+    // UPDATED (Jenkins build failure, 2026-08-05): the "three at once"
+    // assumption above only accounted for a single suite's own
+    // thread-count="3". It didn't account for the Jenkinsfile's "Run Tests
+    // Per Site" stage, which runs multiple sites' suites concurrently as
+    // separate `parallel branches` (e.g. demoqa + saucedemo at the same
+    // time) — each branch is its own `mvn test` JVM with its own
+    // thread-count="3". Two sites racing at once means up to *six*
+    // concurrent ChromeDriver/EdgeDriver launches on the same box, not
+    // three, which was enough to exhaust the old 4-attempt retry budget
+    // outright (LinksTest/ProgressBarTest both failed after 4/4 attempts).
+    // Attempts and jitter widened below so the retry budget matches actual
+    // cross-site concurrency instead of just one suite's thread-count.
+    //
     // This is not fixable by changing driver options or Chrome flags — it's
     // a race in ephemeral port allocation itself, which is why simply
     // asking the OS again (a fresh findFreePort() call gets a *different*
@@ -227,7 +240,7 @@ public final class DriverFactory {
     // Serializing all browser launches with a global lock would eliminate
     // the race entirely, but would also serialize away the whole point of
     // parallel="classes" — so retry-with-jitter is the fix, not a lock.
-    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 4;
+    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 8;
 
     private static WebDriver createWithPortConflictRetry(String browserLabel, Supplier<WebDriver> creator) {
         RuntimeException lastFailure = null;
@@ -235,7 +248,7 @@ public final class DriverFactory {
             try {
                 if (attempt > 1) {
                     try {
-                        Thread.sleep(150L + (long) (Math.random() * 350));
+                        Thread.sleep(200L + (long) (Math.random() * 600));
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
