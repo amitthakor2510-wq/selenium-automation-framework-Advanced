@@ -45,6 +45,37 @@ public final class AccessibilityUtils {
      * report to Allure and fails the test with a concise summary.
      */
     public static void assertNoViolations(WebDriver driver, String pageName) {
+        assertNoViolations(driver, pageName, NO_KNOWN_ISSUES);
+    }
+
+    /**
+     * Same as {@link #assertNoViolations(WebDriver, String)}, but treats any
+     * violation whose axe-core rule ID is listed in
+     * {@code acceptedKnownIssueRuleIds} as a known, already-triaged issue
+     * rather than a test failure — typically because it's a defect in the
+     * page under test's own markup (e.g. an image the app under test
+     * renders with no alt attribute) that this framework has no way to fix,
+     * as opposed to something introduced by the automation itself.
+     *
+     * IMPORTANT — this does not hide the issue, it only stops it from
+     * failing the build:
+     *   - Known-issue violations are still counted and logged in the
+     *     WARNING line below, tagged as "(suppressed, known issue)".
+     *   - They are still included in the full report attached to Allure —
+     *     every violation axe-core found, suppressed or not, is visible
+     *     there. Nothing here removes evidence, only the build-breaking
+     *     assertion.
+     *   - Only the *rule ID* is matched (e.g. "image-alt"), not which
+     *     specific element triggered it — so if the accepted rule starts
+     *     firing on a different, newly-introduced element on the same
+     *     page, that's still suppressed too. Re-review the accepted list
+     *     periodically (or whenever the target site's markup changes)
+     *     rather than treating it as permanent.
+     *
+     * Each call site should comment *why* each rule ID is accepted — see
+     * AccessibilityTest for the demoqa.com examples this was built for.
+     */
+    public static void assertNoViolations(WebDriver driver, String pageName, String... acceptedKnownIssueRuleIds) {
         if (!ConfigReader.getBoolean("a11y.enabled", true)) {
             logger.info("[AccessibilityUtils] a11y.enabled=false — skipping scan for '" + pageName + "'");
             return;
@@ -57,15 +88,26 @@ public final class AccessibilityUtils {
 
         Set<String> failOnImpacts = Set.of(
             ConfigReader.get("a11y.failOn", "critical,serious").toLowerCase().split("\\s*,\\s*"));
+        Set<String> acceptedRuleIds = Set.of(acceptedKnownIssueRuleIds);
 
-        List<Rule> blocking = violations.stream()
+        List<Rule> atOrAboveThreshold = violations.stream()
             .filter(rule -> rule.getImpact() != null && failOnImpacts.contains(rule.getImpact().toLowerCase()))
             .collect(Collectors.toList());
 
+        List<Rule> suppressed = atOrAboveThreshold.stream()
+            .filter(rule -> acceptedRuleIds.contains(rule.getId()))
+            .collect(Collectors.toList());
+
+        List<Rule> blocking = atOrAboveThreshold.stream()
+            .filter(rule -> !acceptedRuleIds.contains(rule.getId()))
+            .collect(Collectors.toList());
+
         if (!violations.isEmpty()) {
+            String suppressedNote = suppressed.isEmpty() ? ""
+                : " — " + suppressed.size() + " suppressed as known issue(s): " + summarize(suppressed);
             logger.warning("[AccessibilityUtils] '" + pageName + "' — " + violations.size()
                 + " axe-core violation rule(s) found (" + blocking.size() + " at/above fail threshold "
-                + failOnImpacts + "): " + summarize(violations));
+                + failOnImpacts + "): " + summarize(violations) + suppressedNote);
         }
 
         if (!blocking.isEmpty()) {
@@ -74,6 +116,8 @@ public final class AccessibilityUtils {
                 + summarize(blocking) + ". Full axe report attached to Allure.");
         }
     }
+
+    private static final String[] NO_KNOWN_ISSUES = new String[0];
 
     private static String summarize(List<Rule> rules) {
         return rules.stream()

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.function.Supplier;
 
 /**
  * Single place responsible for creating a WebDriver instance.
@@ -196,6 +197,72 @@ public final class DriverFactory {
         }
     }
 
+    // ── Local-driver port-race retry (Chrome / Brave / Edge) ───────────────────
+    //
+    // ROOT CAUSE (confirmed via a real parallel regression run, not a guess):
+    // Selenium's PortProber.findFreePort() finds a "free" ephemeral port by
+    // opening a ServerSocket on port 0, reading the OS-assigned port number,
+    // then immediately closing that socket — the driver service binds to
+    // that same port number a moment later, in a separate step. That gap is
+    // a classic time-of-check/time-of-use race: under this project's
+    // parallel="classes" thread-count="3" TestNG config, three
+    // Chrome/Edge driver processes can each ask the OS for a free port
+    // within milliseconds of each other, and the OS can legitimately hand
+    // out the *same* just-closed port to more than one of them before any
+    // of them has actually bound it. Whichever process loses that race
+    // fails immediately with RuntimeException("Unable to find a free
+    // port..."), from inside Selenium's own DriverService.Builder — there is
+    // no hook to intervene earlier, since the ChromeDriver/EdgeDriver
+    // constructor does the whole find-port-then-bind sequence internally.
+    //
+    // This is not fixable by changing driver options or Chrome flags — it's
+    // a race in ephemeral port allocation itself, which is why simply
+    // asking the OS again (a fresh findFreePort() call gets a *different*
+    // ephemeral port almost certainly, since the OS won't immediately
+    // re-hand-out one it just gave to someone else) reliably resolves it on
+    // retry. A short random jitter before each retry additionally
+    // de-synchronizes threads that raced each other on the previous
+    // attempt, so they don't just re-race at the same instant again.
+    //
+    // Serializing all browser launches with a global lock would eliminate
+    // the race entirely, but would also serialize away the whole point of
+    // parallel="classes" — so retry-with-jitter is the fix, not a lock.
+    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 4;
+
+    private static WebDriver createWithPortConflictRetry(String browserLabel, Supplier<WebDriver> creator) {
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= DRIVER_CREATION_MAX_ATTEMPTS; attempt++) {
+            try {
+                if (attempt > 1) {
+                    try {
+                        Thread.sleep(150L + (long) (Math.random() * 350));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    logger.warning("[DriverFactory] " + browserLabel + " driver: retrying after a free-port"
+                        + " allocation race (attempt " + attempt + "/" + DRIVER_CREATION_MAX_ATTEMPTS + ").");
+                }
+                return creator.get();
+            } catch (RuntimeException e) {
+                if (!isPortAllocationRace(e)) {
+                    throw e;
+                }
+                lastFailure = e;
+            }
+        }
+        throw new DriverInitializationException(
+            "[DriverFactory] " + browserLabel + " driver failed to start after " + DRIVER_CREATION_MAX_ATTEMPTS
+                + " attempts, each hitting the free-port allocation race described above this method. If this"
+                + " becomes frequent (not just occasional under heavy load), consider lowering the parallel"
+                + " thread-count in the TestNG suite XML being run.",
+            lastFailure);
+    }
+
+    private static boolean isPortAllocationRace(RuntimeException e) {
+        String message = e.getMessage();
+        return message != null && message.contains("Unable to find a free port");
+    }
+
     // ── Chrome ────────────────────────────────────────────────────────────────
 
     // NOTE: pinning chromedriver to an older build (149.x) was tried and did
@@ -211,9 +278,17 @@ public final class DriverFactory {
     // gets us the real reason.
     private static WebDriver createChromeDriver(boolean headless) {
         WebDriverManager.chromedriver().setup();
-        ChromeOptions options = buildChromeOptions(headless);
-        ChromeDriverService service = buildVerboseLoggingService();
-        return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+        // Options and the logging service are (re)built fresh inside the
+        // retry lambda, not once outside it: a failed attempt's
+        // ChromeDriverService already lost the port race with the specific
+        // port it grabbed, so reusing it on retry would just race again on
+        // that same doomed port. A fresh build asks the OS for a brand new
+        // ephemeral port each attempt — see createWithPortConflictRetry().
+        return createWithPortConflictRetry("chrome", () -> {
+            ChromeOptions options = buildChromeOptions(headless);
+            ChromeDriverService service = buildVerboseLoggingService();
+            return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+        });
     }
 
     // ── Brave ─────────────────────────────────────────────────────────────────
@@ -231,8 +306,6 @@ public final class DriverFactory {
         // so WebDriverManager downloads a chromedriver matched to Brave's
         // actual Chromium engine.
         WebDriverManager.chromedriver().browserBinary(braveBinary).setup();
-        ChromeOptions options = buildChromeOptions(headless);
-        options.setBinary(braveBinary);
         logger.info("[DriverFactory] Using Brave binary: " + braveBinary);
 
         // Verbose ChromeDriver logging: the generic SessionNotCreatedException
@@ -241,8 +314,16 @@ public final class DriverFactory {
         // log (which DOES include Brave's own stderr/crash output) to a file
         // instead of losing it. Check this file after any failed run:
         //   target/logs/chromedriver-brave.log
-        ChromeDriverService service = buildVerboseLoggingService();
-        return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+        //
+        // Options/service are (re)built fresh per attempt inside the retry
+        // lambda — see the comment in createChromeDriver() and
+        // createWithPortConflictRetry() for why.
+        return createWithPortConflictRetry("brave", () -> {
+            ChromeOptions options = buildChromeOptions(headless);
+            options.setBinary(braveBinary);
+            ChromeDriverService service = buildVerboseLoggingService();
+            return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+        });
     }
 
     /**
@@ -520,29 +601,35 @@ public final class DriverFactory {
     private static WebDriver createEdgeDriver(boolean headless) {
         WebDriverManager.edgedriver().setup();
 
-        EdgeOptions options = new EdgeOptions();
-        options.setPageLoadStrategy(PageLoadStrategy.EAGER);
-        options.addArguments("--disable-notifications");
-        options.addArguments("--disable-extensions");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--remote-allow-origins=*");
+        // Options are (re)built fresh per attempt inside the retry lambda —
+        // EdgeDriverService hits the exact same PortProber race as
+        // ChromeDriverService (both are Selenium DriverService subclasses).
+        // See createWithPortConflictRetry() above createChromeDriver().
+        return createWithPortConflictRetry("edge", () -> {
+            EdgeOptions options = new EdgeOptions();
+            options.setPageLoadStrategy(PageLoadStrategy.EAGER);
+            options.addArguments("--disable-notifications");
+            options.addArguments("--disable-extensions");
+            options.addArguments("--no-sandbox");
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--remote-allow-origins=*");
 
-        String downloadPath = getDownloadPath();
-        Map<String, Object> prefs = new HashMap<>();
-        prefs.put("download.default_directory", downloadPath);
-        prefs.put("download.prompt_for_download", false);
-        prefs.put("download.directory_upgrade", true);
-        options.setExperimentalOption("prefs", prefs);
+            String downloadPath = getDownloadPath();
+            Map<String, Object> prefs = new HashMap<>();
+            prefs.put("download.default_directory", downloadPath);
+            prefs.put("download.prompt_for_download", false);
+            prefs.put("download.directory_upgrade", true);
+            options.setExperimentalOption("prefs", prefs);
 
-        if (headless) {
-            options.addArguments("--headless=new");
-            options.addArguments("--window-size=1920,1080");
-        } else {
-            options.addArguments("--start-maximized");
-        }
+            if (headless) {
+                options.addArguments("--headless=new");
+                options.addArguments("--window-size=1920,1080");
+            } else {
+                options.addArguments("--start-maximized");
+            }
 
-        return new EdgeDriver(options);
+            return new EdgeDriver(options);
+        });
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
