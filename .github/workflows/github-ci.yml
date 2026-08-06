@@ -164,6 +164,7 @@ jobs:
             -Dheadless=${{ env.HEADLESS }} \
             -Dhuman.pause.enabled=false \
             -Dretry.count=${{ env.RETRY_COUNT }} \
+            -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-healing-report.json \
             -Dmaven.test.failure.ignore=true
 
       # Each matrix job's own runner/filesystem is already isolated from
@@ -198,6 +199,7 @@ jobs:
             target/screenshots/
             target/surefire-reports/
             target/downloads/
+            target/self-healing/
           retention-days: 7
 
   # ================================================================
@@ -293,7 +295,7 @@ jobs:
           # the way a normal `run:` step does — it runs only the first line and
           # passes the trailing backslash through as a literal argument, which is
           # why `mvn -B test \` alone used to fail with `Unknown lifecycle phase "\"`.
-          script: mvn -B test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings -Dmobile.device.name=emulator-5554 -Dretry.count=${{ env.RETRY_COUNT }} -Dmaven.test.failure.ignore=true
+          script: mvn -B test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings -Dmobile.device.name=emulator-5554 -Dretry.count=${{ env.RETRY_COUNT }} -Dself-healing.report.path=target/self-healing/mobile-healing-report.json -Dmaven.test.failure.ignore=true
 
       # Same artifact-naming convention as the browser `test` job above
       # (allure-results-<job-identifier> / test-results-<job-identifier>-
@@ -318,6 +320,7 @@ jobs:
             target/extent-reports/
             target/screenshots/
             target/surefire-reports/
+            target/self-healing/
             appium.log
           retention-days: 7
 
@@ -375,6 +378,7 @@ jobs:
             -Dbrowser=chrome \
             -Dheadless=true \
             -Dallure.results.directory=target/allure-results/demoqa-${{ matrix.suite }} \
+            -Dself-healing.report.path=target/self-healing/demoqa-${{ matrix.suite }}-healing-report.json \
             -Dmaven.test.failure.ignore=true
 
       - name: Upload Allure Results
@@ -396,7 +400,47 @@ jobs:
             target/extent-reports/
             target/screenshots/
             target/surefire-reports/
+            target/self-healing/
           retention-days: 7
+
+  # ================================================================
+  # STAGE 2d - PR Comment (results summary posted on the pull request)
+  # ================================================================
+  # Gives a reviewer pass/fail counts and a link to the full reports
+  # without leaving the PR — otherwise the only way to see results is
+  # clicking into the Actions tab. `always()` so this still comments (with
+  # the failure counts) when test/mobile-test failed, rather than only
+  # commenting on green runs, which plain `needs:` would enforce.
+  # accessibility-visual-test is deliberately NOT in `needs:` here — it
+  # only ever runs on the nightly schedule (see its own `if:` above), so
+  # on every actual pull_request event it would just be a permanently
+  # skipped dependency this job would have to work around for no benefit.
+  pr-comment:
+    needs: [ test, mobile-test ]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Only needs surefire-reports (for pass/fail counts) — reuses the
+      # same test-results-*-<run_id> artifact pattern as the allure-report
+      # job, just without also pulling down extent-reports/screenshots
+      # this job has no use for.
+      - name: Download Surefire Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*-${{ github.run_id }}
+          path: target/
+          merge-multiple: true
+
+      - name: Post or update PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/scripts/post_pr_comment.py
 
   # ================================================================
   # STAGE 3 - Allure Report (merges every site's results into one report)
@@ -494,6 +538,25 @@ jobs:
           path: target/
           merge-multiple: true
 
+      # Aggregates every target/self-healing/<site>-healing-report.json
+      # (now included in each test/mobile-test/accessibility-visual-test
+      # job's artifact upload — see -Dself-healing.report.path and the
+      # matching upload-artifact path list added to those jobs) into one
+      # summary, so a healed-but-still-green locator has somewhere visible
+      # to surface instead of sitting unread in target/.
+      - name: Compute self-healing summary
+        id: self_healing
+        run: python3 .github/scripts/compute_self_healing_summary.py
+
+      # Builds the per-test pass/fail trend across recent runs and flags
+      # anything flip-flopping. Needs the gh-pages history checked out
+      # above (same "Load Previous Allure History" step Allure's own trend
+      # graph already relies on) plus this run's surefire XML, downloaded
+      # by the step just above.
+      - name: Compute flaky test trend
+        id: flaky_trend
+        run: python3 .github/scripts/compute_flaky_trend.py
+
       # Both reports are assembled into one local directory tree and
       # published with a SINGLE peaceiris/actions-gh-pages call below,
       # rather than two separate calls (the previous "Deploy Allure Report"
@@ -528,59 +591,14 @@ jobs:
       # saucedemo-index.html, mobile-index.html, ...) rather than a single
       # index.html — so extent-report/ on its own has no default page a
       # browser would land on. This generates a root landing page at
-      # gh-pages-publish/index.html that links to the Allure report plus
-      # every *-index.html actually present this run (globbed, not
-      # hardcoded, so a new site/suite shows up automatically), giving one
-      # bookmarkable URL for the whole run's reports instead of needing to
-      # guess a path or download the artifact zip to find one.
+      # gh-pages-publish/index.html that links to the Allure report, every
+      # Extent report file actually present this run, the self-healing
+      # summary, and the flaky-test trend — one bookmarkable URL instead
+      # of guessing a path or downloading the artifact zip. Moved from
+      # inline bash/printf to a checked-in script once it needed to render
+      # tables from the JSON the two steps above produce.
       - name: Generate reports landing page
-        run: |
-          EXTENT_LINKS=""
-          if [ -d "target/gh-pages-publish/extent-report" ]; then
-            while IFS= read -r f; do
-              name=$(basename "$f")
-              EXTENT_LINKS="${EXTENT_LINKS}<li><a href=\"extent-report/${name}\">${name}</a></li>"
-            done < <(find target/gh-pages-publish/extent-report -maxdepth 1 -name "*.html" | sort)
-          fi
-          if [ -z "$EXTENT_LINKS" ]; then
-            EXTENT_LINKS="<li><em>No Extent report found for this run.</em></li>"
-          fi
-
-          if [ -f "target/gh-pages-publish/allure-report/index.html" ]; then
-            ALLURE_LINK='<li><a href="allure-report/index.html">Allure Report</a></li>'
-          else
-            ALLURE_LINK='<li><em>No Allure report found for this run.</em></li>'
-          fi
-
-          # Built with printf (not a heredoc) since this whole step lives
-          # inside YAML's `run: |` block — every line here is indented,
-          # and a heredoc's closing delimiter must start in column 1 in
-          # plain bash (no leading whitespace) unless using the tab-only
-          # `<<-` variant, which doesn't help since this file uses spaces.
-          printf '%s\n' \
-            '<!DOCTYPE html>' \
-            '<html lang="en">' \
-            '<head>' \
-            '  <meta charset="UTF-8">' \
-            '  <title>Selenium Automation Framework - Test Reports</title>' \
-            '  <style>' \
-            '    body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem auto; max-width: 640px; line-height: 1.6; }' \
-            '    h1 { font-size: 1.4rem; }' \
-            '    h2 { font-size: 1.05rem; margin-top: 2rem; }' \
-            '    ul { padding-left: 1.2rem; }' \
-            '    small { color: #666; }' \
-            '  </style>' \
-            '</head>' \
-            '<body>' \
-            '  <h1>Selenium Automation Framework - Test Reports</h1>' \
-            "  <p><small>Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC') &middot; Run: ${{ github.run_id }}</small></p>" \
-            '  <h2>Allure</h2>' \
-            "  <ul>${ALLURE_LINK}</ul>" \
-            '  <h2>Extent</h2>' \
-            "  <ul>${EXTENT_LINKS}</ul>" \
-            '</body>' \
-            '</html>' \
-            > target/gh-pages-publish/index.html
+        run: python3 .github/scripts/generate_landing_page.py
 
       - name: Deploy Reports to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -601,9 +619,11 @@ jobs:
       # standard <owner>.github.io/<repo>/ URL shape is built manually
       # instead. (If this repo IS the org/user Pages repo, i.e. named
       # exactly "<owner>.github.io", Pages serves it at the domain root
-      # with no /<repo>/ segment — the sed below strips that segment in
-      # that one case.)
+      # with no /<repo>/ segment — the if/else below handles that one case.)
       - name: Publish report links to job summary
+        env:
+          HEALING_COUNT: ${{ steps.self_healing.outputs.healing_count }}
+          FLAKY_COUNT: ${{ steps.flaky_trend.outputs.flaky_count }}
         run: |
           OWNER="${{ github.repository_owner }}"
           REPO="${{ github.event.repository.name }}"
@@ -627,5 +647,33 @@ jobs:
               done
             fi
             echo ""
+            echo "**Self-healed locators this run:** ${HEALING_COUNT:-0} &middot; **Flaky tests detected:** ${FLAKY_COUNT:-0}"
+            echo ""
             echo "_Note: on first-ever deploy, GitHub Pages can take a minute or two to go live, and it must be enabled once under Settings → Pages → Source → Deploy from a branch → \`gh-pages\`._"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Self-healing keeps a suite green even while a locator quietly
+      # drifts out from under it — fine occasionally, a problem if it's
+      # happening every night and nobody's fixing the underlying locator.
+      # Only checked on the nightly schedule run (not every push/PR) so a
+      # one-off UI hiccup during active development doesn't fail CI; a
+      # sustained drift trend failing the nightly build is the point where
+      # it's worth someone's attention. Runs after the report is already
+      # deployed above, so a threshold breach surfaces as a failed job
+      # without blocking the reports themselves from publishing.
+      - name: Check self-healing threshold (nightly only)
+        if: github.event_name == 'schedule'
+        env:
+          HEALING_COUNT: ${{ steps.self_healing.outputs.healing_count }}
+          # Adjust to taste. Repo/organization Variables (Settings →
+          # Secrets and variables → Actions → Variables) can override this
+          # per-repo via vars.SELF_HEALING_FAIL_THRESHOLD without editing
+          # the workflow file.
+          THRESHOLD: ${{ vars.SELF_HEALING_FAIL_THRESHOLD || '5' }}
+        run: |
+          COUNT="${HEALING_COUNT:-0}"
+          echo "Self-healing events: $COUNT (threshold: $THRESHOLD)"
+          if [ "$COUNT" -gt "$THRESHOLD" ]; then
+            echo "::error::$COUNT locators needed self-healing tonight (threshold: $THRESHOLD). Check the self-healing summary on the landing page and fix the underlying locators."
+            exit 1
+          fi

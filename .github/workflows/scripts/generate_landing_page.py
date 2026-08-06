@@ -1,0 +1,167 @@
+"""
+Builds target/gh-pages-publish/index.html: one bookmarkable landing page
+linking to the Allure report, every Extent report file present this run,
+the self-healing summary, and the flaky-test trend — so viewing any of
+this only ever requires the Pages URL, never downloading the workflow's
+artifact zip.
+
+Rewritten in Python (was inline bash/printf) once it needed to render
+tables from JSON rather than just a flat link list — HTML-from-JSON is a
+lot less error-prone here than continuing to hand-quote it through shell.
+"""
+import glob
+import html
+import json
+import os
+from datetime import datetime, timezone
+
+PUBLISH_DIR = "target/gh-pages-publish"
+ALLURE_INDEX = os.path.join(PUBLISH_DIR, "allure-report", "index.html")
+EXTENT_DIR = os.path.join(PUBLISH_DIR, "extent-report")
+SELF_HEALING_SUMMARY_PATH = "target/self-healing-summary.json"
+FLAKY_TESTS_PATH = "target/flaky-tests.json"
+OUTPUT_PATH = os.path.join(PUBLISH_DIR, "index.html")
+
+STYLE = """
+body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem auto; max-width: 760px; line-height: 1.6; padding: 0 1rem; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+ul { padding-left: 1.2rem; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5rem; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #eee; }
+th { color: #555; font-weight: 600; }
+small { color: #666; }
+.muted { color: #888; font-style: italic; }
+.badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
+.badge-pass { background: #e6f4ea; color: #1e7e34; }
+.badge-fail { background: #fdecea; color: #c0392b; }
+.badge-skip { background: #f1f1f1; color: #666; }
+"""
+
+
+def load_json(path):
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def render_allure_section():
+    if os.path.exists(ALLURE_INDEX):
+        return '<ul><li><a href="allure-report/index.html">Open Allure Report</a></li></ul>'
+    return '<p class="muted">No Allure report found for this run.</p>'
+
+
+def render_extent_section():
+    if not os.path.isdir(EXTENT_DIR):
+        return '<p class="muted">No Extent report found for this run.</p>'
+    files = sorted(f for f in glob.glob(os.path.join(EXTENT_DIR, "*.html")))
+    if not files:
+        return '<p class="muted">No Extent report found for this run.</p>'
+    items = "".join(
+        f'<li><a href="extent-report/{html.escape(os.path.basename(f))}">{html.escape(os.path.basename(f))}</a></li>'
+        for f in files
+    )
+    return f"<ul>{items}</ul>"
+
+
+def render_self_healing_section():
+    summary = load_json(SELF_HEALING_SUMMARY_PATH)
+    if not summary or not summary.get("total"):
+        return '<p class="muted">No locators needed self-healing this run.</p>'
+    rows = []
+    for event in summary["events"][:25]:
+        # Score formatting pulled out to its own line (rather than nested
+        # in the f-string below) since pre-3.12 Python disallows a
+        # backslash-containing expression — which html.escape's quoting
+        # would otherwise require — inside an f-string's {} braces.
+        score_text = html.escape(f"{float(event.get('score', 0) or 0):.2f}")
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(event.get('site', '')))}</td>"
+            f"<td>{html.escape(str(event.get('elementKey', '')))}</td>"
+            f"<td>{html.escape(str(event.get('originalLocator', '')))}</td>"
+            f"<td>{html.escape(str(event.get('healedDescription', '')))}</td>"
+            f"<td>{score_text}</td>"
+            "</tr>"
+        )
+    more = ""
+    if summary["total"] > 25:
+        more = f'<p class="muted">...and {summary["total"] - 25} more. See self-healing-report.json.</p>'
+    table = (
+        "<table><thead><tr><th>Site</th><th>Element</th><th>Original Locator</th>"
+        f"<th>Healed As</th><th>Score</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"
+    )
+    by_site = ", ".join(f"{site}: {count}" for site, count in summary.get("bySite", {}).items())
+    return f"<p><strong>{summary['total']}</strong> locator(s) drifted and were auto-healed this run ({by_site}).</p>{table}{more}"
+
+
+def render_flaky_section():
+    report = load_json(FLAKY_TESTS_PATH)
+    if not report or not report.get("flaky_count"):
+        window = report.get("window_runs") if report else None
+        note = f" (last {window} runs)" if window else ""
+        return f'<p class="muted">No flaky tests detected{note}.</p>'
+    rows = []
+    for entry in report["flaky"][:25]:
+        statuses = " ".join(
+            f'<span class="badge badge-{s}">{s}</span>' for s in entry["recent_statuses"]
+        )
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(entry['test'])}</td>"
+            f"<td>{entry['pass_count']}</td>"
+            f"<td>{entry['fail_count']}</td>"
+            f"<td>{statuses}</td>"
+            "</tr>"
+        )
+    table = (
+        "<table><thead><tr><th>Test</th><th>Passes</th><th>Fails</th>"
+        f"<th>Recent (oldest &rarr; newest)</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"
+    )
+    return (
+        f"<p><strong>{report['flaky_count']}</strong> test(s) flip-flopped between pass and fail "
+        f"over the last {report['window_runs']} run(s).</p>{table}"
+    )
+
+
+def main():
+    os.makedirs(PUBLISH_DIR, exist_ok=True)
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    run_id = os.environ.get("GITHUB_RUN_ID", "unknown")
+
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Selenium Automation Framework - Test Reports</title>
+  <style>{STYLE}</style>
+</head>
+<body>
+  <h1>Selenium Automation Framework - Test Reports</h1>
+  <p><small>Last updated: {generated_at} &middot; Run: {run_id}</small></p>
+
+  <h2>Allure</h2>
+  {render_allure_section()}
+
+  <h2>Extent</h2>
+  {render_extent_section()}
+
+  <h2>Self-Healing Locators</h2>
+  {render_self_healing_section()}
+
+  <h2>Flaky Test Trend</h2>
+  {render_flaky_section()}
+</body>
+</html>
+"""
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        f.write(page)
+    print(f"Wrote {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
