@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🤖 Selenium Automation Framework — Advanced Edition
 
 > **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 5 file formats, keyword-driven scripting, accessibility (axe-core) and visual-regression (AShot) checks, an opt-in JMeter performance smoke check, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).

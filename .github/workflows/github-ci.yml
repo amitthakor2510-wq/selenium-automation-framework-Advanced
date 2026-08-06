@@ -524,6 +524,64 @@ jobs:
             echo "::warning::target/extent-reports missing — Extent report will not be updated this run"
           fi
 
+      # Extent's ExtentManager writes one file per site (demoqa-index.html,
+      # saucedemo-index.html, mobile-index.html, ...) rather than a single
+      # index.html — so extent-report/ on its own has no default page a
+      # browser would land on. This generates a root landing page at
+      # gh-pages-publish/index.html that links to the Allure report plus
+      # every *-index.html actually present this run (globbed, not
+      # hardcoded, so a new site/suite shows up automatically), giving one
+      # bookmarkable URL for the whole run's reports instead of needing to
+      # guess a path or download the artifact zip to find one.
+      - name: Generate reports landing page
+        run: |
+          EXTENT_LINKS=""
+          if [ -d "target/gh-pages-publish/extent-report" ]; then
+            while IFS= read -r f; do
+              name=$(basename "$f")
+              EXTENT_LINKS="${EXTENT_LINKS}<li><a href=\"extent-report/${name}\">${name}</a></li>"
+            done < <(find target/gh-pages-publish/extent-report -maxdepth 1 -name "*.html" | sort)
+          fi
+          if [ -z "$EXTENT_LINKS" ]; then
+            EXTENT_LINKS="<li><em>No Extent report found for this run.</em></li>"
+          fi
+
+          if [ -f "target/gh-pages-publish/allure-report/index.html" ]; then
+            ALLURE_LINK='<li><a href="allure-report/index.html">Allure Report</a></li>'
+          else
+            ALLURE_LINK='<li><em>No Allure report found for this run.</em></li>'
+          fi
+
+          # Built with printf (not a heredoc) since this whole step lives
+          # inside YAML's `run: |` block — every line here is indented,
+          # and a heredoc's closing delimiter must start in column 1 in
+          # plain bash (no leading whitespace) unless using the tab-only
+          # `<<-` variant, which doesn't help since this file uses spaces.
+          printf '%s\n' \
+            '<!DOCTYPE html>' \
+            '<html lang="en">' \
+            '<head>' \
+            '  <meta charset="UTF-8">' \
+            '  <title>Selenium Automation Framework - Test Reports</title>' \
+            '  <style>' \
+            '    body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem auto; max-width: 640px; line-height: 1.6; }' \
+            '    h1 { font-size: 1.4rem; }' \
+            '    h2 { font-size: 1.05rem; margin-top: 2rem; }' \
+            '    ul { padding-left: 1.2rem; }' \
+            '    small { color: #666; }' \
+            '  </style>' \
+            '</head>' \
+            '<body>' \
+            '  <h1>Selenium Automation Framework - Test Reports</h1>' \
+            "  <p><small>Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC') &middot; Run: ${{ github.run_id }}</small></p>" \
+            '  <h2>Allure</h2>' \
+            "  <ul>${ALLURE_LINK}</ul>" \
+            '  <h2>Extent</h2>' \
+            "  <ul>${EXTENT_LINKS}</ul>" \
+            '</body>' \
+            '</html>' \
+            > target/gh-pages-publish/index.html
+
       - name: Deploy Reports to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -534,3 +592,40 @@ jobs:
           # two was skipped above because its source directory was
           # missing).
           keep_files: true
+
+      # Prints clickable report links directly on the workflow run's
+      # Summary tab, so viewing the reports never requires downloading
+      # the artifact zip. github.event.repository.pages_html_url would be
+      # nicer, but download-artifact/checkout jobs don't populate the
+      # `repository` webhook payload with Pages info reliably, so the
+      # standard <owner>.github.io/<repo>/ URL shape is built manually
+      # instead. (If this repo IS the org/user Pages repo, i.e. named
+      # exactly "<owner>.github.io", Pages serves it at the domain root
+      # with no /<repo>/ segment — the sed below strips that segment in
+      # that one case.)
+      - name: Publish report links to job summary
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          REPO="${{ github.event.repository.name }}"
+          if [ "$REPO" = "${OWNER}.github.io" ]; then
+            BASE_URL="https://${OWNER}.github.io"
+          else
+            BASE_URL="https://${OWNER}.github.io/${REPO}"
+          fi
+          {
+            echo "## 📊 Test Reports"
+            echo ""
+            echo "| Report | Link |"
+            echo "|---|---|"
+            echo "| All reports (landing page) | [$BASE_URL/]($BASE_URL/) |"
+            echo "| Allure | [$BASE_URL/allure-report/]($BASE_URL/allure-report/) |"
+            if [ -d "target/gh-pages-publish/extent-report" ]; then
+              for f in target/gh-pages-publish/extent-report/*.html; do
+                [ -e "$f" ] || continue
+                name=$(basename "$f")
+                echo "| Extent — $name | [$BASE_URL/extent-report/$name]($BASE_URL/extent-report/$name) |"
+              done
+            fi
+            echo ""
+            echo "_Note: on first-ever deploy, GitHub Pages can take a minute or two to go live, and it must be enabled once under Settings → Pages → Source → Deploy from a branch → \`gh-pages\`._"
+          } >> "$GITHUB_STEP_SUMMARY"
