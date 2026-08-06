@@ -127,7 +127,7 @@ jobs:
       # Keyed on browser (not site) since the same driver binary is shared
       # across both sites' matrix jobs.
       - name: Cache WebDriverManager binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.wdm
           key: wdm-${{ runner.os }}-${{ env.BROWSER }}
