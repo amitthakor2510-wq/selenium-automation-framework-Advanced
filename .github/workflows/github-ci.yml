@@ -175,7 +175,7 @@ jobs:
       # in the allure-report job below can tell them apart.
       - name: Upload Allure Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-${{ matrix.site }}
           path: target/allure-results/
@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload Extent + Surefire Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # github.ref_name would be "<PR_NUMBER>/merge" on pull_request
           # events — a slash, which upload-artifact rejects outright
@@ -301,7 +301,7 @@ jobs:
       # these up automatically without needing a separate download step.
       - name: Upload Allure Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-mobile
           path: target/allure-results/
@@ -309,7 +309,7 @@ jobs:
 
       - name: Upload Extent + Surefire Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # See the matching comment in the `test` job above — github.ref_name
           # contains a slash on pull_request events, github.run_id doesn't.
@@ -379,7 +379,7 @@ jobs:
 
       - name: Upload Allure Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-demoqa-${{ matrix.suite }}
           path: target/allure-results/
@@ -387,7 +387,7 @@ jobs:
 
       - name: Upload Extent + Surefire Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # See the matching comment in the `test` job above — github.ref_name
           # contains a slash on pull_request events, github.run_id doesn't.
