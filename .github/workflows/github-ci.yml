@@ -420,7 +420,7 @@ jobs:
       # since each site's allure-results file names are UUID-based, they
       # combine into one report covering every site instead of colliding.
       - name: Download Allure Results (all sites)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: allure-results-*
           path: target/allure-results/
@@ -453,7 +453,7 @@ jobs:
           keep_reports: 20
 
       - name: Download Extent Reports (all sites)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           # Matches the github.run_id-based names used at upload time in the
           # test/mobile-test/accessibility-visual-test jobs above (see the
