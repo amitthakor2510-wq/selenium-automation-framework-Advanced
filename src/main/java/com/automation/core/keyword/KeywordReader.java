@@ -27,7 +27,18 @@ public final class KeywordReader {
 
     /** All test cases in the file, keyed by testCase name, steps sorted by stepNo. */
     public static Map<String, List<KeywordStep>> readAll(String filePath) {
-        List<DataRow> rows = DataProvider.read(filePath);
+        // Keyword step rows are a fixed script, not filterable DDT data rows, so this
+        // must use the unfiltered DataProvider.readAll() — not DataProvider.read().
+        // read() applies the execute/tags DDT filters, which are designed for
+        // data-driven test *data* rows. Keyword files normally have no
+        // execute/tags columns, so filterExecuteOnly() is a no-op on them - but
+        // the tags filter is not: if a caller sets -Ddata.tags=<anything> (a
+        // documented, supported flag for regular DDT tests) while also running
+        // keyword-driven tests, rowMatchesTags() drops every row here because
+        // keyword files don't have a "tags" column, and readTestCase() then
+        // throws "No rows found for testCase=...", unrelated to the actual
+        // script content.
+        List<DataRow> rows = DataProvider.readAll(filePath);
 
         Map<String, List<KeywordStep>> byTestCase = new LinkedHashMap<>();
         for (DataRow row : rows) {

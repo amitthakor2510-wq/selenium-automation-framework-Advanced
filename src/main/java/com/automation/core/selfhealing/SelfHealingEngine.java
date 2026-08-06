@@ -107,14 +107,11 @@ public final class SelfHealingEngine {
         }
 
         double threshold = parseThreshold();
-        ScoredCandidate best = findBestMatch(driver, baseline);
+        ScoredCandidate best = findBestMatch(driver, baseline, requireClickable);
         if (best == null || best.score < threshold) {
             logger.warning("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
                 + " (best score " + (best == null ? "n/a" : String.format(Locale.ROOT, "%.2f", best.score))
                 + ", threshold " + threshold + "). Falling back to the original failure.");
-            return null;
-        }
-        if (requireClickable && !isUsableAsClickTarget(best.element)) {
             return null;
         }
 
@@ -125,14 +122,6 @@ public final class SelfHealingEngine {
         LocatorRepository.recordHeal(new HealingEvent(key, locator.toString(), describe(best.element), best.score));
         captureAndStore(key, best.element);
         return best.element;
-    }
-
-    private static boolean isUsableAsClickTarget(WebElement element) {
-        try {
-            return element.isDisplayed() && element.isEnabled();
-        } catch (StaleElementReferenceException e) {
-            return false;
-        }
     }
 
     private static double parseThreshold() {
@@ -225,7 +214,24 @@ public final class SelfHealingEngine {
 
     // ── Candidate search + scoring ───────────────────────────────────────────
 
-    private static ScoredCandidate findBestMatch(WebDriver driver, ElementFingerprint baseline) {
+    /**
+     * Scans all elements matching baseline.tag and returns the highest-scoring
+     * one that is actually usable — i.e. when {@code requireClickable} is set,
+     * candidates that are displayed but disabled are skipped during scanning
+     * itself, not just checked against the single overall top-scorer.
+     * <p>
+     * BUG FIX: this used to pick the single best-scoring candidate across ALL
+     * displayed elements first, then reject it afterward in attemptHeal() if
+     * requireClickable was set and that one candidate happened to be disabled
+     * — even when a second-best (but still perfectly good and clickable)
+     * candidate existed. That threw away a real healing opportunity: a click
+     * request would give up and rethrow the original failure while a usable
+     * match sat unscored a few candidates further down the DOM. Filtering
+     * eligibility up front means the best-scoring candidate returned here is
+     * always one the caller can actually use.
+     */
+    private static ScoredCandidate findBestMatch(WebDriver driver, ElementFingerprint baseline,
+                                                 boolean requireClickable) {
         List<WebElement> candidates;
         try {
             candidates = driver.findElements(By.tagName(baseline.tag));
@@ -243,6 +249,9 @@ public final class SelfHealingEngine {
             }
             try {
                 if (!candidate.isDisplayed()) {
+                    continue;
+                }
+                if (requireClickable && !candidate.isEnabled()) {
                     continue;
                 }
                 double s = score(baseline, buildFingerprint(candidate));

@@ -444,8 +444,19 @@ jobs:
             echo "No previous history found - first run"
           fi
 
+      # Pinned to v1.12, NOT v1.13. v1.13's only change (upstream PR #69,
+      # "Updated docker image and workflows") swapped this action's Docker
+      # base image, and the new image is missing `xargs` (part of
+      # findutils). `allure generate` itself shells out through xargs
+      # internally on this image, so it now silently fails with "xargs is
+      # not available" and never writes target/allure-report — which is
+      # exactly what broke this step (the two `cp: cannot stat
+      # './target/allure-report/...'` errors right after it are just the
+      # downstream symptom, not a second bug). v1.12 predates that image
+      # change and generates correctly. Re-check upstream before bumping
+      # this back to @v1.13 or later.
       - name: Generate Allure Report
-        uses: simple-elf/allure-report-action@v1.13
+        uses: simple-elf/allure-report-action@v1.12
         with:
           allure_results: target/allure-results
           allure_report: target/allure-report

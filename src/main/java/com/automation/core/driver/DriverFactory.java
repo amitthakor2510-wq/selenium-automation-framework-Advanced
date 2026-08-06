@@ -341,9 +341,24 @@ public final class DriverFactory {
 
     /**
      * Builds a ChromeDriverService with verbose logging enabled, writing to
-     * target/logs/chromedriver-&lt;browser&gt;.log. Returns null (falls back to
-     * default service) if the log directory can't be created, so this never
-     * blocks a run — it's purely a diagnostic aid.
+     * target/logs/chromedriver-&lt;browser&gt;-thread-&lt;id&gt;.log. Returns null
+     * (falls back to default service) if the log directory can't be
+     * created, so this never blocks a run — it's purely a diagnostic aid.
+     * <p>
+     * BUG FIX: the log file used to be named purely by browser
+     * ("chromedriver-chrome.log"), with no thread isolation — the same gap
+     * already fixed for download directories (see getDownloadPath()) and
+     * temp Chrome/Brave profile dirs above, just missed here. Under this
+     * project's parallel="classes" thread-count="3" TestNG config, all 3
+     * concurrent same-browser sessions were opening and writing to that one
+     * shared file at once: on Linux the writes interleave into garbage,
+     * and on Windows a second/third ChromeDriverService can fail outright
+     * trying to open a file another process already has open for writing.
+     * Either way the exact diagnostic log this method exists to produce —
+     * "check this file after any failed run" — was unreliable precisely
+     * when parallel execution made it most needed. Thread ID in the
+     * filename gives each concurrent session its own log, same as the
+     * download-path and temp-profile-dir fixes already do.
      */
     private static ChromeDriverService buildVerboseLoggingService() {
         try {
@@ -354,7 +369,8 @@ public final class DriverFactory {
                 logger.warning("[DriverFactory] Could not create log directory: " + logDir);
                 return null;
             }
-            File logFile = new File(logDir, "chromedriver-" + browser + ".log");
+            File logFile = new File(logDir,
+                "chromedriver-" + browser + "-thread-" + Thread.currentThread().getId() + ".log");
             logger.info("[DriverFactory] Verbose chromedriver log: " + logFile.getAbsolutePath());
             return new ChromeDriverService.Builder()
                 .withVerbose(true)
