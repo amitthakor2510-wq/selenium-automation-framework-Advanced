@@ -187,6 +187,26 @@
       <version>5.2.5</version>
     </dependency>
 
+    <!-- Bridges Apache POI's internal logging (poi-ooxml logs through the
+         Log4j2 API, not SLF4J) into this project's actual logging backend
+         (slf4j-simple above). Without this, Log4j2 finds its API on the
+         classpath (pulled in transitively by poi-ooxml) but no implementation
+         bound to it, and falls back to its own bare console SimpleLogger —
+         visible as this startup warning the moment any Excel test-data file
+         (e.g. login.xlsx) is first read:
+           ERROR StatusLogger Log4j2 could not find a logging implementation.
+           Please add log4j-core to the classpath. Using SimpleLogger...
+         Adding log4j-core directly (as that message suggests) would just
+         stand up a second, independent logging backend side-by-side with
+         slf4j-simple instead of unifying POI's logging into the one this
+         project already uses — log4j-to-slf4j routes it into the existing
+         backend instead. -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-to-slf4j</artifactId>
+      <version>2.23.1</version>
+    </dependency>
+
     <!-- CSV -->
     <dependency>
       <groupId>com.opencsv</groupId>

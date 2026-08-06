@@ -414,16 +414,44 @@ pipeline {
                             appium driver install uiautomator2
                         fi
 
-                        pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
-                        pkill -f "appium" 2>/dev/null || true
+                        # -9 (not a bare pkill/SIGTERM): a hung emulator from a
+                        # crashed previous run can outlive a plain SIGTERM, and
+                        # if it's still squatting on port 5554 the emulator we
+                        # launch below silently falls back to the next free
+                        # port pair (5556/5557) instead of 5554/5555 — while
+                        # ANDROID_SERIAL stays pinned to "emulator-5554", so
+                        # every adb call in this script then targets the dead
+                        # leftover process, not the one we just started. This
+                        # is consistent with the "Cleanup (Stale Processes)"
+                        # stage's own killall -9 for the same class of process.
+                        pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+                        pkill -9 -f "appium" 2>/dev/null || true
+                        # Belt-and-braces alongside the -9 pkill above: restart
+                        # the adb server itself so any stale device/offline
+                        # registration left over from a previous run's process
+                        # can't linger and be mistaken for this run's emulator.
+                        "$ANDROID_SDK_ROOT/platform-tools/adb" kill-server 2>/dev/null || true
 
+                        # -no-snapshot-load: cleanWs() in post{} wipes the
+                        # entire workspace (including .android-sdk/avd/) after
+                        # every single build, so a "default_boot" snapshot
+                        # from a prior run can never exist here — without this
+                        # flag the emulator always wastes time attempting (and
+                        # failing) to load a snapshot that is guaranteed not
+                        # to be there, e.g.:
+                        #   WARNING  Device 'cache' does not have the requested snapshot 'default_boot'
+                        #   WARNING  Failed to load snapshot 'default_boot'
+                        # before falling back to the cold boot it was always
+                        # going to need. Skipping straight to cold boot removes
+                        # that dead-end detour from the critical boot path.
+                        #
                         # -port 5554 pins this emulator's adb serial to the
                         # fixed "emulator-5554" (ANDROID_SERIAL above) instead
                         # of letting adb auto-assign whichever even-numbered
                         # port is free — auto-assignment is exactly how the
                         # Genymotion device and this AVD could otherwise end
                         # up ambiguous to a bare `adb` call.
-                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
+                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
 
                         echo "Waiting for emulator to boot..."
                         # ANDROID_SERIAL=emulator-5554 (exported above) scopes
@@ -433,8 +461,25 @@ pipeline {
                         # server — without it, adb refuses any command with
                         # "error: more than one device/emulator" the moment
                         # both devices are registered.
-                        if ! timeout 120 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
-                            echo "ERROR: emulator did not come up within 120s — it may have crashed. Check emulator.log below."
+                        #
+                        # 300s (not 120s): this agent's own emulator.log shows
+                        # KVM running degraded here — "host doesn't support
+                        # requested feature: CPUID.01H:ECX.aes" plus "Setting
+                        # AVD to run with 1 vCPU core only" — a signature of
+                        # nested virtualization without full passthrough. That
+                        # slows the guest boot and the adb transport handshake
+                        # well past 120s even on a run that ultimately
+                        # succeeds (a real run recorded "Boot completed in
+                        # 44062 ms" internally, yet every adb call was still
+                        # "device offline" long after that point). The 120s
+                        # gate was also inconsistent with the *next* loop
+                        # below, which already budgets 60x5s=300s of patience
+                        # for the same "device isn't ready yet" condition —
+                        # this shorter, earlier gate was aborting the stage
+                        # before that more patient loop ever got a chance to
+                        # run. Matching both to 300s removes that inconsistency.
+                        if ! timeout 300 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
+                            echo "ERROR: emulator did not come up within 300s — it may have crashed. Check emulator.log below."
                             cat emulator.log 2>/dev/null || true
                             exit 1
                         fi

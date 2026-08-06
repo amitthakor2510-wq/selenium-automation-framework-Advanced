@@ -440,7 +440,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: python3 .github/scripts/post_pr_comment.py
+        run: python3 .github/workflows/scripts/post_pr_comment.py
 
   # ================================================================
   # STAGE 3 - Allure Report (merges every site's results into one report)
@@ -546,7 +546,7 @@ jobs:
       # to surface instead of sitting unread in target/.
       - name: Compute self-healing summary
         id: self_healing
-        run: python3 .github/scripts/compute_self_healing_summary.py
+        run: python3 .github/workflows/scripts/compute_self_healing_summary.py
 
       # Builds the per-test pass/fail trend across recent runs and flags
       # anything flip-flopping. Needs the gh-pages history checked out
@@ -555,7 +555,7 @@ jobs:
       # by the step just above.
       - name: Compute flaky test trend
         id: flaky_trend
-        run: python3 .github/scripts/compute_flaky_trend.py
+        run: python3 .github/workflows/scripts/compute_flaky_trend.py
 
       # Both reports are assembled into one local directory tree and
       # published with a SINGLE peaceiris/actions-gh-pages call below,
@@ -598,7 +598,7 @@ jobs:
       # inline bash/printf to a checked-in script once it needed to render
       # tables from the JSON the two steps above produce.
       - name: Generate reports landing page
-        run: python3 .github/scripts/generate_landing_page.py
+        run: python3 .github/workflows/scripts/generate_landing_page.py
 
       - name: Deploy Reports to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

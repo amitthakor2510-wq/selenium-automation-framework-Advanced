@@ -359,8 +359,37 @@ public final class DriverFactory {
      * when parallel execution made it most needed. Thread ID in the
      * filename gives each concurrent session its own log, same as the
      * download-path and temp-profile-dir fixes already do.
+     * <p>
+     * BUG FIX (Jenkins build failure, 2026-08-06): {@code .build()} below
+     * performs its own {@code PortProber.findFreePort()} call to pick a
+     * port for this diagnostic service — the exact same free-port race
+     * documented on {@link #createWithPortConflictRetry}. This method used
+     * to wrap the ENTIRE body (directory setup AND {@code .build()}) in one
+     * broad {@code catch (Exception e)}, so under heavy parallel load that
+     * race got silently swallowed right here and logged as a mere "logging
+     * setup failed" warning — which is exactly what the recurring
+     * "Could not set up verbose chromedriver logging: Unable to find a
+     * free port" warnings in the Jenkins log were. Returning null then
+     * sent every attempt down the {@code new ChromeDriver(options)}
+     * fallback path, which does its OWN independent
+     * {@code createDefaultService()} free-port lookup — i.e. TWO
+     * find-a-free-port attempts per retry instead of one, roughly doubling
+     * contention and burning through {@link #DRIVER_CREATION_MAX_ATTEMPTS}
+     * twice as fast. That's why saucedemo's login tests (whose classes all
+     * launch a driver, sequentially, many times over via their data
+     * providers, right in the busiest opening seconds of the parallel
+     * demoqa+saucedemo run) exhausted all 8 attempts outright while
+     * demoqa's classes — creating far fewer drivers overall — happened to
+     * ride out the same window. Fixed by narrowing the try/catch to just
+     * the directory/config setup (genuine, non-racy failure modes) and
+     * letting {@code .build()}'s RuntimeException propagate straight out
+     * of this method and up through the {@code createChromeDriver}/
+     * {@code createBraveDriver} lambdas, so {@link #createWithPortConflictRetry}
+     * sees and retries it exactly once per attempt — the same single
+     * lookup every other failure mode already goes through.
      */
     private static ChromeDriverService buildVerboseLoggingService() {
+        File logFile;
         try {
             String browser = ConfigReader.get("browser", "chrome").toLowerCase();
             File logDir = new File(System.getProperty("user.dir") + File.separator
@@ -369,18 +398,22 @@ public final class DriverFactory {
                 logger.warning("[DriverFactory] Could not create log directory: " + logDir);
                 return null;
             }
-            File logFile = new File(logDir,
+            logFile = new File(logDir,
                 "chromedriver-" + browser + "-thread-" + Thread.currentThread().getId() + ".log");
             logger.info("[DriverFactory] Verbose chromedriver log: " + logFile.getAbsolutePath());
-            return new ChromeDriverService.Builder()
-                .withVerbose(true)
-                .withLogFile(logFile)
-                .build();
         } catch (Exception e) {
             logger.warning("[DriverFactory] Could not set up verbose chromedriver logging: "
                 + e.getMessage());
             return null;
         }
+
+        // Deliberately outside the try/catch above — see the port-race note
+        // in this method's javadoc. Let the free-port RuntimeException (if
+        // any) propagate to the single retry loop in createWithPortConflictRetry.
+        return new ChromeDriverService.Builder()
+            .withVerbose(true)
+            .withLogFile(logFile)
+            .build();
     }
 
     private static String findBraveBinary() {

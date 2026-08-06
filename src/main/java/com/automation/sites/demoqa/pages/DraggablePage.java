@@ -10,8 +10,12 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.time.Duration;
+import java.util.Map;
+import java.util.logging.Logger;
 
 public class DraggablePage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(DraggablePage.class.getName());
 
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
     private final By draggableMenu    = By.xpath("//span[text()='Dragabble']");
@@ -42,21 +46,65 @@ public class DraggablePage extends BasePage {
         HumanActions.pause();
     }
 
+    /**
+     * Returns an element's position relative to the DOCUMENT, immune to
+     * whatever the page's scroll offset happens to be at read time.
+     * <p>
+     * BUG FIX: every location getter in this class used to call the plain
+     * {@code WebElement.getLocation()}. Under the W3C WebDriver protocol
+     * that call is backed by {@code getBoundingClientRect()}, which is
+     * relative to the VIEWPORT, not the document — it shifts by however
+     * much the page has scrolled. {@link #dragWithRetry} always scrolls
+     * the target element into view (block:'center') before dragging it,
+     * but callers typically capture a "before" location *before* invoking
+     * the drag method and an "after" location *after* it returns — so the
+     * scroll that happens in between silently contaminates the vertical
+     * (and potentially horizontal) delta, on top of whatever the drag
+     * itself actually did. This is exactly what caused
+     * DraggableTest#verifyXAxisRestriction / #verifyYAxisRestriction to
+     * fail: a real jQuery UI axis-lock (fixed X or fixed Y coordinate)
+     * held on one axis, while the *other* axis's reading moved partly
+     * because of the real drag and partly because of the intervening
+     * scroll — neither the strict assertEquals (should NOT change) nor
+     * the assertNotEquals (should change) can be trusted against a
+     * viewport-relative number. Adding window.pageXOffset/pageYOffset
+     * back in makes the coordinate document-relative and therefore
+     * scroll-invariant, so before/after comparisons only reflect real
+     * element movement.
+     */
+    @SuppressWarnings("unchecked")
+    private Point getPageRelativeLocation(WebElement el) {
+        Map<String, Object> rect = (Map<String, Object>) js.executeScript(
+            "const r = arguments[0].getBoundingClientRect();"
+                + "return {x: r.left + window.pageXOffset, y: r.top + window.pageYOffset};",
+            el);
+        return new Point(((Number) rect.get("x")).intValue(), ((Number) rect.get("y")).intValue());
+    }
+
+    private Point getPageRelativeLocation(By locator) {
+        return getPageRelativeLocation(driver.findElement(locator));
+    }
+
     private void smoothDrag(WebElement element, int totalX, int totalY) {
         int steps = 30;
         int stepX = totalX / steps;
         int stepY = totalY / steps;
 
         new Actions(driver).clickAndHold(element).perform();
-        HumanActions.pause();
+        // Unconditional (not HumanActions.pause(), which is a full no-op
+        // under -Dhuman.pause.enabled=false as every Jenkins/CI regression
+        // run sets) — jQuery UI's draggable() needs a real gap after
+        // mousedown before the first mousemove or it can miss the drag
+        // start entirely. See HumanActions.microPause() for the full story.
+        HumanActions.microPause();
 
         for (int i = 0; i < steps; i++) {
             new Actions(driver).moveByOffset(stepX, stepY).perform();
-            HumanActions.pause();
+            HumanActions.microPause();
         }
 
         new Actions(driver).release().perform();
-        HumanActions.pause();
+        HumanActions.microPause();
     }
 
     /**
@@ -68,29 +116,43 @@ public class DraggablePage extends BasePage {
      * switch (the jQuery UI draggable() binding appears to miss the initial
      * mousedown) even though the exact same drag mechanics work correctly on
      * every subsequent attempt. Rather than papering over this with extra
-     * blind pauses, we re-locate the element and retry the drag once if its
-     * position did not change.
+     * blind pauses, we re-locate the element and retry the drag (up to
+     * MAX_DRAG_ATTEMPTS total) until its position actually changes,
+     * logging a warning if every attempt comes back as a no-op so a
+     * genuine app/locator regression is still visible instead of just
+     * quietly failing the caller's own before/after assertion.
      */
+    private static final int MAX_DRAG_ATTEMPTS = 3;
+
     private void dragWithRetry(By locator, int totalX, int totalY) {
         WebElement box = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", box);
         HumanActions.pause();
 
-        Point before = box.getLocation();
-        smoothDrag(box, totalX, totalY);
-        Point after = driver.findElement(locator).getLocation();
-
+        // Page-relative (not box.getLocation()) so a browser auto-scroll
+        // triggered mid-drag (e.g. dragging near the viewport edge) can't
+        // masquerade as element movement — see getPageRelativeLocation().
+        Point before = getPageRelativeLocation(locator);
         boolean expectedMovement = (totalX != 0 || totalY != 0);
-        if (expectedMovement && after.equals(before)) {
-            WebElement retryBox = driver.findElement(locator);
-            smoothDrag(retryBox, totalX, totalY);
+
+        Point after = before;
+        for (int attempt = 1; attempt <= MAX_DRAG_ATTEMPTS; attempt++) {
+            WebElement target = driver.findElement(locator);
+            smoothDrag(target, totalX, totalY);
+            after = getPageRelativeLocation(locator);
+
+            if (!expectedMovement || !after.equals(before)) {
+                break;
+            }
+            logger.warning("[DraggablePage] Drag attempt " + attempt + "/" + MAX_DRAG_ATTEMPTS
+                + " produced no movement for " + locator + " (still at " + after + ") — retrying");
         }
     }
 
     // ── Simple tab ──────────────────────────────────────────────────────────────
 
     public Point getDragBoxLocation() {
-        return driver.findElement(simpleDragBox).getLocation();
+        return getPageRelativeLocation(simpleDragBox);
     }
 
     public void dragSimpleBoxBy(int offsetX, int offsetY) {
@@ -113,8 +175,8 @@ public class DraggablePage extends BasePage {
         dragWithRetry(onlyYBox, 50, offsetY);
     }
 
-    public Point getXOnlyBoxLocation() { return driver.findElement(onlyXBox).getLocation(); }
-    public Point getYOnlyBoxLocation() { return driver.findElement(onlyYBox).getLocation(); }
+    public Point getXOnlyBoxLocation() { return getPageRelativeLocation(onlyXBox); }
+    public Point getYOnlyBoxLocation() { return getPageRelativeLocation(onlyYBox); }
 
     // ── Container restriction tab ───────────────────────────────────────────────
 
@@ -133,15 +195,15 @@ public class DraggablePage extends BasePage {
 
     public int getContainmentWrapperRightEdge() {
         WebElement wrapper = driver.findElement(containmentWrap);
-        return wrapper.getLocation().getX() + wrapper.getSize().getWidth();
+        return getPageRelativeLocation(wrapper).getX() + wrapper.getSize().getWidth();
     }
 
     public int getContainmentWrapperBottomEdge() {
         WebElement wrapper = driver.findElement(containmentWrap);
-        return wrapper.getLocation().getY() + wrapper.getSize().getHeight();
+        return getPageRelativeLocation(wrapper).getY() + wrapper.getSize().getHeight();
     }
 
-    public Point getContainedBoxLocation() { return driver.findElement(containedBox).getLocation(); }
+    public Point getContainedBoxLocation() { return getPageRelativeLocation(containedBox); }
 
     // "I'm contained within my parent" is a SEPARATE draggable on this same tab —
     // it is a sibling of #containmentWrapper, not a child of it, and jQuery UI's
@@ -156,19 +218,19 @@ public class DraggablePage extends BasePage {
     }
 
     public Point getContainedWithinParentLocation() {
-        return driver.findElement(containedWithinParentBox).getLocation();
+        return getPageRelativeLocation(containedWithinParentBox);
     }
 
     public int getContainedWithinParentBoundaryRightEdge() {
         WebElement box = driver.findElement(containedWithinParentBox);
         WebElement parent = (WebElement) js.executeScript("return arguments[0].parentElement;", box);
-        return parent.getLocation().getX() + parent.getSize().getWidth();
+        return getPageRelativeLocation(parent).getX() + parent.getSize().getWidth();
     }
 
     public int getContainedWithinParentBoundaryBottomEdge() {
         WebElement box = driver.findElement(containedWithinParentBox);
         WebElement parent = (WebElement) js.executeScript("return arguments[0].parentElement;", box);
-        return parent.getLocation().getY() + parent.getSize().getHeight();
+        return getPageRelativeLocation(parent).getY() + parent.getSize().getHeight();
     }
 
     // ── Cursor style tab ────────────────────────────────────────────────────────
@@ -197,7 +259,7 @@ public class DraggablePage extends BasePage {
     public By getCursorBottomLocator()  { return cursorBottomBox; }
 
     public Point getCursorBoxLocation(By locator) {
-        return driver.findElement(locator).getLocation();
+        return getPageRelativeLocation(locator);
     }
 
     public void dragCursorBox(By locator, int offsetX, int offsetY) {

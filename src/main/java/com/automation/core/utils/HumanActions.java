@@ -50,6 +50,25 @@ public final class HumanActions {
         );
     }
 
+    /**
+     * Small, UNCONDITIONAL sleep (ignores human.pause.enabled) for the
+     * handful of low-level interactions — currently just the step-by-step
+     * mouse drag in DraggablePage.smoothDrag() — where the delay isn't
+     * about looking "human", it's a real prerequisite for the browser/page
+     * JS to register the interaction at all. jQuery UI's draggable() binds
+     * its drag-start on mousedown and only begins tracking once it sees a
+     * mousemove some (small) distance/time after that — firing clickAndHold
+     * immediately followed by a burst of zero-delay moveByOffset calls (as
+     * happened with human.pause.enabled=false, the flag every Jenkins/CI
+     * regression run passes for speed) can race past that threshold check
+     * and silently produce a no-op drag. Regular pause() is deliberately a
+     * no-op under that flag; this one stays on so drag mechanics remain
+     * reliable in CI regardless of the human-pause setting.
+     */
+    public static void microPause() {
+        sleep(60);
+    }
+
     private static void pauseBetween(int min, int max) {
         if (!ConfigReader.getBoolean("human.pause.enabled", true)) {
             return;
