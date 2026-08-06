@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
+import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -15,7 +16,16 @@ public class UploadDownloadPage extends BasePage {
 
     // FIX #7: Extracted magic number to a named constant driven by config.
     // Set download.wait.seconds in global.properties to tune on slow machines.
-    private static final int DOWNLOAD_WAIT_SECONDS = 10;
+    //
+    // BUG FIX: this constant was hardcoded to 10 and never actually read
+    // download.wait.seconds from ConfigReader — the comment above promised
+    // a tunable knob that didn't exist in the code. A slow CI runner or
+    // large test download had no way to get more time short of editing
+    // this source file, silently defeating the whole point of "FIX #7".
+    // Reading it at call time (like HumanActions.pause() and every other
+    // config-driven timing in this framework does) instead of caching it
+    // in a static final field makes the -D/property override actually work.
+    private static final int DEFAULT_DOWNLOAD_WAIT_SECONDS = 10;
 
     private final By downloadButton   = By.id("downloadButton");
     private final By uploadInput      = By.id("uploadFile");
@@ -41,9 +51,10 @@ public class UploadDownloadPage extends BasePage {
 
         File downloadedFile = new File(downloadFolderPath + File.separator + expectedFileName);
 
+        int downloadWaitSeconds = ConfigReader.getInt("download.wait.seconds", DEFAULT_DOWNLOAD_WAIT_SECONDS);
         try {
             new FluentWait<>(downloadedFile)
-                .withTimeout(Duration.ofSeconds(DOWNLOAD_WAIT_SECONDS))
+                .withTimeout(Duration.ofSeconds(downloadWaitSeconds))
                 .pollingEvery(Duration.ofMillis(500))
                 .until(f -> f.exists() && f.length() > 0);
             return true;

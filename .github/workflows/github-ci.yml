@@ -444,19 +444,38 @@ jobs:
             echo "No previous history found - first run"
           fi
 
-      # Pinned to v1.12, NOT v1.13. v1.13's only change (upstream PR #69,
-      # "Updated docker image and workflows") swapped this action's Docker
-      # base image, and the new image is missing `xargs` (part of
-      # findutils). `allure generate` itself shells out through xargs
-      # internally on this image, so it now silently fails with "xargs is
-      # not available" and never writes target/allure-report — which is
-      # exactly what broke this step (the two `cp: cannot stat
-      # './target/allure-report/...'` errors right after it are just the
-      # downstream symptom, not a second bug). v1.12 predates that image
-      # change and generates correctly. Re-check upstream before bumping
-      # this back to @v1.13 or later.
+      # NEITHER released tag of this action currently works — pinned to
+      # a specific master commit instead. History, so nobody "fixes"
+      # this back to a tag without re-reading it first:
+      #
+      #   @v1.13 — upstream PR #69 ("Updated docker image and workflows")
+      #     moved the Docker base image to amazoncorretto:8 but only
+      #     `yum install`s tar/wget/gzip, not findutils. `allure generate`
+      #     shells out through `xargs` internally, so the container fails
+      #     at runtime with "xargs is not available" and never writes
+      #     target/allure-report (the `cp: cannot stat
+      #     './target/allure-report/...'` errors are just the downstream
+      #     symptom of that, not a second bug).
+      #
+      #   @v1.12 — predates that image change, so no xargs problem, BUT
+      #     its Dockerfile is `FROM openjdk:8-jre-alpine`. Docker Hub
+      #     deprecated the whole `openjdk` official-image repo in July
+      #     2022, and that specific tag is no longer pullable at all —
+      #     `docker build` for this action now fails outright ("Docker
+      #     build failed with exit code 1") before the action ever runs.
+      #     This isn't a transient registry hiccup; the tag is gone.
+      #
+      #   master (commit 385367c, unreleased) — already carries the fix
+      #     for both: same amazoncorretto:8 base as v1.13, but
+      #     `yum install`s findutils too (diff'd entrypoint.sh/action.yml
+      #     against v1.13: identical — only the Dockerfile changed).
+      #     Pinned to this exact commit SHA (not the `master` branch
+      #     name, which is mutable and could move again without notice)
+      #     since there's no tagged release with this fix yet. Re-check
+      #     upstream for a new tag past v1.13 that includes this same
+      #     Dockerfile before switching off the SHA pin.
       - name: Generate Allure Report
-        uses: simple-elf/allure-report-action@v1.12
+        uses: simple-elf/allure-report-action@385367cde61ac68c2568a117f7579f7f148dc459
         with:
           allure_results: target/allure-results
           allure_report: target/allure-report
