@@ -44,8 +44,16 @@ on:
 # the older run's result is about to be superseded anyway. Jenkins gets
 # the equivalent via disableConcurrentBuilds(), GitLab CI via
 # `interruptible: true` below.
+#
+# Scheduled (nightly) runs get their own fixed group instead of sharing
+# github.ref: a `schedule` trigger's github.ref is the same default-branch
+# ref an ordinary push to main uses, so without this, a push to main
+# landing while last night's accessibility/visual run is still in progress
+# would cancel it outright (cancel-in-progress: true) — losing that run's
+# results rather than just superseding an equivalent one, since a push and
+# a nightly run aren't actually the same work.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -58,7 +66,14 @@ env:
   BROWSER: ${{ inputs.browser || 'chrome' }}
   HEADLESS: ${{ inputs.headless == false && 'false' || 'true' }}
   RETRY_COUNT: ${{ inputs.retry_count || '0' }}
-  MAVEN_OPTS: "-Dmaven.repo.local=${{ github.workspace }}/.m2/repository"
+  # No MAVEN_OPTS override for maven.repo.local here — every job below uses
+  # `cache: 'maven'` on actions/setup-java@v4, which caches Maven's DEFAULT
+  # local repo (~/.m2/repository). A previous version of this workflow
+  # redirected it to a workspace-relative path via MAVEN_OPTS, which meant
+  # that cache was faithfully saving/restoring an always-empty ~/.m2/repository
+  # every run while every real dependency landed in the uncached path instead —
+  # every job silently re-downloaded its full dependency tree from Maven
+  # Central on every run instead of hitting the cache.
 
 jobs:
   # ================================================================
@@ -170,7 +185,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.site }}-${{ github.ref_name }}
+          # github.ref_name would be "<PR_NUMBER>/merge" on pull_request
+          # events — a slash, which upload-artifact rejects outright
+          # ("The artifact name is not valid ... Forward slash /"). Every
+          # job in a single workflow run shares the same run_id, which is
+          # all that's actually needed here (these artifacts only need to
+          # be found by the allure-report job further down in this same
+          # run) and is guaranteed to never contain a path separator.
+          name: test-results-${{ matrix.site }}-${{ github.run_id }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -289,7 +311,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-mobile-${{ github.ref_name }}
+          # See the matching comment in the `test` job above — github.ref_name
+          # contains a slash on pull_request events, github.run_id doesn't.
+          name: test-results-mobile-${{ github.run_id }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -365,7 +389,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-demoqa-${{ matrix.suite }}-${{ github.ref_name }}
+          # See the matching comment in the `test` job above — github.ref_name
+          # contains a slash on pull_request events, github.run_id doesn't.
+          name: test-results-demoqa-${{ matrix.suite }}-${{ github.run_id }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -419,36 +445,62 @@ jobs:
           fi
 
       - name: Generate Allure Report
-        uses: simple-elf/allure-report-action@master
+        uses: simple-elf/allure-report-action@v1.13
         with:
           allure_results: target/allure-results
           allure_report: target/allure-report
           allure_history: allure-history
           keep_reports: 20
 
-      - name: Deploy Allure Report to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: target/allure-report
-          destination_dir: allure-report
-          # Without this, this deploy wipes the ENTIRE gh-pages branch
-          # before publishing — including the extent-report/ folder from
-          # the other deploy step below — so only whichever step runs
-          # last would ever survive on the branch.
-          keep_files: true
-
       - name: Download Extent Reports (all sites)
         uses: actions/download-artifact@v4
         with:
-          pattern: test-results-*-${{ github.ref_name }}
+          # Matches the github.run_id-based names used at upload time in the
+          # test/mobile-test/accessibility-visual-test jobs above (see the
+          # comments there — github.ref_name contained a slash on
+          # pull_request events and made upload-artifact reject the name
+          # outright, so nothing ever got uploaded for this pattern to find).
+          pattern: test-results-*-${{ github.run_id }}
           path: target/
           merge-multiple: true
 
-      - name: Publish Extent Report to GitHub Pages
+      # Both reports are assembled into one local directory tree and
+      # published with a SINGLE peaceiris/actions-gh-pages call below,
+      # rather than two separate calls (the previous "Deploy Allure Report"
+      # + "Publish Extent Report" steps). Calling that action twice in the
+      # same job against the same gh-pages branch is what produced the
+      # "fatal: a branch named 'gh-pages' already exists" failure: the
+      # second invocation's fresh clone can race the first invocation's
+      # push (GitHub's git backend isn't guaranteed to be immediately
+      # consistent for a clone that starts moments after a push from the
+      # same job), so it sometimes still sees no gh-pages branch, tries to
+      # create one via `checkout --orphan`, and collides with local state
+      # left behind from its own clone attempt. One push instead of two
+      # removes the race entirely, and keep_files: true still preserves
+      # whatever already lives on the branch from previous runs.
+      - name: Assemble combined GitHub Pages publish directory
+        run: |
+          mkdir -p target/gh-pages-publish
+          if [ -d "target/allure-report" ]; then
+            mkdir -p target/gh-pages-publish/allure-report
+            cp -r target/allure-report/. target/gh-pages-publish/allure-report/
+          else
+            echo "::warning::target/allure-report missing — Allure report will not be updated this run"
+          fi
+          if [ -d "target/extent-reports" ]; then
+            mkdir -p target/gh-pages-publish/extent-report
+            cp -r target/extent-reports/. target/gh-pages-publish/extent-report/
+          else
+            echo "::warning::target/extent-reports missing — Extent report will not be updated this run"
+          fi
+
+      - name: Deploy Reports to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: target/extent-reports
-          destination_dir: extent-report
+          publish_dir: target/gh-pages-publish
+          # Preserves anything already on the branch that isn't under
+          # allure-report/ or extent-report/ this run (e.g. if one of the
+          # two was skipped above because its source directory was
+          # missing).
           keep_files: true

@@ -72,8 +72,68 @@ pipeline {
 
     stages {
 
+        stage('Acquire Shared-Box Lock') {
+            // ROOT CAUSE (2026-08-05 build, diagnosed from console log): this
+            // agent runs with more than one executor, and disableConcurrentBuilds()
+            // above only blocks two runs of THIS SAME job — it does nothing to
+            // stop a *different* job (a dependabot/PR-triggered build, a manual
+            // build with a different SITE param, the nightly cron build
+            // overlapping a push-triggered one, etc.) from starting on this same
+            // physical box while a build is already running. When that happens,
+            // two builds' "Run Tests Per Site" stages both launch up to 6
+            // concurrent ChromeDriver processes each — 12+ total, not the 6 the
+            // 8-attempt port-race retry budget in DriverFactory was sized for —
+            // so ChromeDriver setUp() fails across nearly every test class
+            // instead of the occasional one. The same collision hits Mobile
+            // Test: both builds try to bind emulator port 5554; the loser's
+            // emulator silently shifts to 5556 (visible in that build's own
+            // "adb reconnect offline" step reconnecting BOTH emulator-5554 and
+            // emulator-5556), and the resulting CPU/RAM contention from a whole
+            // second build's worth of Chrome/JVM/Maven processes is enough to
+            // stall the second emulator's adbd handshake past the 120s timeout
+            // even though Android itself finished booting internally.
+            //
+            // Fix: a simple mkdir-based mutex (atomic, no plugin dependency) so
+            // any two builds of ANY job that reach this Jenkinsfile on this box
+            // queue up instead of overlapping. Stale-lock protection: if the PID
+            // recorded by the lock holder no longer exists (e.g. that build's
+            // agent died hard, same failure mode the "Cleanup (Stale Processes)"
+            // stage below already guards against), the lock is treated as
+            // abandoned and reclaimed rather than blocking forever.
+            steps {
+                sh '''
+                    LOCK_DIR="/tmp/selenium-framework-pipeline.lockdir"
+                    ACQUIRED=0
+                    for i in $(seq 1 360); do
+                        if mkdir "$LOCK_DIR" 2>/dev/null; then
+                            echo "$$" > "$LOCK_DIR/pid"
+                            echo "${BUILD_TAG:-unknown}" > "$LOCK_DIR/build"
+                            ACQUIRED=1
+                            break
+                        fi
+                        HOLDER_PID="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
+                        if [ -n "$HOLDER_PID" ] && ! kill -0 "$HOLDER_PID" 2>/dev/null; then
+                            echo "Stale shared-box lock detected (holder process $HOLDER_PID is gone) — reclaiming."
+                            rm -rf "$LOCK_DIR"
+                            continue
+                        fi
+                        if [ "$i" = "1" ]; then
+                            echo "Another build ($(cat "$LOCK_DIR/build" 2>/dev/null || echo unknown)) holds the shared-box lock — waiting (up to 30 min)..."
+                        fi
+                        sleep 5
+                    done
+                    if [ "$ACQUIRED" != "1" ]; then
+                        echo "ERROR: could not acquire the shared-box lock within 30 minutes."
+                        exit 1
+                    fi
+                    echo "Shared-box lock acquired."
+                '''
+            }
+        }
+
         stage('Cleanup (Stale Processes)') {
-            // Runs FIRST, before checkout, so a crashed previous build never
+            // Runs right after the shared-box lock is acquired, before
+            // checkout, so a crashed previous build never
             // leaves an orphaned emulator/Appium/ADB process holding CPU,
             // RAM, or a device lock that this build then contends with or
             // silently reuses. Safe to run even when nothing is stale —
@@ -93,10 +153,20 @@ pipeline {
             // killer never got to run its cleanup.
             steps {
                 sh '''
-                    echo "Killing any orphaned node/adb/qemu processes from a previous crashed run..."
+                    echo "Killing any orphaned node/adb/qemu/chrome processes from a previous crashed run..."
                     killall -9 node 2>/dev/null || true
                     killall -9 adb 2>/dev/null || true
                     killall -9 qemu-system-x86_64 2>/dev/null || true
+                    # The free-port race itself never leaks a process (the
+                    # exception fires before ChromeDriver spawns anything), but
+                    # a build that gets hard-killed mid-test (agent disconnect,
+                    # OOM-kill, manual abort) can still leave chrome/chromedriver
+                    # running and holding a port for the next build. Now that
+                    # "Acquire Shared-Box Lock" above guarantees this is the only
+                    # build running on the box at this point, it's always safe to
+                    # kill these here.
+                    killall -9 chromedriver 2>/dev/null || true
+                    killall -9 chrome 2>/dev/null || true
 
                     echo "Removing stale AVD/adb lock files..."
                     find "${HOME}/.android" -name "*.lock" -delete 2>/dev/null || true
@@ -528,6 +598,15 @@ pipeline {
 
     post {
         always {
+            // ── Release shared-box lock ─────────────────────────────────
+            // First thing in post{always{}}, unconditionally and best-effort,
+            // so the next queued build (or a stuck one from a hard-killed
+            // agent) is never left waiting on this build's own reporting/
+            // archiving steps below. See "Acquire Shared-Box Lock" stage.
+            sh '''
+                rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
+            '''
+
             // ── JUnit results ─────────────────────────────────────────
             junit allowEmptyResults: true,
                     testResults: 'target/surefire-reports/*.xml'
