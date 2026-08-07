@@ -1,1 +1,1 @@
-[{"values":["demoqa"],"name":"Site"},{"values":["chrome"],"name":"Browser"},{"values":["true"],"name":"Headless"},{"values":["0"],"name":"Retry.Count"},{"values":["Linux"],"name":"OS"},{"values":["17.0.19"],"name":"Java.Version"},{"values":["false"],"name":"Human.Pause.Enabled"}]
+[{"values":["demoqa"],"name":"Site"},{"values":["edge"],"name":"Browser"},{"values":["true"],"name":"Headless"},{"values":["0"],"name":"Retry.Count"},{"values":["Linux"],"name":"OS"},{"values":["17.0.19"],"name":"Java.Version"},{"values":["false"],"name":"Human.Pause.Enabled"}]
