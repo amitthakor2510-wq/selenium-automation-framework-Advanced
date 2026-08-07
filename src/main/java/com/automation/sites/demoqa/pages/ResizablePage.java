@@ -16,7 +16,21 @@ public class ResizablePage extends BasePage {
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
     private final By resizableMenu    = By.xpath("//span[text()='Resizable']");
     private final By resizableBox     = By.id("resizableBoxWithRestriction");
-    private final By resizableHandle  = By.cssSelector("#resizableBoxWithRestriction .react-resizable-handle");
+    // BUG FIX (confirmed against a live Jenkins run — ResizableTest#verifyResizeIncrease
+    // failed: width correctly grew 200->300 but height went 200->174, i.e. it SHRANK,
+    // for a drag offset of (+100, +50)): react-resizable renders one handle <span> per
+    // active resize direction, and the un-suffixed ".react-resizable-handle" selector
+    // matches ALL of them. driver.findElement() silently returns whichever one is
+    // FIRST in DOM order, which — for this box — is the north-east (top-right) corner
+    // handle, not the south-east (bottom-right) one this page object's javadoc and
+    // resizeBy() both assume. Dragging the NE handle down-and-right moves the box's
+    // right edge out (width +100, matching what was observed) while ALSO moving its
+    // TOP edge down (height -50-ish, matching the observed shrink) — exactly the
+    // symptom in the log. Scoping the selector to the "-se" (south-east) class name
+    // pins it to the actual bottom-right handle the offsets in this file are written
+    // for.
+    private final By resizableHandle  =
+        By.cssSelector("#resizableBoxWithRestriction .react-resizable-handle.react-resizable-handle-se");
 
     public ResizablePage(WebDriver driver) {
         super(driver);

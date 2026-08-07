@@ -5,10 +5,7 @@ import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-
-import java.time.Duration;
 
 public class MenuPage extends BasePage {
 
@@ -42,7 +39,9 @@ public class MenuPage extends BasePage {
         WebElement item = wait.until(ExpectedConditions.visibilityOfElementLocated(mainItem2));
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", item);
         HumanActions.pause();
-        new Actions(driver).moveToElement(item).pause(Duration.ofMillis(800)).perform();
+        // See HumanActions.hover() javadoc — plain Actions.moveToElement()
+        // was flaking specifically under headless Chrome in CI.
+        HumanActions.hover(driver, item);
         HumanActions.pause();
     }
 
@@ -59,10 +58,11 @@ public class MenuPage extends BasePage {
         js.executeScript("arguments[0].scrollIntoView({block:'center'});", item2);
         HumanActions.pause();
 
-        new Actions(driver).moveToElement(item2).pause(Duration.ofMillis(1000)).perform();
+        HumanActions.hover(driver, item2);
+        HumanActions.pause();
 
         WebElement subListEl = wait.until(ExpectedConditions.visibilityOfElementLocated(subList));
-        new Actions(driver).moveToElement(subListEl).pause(Duration.ofMillis(1000)).perform();
+        HumanActions.hover(driver, subListEl);
         HumanActions.pause();
     }
 

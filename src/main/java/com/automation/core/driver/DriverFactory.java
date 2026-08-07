@@ -351,16 +351,57 @@ public final class DriverFactory {
     }
 
     private static boolean isPortAllocationRace(RuntimeException e) {
-        String message = e.getMessage();
+        // Walk the cause chain too — SessionNotCreatedException's own
+        // getMessage() is just "Could not start a new session...";  the
+        // actually diagnostic text ("Driver server process died
+        // prematurely") lives on its cause, not concatenated into the
+        // outer message. Checking only e.getMessage() (as this method used
+        // to) meant that specific, very-much-related-to-the-same-race
+        // failure was never recognized as retryable at all.
+        Throwable current = e;
+        int guard = 0;
+        while (current != null && guard++ < 10) {
+            if (matchesRetryableText(current.getMessage())) {
+                return true;
+            }
+            Throwable next = current.getCause();
+            current = (next == current) ? null : next;
+        }
+        return false;
+    }
+
+    private static boolean matchesRetryableText(String message) {
         if (message == null) {
             return false;
         }
         String lower = message.toLowerCase(java.util.Locale.ROOT);
-        return lower.contains("unable to find a free port")
+        if (lower.contains("unable to find a free port")
             || lower.contains("address already in use")
             || lower.contains("port is already allocated")
             || lower.contains("eaddrinuse")
-            || lower.contains("cannot bind");
+            || lower.contains("cannot bind")) {
+            return true;
+        }
+        // BUG FIX (2026-08-07 build — ProgressBarTest.setUp): under exactly
+        // the same heavy concurrent-launch conditions that cause the port
+        // race above, chromedriver's OWN process can also die before it
+        // even gets to respond to the session-creation POST — Selenium
+        // then throws SessionNotCreatedException wrapping "Driver server
+        // process died prematurely" (see WebDriverException/DriverService),
+        // a message that never mentions "port" at all. Because that string
+        // didn't match any check above, this exact failure was falling
+        // straight through createWithPortConflictRetry's catch and
+        // propagating on the FIRST attempt — burning zero retries — while
+        // every sibling failure in the same run correctly consumed a
+        // 12-attempt budget first. It's the identical root cause (too many
+        // concurrent chromedriver launches contending for process/CPU
+        // resources on a constrained box) manifesting as a process crash
+        // instead of a bind failure, so it gets the same retry-with-jitter
+        // treatment rather than being treated as a distinct, non-retryable
+        // failure mode.
+        return lower.contains("driver server process died prematurely")
+            || lower.contains("chrome not reachable")
+            || lower.contains("could not start a new session");
     }
 
     // ── Chrome ────────────────────────────────────────────────────────────────

@@ -74,6 +74,15 @@ public class ToolTipsPage extends BasePage {
             element
         );
         HumanActions.pause();
-        new Actions(driver).moveToElement(element).pause(Duration.ofMillis(800)).perform();
+        // See HumanActions.hover() javadoc — Bootstrap's tooltip plugin
+        // reacts to a real mouseenter/mouseover JS event, and a bare
+        // Actions.moveToElement() was flaking specifically under headless
+        // Chrome in CI (Jenkins runs this suite with -Dheadless=true).
+        HumanActions.hover(driver, element);
+        try {
+            Thread.sleep(800);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

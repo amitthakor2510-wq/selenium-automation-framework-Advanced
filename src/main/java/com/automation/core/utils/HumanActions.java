@@ -4,8 +4,10 @@ import com.automation.core.config.ConfigReader;
 import com.automation.core.selfhealing.SelfHealingEngine;
 import io.qameta.allure.Step;
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
@@ -128,6 +130,53 @@ public final class HumanActions {
             element.sendKeys(String.valueOf(c));
             int delay = (max <= min) ? min : ThreadLocalRandom.current().nextInt(min, max + 1);
             sleep(delay);
+        }
+    }
+
+    /**
+     * Reliable hover: a real Selenium {@link Actions} mouse move PLUS a
+     * JS-dispatched mouseover/mouseenter/mousemove fallback on the same
+     * element.
+     * <p>
+     * BUG FIX (confirmed against a live Jenkins run — MenuTest#verifySubItemOnHover
+     * and #verifySubSubItemOnHover both failed/timed-out, and
+     * ToolTipsTest#verifyButtonTooltip / #verifyTextFieldTooltip both timed out
+     * waiting for .tooltip-inner): every one of these widgets reveals its
+     * content via a real "mouseenter"/"mouseover" JS listener (Bootstrap's
+     * tooltip plugin, and demoqa's menu component), not a pure CSS
+     * {@code :hover} rule that any pointer-position change would satisfy.
+     * Headless Chrome (this whole suite runs with {@code -Dheadless=true} in
+     * Jenkins, see the Jenkinsfile) has a long-standing, well-documented
+     * inconsistency where a single {@code Actions.moveToElement(...).perform()}
+     * synthesizes the pointer's final position correctly but does not always
+     * dispatch the intermediate mouseover/mouseenter events those JS listeners
+     * are waiting for — so the element LOOKS hovered (and a human eyeballing a
+     * non-headless run would never see the bug) while the app's own JS never
+     * actually reacted. That's exactly why this passed locally/non-headless
+     * but flaked specifically in CI. Dispatching the events directly via JS as
+     * a belt-and-braces fallback alongside the real Actions move means the
+     * listener fires regardless of whether the native synthetic event made it
+     * through.
+     */
+    public static void hover(WebDriver driver, WebElement element) {
+        new Actions(driver).moveToElement(element).perform();
+        try {
+            JavascriptExecutor js = (JavascriptExecutor) driver;
+            js.executeScript(
+                "var el = arguments[0];"
+                    + "var r = el.getBoundingClientRect();"
+                    + "var cx = r.left + r.width / 2, cy = r.top + r.height / 2;"
+                    + "['mouseover', 'mouseenter', 'mousemove'].forEach(function(type) {"
+                    + "  el.dispatchEvent(new MouseEvent(type, {"
+                    + "    bubbles: true, cancelable: true, view: window,"
+                    + "    clientX: cx, clientY: cy"
+                    + "  }));"
+                    + "});",
+                element);
+        } catch (Exception ignored) {
+            // Best-effort fallback only — the real Actions move above is the
+            // primary mechanism; a JS dispatch failure (e.g. a detached
+            // element) shouldn't fail the hover outright.
         }
     }
 

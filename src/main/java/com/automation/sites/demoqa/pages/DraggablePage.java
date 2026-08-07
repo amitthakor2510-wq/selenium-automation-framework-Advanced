@@ -23,9 +23,24 @@ public class DraggablePage extends BasePage {
     private final By simpleTab     = By.id("draggableExample-tab-simple");
     private final By simpleDragBox = By.id("dragBox");
 
+    // BUG FIX (confirmed against a live Jenkins run — DraggableTest#verifyXAxisRestriction
+    // failed with "X should change did not expect [625] but found [625]", while the SAME
+    // run's log showed the box's Y coordinate moving instead): demoqa's element ids on
+    // this tab name the axis that's LOCKED, not the axis the box is free to move on —
+    // id="restrictedX" is the box whose X coordinate is restricted (i.e. it can only
+    // move along Y), and id="restrictedY" is the box whose Y coordinate is restricted
+    // (i.e. it can only move along X). That's the exact inverse of what these two
+    // fields' names ("onlyXBox" = "the box that only moves in X") assumed, so
+    // onlyXBox/onlyYBox were pointing at the wrong elements — verifyXAxisRestriction
+    // was actually dragging the Y-only box and asserting X-only behavior against it
+    // (and vice versa in verifyYAxisRestriction, which happened to still pass because
+    // its two assertions are the mirror image of each other's failure mode... no, both
+    // were silently exercising the wrong box). Swapped here so "onlyXBox" really is the
+    // element that's free to move on the X axis, matching what DraggableTest's method
+    // names and assertions expect.
     private final By axisTab  = By.id("draggableExample-tab-axisRestriction");
-    private final By onlyXBox = By.id("restrictedX");
-    private final By onlyYBox = By.id("restrictedY");
+    private final By onlyXBox = By.id("restrictedY");
+    private final By onlyYBox = By.id("restrictedX");
 
     private final By containerTab    = By.id("draggableExample-tab-containerRestriction");
     private final By containedBox    = By.cssSelector("#containmentWrapper > div");
@@ -87,8 +102,6 @@ public class DraggablePage extends BasePage {
 
     private void smoothDrag(WebElement element, int totalX, int totalY) {
         int steps = 30;
-        int stepX = totalX / steps;
-        int stepY = totalY / steps;
 
         new Actions(driver).clickAndHold(element).perform();
         // Unconditional (not HumanActions.pause(), which is a full no-op
@@ -98,7 +111,22 @@ public class DraggablePage extends BasePage {
         // start entirely. See HumanActions.microPause() for the full story.
         HumanActions.microPause();
 
+        // BUG FIX: stepX/stepY used to be computed once via plain integer
+        // division (totalX/steps), which truncates and silently drops the
+        // remainder — e.g. a 50px total over 30 steps produced stepY=1,
+        // moving only 30px total (30 * 1), 40% short of the requested
+        // offset. Distributing the remainder across the first `remainder`
+        // steps (one extra pixel each) instead means the sum of all
+        // per-step moves always equals EXACTLY totalX/totalY, regardless
+        // of how evenly `steps` divides them.
+        int baseStepX = totalX / steps;
+        int baseStepY = totalY / steps;
+        int remX = totalX - baseStepX * steps;
+        int remY = totalY - baseStepY * steps;
+
         for (int i = 0; i < steps; i++) {
+            int stepX = baseStepX + (Math.abs(i) < Math.abs(remX) ? Integer.signum(remX) : 0);
+            int stepY = baseStepY + (Math.abs(i) < Math.abs(remY) ? Integer.signum(remY) : 0);
             new Actions(driver).moveByOffset(stepX, stepY).perform();
             HumanActions.microPause();
         }
