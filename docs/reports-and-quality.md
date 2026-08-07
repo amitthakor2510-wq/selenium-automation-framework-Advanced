@@ -117,7 +117,17 @@ open target/site/jacoco/index.html   # macOS
 
 One wiring detail if you ever touch Surefire's config: this project's `<argLine>` is a literal, hardcoded block (AspectJ weaver + logging config + heap flags), not a reference to the default `@{argLine}` property. JaCoCo's `prepare-agent` is configured to write its instrumentation flags into a separate `jacocoArgLine` property instead — using the default property name there would have silently overwritten the whole hardcoded block instead of adding to it. If you add more Surefire config later, keep referencing `@{jacocoArgLine}` explicitly rather than switching back to `@{argLine}`.
 
-There's currently no minimum-coverage threshold enforced — the report is informational only, not a build gate. Adding a `jacoco:check` execution with a minimum (e.g. 50% line coverage on `core`) is on the [roadmap](roadmap.md).
+### Coverage gate (CI)
+
+`mvn test` alone still only *reports* coverage — informational, not a gate. The actual gate is a `jacoco:check` execution (`com.automation.core.*`, 50% minimum line coverage) that CI invokes directly as `jacoco:check@jacoco-check`, after first merging every job/branch's `jacoco.exec` via `jacoco:merge@jacoco-merge`. The merge step exists because no single job exercises all of core/ — the demoqa job never touches `AccessibilityUtils`, the mobile job never touches the browser `DriverFactory` path, and so on — so checking any one job alone against a 50% threshold would fail unfairly.
+
+| Pipeline | Where it runs | On breach |
+|---|---|---|
+| GitHub Actions | `coverage-gate` job, `needs: [test, mobile-test]` | Job fails |
+| GitLab CI | `coverage-gate` job, `stage: report`, `dependencies: [test, mobile-test]` | Job fails |
+| Jenkins | `Coverage Gate` stage, after `Mobile Test` | Build marked `UNSTABLE` |
+
+The merged HTML report (`target/site/jacoco/index.html`) is published as a build artifact on all three (GitHub Actions: `jacoco-merged-report` artifact; GitLab: part of the `coverage-gate` job's artifacts; Jenkins: `JaCoCo Coverage Report (merged)` via HTML Publisher).
 
 ---
 
@@ -139,6 +149,18 @@ Maven's lifecycle is sequential — `verify` includes every phase before it, so 
 | `equals`/`hashCode` bugs, `==` on Strings, empty/duplicate `switch` defaults | Naming conventions |
 
 Configured as `violationSeverity=warning` with `failsOnError=true` — real problems fail `mvn verify`, but the ruleset isn't strict enough to demand a rewrite for cosmetic drift.
+
+### Checkstyle in CI
+
+All three pipelines now run Checkstyle on every push/PR/build, invoking the named execution directly (`checkstyle:check@checkstyle-check`) rather than `mvn verify` — this avoids re-running the entire test suite a second time just to reach the verify phase. A violation marks the build **UNSTABLE** rather than hard-failing it, consistent with how a failed browser site is already handled.
+
+| Pipeline | Where it runs |
+|---|---|
+| GitHub Actions | `checkstyle` job, parallel with `test`/`mobile-test` |
+| GitLab CI | `checkstyle` job, `stage: test` (parallel with the browser/mobile jobs) |
+| Jenkins | `Checkstyle` stage, right after `Build` |
+
+On GitHub Actions, a PR also gets the Checkstyle result surfaced directly in the automated PR comment (see `post_pr_comment.py`), alongside the test pass/fail summary.
 
 ---
 

@@ -21,6 +21,14 @@ stages:
   - report
   - pages
 
+# Both quality gates below reuse the same pom.xml executions the docs
+# describe as opt-in via `mvn verify` (see docs/reports-and-quality.md) —
+# invoked directly here as `plugin:goal@executionId` instead so neither
+# one re-runs the full test suite a second time just to reach the verify
+# phase. checkstyle-check needs only the .java source tree (no browser,
+# no compiled classes); jacoco-merge/jacoco-check need the jacoco.exec
+# files the test/mobile-test jobs already produced.
+
 variables:
   SUITE_TYPE: "regression"
   BROWSER: "chrome"
@@ -61,6 +69,24 @@ build:
   script:
     - echo "======= Building Project ======="
     - mvn -B clean compile test-compile
+  only:
+    - main
+    - master
+    - merge_requests
+
+# ================================================================
+# STAGE 1b - Code Quality (Checkstyle)
+# ================================================================
+# Same `test` stage as the browser/mobile jobs below so it runs in
+# parallel with them rather than serially gating them — a style
+# violation shouldn't block seeing whether the suite itself still
+# passes, and this needs nothing the browser jobs produce.
+checkstyle:
+  stage: test
+  interruptible: true
+  script:
+    - echo "======= Running Checkstyle (checkstyle.xml) ======="
+    - mvn -B checkstyle:check@checkstyle-check
   only:
     - main
     - master
@@ -130,6 +156,14 @@ test:
       -Dallure.results.directory=target/allure-results/$SITE
       -Dwdm.cachePath=$WDM_CACHE_PATH
       -Dmaven.test.failure.ignore=true
+    # Same collision the comment above describes for surefire's
+    # testng-results.xml applies to a bare target/jacoco.exec too — every
+    # SITE instance would write that same path, and GitLab's artifact
+    # merge keeps only one of them. Copy each instance's exec file to a
+    # SITE-named path before it can collide, feeding the coverage-gate
+    # job's merge step in the "report" stage below.
+    - mkdir -p target/jacoco-artifacts
+    - cp target/jacoco.exec target/jacoco-artifacts/$SITE.exec
   artifacts:
     name: "test-results-$CI_JOB_NAME-$SITE-$CI_COMMIT_REF_SLUG"
     when: always
@@ -139,6 +173,7 @@ test:
       - target/extent-reports/
       - target/screenshots/
       - target/surefire-reports/
+      - target/jacoco-artifacts/
     reports:
       # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
       # lands at the same path, so GitLab's artifact merge keeps only one
@@ -340,6 +375,8 @@ mobile-test:
       -Dretry.count=$RETRY_COUNT
       -Dallure.results.directory=target/allure-results/mobile
       -Dmaven.test.failure.ignore=true
+    - mkdir -p target/jacoco-artifacts
+    - cp target/jacoco.exec target/jacoco-artifacts/mobile.exec
   artifacts:
     name: "test-results-$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     when: always
@@ -349,6 +386,7 @@ mobile-test:
       - target/extent-reports/
       - target/screenshots/
       - target/surefire-reports/
+      - target/jacoco-artifacts/
       - emulator.log
       - appium.log
     reports:
@@ -449,6 +487,47 @@ perf-smoke:
     paths:
       - target/jmeter/results/
       - target/jmeter/reports/
+
+# ================================================================
+# Coverage Gate (merged JaCoCo check across every SITE + mobile)
+# ================================================================
+# Each test/mobile-test instance only exercises the slice of core/ its
+# own suite touches, so checking any single instance's jacoco.exec against
+# the 50% core/ threshold in pom.xml would fail unfairly. Merges every
+# SITE.exec + mobile.exec captured above into one target/jacoco.exec, then
+# runs the real gate against that union — same approach as the GitHub
+# Actions pipeline's coverage-gate job.
+coverage-gate:
+  stage: report
+  interruptible: true
+  script:
+    - echo "======= Merging coverage data ======="
+    - |
+      if [ ! -d "target/jacoco-artifacts" ] || [ -z "$(ls -A target/jacoco-artifacts 2>/dev/null)" ]; then
+        echo "WARNING: no jacoco-artifacts found from test/mobile-test — skipping coverage gate this run."
+        exit 0
+      fi
+    - mkdir -p target/jacoco-raw
+    - cp target/jacoco-artifacts/*.exec target/jacoco-raw/
+    - mvn -B compile
+    - mvn -B jacoco:merge@jacoco-merge
+    - echo "======= Generating merged coverage report ======="
+    - mvn -B jacoco:report@jacoco-report
+    - echo "======= Enforcing coverage threshold (core/ >= 50% lines) ======="
+    - mvn -B jacoco:check@jacoco-check
+  artifacts:
+    name: "jacoco-report-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - target/site/jacoco/
+  dependencies:
+    - test
+    - mobile-test
+  only:
+    - main
+    - master
+    - merge_requests
 
 # Allure → GitLab Pages  |  Extent → artifact
 # ================================================================

@@ -22,7 +22,8 @@ demoqa-only accessibility/visual suite — plus Allure + Extent reporting.
 |---|---|---|---|
 | `SUITE_TYPE` | regression / smoke | regression | Which suite type to run for each discovered site |
 | `SITE` | ALL / site name / `mobile` | ALL | Run all sites, one browser site, or just `mobile` |
-| `BROWSER` | chrome / firefox / edge | chrome | Browser to use (browser sites only — ignored by mobile) |
+| `BROWSER` | chrome / firefox / edge | chrome | Browser to use when `ALL_BROWSERS` is unchecked |
+| `ALL_BROWSERS` | boolean | false | Run every discovered site against chrome, firefox, **and** edge in parallel — ignores `BROWSER` above. Off by default so a normal build's branch count/runtime is unchanged. |
 | `HEADLESS` | true / false | true | Show browser or not (browser sites only) |
 | `RETRY_COUNT` | integer | 0 | Retries for failed tests — 0 disables for CI speed |
 
@@ -33,15 +34,25 @@ Cleanup (Stale Processes) → kills any orphaned node/adb/qemu-system-x86_64 pro
                            run, before checkout — best-effort, no-ops on a clean agent
 Checkout                → git checkout
 Build                    → mvn clean compile test-compile (fails fast on compile errors)
+Checkstyle               → mvn checkstyle:check@checkstyle-check — style violations mark
+                           the build UNSTABLE, not a hard failure
 Discover Site Projects   → globs testng-suites/*-<SUITE_TYPE>.xml to find browser sites;
                            "mobile" is excluded here and handled by its own stage below
-Run Tests Per Site       → one parallel branch per discovered browser site
+Run Tests Per Site       → one parallel branch per site (x per browser if ALL_BROWSERS is
+                           checked) — each branch writes its own
+                           target/jacoco-artifacts/<key>.exec via -Djacoco.destFile so
+                           parallel branches sharing one workspace don't collide on the
+                           default target/jacoco.exec path
 Mobile Test              → only runs when a mobile-<SUITE_TYPE>.xml suite exists (or
                            SITE=mobile/ALL): installs the Android SDK, creates/boots an
                            AVD, installs Appium + the uiautomator2 driver, then runs the
                            mobile suite against it. ANDROID_ADB_SERVER_TIMEOUT=120 is set
                            for this stage to tolerate a slower local emulator boot under
                            resource contention (Jenkins + GitLab + Appium sharing one box)
+Coverage Gate             → merges every branch's jacoco-artifacts/*.exec (jacoco:merge),
+                           then jacoco:check enforces 50% line coverage on
+                           com.automation.core.* against the merged union — UNSTABLE on
+                           breach, not a hard failure. Report published via HTML Publisher.
 Nightly Extra Coverage   → demoqa accessibility + visual suites, only on the cron trigger
 ```
 
@@ -90,15 +101,28 @@ Allure report with trend history** to GitHub Pages.
 
 ```
 build                      → mvn clean compile test-compile (fails fast on compile errors)
-test                        → matrix job, one instance per browser site (demoqa, saucedemo):
-                              installs Chrome if missing, runs the suite headless, uploads
-                              Allure results + Extent/screenshots/surefire as artifacts
+checkstyle                  → mvn checkstyle:check@checkstyle-check, parallel with test/
+                              mobile-test — a violation fails this job (surfaced on PRs via
+                              the pr-comment job below), doesn't block the test matrix
+test                        → matrix job: site (demoqa, saucedemo) x browser (chrome,
+                              firefox, edge) = 6 parallel instances on every push/PR/
+                              schedule run, or just the one browser picked via
+                              workflow_dispatch. Installs the matching browser if missing,
+                              runs the suite headless, uploads Allure results + Extent/
+                              screenshots/surefire + (chrome leg only) jacoco.exec as
+                              artifacts
 mobile-test                 → separate job: enables KVM, installs Appium + uiautomator2,
                               starts Appium, boots an Android emulator via
                               reactivecircus/android-emulator-runner, and runs the mobile
                               suite against it (mvn command must stay on a single line —
                               this action does not execute a `\`-continued multi-line
-                              script as one shell command)
+                              script as one shell command). Also uploads its own
+                              jacoco.exec artifact
+coverage-gate                → downloads every jacoco-exec-* artifact from test/mobile-test,
+                              merges them (jacoco:merge@jacoco-merge — no single job
+                              exercises all of core/ alone), then jacoco:check@jacoco-check
+                              enforces 50% line coverage on com.automation.core.* against
+                              the union. Merged HTML report published as an artifact
 accessibility-visual-test   → nightly only (gated on the schedule trigger): demoqa
                               accessibility + visual suites
 allure-report                → downloads this run's Allure results (all sites + mobile) +
@@ -130,8 +154,13 @@ if that branch doesn't exist yet.
 ### Pipeline stages
 ```
 build                      → mvn compile — catches syntax errors before wasting time on tests
+checkstyle                  → mvn checkstyle:check@checkstyle-check, same `test` stage as
+                              test/mobile-test/perf-smoke so it runs in parallel with them
 test                        → parallel:matrix job, one instance per browser site
-                              (demoqa, saucedemo) — installs Chrome if missing on runner
+                              (demoqa, saucedemo) — installs Chrome if missing on runner.
+                              Each instance also copies its jacoco.exec to
+                              target/jacoco-artifacts/<site>.exec (a bare jacoco.exec would
+                              collide across matrix instances on GitLab's artifact merge)
 mobile-test                 → separate job, serialized via resource_group (this runner is a
                               persistent shared shell host, not an isolated container —
                               without serializing, two overlapping runs race on the same
@@ -139,7 +168,13 @@ mobile-test                 → separate job, serialized via resource_group (thi
                               server). Installs the Android SDK, boots an emulator,
                               installs Appium + uiautomator2 (checked independently of
                               whether the appium binary itself is already present — this
-                              host persists between runs), then runs the mobile suite
+                              host persists between runs), then runs the mobile suite.
+                              Copies its jacoco.exec to target/jacoco-artifacts/mobile.exec
+coverage-gate                → stage: report, dependencies: [test, mobile-test] — merges
+                              every target/jacoco-artifacts/*.exec (jacoco:merge@jacoco-
+                              merge), then jacoco:check@jacoco-check enforces 50% line
+                              coverage on com.automation.core.* against the union. Merged
+                              HTML report published as an artifact
 accessibility-visual-test   → scheduled pipelines only (`$CI_PIPELINE_SOURCE == "schedule"`):
                               demoqa accessibility + visual suites — create the schedule
                               under Settings > CI/CD > Schedules

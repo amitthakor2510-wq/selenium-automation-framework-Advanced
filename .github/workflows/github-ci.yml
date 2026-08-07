@@ -115,6 +115,37 @@ jobs:
           mvn -B clean compile test-compile
 
   # ================================================================
+  # STAGE 1b - Code Quality (Checkstyle)
+  # ================================================================
+  # Runs in parallel with `test`/`mobile-test` rather than gating them —
+  # a style violation shouldn't block seeing whether the suite itself
+  # still passes, and Checkstyle doesn't need a browser or compiled test
+  # classes to do its job, just the .java source tree, so there's nothing
+  # for it to wait on besides `build` finishing the initial compile.
+  # `checkstyle:check@checkstyle-check` invokes that one named execution
+  # directly (see pom.xml) instead of running the full `mvn verify`
+  # lifecycle, which would otherwise re-run the entire test suite a
+  # second time just to reach the verify phase.
+  checkstyle:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Checkstyle
+        run: |
+          echo "======= Running Checkstyle (checkstyle.xml) ======="
+          mvn -B checkstyle:check@checkstyle-check
+
+  # ================================================================
   # STAGE 2 - Test (one matrix job per site, running in parallel)
   # ================================================================
   test:
@@ -122,8 +153,24 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Multi-browser matrix — was previously a single hardcoded ${{
+      # env.BROWSER }} (chrome unless overridden via workflow_dispatch),
+      # so a firefox/edge-specific regression (a locator that only
+      # resolves differently under Marionette or Chromium-Edge's CDP
+      # implementation) had no way to surface on a normal push/PR; someone
+      # had to remember to manually dispatch with browser=firefox first.
+      # `include` cross-joins every site with every browser (3 browsers x
+      # 2 sites = 6 jobs) rather than a flat matrix.browser list, which
+      # would otherwise still need matrix.site cross-joined automatically —
+      # same result, `include` just makes the resulting parallel job count
+      # explicit and easy to reason about at a glance. On a manual
+      # workflow_dispatch run where the browser input is set, only that
+      # one browser runs (matches the existing single-browser dispatch
+      # behavior instead of always fanning out to all three regardless of
+      # what was asked for).
       matrix:
         site: [ demoqa, saucedemo ]
+        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.browser) || '["chrome","firefox","edge"]') }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -147,13 +194,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.wdm
-          key: wdm-${{ runner.os }}-${{ env.BROWSER }}
+          key: wdm-${{ runner.os }}-${{ matrix.browser }}
           restore-keys: |
             wdm-${{ runner.os }}-
 
+      # Split into one step per browser (each gated on matrix.browser)
+      # rather than one script with an if/elif, so a failed edge install
+      # doesn't get buried in a step whose name still says "Setup Chrome
+      # Browser" in the Actions UI — each leg's log is under its own
+      # clearly-named step regardless of which one actually ran.
       - name: Setup Chrome Browser
+        if: matrix.browser == 'chrome'
         run: |
-          echo "======= Setting Up Browser ======="
+          echo "======= Setting Up Chrome ======="
           if ! command -v google-chrome &> /dev/null; then
             echo "Chrome not found - installing..."
             sudo apt-get update -qq
@@ -171,13 +224,40 @@ jobs:
             echo "Chrome already installed: $(google-chrome --version)"
           fi
 
+      # ubuntu-latest ships Firefox as a pre-installed snap, which
+      # GeckoDriver can drive directly — no separate install step needed,
+      # this is just a visibility check so a missing/broken snap fails
+      # fast with a clear message instead of surfacing later as an opaque
+      # SessionNotCreatedException from deep inside WebDriverManager.
+      - name: Verify Firefox Browser
+        if: matrix.browser == 'firefox'
+        run: |
+          echo "======= Verifying Firefox ======="
+          command -v firefox && firefox --version || { echo "::error::Firefox not found on runner image"; exit 1; }
+
+      - name: Setup Edge Browser
+        if: matrix.browser == 'edge'
+        run: |
+          echo "======= Setting Up Edge ======="
+          if ! command -v microsoft-edge-stable &> /dev/null; then
+            echo "Edge not found - installing..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gnupg
+            wget -q -O - https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-edge-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-edge-keyring.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq microsoft-edge-stable
+          else
+            echo "Edge already installed: $(microsoft-edge-stable --version)"
+          fi
+
       - name: Run Tests
         run: |
-          echo "======= Running Tests: site=${{ matrix.site }} ======="
+          echo "======= Running Tests: site=${{ matrix.site }} browser=${{ matrix.browser }} ======="
           mvn -B test \
             -Dsite=${{ matrix.site }} \
             -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
-            -Dbrowser=${{ env.BROWSER }} \
+            -Dbrowser=${{ matrix.browser }} \
             -Dheadless=${{ env.HEADLESS }} \
             -Dhuman.pause.enabled=false \
             -Dretry.count=${{ env.RETRY_COUNT }} \
@@ -195,7 +275,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results-${{ matrix.site }}
+          name: allure-results-${{ matrix.site }}-${{ matrix.browser }}
           path: target/allure-results/
           retention-days: 7
 
@@ -210,7 +290,7 @@ jobs:
           # all that's actually needed here (these artifacts only need to
           # be found by the allure-report job further down in this same
           # run) and is guaranteed to never contain a path separator.
-          name: test-results-${{ matrix.site }}-${{ github.run_id }}
+          name: test-results-${{ matrix.site }}-${{ matrix.browser }}-${{ github.run_id }}
           path: |
             target/extent-reports/
             target/screenshots/
@@ -218,6 +298,21 @@ jobs:
             target/downloads/
             target/self-healing/
           retention-days: 7
+
+      # Feeds the coverage-gate job below. Only uploaded from the
+      # matrix.browser == 'chrome' leg once the browser matrix is enabled —
+      # the same core/ classes get exercised regardless of which browser
+      # ran them, so merging one exec file per site (not one per
+      # site-browser combination) is enough to represent "did core/ get
+      # covered this run" without inflating the merge step for no benefit.
+      - name: Upload JaCoCo exec (chrome leg only)
+        if: always() && matrix.browser == 'chrome'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-exec-${{ matrix.site }}
+          path: target/jacoco.exec
+          retention-days: 7
+          if-no-files-found: warn
 
   # ================================================================
   # STAGE 2b - Mobile Test (Android emulator + Appium)
@@ -341,8 +436,105 @@ jobs:
             appium.log
           retention-days: 7
 
+      # See the matching step in the `test` job above — feeds the
+      # coverage-gate job's merge step so the mobile driver-factory /
+      # BaseMobilePage slice of core/ counts toward the coverage gate too,
+      # not just whatever the two browser suites happen to touch.
+      - name: Upload JaCoCo exec
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-exec-mobile
+          path: target/jacoco.exec
+          retention-days: 7
+          if-no-files-found: warn
+
   # ================================================================
-  # STAGE 2c - Nightly Accessibility + Visual-Regression (demoqa only)
+  # STAGE 2c - Coverage Gate (merged JaCoCo check across every job)
+  # ================================================================
+  # Each test/mobile-test job above only exercises the slice of core/ its
+  # own suite touches — checking any single job's target/jacoco.exec
+  # against the 50% core/ threshold in pom.xml would fail unfairly
+  # whenever, say, the saucedemo job alone doesn't happen to touch
+  # AccessibilityUtils. This downloads every job's jacoco-exec-* artifact,
+  # merges them into one target/jacoco.exec via jacoco:merge@jacoco-merge,
+  # then runs the report + the real gate against that union.
+  # accessibility-visual-test is deliberately excluded from `needs:` for
+  # the same reason it's excluded from pr-comment above — it's nightly-only
+  # and would otherwise be a permanently-skipped dependency on every
+  # ordinary push/PR run.
+  coverage-gate:
+    needs: [ test, mobile-test ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # Only compiles main sources (no tests) — this job never runs the
+      # suite itself, it just needs target/classes present for jacoco:report
+      # to map the merged exec data back to source lines.
+      - name: Compile main sources
+        run: mvn -B compile
+
+      - name: Download JaCoCo exec files (all jobs)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jacoco-exec-*
+          path: target/jacoco-raw
+          merge-multiple: false
+
+      - name: Merge coverage data
+        id: merge
+        run: |
+          echo "======= Downloaded exec files ======="
+          find target/jacoco-raw -name '*.exec' -print
+          if ! find target/jacoco-raw -name '*.exec' -print -quit | grep -q .; then
+            echo "::warning::No jacoco.exec files found from any job — skipping coverage gate for this run."
+            echo "have_data=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "have_data=true" >> "$GITHUB_OUTPUT"
+          mvn -B jacoco:merge@jacoco-merge
+
+      - name: Generate merged coverage report
+        if: steps.merge.outputs.have_data == 'true'
+        run: mvn -B jacoco:report@jacoco-report
+
+      - name: Upload merged coverage report
+        if: steps.merge.outputs.have_data == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-merged-report
+          path: target/site/jacoco/
+          retention-days: 14
+
+      # This is the real gate: fails the job (and therefore the workflow
+      # run) if com.automation.core.* line coverage across the merged data
+      # is under 50% — see the jacoco-check execution/comment in pom.xml.
+      - name: Enforce coverage threshold (core/ >= 50% lines)
+        if: steps.merge.outputs.have_data == 'true'
+        run: mvn -B jacoco:check@jacoco-check
+
+      - name: Publish coverage summary
+        if: always() && steps.merge.outputs.have_data == 'true'
+        run: |
+          {
+            echo "## 📊 Coverage Gate (com.automation.core.*)"
+            echo ""
+            echo "Merged JaCoCo report: see the \`jacoco-merged-report\` artifact on this run, or \`target/site/jacoco/index.html\` if downloaded locally."
+            echo "Threshold: 50% line coverage on \`com.automation.core.*\`, enforced by \`jacoco:check@jacoco-check\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ================================================================
+  # STAGE 2e - Nightly Accessibility + Visual-Regression (demoqa only)
   # ================================================================
   # Both suites only exist for demoqa and are intentionally excluded from
   # the regular suite_type input above — this job is the only place they
@@ -421,7 +613,7 @@ jobs:
           retention-days: 7
 
   # ================================================================
-  # STAGE 2d - PR Comment (results summary posted on the pull request)
+  # STAGE 2f - PR Comment (results summary posted on the pull request)
   # ================================================================
   # Gives a reviewer pass/fail counts and a link to the full reports
   # without leaving the PR — otherwise the only way to see results is
@@ -433,7 +625,11 @@ jobs:
   # on every actual pull_request event it would just be a permanently
   # skipped dependency this job would have to work around for no benefit.
   pr-comment:
-    needs: [ test, mobile-test ]
+    # checkstyle is fast and already runs in parallel with test/mobile-test,
+    # so adding it here costs ~nothing in wall time but lets the comment
+    # show style-gate status alongside test results instead of a reviewer
+    # having to click into the Actions tab to notice Checkstyle failed.
+    needs: [ test, mobile-test, checkstyle ]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -457,6 +653,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # needs.<job>.result is one of success/failure/cancelled/skipped —
+          # passed through as-is rather than pre-formatted, so
+          # post_pr_comment.py owns the emoji/wording in one place.
+          CHECKSTYLE_RESULT: ${{ needs.checkstyle.result }}
         run: python3 .github/workflows/scripts/post_pr_comment.py
 
   # ================================================================

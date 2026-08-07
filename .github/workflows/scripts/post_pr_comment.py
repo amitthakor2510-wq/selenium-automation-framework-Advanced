@@ -13,6 +13,7 @@ Requires (from the calling workflow step):
   env:
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     PR_NUMBER: ${{ github.event.pull_request.number }}
+    CHECKSTYLE_RESULT: ${{ needs.checkstyle.result }}   # optional
 Also reads GITHUB_REPOSITORY (owner/repo) and GITHUB_RUN_ID, both of which
 GitHub Actions sets automatically on every job — no explicit env: needed
 for those two.
@@ -42,7 +43,18 @@ def find_existing_comment(repo, pr_number):
     return comment_id or None
 
 
-def build_body(totals, base_url, run_id):
+#  needs.<job>.result values -> a short display line. "skipped" happens
+#  whenever the checkstyle job itself didn't run (e.g. build failed first),
+#  which is worth surfacing as neutral rather than silently omitting it.
+CHECKSTYLE_LABELS = {
+    "success": "✅ Checkstyle passed",
+    "failure": "❌ Checkstyle failed — see the `checkstyle` job log",
+    "cancelled": "⚪ Checkstyle cancelled",
+    "skipped": "⚪ Checkstyle skipped",
+}
+
+
+def build_body(totals, base_url, run_id, checkstyle_result=None):
     total, passed, failed, skipped = (
         totals["total"], totals["passed"], totals["failed"], totals["skipped"],
     )
@@ -63,10 +75,17 @@ def build_body(totals, base_url, run_id):
         "|---|---|---|---|",
         f"| {passed} | {failed} | {skipped} | {total} |",
         "",
+    ]
+
+    if checkstyle_result:
+        label = CHECKSTYLE_LABELS.get(checkstyle_result, f"Checkstyle: {checkstyle_result}")
+        lines += [label, ""]
+
+    lines.append(
         f"[Full reports (Allure + Extent)]({base_url}/) &middot; "
         f"[Allure]({base_url}/allure-report/) &middot; "
-        f"[Workflow run](https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id})",
-    ]
+        f"[Workflow run](https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run_id})"
+    )
     return "\n".join(lines)
 
 
@@ -82,7 +101,8 @@ def main():
 
     _, totals = parse_surefire_dir(SUREFIRE_DIR)
     base_url = pages_base_url(owner, repo_name)
-    body = build_body(totals, base_url, run_id)
+    checkstyle_result = os.environ.get("CHECKSTYLE_RESULT")
+    body = build_body(totals, base_url, run_id, checkstyle_result)
 
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(body)

@@ -414,7 +414,9 @@
            silently overwrite that instead of appending to it. Report is
            bound to the test phase (like Allure above) so `mvn test`
            produces target/site/jacoco/index.html without needing a
-           separate `mvn verify`. -->
+           separate `mvn verify`. Per-module coverage is still informational
+           only from a single `mvn test` run — the real gate is the merged,
+           CI-wide check described on jacoco-merge/jacoco-check below. -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -435,6 +437,68 @@
             <goals>
               <goal>report</goal>
             </goals>
+          </execution>
+          <!-- Merge — invoked directly by CI as `jacoco:merge@jacoco-merge`
+               (not bound to any lifecycle phase, so a plain `mvn test` or
+               `mvn verify` never triggers it). Each CI test job only
+               exercises the slice of core/ its own suite touches (e.g. the
+               demoqa job never calls AccessibilityUtils, the mobile job
+               never calls the browser DriverFactory path), so checking
+               coverage against any single job's target/jacoco.exec would
+               fail the gate unfairly. CI downloads every job's *.exec into
+               target/jacoco-raw/ first (see github-ci.yml's coverage-gate
+               job), then this combines them into one target/jacoco.exec
+               before jacoco-check below runs against the union. -->
+          <execution>
+            <id>jacoco-merge</id>
+            <goals>
+              <goal>merge</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <directory>${project.build.directory}/jacoco-raw</directory>
+                  <includes>
+                    <include>**/*.exec</include>
+                  </includes>
+                </fileSet>
+              </fileSets>
+              <destFile>${project.build.directory}/jacoco.exec</destFile>
+            </configuration>
+          </execution>
+          <!-- Coverage gate — bound to verify (not test), same opt-in pattern
+               as Checkstyle below, so `mvn test` everywhere in this project
+               stays a pure "run the suite" command with zero new failure
+               modes. `mvn verify` now fails if core/ line coverage drops
+               below 50%. Scoped to core/** only (not sites/mobile/template)
+               because page objects are exercised end-to-end by the suites
+               themselves and coverage there is a by-product, not a target —
+               core/ (utils, self-healing engine, keyword engine, etc.) is
+               the shared logic worth protecting with a real threshold. -->
+          <execution>
+            <id>jacoco-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <rule>
+                  <element>BUNDLE</element>
+                  <includes>
+                    <include>com.automation.core.*</include>
+                  </includes>
+                  <limits>
+                    <limit>
+                      <counter>LINE</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.50</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+              <haltOnFailure>true</haltOnFailure>
+            </configuration>
           </execution>
         </executions>
       </plugin>

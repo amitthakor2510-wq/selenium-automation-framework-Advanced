@@ -31,7 +31,12 @@ pipeline {
         choice(
                 name: 'BROWSER',
                 choices: ['chrome', 'firefox', 'edge'],
-                description: 'Browser to run against'
+                description: 'Browser to run against (ignored per-site if ALL_BROWSERS is checked)'
+        )
+        booleanParam(
+                name: 'ALL_BROWSERS',
+                defaultValue: false,
+                description: 'Run every discovered browser site against chrome, firefox, AND edge in parallel (ignores BROWSER above). Off by default to keep a normal build\'s branch count/runtime unchanged.'
         )
         booleanParam(
                 name: 'HEADLESS',
@@ -259,6 +264,30 @@ pipeline {
             }
         }
 
+        stage('Checkstyle') {
+            // Runs right after Build (no browser/emulator dependency, just
+            // the source tree) and marks the build UNSTABLE rather than
+            // failing it outright — same pattern already used for a failed
+            // browser site below, so one style violation doesn't block
+            // seeing whether the suite itself still passes. Invokes the
+            // named execution directly (see pom.xml's checkstyle-check,
+            // bound to the verify phase) instead of running `mvn verify`,
+            // which would re-run the entire test suite a second time just
+            // to reach that phase.
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp checkstyle:check@checkstyle-check',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Checkstyle found violations — see console output above.'
+                    }
+                }
+            }
+        }
+
         stage('Discover Site Projects') {
             steps {
                 script {
@@ -312,39 +341,54 @@ pipeline {
             steps {
                 script {
                     def sites = env.SITES_TO_RUN.split(',')
+                    // Off by default (ALL_BROWSERS=false) so a normal build's
+                    // branch count and runtime are unchanged — ticking it
+                    // fans each site out across all three browsers instead
+                    // of just params.BROWSER, the same coverage the GitHub
+                    // Actions matrix now runs on every push/PR by default.
+                    def browsers = params.ALL_BROWSERS ? ['chrome', 'firefox', 'edge'] : [params.BROWSER]
                     def testResults = [:]
+
+                    sh 'mkdir -p target/jacoco-artifacts'
 
                     // Each branch below runs `mvn test` as its own separate
                     // JVM, so a shared/global Maven local repo is safe to
                     // read from concurrently. The only genuinely shared
-                    // OUTPUT that two sites running at once would otherwise
-                    // collide on is target/allure-results/environment.properties
-                    // (AllureEnvironmentWriter writes it once per JVM) — each
-                    // branch is pointed at its own target/allure-results/<site>
-                    // subdirectory to avoid that race. Extent's report file
-                    // is already named "<site>-index.html" (ExtentManager),
-                    // so it never collided even in the old sequential loop.
+                    // OUTPUT that two branches running at once would
+                    // otherwise collide on is target/allure-results/
+                    // environment.properties (AllureEnvironmentWriter writes
+                    // it once per JVM) and the default target/jacoco.exec
+                    // path (JaCoCo's prepare-agent writes there unless
+                    // overridden) — every branch here is a distinct
+                    // `sh` step sharing one `agent any` workspace, not an
+                    // isolated node the way GitHub Actions/GitLab's matrix
+                    // jobs get, so both are explicitly redirected to a
+                    // per-branch path below instead of relying on defaults.
                     def branches = [:]
                     sites.each { site ->
-                        branches[site] = {
-                            def suiteFile = "testng-suites/${site}-${params.SUITE_TYPE}.xml"
-                            echo "==== Running ${params.SUITE_TYPE} for site: ${site} ===="
+                        browsers.each { browser ->
+                            def key = browsers.size() > 1 ? "${site}-${browser}" : site
+                            branches[key] = {
+                                def suiteFile = "testng-suites/${site}-${params.SUITE_TYPE}.xml"
+                                echo "==== Running ${params.SUITE_TYPE} for site: ${site}, browser: ${browser} ===="
 
-                            int exitCode = sh(
-                                    script: """
-                                   mvn -B -ntp test \\
-                                      -Dsite=${site} \\
-                                      -DsuiteXmlFile=${suiteFile} \\
-                                      -Dbrowser=${params.BROWSER} \\
-                                      -Dheadless=${params.HEADLESS} \\
-                                      -Dhuman.pause.enabled=false \\
-                                      -Dretry.count=${params.RETRY_COUNT} \\
-                                      -Dallure.results.directory=target/allure-results/${site} \\
-                                      -Dmaven.test.failure.ignore=true
-                                """,
-                                    returnStatus: true
-                            )
-                            testResults[site] = exitCode
+                                int exitCode = sh(
+                                        script: """
+                                       mvn -B -ntp test \\
+                                          -Dsite=${site} \\
+                                          -DsuiteXmlFile=${suiteFile} \\
+                                          -Dbrowser=${browser} \\
+                                          -Dheadless=${params.HEADLESS} \\
+                                          -Dhuman.pause.enabled=false \\
+                                          -Dretry.count=${params.RETRY_COUNT} \\
+                                          -Dallure.results.directory=target/allure-results/${key} \\
+                                          -Djacoco.destFile=target/jacoco-artifacts/${key}.exec \\
+                                          -Dmaven.test.failure.ignore=true
+                                    """,
+                                        returnStatus: true
+                                )
+                                testResults[key] = exitCode
+                            }
                         }
                     }
                     parallel branches
@@ -574,6 +618,7 @@ pipeline {
                            src/test/resources/config/mobile.properties
                     '''
 
+                        sh 'mkdir -p target/jacoco-artifacts'
                         def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
                         int exitCode = sh(
                                 script: """
@@ -585,6 +630,7 @@ pipeline {
                               -Dmobile.device.name=\$ANDROID_SERIAL \\
                               -Dretry.count=${params.RETRY_COUNT} \\
                               -Dallure.results.directory=target/allure-results/mobile \\
+                              -Djacoco.destFile=target/jacoco-artifacts/mobile.exec \\
                               -Dmaven.test.failure.ignore=true
                         """,
                                 returnStatus: true
@@ -601,6 +647,48 @@ pipeline {
                         }
                     }
                 } // catchError
+            }
+        }
+
+        stage('Coverage Gate') {
+            // Runs after Run Tests Per Site + Mobile Test so every branch's
+            // target/jacoco-artifacts/<key>.exec (see -Djacoco.destFile
+            // above) is already on disk. Each individual branch only
+            // exercises the slice of core/ its own suite touches, so
+            // checking any single one against the 50% core/ threshold in
+            // pom.xml would fail unfairly — merge them into one
+            // target/jacoco.exec first, then gate on the union. Marked
+            // UNSTABLE (not a hard failure) on a threshold breach, same
+            // pattern as every other quality signal in this pipeline, so a
+            // coverage dip is visible without blocking the whole build.
+            steps {
+                script {
+                    def hasExecFiles = sh(
+                            script: 'ls target/jacoco-artifacts/*.exec 2>/dev/null | head -1',
+                            returnStdout: true
+                    ).trim()
+
+                    if (!hasExecFiles) {
+                        echo 'No jacoco-artifacts/*.exec files found — skipping coverage gate for this run.'
+                        return
+                    }
+
+                    sh '''
+                        mkdir -p target/jacoco-raw
+                        cp target/jacoco-artifacts/*.exec target/jacoco-raw/
+                        mvn -B -ntp jacoco:merge@jacoco-merge
+                        mvn -B -ntp jacoco:report@jacoco-report
+                    '''
+
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp jacoco:check@jacoco-check',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Coverage gate failed — com.automation.core.* line coverage is under the 50% threshold. See target/site/jacoco/index.html.'
+                    }
+                }
             }
         }
 
@@ -816,9 +904,27 @@ pipeline {
                                 ])
                             }
 
+                            // ── Merged JaCoCo Coverage Report (HTML Publisher) ──
+                            // Written by the Coverage Gate stage's
+                            // jacoco:report@jacoco-report call, if that stage
+                            // ran and found any *.exec artifacts to merge —
+                            // reuses the same HTML Publisher plugin as the
+                            // Extent report above rather than requiring the
+                            // separate Jenkins JaCoCo plugin.
+                            if (fileExists('target/site/jacoco/index.html')) {
+                                publishHTML(target: [
+                                        allowMissing         : true,
+                                        alwaysLinkToLastBuild: true,
+                                        keepAll              : true,
+                                        reportDir            : 'target/site/jacoco',
+                                        reportFiles          : 'index.html',
+                                        reportName           : 'JaCoCo Coverage Report (merged)'
+                                ])
+                            }
+
                             // ── Archive raw artifacts ───────────────────────
                             archiveArtifacts allowEmptyArchive: true,
-                                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
+                                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
                                     fingerprint: true
 
                             // ── ADB memory-leak cleanup ─────────────────────
