@@ -56,6 +56,25 @@ pipeline {
         // spend agent time finishing it. GitHub Actions gets the equivalent
         // via `concurrency:`, GitLab CI via `interruptible: true`.
         disableConcurrentBuilds()
+        // Without this, `agent any` makes Jenkins perform an implicit,
+        // unconfigurable full checkout ("Declarative: Checkout SCM", using
+        // whatever timeout/clone settings happen to be set in the job's own
+        // UI config, or Jenkins' 10-minute default if none are) BEFORE any
+        // stage below — including the stage('Checkout') a few lines down,
+        // which then does the exact same full `checkout scm` a second time.
+        // On a build where the agent's link to GitHub is slow/unstable
+        // (this repo is ~27k objects), that implicit checkout can eat the
+        // full 10-minute default timeout and get killed mid-transfer:
+        //   ERROR: Timeout after 10 minutes
+        //   fatal: fetch-pack: invalid index-pack output
+        // — and because it fails before stage('Checkout') is even reached,
+        // there's no Jenkinsfile-level lever to give it a longer timeout or
+        // a shallower clone; that config only lives in Jenkins' job UI, not
+        // in this file. skipDefaultCheckout() removes that implicit
+        // checkout entirely, leaving stage('Checkout') below as the ONE
+        // checkout per build — which this file (and CloneOption extensions
+        // added there) fully controls.
+        skipDefaultCheckout()
     }
 
     triggers {
@@ -207,7 +226,30 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                // Explicit CloneOption extensions (not bare `checkout scm`)
+                // so this — now the only checkout per build, since
+                // skipDefaultCheckout() above removed the redundant
+                // implicit one — is resilient to the slow/unstable link to
+                // GitHub this agent has shown ("Receiving objects" repeatedly
+                // crawling to 30-90 KiB/s mid-fetch in past runs):
+                //   - timeout: 30 (vs. Jenkins' 10-minute default) gives a
+                //     degraded connection real room to finish rather than
+                //     getting SIGTERM'd mid-transfer with "fatal: early EOF".
+                //   - shallow/depth: 1 means only the tip commit needs to
+                //     transfer, not this repo's full ~27,349-object history —
+                //     directly shrinking the amount of data that slow link
+                //     has to move, which helps regardless of the timeout.
+                // scm.branches / scm.userRemoteConfigs reuse this job's own
+                // configured repo URL/credentials/branch rather than
+                // hardcoding them here.
+                checkout([
+                        $class           : 'GitSCM',
+                        branches         : scm.branches,
+                        userRemoteConfigs: scm.userRemoteConfigs,
+                        extensions       : [
+                                [$class: 'CloneOption', timeout: 30, shallow: true, depth: 1, noTags: false]
+                        ]
+                ])
             }
         }
 
@@ -643,116 +685,155 @@ pipeline {
 
     post {
         always {
-            // ── Release shared-box lock ─────────────────────────────────
-            // First thing in post{always{}}, unconditionally and best-effort,
-            // so the next queued build (or a stuck one from a hard-killed
-            // agent) is never left waiting on this build's own reporting/
-            // archiving steps below. See "Acquire Shared-Box Lock" stage.
-            sh '''
-                rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
-            '''
-
-            // ── JUnit results ─────────────────────────────────────────
-            junit allowEmptyResults: true,
-                    testResults: 'target/surefire-reports/*.xml'
-
-            // ── Allure Report ─────────────────────────────────────────
-            // One results dir per site (see "Run Tests Per Site" stage),
-            // plus the nightly accessibility/visual dirs when the
-            // "Nightly Extra Coverage" stage ran — pass all of them so the
-            // single generated report covers every suite that ran, not
-            // just whichever happened to write last.
+            // The entire block below is wrapped in an explicit node('')
+            // re-allocation, guarded by a try/catch. Without this: a
+            // catastrophic failure that tears down this build's original
+            // node/workspace BEFORE post{} runs — as an early "Declarative:
+            // Checkout SCM" failure does, and as an agent crash/restart
+            // mid-build could too — leaves every step below (starting with
+            // the shared-lock release, the single most important line here)
+            // unable to run at all:
+            //   org.jenkinsci.plugins.workflow.steps.MissingContextVariableException:
+            //   Required context class hudson.FilePath is missing
+            // In THIS specific failure mode (checkout itself is what failed)
+            // the lock was never acquired, so its release being skipped is
+            // harmless — but the exact same exception would just as
+            // silently skip the release on a build where the lock WAS
+            // acquired and something later killed the node hard enough to
+            // lose its context. That would leave /tmp/selenium-framework-
+            // pipeline.lockdir behind forever, and since "Acquire Shared-Box
+            // Lock" is a plain `mkdir`-based mutex with no other release
+            // path, every subsequent build would then hang indefinitely at
+            // that stage. node('') acquires any available executor purely
+            // for this cleanup, independent of whether the original one is
+            // still valid, so the lock release (and the rest of this
+            // reporting/cleanup) can run regardless of how the build died.
+            // The try/catch is a last-resort fallback for the case where no
+            // executor is available at all (e.g. this build's own agent was
+            // the only one and it's still being torn down) — log it rather
+            // than let a secondary exception here mask the real failure
+            // reason in the Jenkins UI.
             script {
-                def resultDirs = env.SITES_TO_RUN?.trim()
-                        ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
-                        : []
-                if (env.RUN_MOBILE == 'true') {
-                    resultDirs += [[path: 'target/allure-results/mobile']]
+                try {
+                    node('') {
+                        // ── Release shared-box lock ─────────────────────
+                        // First thing here, unconditionally and best-effort,
+                        // so the next queued build (or a stuck one from a
+                        // hard-killed agent) is never left waiting on this
+                        // build's own reporting/archiving steps below. See
+                        // "Acquire Shared-Box Lock" stage.
+                        sh '''
+                            rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
+                        '''
+
+                        // ── JUnit results ───────────────────────────────
+                        junit allowEmptyResults: true,
+                                testResults: 'target/surefire-reports/*.xml'
+
+                        // ── Allure Report ───────────────────────────────
+                        // One results dir per site (see "Run Tests Per Site"
+                        // stage), plus the nightly accessibility/visual dirs
+                        // when the "Nightly Extra Coverage" stage ran — pass
+                        // all of them so the single generated report covers
+                        // every suite that ran, not just whichever happened
+                        // to write last.
+                        def resultDirs = env.SITES_TO_RUN?.trim()
+                                ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
+                                : []
+                        if (env.RUN_MOBILE == 'true') {
+                            resultDirs += [[path: 'target/allure-results/mobile']]
+                        }
+                        if (!resultDirs) {
+                            resultDirs = [[path: 'target/allure-results']]
+                        }
+                        if (env.NIGHTLY_RESULT_DIRS) {
+                            resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
+                        }
+                        allure([
+                                includeProperties: false,
+                                jdk: '',
+                                results: resultDirs
+                        ])
+
+                        // ── Extent Report (HTML Publisher) ──────────────
+                        if (fileExists('target/extent-reports')) {
+                            publishHTML(target: [
+                                    allowMissing         : true,
+                                    alwaysLinkToLastBuild: true,
+                                    keepAll              : true,
+                                    reportDir            : 'target/extent-reports',
+                                    reportFiles          : '*.html',
+                                    reportName           : 'Extent Test Report'
+                            ])
+                        }
+
+                        // ── Archive raw artifacts ───────────────────────
+                        archiveArtifacts allowEmptyArchive: true,
+                                artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
+                                fingerprint: true
+
+                        // ── ADB memory-leak cleanup ─────────────────────
+                        // "adb reconnect offline" forces adb to drop and
+                        // re-probe any device/emulator connection it still
+                        // thinks is live, which is the fix for the specific
+                        // case that bit us on this box: a build that ran the
+                        // Mobile Test stage leaves adb's own server process
+                        // running (by design — it's meant to be reused by
+                        // the next build to skip a slow cold restart), but
+                        // each new emulator boot across many local runs was
+                        // gradually growing that server's memory footprint.
+                        // Only runs when the mobile stage actually executed
+                        // and left an adb binary behind — a browser-only
+                        // build (RUN_MOBILE == 'false') has neither, so this
+                        // step is a deliberate no-op there rather than an
+                        // error.
+                        if (env.RUN_MOBILE == 'true') {
+                            sh '''
+                                ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
+                                if [ -x "$ADB_BIN" ]; then
+                                    # This post block runs outside the Mobile
+                                    # Test stage's own `environment {}`, so
+                                    # ANDROID_SERIAL isn't set here
+                                    # automatically — export it so this
+                                    # reconnect targets only the CI emulator
+                                    # and doesn't touch (or error out
+                                    # against) the separately-connected
+                                    # Genymotion device.
+                                    ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
+                                fi
+                            '''
+                        }
+
+                        // ── Cache Self-Healing Repository ───────────────
+                        // See "Restore Self-Healing Cache" stage above for
+                        // the full reasoning — this is the write half of
+                        // that same round trip. Must run before cleanWs()
+                        // below, which deletes the workspace (including
+                        // self-healing-data/) unconditionally.
+                        sh '''
+                            CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
+                            if [ -f "self-healing-data/locator-repository.json" ]; then
+                                mkdir -p "$CACHE_DIR"
+                                cp self-healing-data/locator-repository.json "$CACHE_DIR/locator-repository.json"
+                            fi
+                        '''
+
+                        // ── Workspace cleanup ───────────────────────────
+                        // Runs last, after artifacts are already archived
+                        // above, so nothing needed by this build's own
+                        // report/archive steps is lost — this only clears
+                        // disk for the NEXT build (and the NVMe SSD's free
+                        // space generally, given how much target/ and
+                        // .android-sdk/ accumulate per run on this box).
+                        cleanWs(
+                                deleteDirs: true,
+                                notFailBuild: true
+                        )
+                    }
+                } catch (Throwable t) {
+                    echo "post{always{}} cleanup could not run (no executor available to reclaim: ${t.message}) — the build's real failure is above this message, not this one."
                 }
-                if (!resultDirs) {
-                    resultDirs = [[path: 'target/allure-results']]
-                }
-                if (env.NIGHTLY_RESULT_DIRS) {
-                    resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
-                }
-                allure([
-                        includeProperties: false,
-                        jdk: '',
-                        results: resultDirs
-                ])
             }
-
-            // ── Extent Report (HTML Publisher) ────────────────────────
-            script {
-                if (fileExists('target/extent-reports')) {
-                    publishHTML(target: [
-                            allowMissing         : true,
-                            alwaysLinkToLastBuild: true,
-                            keepAll              : true,
-                            reportDir            : 'target/extent-reports',
-                            reportFiles          : '*.html',
-                            reportName           : 'Extent Test Report'
-                    ])
-                }
-            }
-
-            // ── Archive raw artifacts ─────────────────────────────────
-            archiveArtifacts allowEmptyArchive: true,
-                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
-                    fingerprint: true
-
-            // ── ADB memory-leak cleanup ────────────────────────────────
-            // "adb reconnect offline" forces adb to drop and re-probe any
-            // device/emulator connection it still thinks is live, which is
-            // the fix for the specific case that bit us on this box: a
-            // build that ran the Mobile Test stage leaves adb's own server
-            // process running (by design — it's meant to be reused by the
-            // next build to skip a slow cold restart), but each new
-            // emulator boot across many local runs was gradually growing
-            // that server's memory footprint. Only runs when the mobile
-            // stage actually executed and left an adb binary behind — a
-            // browser-only build (RUN_MOBILE == 'false') has neither, so
-            // this step is a deliberate no-op there rather than an error.
-            script {
-                if (env.RUN_MOBILE == 'true') {
-                    sh '''
-                        ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
-                        if [ -x "$ADB_BIN" ]; then
-                            # This post block runs outside the Mobile Test
-                            # stage's own `environment {}`, so ANDROID_SERIAL
-                            # isn't set here automatically — export it so this
-                            # reconnect targets only the CI emulator and
-                            # doesn't touch (or error out against) the
-                            # separately-connected Genymotion device.
-                            ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
-                        fi
-                    '''
-                }
-            }
-
-            // ── Cache Self-Healing Repository ──────────────────────────
-            // See "Restore Self-Healing Cache" stage above for the full
-            // reasoning — this is the write half of that same round trip.
-            // Must run before cleanWs() below, which deletes the workspace
-            // (including self-healing-data/) unconditionally.
-            sh '''
-                CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
-                if [ -f "self-healing-data/locator-repository.json" ]; then
-                    mkdir -p "$CACHE_DIR"
-                    cp self-healing-data/locator-repository.json "$CACHE_DIR/locator-repository.json"
-                fi
-            '''
-
-            // ── Workspace cleanup ──────────────────────────────────────
-            // Runs last, after artifacts are already archived above, so
-            // nothing needed by this build's own report/archive steps is
-            // lost — this only clears disk for the NEXT build (and the
-            // NVMe SSD's free space generally, given how much target/
-            // and .android-sdk/ accumulate per run on this box).
-            cleanWs(
-                    deleteDirs: true,
-                    notFailBuild: true
-            )
         }
 
         unstable {

@@ -64,7 +64,24 @@ env:
   # Jenkins pipeline already covered both via its "Site=ALL" default).
   SUITE_TYPE: ${{ inputs.suite_type || 'regression' }}
   BROWSER: ${{ inputs.browser || 'chrome' }}
-  HEADLESS: ${{ inputs.headless == false && 'false' || 'true' }}
+  # BUG FIX: `inputs.headless == false` looks like it means "default to
+  # headless, unless the manual workflow_dispatch form explicitly turns it
+  # off" — but on any non-workflow_dispatch trigger (push, pull_request,
+  # schedule) the `inputs` context doesn't exist, so `inputs.headless` is
+  # `null`. GitHub Actions expressions coerce mismatched-type comparisons
+  # to numbers: `false` -> 0 and `null` -> 0 too, so `null == false`
+  # evaluates to TRUE. That collapsed this whole expression to 'false'
+  # (non-headless) on every single push/PR/schedule run, not just when
+  # someone deliberately disabled headless mode via workflow_dispatch.
+  # Chrome then launched with a real, maximized window
+  # (--start-maximized) on ubuntu-latest runners that have no display
+  # server, crashing immediately with SessionNotCreatedException: "Chrome
+  # instance exited" — hitting BaseTest.setUp() on every test class and
+  # cascading into the wall of Skipped results TestNG reports whenever a
+  # @BeforeMethod fails. Requiring github.event_name == 'workflow_dispatch'
+  # as well means a null inputs.headless on any other trigger can no
+  # longer accidentally satisfy this condition.
+  HEADLESS: ${{ (github.event_name == 'workflow_dispatch' && inputs.headless == false) && 'false' || 'true' }}
   RETRY_COUNT: ${{ inputs.retry_count || '0' }}
   # No MAVEN_OPTS override for maven.repo.local here — every job below uses
   # `cache: 'maven'` on actions/setup-java@v4, which caches Maven's DEFAULT
