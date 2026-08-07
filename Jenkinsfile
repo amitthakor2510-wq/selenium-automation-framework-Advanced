@@ -512,11 +512,33 @@ pipeline {
                         # stage's own killall -9 for the same class of process.
                         pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
                         pkill -9 -f "appium" 2>/dev/null || true
-                        # Belt-and-braces alongside the -9 pkill above: restart
-                        # the adb server itself so any stale device/offline
-                        # registration left over from a previous run's process
-                        # can't linger and be mistaken for this run's emulator.
-                        "$ANDROID_SDK_ROOT/platform-tools/adb" kill-server 2>/dev/null || true
+                        # NOTE: this used to also `adb kill-server` here as a
+                        # "belt-and-braces" measure. ROOT CAUSE (2026-08-07
+                        # build): that's a race, not a fix. adb kill-server
+                        # asks the currently-running server to exit but does
+                        # NOT wait for the port to be released; the very next
+                        # line below launches the emulator, which immediately
+                        # tries to register its transport with adb — and
+                        # "adb wait-for-device" a few lines down then forces a
+                        # brand-new adb server to spawn ("daemon not running;
+                        # starting now at tcp:5037", visible in that build's
+                        # own log) at almost the same instant. Whichever adb
+                        # server the emulator's transport registered with can
+                        # end up being the one that's already exiting, leaving
+                        # the device stuck "offline" for the rest of the
+                        # build (the emulator's own emulator.log shows this:
+                        # "Boot completed in 18501 ms" internally, yet every
+                        # `adb shell` call against it fails with "device
+                        # offline" from that point on) — a known class of adb
+                        # bug when the server restarts while a transport is
+                        # attaching. Just starting (not killing+restarting)
+                        # the server here is enough to clear genuinely stale
+                        # state left by a previous crashed run without
+                        # racing this run's own emulator: adb start-server
+                        # is a no-op if a server is already up, and if there
+                        # isn't one, this establishes it well before the
+                        # emulator launches instead of concurrently with it.
+                        "$ANDROID_SDK_ROOT/platform-tools/adb" start-server 2>/dev/null || true
 
                         # -no-snapshot-load: cleanWs() in post{} wipes the
                         # entire workspace (including .android-sdk/avd/) after
@@ -576,6 +598,22 @@ pipeline {
                                 echo "Emulator booted"
                                 BOOTED=1
                                 break
+                            fi
+                            # Mid-loop nudge for the adb-server-race case above:
+                            # if the device is still registered as "offline"
+                            # (as opposed to genuinely still booting), a plain
+                            # `adb reconnect` re-probes the existing transport
+                            # without restarting the server or the emulator —
+                            # cheap, best-effort, and exactly what the post{}
+                            # block's own "ADB memory-leak cleanup" step already
+                            # relies on to clear this same state after the fact.
+                            # Only tried every ~25s (not every 5s) so it doesn't
+                            # spam a device that's simply still mid-boot.
+                            if [ $((i % 5)) -eq 0 ]; then
+                                if "$ANDROID_SDK_ROOT/platform-tools/adb" devices | grep -q "^${ANDROID_SERIAL}[[:space:]]*offline"; then
+                                    echo "Device registered but offline at attempt $i — trying adb reconnect..."
+                                    "$ANDROID_SDK_ROOT/platform-tools/adb" reconnect 2>/dev/null || true
+                                fi
                             fi
                             sleep 5
                         done
@@ -805,145 +843,143 @@ pipeline {
 
     post {
         always {
-            // The entire block below is wrapped in an explicit node('')
-            // re-allocation, guarded by a try/catch. Without this: a
-            // catastrophic failure that tears down this build's original
-            // node/workspace BEFORE post{} runs — as an early "Declarative:
-            // Checkout SCM" failure does, and as an agent crash/restart
-            // mid-build could too — leaves every step below (starting with
-            // the shared-lock release, the single most important line here)
-            // unable to run at all:
+            // Cleanup/reporting runs directly in the current post{} context
+            // by default (see runCleanup() below), with a node('') fallback
+            // only for the rare case where that context is actually gone —
+            // e.g. an early "Declarative: Checkout SCM" failure, or an agent
+            // crash mid-build — which surfaces as:
             //   org.jenkinsci.plugins.workflow.steps.MissingContextVariableException:
             //   Required context class hudson.FilePath is missing
-            // In THIS specific failure mode (checkout itself is what failed)
-            // the lock was never acquired, so its release being skipped is
-            // harmless — but the exact same exception would just as
-            // silently skip the release on a build where the lock WAS
-            // acquired and something later killed the node hard enough to
-            // lose its context. That would leave /tmp/selenium-framework-
-            // pipeline.lockdir behind forever, and since "Acquire Shared-Box
-            // Lock" is a plain `mkdir`-based mutex with no other release
-            // path, every subsequent build would then hang indefinitely at
-            // that stage. node('') acquires any available executor purely
-            // for this cleanup, independent of whether the original one is
-            // still valid, so the lock release (and the rest of this
-            // reporting/cleanup) can run regardless of how the build died.
-            // The try/catch is a last-resort fallback for the case where no
-            // executor is available at all (e.g. this build's own agent was
-            // the only one and it's still being torn down) — log it rather
-            // than let a secondary exception here mask the real failure
-            // reason in the Jenkins UI.
+            // Without that fallback, a build that dies hard enough to lose
+            // its node context would never release /tmp/selenium-framework-
+            // pipeline.lockdir (a plain `mkdir`-based mutex with no other
+            // release path), hanging every subsequent build at "Acquire
+            // Shared-Box Lock" forever.
             script {
-                // Captured BEFORE node('') below reassigns the WORKSPACE env
-                // var to whatever fresh workspace the new executor gets
-                // (typically the same box, but a different directory, e.g.
-                // ".../Selenium-Automation-Framework-Pipeline@2" — Jenkins
-                // hands out a suffixed workspace whenever the "canonical"
-                // one is still considered in use). Without pinning back to
-                // this path, every step below silently operates on an
-                // empty directory instead of this build's real output:
-                // junit/allure/archiveArtifacts report "nothing found", the
-                // ADB reconnect-offline cleanup no-ops because $WORKSPACE
-                // now points at a directory with no .android-sdk in it, and
-                // — worst of all — the self-healing locator-repository
-                // cache-write step no-ops too, silently breaking the write
-                // half of the round trip "Restore Self-Healing Cache" reads
-                // from, on every single build.
-                def originalWorkspace = env.WORKSPACE
-                try {
-                    node('') {
-                        ws(originalWorkspace) {
-                            // ── Release shared-box lock ─────────────────────
-                            // First thing here, unconditionally and best-effort,
-                            // so the next queued build (or a stuck one from a
-                            // hard-killed agent) is never left waiting on this
-                            // build's own reporting/archiving steps below. See
-                            // "Acquire Shared-Box Lock" stage.
-                            sh '''
-                            rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
-                        '''
+                // ROOT CAUSE (2026-08-07 build, diagnosed from console log):
+                // this block used to unconditionally wrap everything below in
+                // node('') { ws(originalWorkspace) { ... } } "just in case"
+                // the original node/workspace context had been torn down
+                // before post{} ran. That defensive wrap was the bug: the
+                // outer `agent any` node is still alive and still HOLDS THE
+                // LOCK on this build's real workspace for the entire
+                // pipeline, including post{} — so node('') grabbing a brand
+                // new executor and then ws(originalWorkspace) trying to lock
+                // that SAME path a second time can never get it; Jenkins
+                // hands back a disambiguated, empty directory instead
+                // (".../Selenium-Automation-Framework-Pipeline@2", then a
+                // further "@3" for the nested ws()). Every step below then
+                // silently ran against that empty directory: junit reported
+                // "No test report files were found", allure reported
+                // "allure-results does not exist", archiveArtifacts reported
+                // "doesn't match anything" for target/extent-reports,
+                // target/screenshots, target/jacoco-artifacts, etc, and the
+                // self-healing locator-repository cache-write step no-op'd
+                // too — even though every one of those files existed and was
+                // correct in the real workspace the whole time.
+                //
+                // Fix: run the cleanup directly in the current (still valid,
+                // still correctly-pathed) context first — this is what
+                // succeeds on the overwhelming majority of builds, including
+                // this one. Only fall back to reclaiming a fresh node/
+                // workspace if that direct attempt proves the original
+                // context is actually gone (MissingContextVariableException,
+                // the exact failure this fallback exists for), in which case
+                // there is no "real" workspace left to pin back to anyway —
+                // the cleanup runs best-effort in whatever new workspace
+                // node('') hands out.
+                def runCleanup = {
+                    // ── Release shared-box lock ─────────────────────
+                    // First thing here, unconditionally and best-effort,
+                    // so the next queued build (or a stuck one from a
+                    // hard-killed agent) is never left waiting on this
+                    // build's own reporting/archiving steps below. See
+                    // "Acquire Shared-Box Lock" stage.
+                    sh '''
+                        rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
+                    '''
 
-                            // ── JUnit results ───────────────────────────────
-                            junit allowEmptyResults: true,
-                                    testResults: 'target/surefire-reports/*.xml'
+                    // ── JUnit results ───────────────────────────────
+                    junit allowEmptyResults: true,
+                            testResults: 'target/surefire-reports/*.xml'
 
-                            // ── Allure Report ───────────────────────────────
-                            // One results dir per site (see "Run Tests Per Site"
-                            // stage), plus the nightly accessibility/visual dirs
-                            // when the "Nightly Extra Coverage" stage ran — pass
-                            // all of them so the single generated report covers
-                            // every suite that ran, not just whichever happened
-                            // to write last.
-                            def resultDirs = env.SITES_TO_RUN?.trim()
-                                    ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
-                                    : []
-                            if (env.RUN_MOBILE == 'true') {
-                                resultDirs += [[path: 'target/allure-results/mobile']]
-                            }
-                            if (!resultDirs) {
-                                resultDirs = [[path: 'target/allure-results']]
-                            }
-                            if (env.NIGHTLY_RESULT_DIRS) {
-                                resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
-                            }
-                            allure([
-                                    includeProperties: false,
-                                    jdk: '',
-                                    results: resultDirs
-                            ])
+                    // ── Allure Report ───────────────────────────────
+                    // One results dir per site (see "Run Tests Per Site"
+                    // stage), plus the nightly accessibility/visual dirs
+                    // when the "Nightly Extra Coverage" stage ran — pass
+                    // all of them so the single generated report covers
+                    // every suite that ran, not just whichever happened
+                    // to write last.
+                    def resultDirs = env.SITES_TO_RUN?.trim()
+                            ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
+                            : []
+                    if (env.RUN_MOBILE == 'true') {
+                        resultDirs += [[path: 'target/allure-results/mobile']]
+                    }
+                    if (!resultDirs) {
+                        resultDirs = [[path: 'target/allure-results']]
+                    }
+                    if (env.NIGHTLY_RESULT_DIRS) {
+                        resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
+                    }
+                    allure([
+                            includeProperties: false,
+                            jdk: '',
+                            results: resultDirs
+                    ])
 
-                            // ── Extent Report (HTML Publisher) ──────────────
-                            if (fileExists('target/extent-reports')) {
-                                publishHTML(target: [
-                                        allowMissing         : true,
-                                        alwaysLinkToLastBuild: true,
-                                        keepAll              : true,
-                                        reportDir            : 'target/extent-reports',
-                                        reportFiles          : '*.html',
-                                        reportName           : 'Extent Test Report'
-                                ])
-                            }
+                    // ── Extent Report (HTML Publisher) ──────────────
+                    if (fileExists('target/extent-reports')) {
+                        publishHTML(target: [
+                                allowMissing         : true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll              : true,
+                                reportDir            : 'target/extent-reports',
+                                reportFiles          : '*.html',
+                                reportName           : 'Extent Test Report'
+                        ])
+                    }
 
-                            // ── Merged JaCoCo Coverage Report (HTML Publisher) ──
-                            // Written by the Coverage Gate stage's
-                            // jacoco:report@jacoco-report call, if that stage
-                            // ran and found any *.exec artifacts to merge —
-                            // reuses the same HTML Publisher plugin as the
-                            // Extent report above rather than requiring the
-                            // separate Jenkins JaCoCo plugin.
-                            if (fileExists('target/site/jacoco/index.html')) {
-                                publishHTML(target: [
-                                        allowMissing         : true,
-                                        alwaysLinkToLastBuild: true,
-                                        keepAll              : true,
-                                        reportDir            : 'target/site/jacoco',
-                                        reportFiles          : 'index.html',
-                                        reportName           : 'JaCoCo Coverage Report (merged)'
-                                ])
-                            }
+                    // ── Merged JaCoCo Coverage Report (HTML Publisher) ──
+                    // Written by the Coverage Gate stage's
+                    // jacoco:report@jacoco-report call, if that stage
+                    // ran and found any *.exec artifacts to merge —
+                    // reuses the same HTML Publisher plugin as the
+                    // Extent report above rather than requiring the
+                    // separate Jenkins JaCoCo plugin.
+                    if (fileExists('target/site/jacoco/index.html')) {
+                        publishHTML(target: [
+                                allowMissing         : true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll              : true,
+                                reportDir            : 'target/site/jacoco',
+                                reportFiles          : 'index.html',
+                                reportName           : 'JaCoCo Coverage Report (merged)'
+                        ])
+                    }
 
-                            // ── Archive raw artifacts ───────────────────────
-                            archiveArtifacts allowEmptyArchive: true,
-                                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
-                                    fingerprint: true
+                    // ── Archive raw artifacts ───────────────────────
+                    archiveArtifacts allowEmptyArchive: true,
+                            artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
+                            fingerprint: true
 
-                            // ── ADB memory-leak cleanup ─────────────────────
-                            // "adb reconnect offline" forces adb to drop and
-                            // re-probe any device/emulator connection it still
-                            // thinks is live, which is the fix for the specific
-                            // case that bit us on this box: a build that ran the
-                            // Mobile Test stage leaves adb's own server process
-                            // running (by design — it's meant to be reused by
-                            // the next build to skip a slow cold restart), but
-                            // each new emulator boot across many local runs was
-                            // gradually growing that server's memory footprint.
-                            // Only runs when the mobile stage actually executed
-                            // and left an adb binary behind — a browser-only
-                            // build (RUN_MOBILE == 'false') has neither, so this
-                            // step is a deliberate no-op there rather than an
-                            // error.
-                            if (env.RUN_MOBILE == 'true') {
-                                sh '''
+                    // ── ADB memory-leak cleanup ─────────────────────
+                    // "adb reconnect offline" forces adb to drop and
+                    // re-probe any device/emulator connection it still
+                    // thinks is live, which is the fix for the specific
+                    // case that bit us on this box: a build that ran the
+                    // Mobile Test stage leaves adb's own server process
+                    // running (by design — it's meant to be reused by
+                    // the next build to skip a slow cold restart), but
+                    // each new emulator boot across many local runs was
+                    // gradually growing that server's memory footprint.
+                    // Only runs when the mobile stage actually executed
+                    // and left an adb binary behind — a browser-only
+                    // build (RUN_MOBILE == 'false') has neither, so this
+                    // step is a deliberate no-op there rather than an
+                    // error.
+                    if (env.RUN_MOBILE == 'true') {
+                        sh '''
                                 ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
                                 if [ -x "$ADB_BIN" ]; then
                                     # This post block runs outside the Mobile
@@ -957,15 +993,15 @@ pipeline {
                                     ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
                                 fi
                             '''
-                            }
+                    }
 
-                            // ── Cache Self-Healing Repository ───────────────
-                            // See "Restore Self-Healing Cache" stage above for
-                            // the full reasoning — this is the write half of
-                            // that same round trip. Must run before cleanWs()
-                            // below, which deletes the workspace (including
-                            // self-healing-data/) unconditionally.
-                            sh '''
+                    // ── Cache Self-Healing Repository ───────────────
+                    // See "Restore Self-Healing Cache" stage above for
+                    // the full reasoning — this is the write half of
+                    // that same round trip. Must run before cleanWs()
+                    // below, which deletes the workspace (including
+                    // self-healing-data/) unconditionally.
+                    sh '''
                             CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
                             if [ -f "self-healing-data/locator-repository.json" ]; then
                                 mkdir -p "$CACHE_DIR"
@@ -973,21 +1009,41 @@ pipeline {
                             fi
                         '''
 
-                            // ── Workspace cleanup ───────────────────────────
-                            // Runs last, after artifacts are already archived
-                            // above, so nothing needed by this build's own
-                            // report/archive steps is lost — this only clears
-                            // disk for the NEXT build (and the NVMe SSD's free
-                            // space generally, given how much target/ and
-                            // .android-sdk/ accumulate per run on this box).
-                            cleanWs(
-                                    deleteDirs: true,
-                                    notFailBuild: true
-                            )
+                    // ── Workspace cleanup ───────────────────────────
+                    // Runs last, after artifacts are already archived
+                    // above, so nothing needed by this build's own
+                    // report/archive steps is lost — this only clears
+                    // disk for the NEXT build (and the NVMe SSD's free
+                    // space generally, given how much target/ and
+                    // .android-sdk/ accumulate per run on this box).
+                    cleanWs(
+                            deleteDirs: true,
+                            notFailBuild: true
+                    )
+                }
+
+                try {
+                    // Common case: the outer `agent any` context is still
+                    // live (true for every normal build, UNSTABLE or not —
+                    // this is what actually ran in the 2026-08-07 log this
+                    // fix was diagnosed from). Runs directly, no re-wrap.
+                    runCleanup()
+                } catch (org.jenkinsci.plugins.workflow.steps.MissingContextVariableException mcve) {
+                    // Rare case: the original node/workspace context really
+                    // is gone (e.g. an early "Declarative: Checkout SCM"
+                    // failure, or an agent crash mid-build). There is no
+                    // real workspace left to pin back to, so this just
+                    // reclaims whatever fresh executor is available and
+                    // does its best from an empty directory — good enough
+                    // to at least release the shared-box lock.
+                    echo "Original workspace context is gone (${mcve.message}) — reclaiming a fresh executor for best-effort cleanup."
+                    try {
+                        node('') {
+                            runCleanup()
                         }
+                    } catch (Throwable t) {
+                        echo "post{always{}} cleanup could not run (no executor available to reclaim: ${t.message}) — the build's real failure is above this message, not this one."
                     }
-                } catch (Throwable t) {
-                    echo "post{always{}} cleanup could not run (no executor available to reclaim: ${t.message}) — the build's real failure is above this message, not this one."
                 }
             }
         }

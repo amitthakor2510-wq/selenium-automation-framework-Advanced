@@ -240,7 +240,15 @@ public final class DriverFactory {
     // Serializing all browser launches with a global lock would eliminate
     // the race entirely, but would also serialize away the whole point of
     // parallel="classes" — so retry-with-jitter is the fix, not a lock.
-    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 8;
+    // Raised from 8 to 12 (2026-08-07): on a CPU-constrained shared Jenkins
+    // box, 8 attempts (each with 200-800ms jitter, so ~4s of budget) was
+    // still getting exhausted repeatedly under 6 concurrent chromedriver
+    // launches — see testng-suites/*-regression.xml, which was also lowered
+    // from thread-count=3 to 2 the same day for the same reason. Fixing the
+    // parallelism is the primary fix; widening this budget is a cheap
+    // second layer of defense so an occasional worse-than-usual scheduling
+    // delay under load doesn't still exhaust it outright.
+    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 12;
 
     private static WebDriver createWithPortConflictRetry(String browserLabel, Supplier<WebDriver> creator) {
         RuntimeException lastFailure = null;

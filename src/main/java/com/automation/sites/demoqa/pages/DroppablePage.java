@@ -373,7 +373,16 @@ public class DroppablePage extends BasePage {
         // The drop succeeding just means jQuery UI registered the drop event —
         // the revert:true animation back to originalLocation runs afterward and
         // takes a moment, so poll for it instead of guessing a sleep duration.
-        waitForLocationToStabilizeNear(willRevertDrag, originalLocation, Duration.ofSeconds(5));
+        // Widened from 5s to 10s (2026-08-07): a CI run under heavy parallel
+        // chromedriver load (see DriverFactory's port-race retry budget and
+        // testng-suites/*-regression.xml's thread-count, both tuned the
+        // same day) saw the revert animation still ~76px short of its
+        // origin when this window expired — the animation itself was fine,
+        // it just needed more wall-clock time to finish under CPU
+        // contention. This only affects how long a genuinely-still-
+        // animating element gets polled; an element that's already settled
+        // still returns as soon as it matches, same as before.
+        waitForLocationToStabilizeNear(willRevertDrag, originalLocation, Duration.ofSeconds(10));
         HumanActions.pause();
     }
 
