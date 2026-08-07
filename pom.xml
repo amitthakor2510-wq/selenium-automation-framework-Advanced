@@ -48,6 +48,30 @@
     <grid.enabled>false</grid.enabled>
     <grid.url>http://localhost:4444/wd/hub</grid.url>
 
+    <!-- ROOT CAUSE (2026-08-07 build, diagnosed from console log): with no
+         override, maven-surefire-plugin's <reportsDirectory> defaults to
+         ${project.build.directory}/surefire-reports for every `mvn test`
+         invocation regardless of -Dsite. Jenkins' "Run Tests Per Site" stage
+         runs one `mvn test` per site as TRUE concurrent OS processes (Groovy
+         `parallel branches`, not just parallel threads inside one JVM) —
+         and because a suiteXmlFiles-based TestNG run reports everything
+         under one synthetic class Surefire always calls "TestSuite"
+         (visible as "Running TestSuite" in the console log identically for
+         both the demoqa and saucedemo branches, seconds apart), both
+         processes wrote to the exact same target/surefire-reports/TEST-
+         TestSuite.xml at the same time. Neither process errored — the file
+         write itself always "succeeds" — but whichever finished last
+         silently clobbered the other's results, so the JUnit results
+         Jenkins' post{} block reads back were missing one site's tests on
+         any run where the timing landed that way. Defaulted here to the
+         same shared path so a plain `mvn test` (local dev, no -D override)
+         behaves exactly as before; Jenkins overrides it per-branch below
+         with -Dsurefire.reportsDirectory=target/surefire-reports/<key>,
+         the same pattern already used for allure.results.directory and
+         jacoco.destFile just above. -->
+    <surefire.reportsDirectory>${project.build.directory}/surefire-reports</surefire.reportsDirectory>
+
+
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
@@ -320,6 +344,10 @@
           <suiteXmlFiles>
             <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
           </suiteXmlFiles>
+          <!-- See the surefire.reportsDirectory property comment above —
+               without this, concurrent per-site `mvn test` processes clobber
+               each other's target/surefire-reports/TEST-TestSuite.xml. -->
+          <reportsDirectory>${surefire.reportsDirectory}</reportsDirectory>
           <systemPropertyVariables>
             <site>${site}</site>
             <browser>${browser}</browser>

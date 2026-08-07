@@ -383,6 +383,7 @@ pipeline {
                                           -Dretry.count=${params.RETRY_COUNT} \\
                                           -Dallure.results.directory=target/allure-results/${key} \\
                                           -Djacoco.destFile=target/jacoco-artifacts/${key}.exec \\
+                                          -Dsurefire.reportsDirectory=target/surefire-reports/${key} \\
                                           -Dmaven.test.failure.ignore=true
                                     """,
                                         returnStatus: true
@@ -669,6 +670,7 @@ pipeline {
                               -Dretry.count=${params.RETRY_COUNT} \\
                               -Dallure.results.directory=target/allure-results/mobile \\
                               -Djacoco.destFile=target/jacoco-artifacts/mobile.exec \\
+                              -Dsurefire.reportsDirectory=target/surefire-reports/mobile \\
                               -Dmaven.test.failure.ignore=true
                         """,
                                 returnStatus: true
@@ -775,6 +777,7 @@ pipeline {
                                       -Dheadless=${params.HEADLESS} \\
                                       -Dhuman.pause.enabled=false \\
                                       -Dallure.results.directory=target/allure-results/${resultDir} \\
+                                      -Dsurefire.reportsDirectory=target/surefire-reports/${resultDir} \\
                                       -Dmaven.test.failure.ignore=true
                                 """,
                                     returnStatus: true
@@ -900,8 +903,19 @@ pipeline {
                     '''
 
                     // ── JUnit results ───────────────────────────────
+                    // Must be `**/*.xml`, not a flat `*.xml`: the "Run Tests
+                    // Per Site"/"Mobile Test"/"Nightly Extra Coverage" stages
+                    // all pass -Dsurefire.reportsDirectory=target/surefire-
+                    // reports/<key> (see the surefire.reportsDirectory
+                    // property in pom.xml) so concurrent `mvn test` branches
+                    // don't clobber one shared TEST-TestSuite.xml. A flat
+                    // glob only matches files directly under
+                    // target/surefire-reports/ and silently misses every one
+                    // of those nested per-site/per-mobile/per-nightly-suite
+                    // result files, which is indistinguishable from "no
+                    // tests ran" in the junit step's own output.
                     junit allowEmptyResults: true,
-                            testResults: 'target/surefire-reports/*.xml'
+                            testResults: 'target/surefire-reports/**/*.xml'
 
                     // ── Allure Report ───────────────────────────────
                     // One results dir per site (see "Run Tests Per Site"

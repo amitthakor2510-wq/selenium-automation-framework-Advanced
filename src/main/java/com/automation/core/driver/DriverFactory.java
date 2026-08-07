@@ -12,6 +12,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeDriverService;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.edge.EdgeDriver;
+import org.openqa.selenium.edge.EdgeDriverService;
 import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
@@ -27,7 +28,6 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.function.Supplier;
 
 /**
  * Single place responsible for creating a WebDriver instance.
@@ -106,8 +106,11 @@ public final class DriverFactory {
                 // grid options (buildChromeOptions), with no Brave-binary
                 // path set for the remote case — the Grid node's own
                 // browser image is what actually runs, not this host's
-                // Brave install.
-                return buildChromeOptions(headless);
+                // Brave install. tempProfile is null here deliberately: a
+                // --user-data-dir pointing at a path on THIS host would be
+                // meaningless (and simply wouldn't exist) inside the Grid
+                // node's own container filesystem.
+                return buildChromeOptions(headless, null);
             }
         });
 
@@ -119,7 +122,7 @@ public final class DriverFactory {
 
             @Override
             public Capabilities buildRemoteOptions(boolean headless) {
-                return buildChromeOptions(headless);
+                return buildChromeOptions(headless, null);
             }
         });
 
@@ -239,18 +242,86 @@ public final class DriverFactory {
     //
     // Serializing all browser launches with a global lock would eliminate
     // the race entirely, but would also serialize away the whole point of
-    // parallel="classes" — so retry-with-jitter is the fix, not a lock.
-    // Raised from 8 to 12 (2026-08-07): on a CPU-constrained shared Jenkins
-    // box, 8 attempts (each with 200-800ms jitter, so ~4s of budget) was
-    // still getting exhausted repeatedly under 6 concurrent chromedriver
-    // launches — see testng-suites/*-regression.xml, which was also lowered
-    // from thread-count=3 to 2 the same day for the same reason. Fixing the
-    // parallelism is the primary fix; widening this budget is a cheap
-    // second layer of defense so an occasional worse-than-usual scheduling
-    // delay under load doesn't still exhaust it outright.
+    // parallel="classes" — so retry-with-jitter was the first fix tried,
+    // not a lock. Raised from 8 to 12 (2026-08-07): on a CPU-constrained
+    // shared Jenkins box, 8 attempts (each with 200-800ms jitter, so ~4s of
+    // budget) was still getting exhausted repeatedly under 6 concurrent
+    // chromedriver launches — see testng-suites/*-regression.xml, which was
+    // also lowered from thread-count=3 to 2 the same day for the same
+    // reason.
+    //
+    // ROOT CAUSE FIX (2026-08-07, second build the same day — the 12-attempt
+    // budget above was STILL exhausted, this time by
+    // LoginDataDrivenTest specifically): that class launches a brand-new
+    // session per data row (CSV/XLSX/JSON/YAML/ZIP — 15+ rows), back-to-back
+    // with no pacing, in the exact window demoqa's own "classes" threads are
+    // also launching sessions — retry-with-jitter is a PROBABILISTIC
+    // mitigation for PortProber's find-then-bind race, and probability
+    // alone stopped being good enough once launch frequency got this high.
+    // Purely widening the retry budget again would only buy a bit more
+    // runway before the same exhaustion recurs at the next busier suite.
+    //
+    // Instead, each concurrent "launch slot" (site JVM x TestNG thread) now
+    // gets its own small, non-overlapping range of EXPLICIT candidate ports
+    // (see candidatePort() below), passed to DriverService.Builder.usingPort()
+    // instead of leaving port=0. Selenium's PortProber.findFreePort() is
+    // only invoked internally when the requested port is 0 — supplying an
+    // explicit port bypasses that TOCTOU-prone lookup entirely for the
+    // build() step, so two of our OWN threads can no longer legitimately be
+    // handed the same "free" port to race over. The per-site offset
+    // (candidatePort() hashes ConfigReader.getActiveSite()) guards against
+    // the same class of collision already fixed for the per-thread
+    // chromedriver log path: demoqa's and saucedemo's separate `mvn test`
+    // JVMs each start counting thread slots from 0, so without a
+    // site-specific offset their slot-0 threads would still compute the
+    // identical port. Retry-with-jitter remains as a defensive fallback
+    // (e.g. an unrelated process already happens to hold our computed
+    // port), which is why the loop and its attempt budget stay in place —
+    // it just isn't the primary defense anymore.
     private static final int DRIVER_CREATION_MAX_ATTEMPTS = 12;
 
-    private static WebDriver createWithPortConflictRetry(String browserLabel, Supplier<WebDriver> creator) {
+    // Small, dense, per-JVM slot index (0, 1, 2, ...) — deliberately NOT
+    // Thread.currentThread().getId(), which is unbounded and not guaranteed
+    // small, so it can't be used directly to size a bounded port range.
+    private static final java.util.concurrent.atomic.AtomicInteger THREAD_SLOT_COUNTER =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    private static final ThreadLocal<Integer> THREAD_SLOT =
+        ThreadLocal.withInitial(THREAD_SLOT_COUNTER::getAndIncrement);
+
+    private static final int PORT_RANGE_BASE = 20000;
+    private static final int PORTS_PER_SITE = 200;
+    private static final int PORTS_PER_SLOT = 20;
+    private static final int SLOTS_PER_SITE = PORTS_PER_SITE / PORTS_PER_SLOT;
+
+    /**
+     * Deterministic candidate port for this thread's Nth driver-launch
+     * attempt. Distinct (site, thread-slot, attempt) triples never
+     * collide with each other; only an unrelated external process already
+     * sitting on the same computed port can still cause a bind failure,
+     * which {@link #isPortAllocationRace} treats the same as the old
+     * find-a-free-port race so the retry loop still recovers from it.
+     */
+    private static int candidatePort(int attempt) {
+        int siteOffset = Math.floorMod(safeSiteName().hashCode(), 50) * PORTS_PER_SITE;
+        int slotOffset = (THREAD_SLOT.get() % SLOTS_PER_SITE) * PORTS_PER_SLOT;
+        int attemptOffset = (attempt - 1) % PORTS_PER_SLOT;
+        return PORT_RANGE_BASE + siteOffset + slotOffset + attemptOffset;
+    }
+
+    private static String safeSiteName() {
+        try {
+            String site = ConfigReader.getActiveSite();
+            return site != null ? site : "default";
+        } catch (RuntimeException e) {
+            // Config not yet initialized (e.g. a unit test calling
+            // DriverFactory directly) — fall back to a fixed bucket rather
+            // than letting port computation itself throw.
+            return "default";
+        }
+    }
+
+    private static WebDriver createWithPortConflictRetry(String browserLabel,
+                                                         java.util.function.IntFunction<WebDriver> creator) {
         RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= DRIVER_CREATION_MAX_ATTEMPTS; attempt++) {
             try {
@@ -263,7 +334,7 @@ public final class DriverFactory {
                     logger.warning("[DriverFactory] " + browserLabel + " driver: retrying after a free-port"
                         + " allocation race (attempt " + attempt + "/" + DRIVER_CREATION_MAX_ATTEMPTS + ").");
                 }
-                return creator.get();
+                return creator.apply(attempt);
             } catch (RuntimeException e) {
                 if (!isPortAllocationRace(e)) {
                     throw e;
@@ -273,15 +344,23 @@ public final class DriverFactory {
         }
         throw new DriverInitializationException(
             "[DriverFactory] " + browserLabel + " driver failed to start after " + DRIVER_CREATION_MAX_ATTEMPTS
-                + " attempts, each hitting the free-port allocation race described above this method. If this"
-                + " becomes frequent (not just occasional under heavy load), consider lowering the parallel"
-                + " thread-count in the TestNG suite XML being run.",
+                + " attempts, each hitting a port allocation race despite explicit deterministic port"
+                + " assignment (see candidatePort()). If this becomes frequent (not just occasional under"
+                + " heavy load), consider lowering the parallel thread-count in the TestNG suite XML being run.",
             lastFailure);
     }
 
     private static boolean isPortAllocationRace(RuntimeException e) {
         String message = e.getMessage();
-        return message != null && message.contains("Unable to find a free port");
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains("unable to find a free port")
+            || lower.contains("address already in use")
+            || lower.contains("port is already allocated")
+            || lower.contains("eaddrinuse")
+            || lower.contains("cannot bind");
     }
 
     // ── Chrome ────────────────────────────────────────────────────────────────
@@ -299,16 +378,33 @@ public final class DriverFactory {
     // gets us the real reason.
     private static WebDriver createChromeDriver(boolean headless) {
         WebDriverManager.chromedriver().setup();
-        // Options and the logging service are (re)built fresh inside the
-        // retry lambda, not once outside it: a failed attempt's
-        // ChromeDriverService already lost the port race with the specific
-        // port it grabbed, so reusing it on retry would just race again on
-        // that same doomed port. A fresh build asks the OS for a brand new
-        // ephemeral port each attempt — see createWithPortConflictRetry().
-        return createWithPortConflictRetry("chrome", () -> {
-            ChromeOptions options = buildChromeOptions(headless);
-            ChromeDriverService service = buildVerboseLoggingService();
-            return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+        // BUG FIX: the temp --user-data-dir profile used to be created fresh
+        // by buildChromeOptions() on EVERY retry attempt (including ones
+        // that never got far enough to actually launch Chrome, since the
+        // port failure happens after options are built) — one throwaway
+        // directory per attempt, never cleaned up until JVM exit (see
+        // TEMP_PROFILE_DIRS below), which meant a saucedemo test class
+        // burning through 12 failed attempts x 15+ data rows could leave
+        // 150+ empty directories on disk mid-run. That extra filesystem
+        // churn adds I/O contention on an already CPU-constrained box,
+        // widening the very race window the retries exist to survive, and
+        // is a plausible contributor to the Jenkins log's separate
+        // "Unable to create temporary directory" surefire warning. A single
+        // attempt never actually starts Chrome with a profile from an
+        // EARLIER failed attempt (no attempt that lost the port race ever
+        // touched it), so it's safe — and correct — to create it once
+        // per createChromeDriver() call and reuse it across retries.
+        java.nio.file.Path tempProfile = createIsolatedTempProfile();
+
+        // ChromeOptions are still rebuilt fresh per attempt (cheap, and some
+        // options — e.g. the logging service's port — legitimately differ
+        // per attempt), but the port is now assigned deterministically via
+        // candidatePort() instead of left at 0 for Selenium to race on —
+        // see createWithPortConflictRetry() / candidatePort().
+        return createWithPortConflictRetry("chrome", attempt -> {
+            ChromeOptions options = buildChromeOptions(headless, tempProfile);
+            ChromeDriverService service = buildDriverService(candidatePort(attempt));
+            return new ChromeDriver(service, options);
         });
     }
 
@@ -337,21 +433,24 @@ public final class DriverFactory {
         //   target/logs/chromedriver-brave.log
         //
         // Options/service are (re)built fresh per attempt inside the retry
-        // lambda — see the comment in createChromeDriver() and
-        // createWithPortConflictRetry() for why.
-        return createWithPortConflictRetry("brave", () -> {
-            ChromeOptions options = buildChromeOptions(headless);
+        // lambda, but the temp profile dir and port are handled the same
+        // way as createChromeDriver() — see the comments there.
+        java.nio.file.Path tempProfile = createIsolatedTempProfile();
+
+        return createWithPortConflictRetry("brave", attempt -> {
+            ChromeOptions options = buildChromeOptions(headless, tempProfile);
             options.setBinary(braveBinary);
-            ChromeDriverService service = buildVerboseLoggingService();
-            return service != null ? new ChromeDriver(service, options) : new ChromeDriver(options);
+            ChromeDriverService service = buildDriverService(candidatePort(attempt));
+            return new ChromeDriver(service, options);
         });
     }
 
     /**
-     * Builds a ChromeDriverService with verbose logging enabled, writing to
-     * target/logs/chromedriver-&lt;browser&gt;-thread-&lt;id&gt;.log. Returns null
-     * (falls back to default service) if the log directory can't be
-     * created, so this never blocks a run — it's purely a diagnostic aid.
+     * Builds a ChromeDriverService bound to an explicit, deterministic port
+     * (see {@link #candidatePort}), with best-effort verbose logging to
+     * target/logs/&lt;site&gt;/chromedriver-&lt;browser&gt;-thread-&lt;id&gt;.log. A
+     * failure to set up the log file never blocks a run or affects the
+     * port used — see the note inside this method. History below.
      * <p>
      * BUG FIX: the log file used to be named purely by browser
      * ("chromedriver-chrome.log"), with no thread isolation — the same gap
@@ -396,32 +495,60 @@ public final class DriverFactory {
      * sees and retries it exactly once per attempt — the same single
      * lookup every other failure mode already goes through.
      */
-    private static ChromeDriverService buildVerboseLoggingService() {
-        File logFile;
+    private static ChromeDriverService buildDriverService(int port) {
+        // BUG FIX: this used to return null (falling all the way back to
+        // `new ChromeDriver(options)`, i.e. Selenium's own default service
+        // with NO explicit port) whenever log-directory setup failed. That
+        // meant a log-setup problem silently also lost the deterministic
+        // port assignment that createChromeDriver()/createBraveDriver() rely
+        // on to avoid the free-port race — a logging concern and a
+        // concurrency-safety concern were incorrectly tied to the same
+        // fallback. They're independent now: the explicit port is always
+        // used; only the verbose log FILE is best-effort.
+        File logFile = tryBuildLogFile();
+
+        ChromeDriverService.Builder builder = new ChromeDriverService.Builder()
+            .usingPort(port)
+            .withVerbose(true);
+        if (logFile != null) {
+            builder.withLogFile(logFile);
+        }
+        // .build() no longer performs Selenium's own PortProber.findFreePort()
+        // lookup at all, since usingPort(port) above means the requested
+        // port is non-zero — see the note above candidatePort(). Any
+        // RuntimeException here (e.g. this exact port is already bound by
+        // an unrelated process) propagates straight out to
+        // createWithPortConflictRetry, which retries on the next attempt's
+        // different candidate port.
+        return builder.build();
+    }
+
+    /**
+     * Best-effort verbose chromedriver log file path, scoped per active
+     * site and per thread-slot so concurrent site JVMs/threads never share
+     * one file (see the historical note this replaced, kept in git blame).
+     * Returns null (no log file, but the driver service itself is
+     * unaffected — see {@link #buildDriverService}) if the directory can't
+     * be created.
+     */
+    private static File tryBuildLogFile() {
         try {
             String browser = ConfigReader.get("browser", "chrome").toLowerCase();
             File logDir = new File(System.getProperty("user.dir") + File.separator
-                + "target" + File.separator + "logs");
+                + "target" + File.separator + "logs" + File.separator + safeSiteName());
             if (!logDir.exists() && !logDir.mkdirs()) {
                 logger.warning("[DriverFactory] Could not create log directory: " + logDir);
                 return null;
             }
-            logFile = new File(logDir,
+            File logFile = new File(logDir,
                 "chromedriver-" + browser + "-thread-" + Thread.currentThread().getId() + ".log");
             logger.info("[DriverFactory] Verbose chromedriver log: " + logFile.getAbsolutePath());
+            return logFile;
         } catch (Exception e) {
             logger.warning("[DriverFactory] Could not set up verbose chromedriver logging: "
                 + e.getMessage());
             return null;
         }
-
-        // Deliberately outside the try/catch above — see the port-race note
-        // in this method's javadoc. Let the free-port RuntimeException (if
-        // any) propagate to the single retry loop in createWithPortConflictRetry.
-        return new ChromeDriverService.Builder()
-            .withVerbose(true)
-            .withLogFile(logFile)
-            .build();
     }
 
     private static String findBraveBinary() {
@@ -454,8 +581,32 @@ public final class DriverFactory {
         return null;
     }
 
+    /**
+     * Creates (and registers for JVM-exit cleanup) a fresh, isolated
+     * --user-data-dir for one driver-creation call. Called ONCE per
+     * createChromeDriver()/createBraveDriver()/createEdgeDriver() invocation
+     * — i.e. once per successful-or-exhausted retry loop, not once per
+     * attempt — since a failed attempt (lost the port race) never actually
+     * launches a browser against this directory, so there's nothing to
+     * isolate it from on the next attempt. See the comment in
+     * createChromeDriver() for why creating a fresh one per attempt was a
+     * bug, not just wasteful.
+     */
+    private static java.nio.file.Path createIsolatedTempProfile() {
+        try {
+            java.nio.file.Path tempProfile =
+                java.nio.file.Files.createTempDirectory("selenium-profile-");
+            registerTempProfileCleanup(tempProfile);
+            return tempProfile;
+        } catch (java.io.IOException e) {
+            logger.warning("[DriverFactory] Could not create temp profile dir: "
+                + e.getMessage());
+            return null;
+        }
+    }
+
     /** Shared ChromeOptions used by both Chrome and Brave */
-    private static ChromeOptions buildChromeOptions(boolean headless) {
+    private static ChromeOptions buildChromeOptions(boolean headless, java.nio.file.Path tempProfile) {
         ChromeOptions options = new ChromeOptions();
 
         // ROOT CAUSE FIX (browser window staying open after quit()):
@@ -468,15 +619,11 @@ public final class DriverFactory {
         // browser and the window (and any others in that instance) stays
         // open. Giving every session an isolated temp profile guarantees a
         // genuinely new, independently-owned process that quit() can
-        // actually terminate.
-        try {
-            java.nio.file.Path tempProfile =
-                java.nio.file.Files.createTempDirectory("selenium-profile-");
+        // actually terminate. The directory itself is created once by the
+        // caller (createIsolatedTempProfile()) and reused across retry
+        // attempts — see createChromeDriver().
+        if (tempProfile != null) {
             options.addArguments("--user-data-dir=" + tempProfile.toAbsolutePath());
-            registerTempProfileCleanup(tempProfile);
-        } catch (java.io.IOException e) {
-            logger.warning("[DriverFactory] Could not create temp profile dir: "
-                + e.getMessage());
         }
 
         // Default (NORMAL) blocks driver.get() until the browser's full 'load'
@@ -590,7 +737,23 @@ public final class DriverFactory {
             options.addArguments("--height=1080");
         }
 
-        FirefoxDriver driver = new FirefoxDriver(options);
+        // BUG FIX: unlike Chrome/Brave/Edge, Firefox was never routed
+        // through createWithPortConflictRetry() at all — `new
+        // FirefoxDriver(options)` builds its own default GeckoDriverService
+        // internally, which hits the exact same PortProber TOCTOU race (see
+        // the notes above createWithPortConflictRetry()), just with no
+        // retry and no deterministic port to avoid it. Under
+        // -DALL_BROWSERS, where chrome/firefox/edge all launch concurrently
+        // per site, Firefox was the one browser that could still fail
+        // outright on this race with zero recovery. Given an explicit
+        // GeckoDriverService + the same retry loop the other browsers use.
+        FirefoxDriver driver = (FirefoxDriver) createWithPortConflictRetry("firefox", attempt -> {
+            org.openqa.selenium.firefox.GeckoDriverService service =
+                new org.openqa.selenium.firefox.GeckoDriverService.Builder()
+                    .usingPort(candidatePort(attempt))
+                    .build();
+            return new FirefoxDriver(service, options);
+        });
 
         // Firefox has no launch-time equivalent to Chrome/Edge's
         // --start-maximized argument, so the window opens at Firefox's
@@ -671,11 +834,22 @@ public final class DriverFactory {
     private static WebDriver createEdgeDriver(boolean headless) {
         WebDriverManager.edgedriver().setup();
 
+        // BUG FIX: unlike createChromeDriver()/createBraveDriver(), this
+        // method never set --user-data-dir, so Edge sessions launched
+        // against the shared default profile — the exact
+        // "browser window staying open after quit()" bug already
+        // documented and fixed for Chrome/Brave in buildChromeOptions(),
+        // just missed here. Same fix: an isolated temp profile per call,
+        // created once and reused across retry attempts.
+        java.nio.file.Path tempProfile = createIsolatedTempProfile();
+
         // Options are (re)built fresh per attempt inside the retry lambda —
         // EdgeDriverService hits the exact same PortProber race as
-        // ChromeDriverService (both are Selenium DriverService subclasses).
-        // See createWithPortConflictRetry() above createChromeDriver().
-        return createWithPortConflictRetry("edge", () -> {
+        // ChromeDriverService (both are Selenium DriverService subclasses),
+        // so it gets the same explicit-deterministic-port fix — see
+        // candidatePort() / createWithPortConflictRetry() above
+        // createChromeDriver().
+        return createWithPortConflictRetry("edge", attempt -> {
             EdgeOptions options = new EdgeOptions();
             options.setPageLoadStrategy(PageLoadStrategy.EAGER);
             options.addArguments("--disable-notifications");
@@ -683,6 +857,9 @@ public final class DriverFactory {
             options.addArguments("--no-sandbox");
             options.addArguments("--disable-dev-shm-usage");
             options.addArguments("--remote-allow-origins=*");
+            if (tempProfile != null) {
+                options.addArguments("--user-data-dir=" + tempProfile.toAbsolutePath());
+            }
 
             String downloadPath = getDownloadPath();
             Map<String, Object> prefs = new HashMap<>();
@@ -698,7 +875,10 @@ public final class DriverFactory {
                 options.addArguments("--start-maximized");
             }
 
-            return new EdgeDriver(options);
+            EdgeDriverService service = new EdgeDriverService.Builder()
+                .usingPort(candidatePort(attempt))
+                .build();
+            return new EdgeDriver(service, options);
         });
     }
 
@@ -772,11 +952,25 @@ public final class DriverFactory {
      * exact same method DriverFactory itself uses when building browser
      * options, instead of recomputing the path a second time and risking
      * the two copies drifting apart.
+     * <p>
+     * BUG FIX: this path was scoped by thread ID only, not by site — the
+     * exact same collision class already identified and fixed for the
+     * verbose chromedriver log path (see {@link #tryBuildLogFile}):
+     * Jenkins' "Run Tests Per Site" stage runs demoqa and saucedemo as two
+     * separate {@code mvn test} JVMs sharing the same workspace, so each
+     * JVM's own thread IDs restart independently from 1 — both branches'
+     * thread-1 would resolve to the identical
+     * {@code target/downloads/thread-1} directory. No test happens to hit
+     * this today (only one site's suite currently downloads a file), but
+     * that's incidental, not structural, so it's scoped by site here too
+     * rather than left as a landmine for the next download test added to a
+     * second site.
      */
     public static String getDownloadPath() {
         String path = System.getProperty("user.dir")
             + File.separator + "target"
             + File.separator + "downloads"
+            + File.separator + safeSiteName()
             + File.separator + "thread-" + Thread.currentThread().getId();
         new File(path).mkdirs();
         return path;
