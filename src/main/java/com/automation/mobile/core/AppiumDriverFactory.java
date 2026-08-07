@@ -6,12 +6,14 @@ import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.android.options.UiAutomator2Options;
 import io.appium.java_client.ios.IOSDriver;
 import io.appium.java_client.ios.options.XCUITestOptions;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URL;
 import java.time.Duration;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -55,7 +57,7 @@ public final class AppiumDriverFactory {
         };
     }
 
-    private static AndroidDriver createAndroidDriver(String serverUrl) {
+    private static RemoteWebDriver createAndroidDriver(String serverUrl) {
         UiAutomator2Options options = new UiAutomator2Options();
         options.setDeviceName(ConfigReader.get("mobile.device.name", "emulator-5554"));
         options.setAutomationName("UiAutomator2");
@@ -100,10 +102,10 @@ public final class AppiumDriverFactory {
         options.setNewCommandTimeout(Duration.ofSeconds(ConfigReader.getInt("mobile.newCommandTimeout", 120)));
         options.setNoReset(ConfigReader.getBoolean("mobile.noReset", false));
 
-        return new AndroidDriver(toUrl(serverUrl), options);
+        return createWithSessionRetry("android", () -> new AndroidDriver(toUrl(serverUrl), options));
     }
 
-    private static IOSDriver createIosDriver(String serverUrl) {
+    private static RemoteWebDriver createIosDriver(String serverUrl) {
         XCUITestOptions options = new XCUITestOptions();
         options.setDeviceName(ConfigReader.get("mobile.device.name", "iPhone Simulator"));
 
@@ -130,7 +132,54 @@ public final class AppiumDriverFactory {
         options.setNewCommandTimeout(Duration.ofSeconds(ConfigReader.getInt("mobile.newCommandTimeout", 120)));
         options.setNoReset(ConfigReader.getBoolean("mobile.noReset", false));
 
-        return new IOSDriver(toUrl(serverUrl), options);
+        return createWithSessionRetry("ios", () -> new IOSDriver(toUrl(serverUrl), options));
+    }
+
+    // A freshly-booted emulator/simulator commonly answers Appium's own
+    // health check (used by the CI "Start Appium Server" step) before the
+    // device is actually settled enough for UiAutomator2/XCUITest to attach
+    // — the instrumentation process, package manager, or home launcher can
+    // still be finishing init for several seconds after `sys.boot_completed`
+    // flips. That produces a transient SessionNotCreatedException /
+    // WebDriverException ("Instrumentation process cannot be initialized",
+    // "Failed to start UiAutomator2 server", connection-refused to the
+    // just-started Appium server, etc.) on the very first session of a run
+    // — exactly the class of infra-timing race DriverFactory already
+    // retries for ChromeDriver's ephemeral-port allocation (see
+    // createWithPortConflictRetry() there). Unlike that Chrome case, a
+    // failed Appium session creation never leaves a half-launched browser
+    // process or a claimed port behind, so retrying here is unconditionally
+    // safe — no need to narrow this to a specific error-message match.
+    // Backoff is longer (1.5-3.5s vs Chrome's 200-600ms jitter) because
+    // device/emulator settling is measured in seconds, not a microseconds-
+    // scale OS port race.
+    private static final int SESSION_CREATION_MAX_ATTEMPTS = 3;
+
+    private static RemoteWebDriver createWithSessionRetry(String platformLabel, Supplier<RemoteWebDriver> creator) {
+        WebDriverException lastFailure = null;
+        for (int attempt = 1; attempt <= SESSION_CREATION_MAX_ATTEMPTS; attempt++) {
+            try {
+                if (attempt > 1) {
+                    try {
+                        Thread.sleep(1500L + (long) (Math.random() * 2000));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    logger.warning("[AppiumDriverFactory] " + platformLabel + " session creation: retrying"
+                        + " after a likely device/emulator settling race (attempt " + attempt + "/"
+                        + SESSION_CREATION_MAX_ATTEMPTS + "). Previous failure: " + lastFailure.getMessage());
+                }
+                return creator.get();
+            } catch (WebDriverException e) {
+                lastFailure = e;
+            }
+        }
+        throw new DriverInitializationException(
+            "[AppiumDriverFactory] " + platformLabel + " session failed to start after "
+                + SESSION_CREATION_MAX_ATTEMPTS + " attempts. If this happens consistently (not just"
+                + " occasionally right after emulator/simulator boot), the underlying cause is a real"
+                + " Appium/device problem, not a settling race — check appium.log.",
+            lastFailure);
     }
 
     private static URL toUrl(String serverUrl) {

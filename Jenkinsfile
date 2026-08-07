@@ -525,14 +525,32 @@ pipeline {
                             cat emulator.log 2>/dev/null || true
                             exit 1
                         fi
+                        BOOTED=0
                         for i in $(seq 1 60); do
                             boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
                             if [ "$boot_completed" = "1" ]; then
                                 echo "Emulator booted"
+                                BOOTED=1
                                 break
                             fi
                             sleep 5
                         done
+                        # adb wait-for-device above only requires the device to be
+                        # REGISTERED (it can still be "offline", exactly what this
+                        # box has shown under degraded/no-KVM boots) — it does not
+                        # guarantee sys.boot_completed ever reaches "1". Without
+                        # this check, a device that stays offline for the full
+                        # 300s here fell through silently into starting Appium and
+                        # running mvn test against a half-booted device, producing
+                        # confusing Appium/test failures instead of the same clear
+                        # infra-timeout diagnosis the wait-for-device gate above
+                        # already gives.
+                        if [ "$BOOTED" != "1" ]; then
+                            echo "ERROR: emulator registered but never reached sys.boot_completed=1 within 300s — likely still 'offline' (see adb devices below). Check emulator.log."
+                            "$ANDROID_SDK_ROOT/platform-tools/adb" devices || true
+                            cat emulator.log 2>/dev/null || true
+                            exit 1
+                        fi
 
                         appium --log-timestamp --log-no-colors > appium.log 2>&1 &
                         for i in $(seq 1 30); do
@@ -599,6 +617,20 @@ pipeline {
             }
             steps {
                 script {
+                    // ExtentManager names every report "<site>-index.html" with
+                    // no suite-type distinction. The mv at the end of each loop
+                    // iteration below only guards against accessibility/visual
+                    // overwriting EACH OTHER — it runs too late to save the
+                    // regular regression report: on a cron-triggered build
+                    // (default params = SITE=ALL), the earlier "Run Tests Per
+                    // Site" stage already wrote a real demoqa-index.html, and
+                    // this stage's very first mvn test call (accessibility)
+                    // overwrites it with fresh accessibility-only content
+                    // BEFORE any mv runs — silently destroying that regression
+                    // report on every nightly build. Snapshot it out of the way
+                    // first so it survives under its own name.
+                    sh "mv target/extent-reports/demoqa-index.html target/extent-reports/demoqa-regression-index.html 2>/dev/null || true"
+
                     def extraSuites = ['accessibility', 'visual']
                     def extraResultDirs = []
                     def extraFailures = []
@@ -714,81 +746,98 @@ pipeline {
             // than let a secondary exception here mask the real failure
             // reason in the Jenkins UI.
             script {
+                // Captured BEFORE node('') below reassigns the WORKSPACE env
+                // var to whatever fresh workspace the new executor gets
+                // (typically the same box, but a different directory, e.g.
+                // ".../Selenium-Automation-Framework-Pipeline@2" — Jenkins
+                // hands out a suffixed workspace whenever the "canonical"
+                // one is still considered in use). Without pinning back to
+                // this path, every step below silently operates on an
+                // empty directory instead of this build's real output:
+                // junit/allure/archiveArtifacts report "nothing found", the
+                // ADB reconnect-offline cleanup no-ops because $WORKSPACE
+                // now points at a directory with no .android-sdk in it, and
+                // — worst of all — the self-healing locator-repository
+                // cache-write step no-ops too, silently breaking the write
+                // half of the round trip "Restore Self-Healing Cache" reads
+                // from, on every single build.
+                def originalWorkspace = env.WORKSPACE
                 try {
                     node('') {
-                        // ── Release shared-box lock ─────────────────────
-                        // First thing here, unconditionally and best-effort,
-                        // so the next queued build (or a stuck one from a
-                        // hard-killed agent) is never left waiting on this
-                        // build's own reporting/archiving steps below. See
-                        // "Acquire Shared-Box Lock" stage.
-                        sh '''
+                        ws(originalWorkspace) {
+                            // ── Release shared-box lock ─────────────────────
+                            // First thing here, unconditionally and best-effort,
+                            // so the next queued build (or a stuck one from a
+                            // hard-killed agent) is never left waiting on this
+                            // build's own reporting/archiving steps below. See
+                            // "Acquire Shared-Box Lock" stage.
+                            sh '''
                             rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
                         '''
 
-                        // ── JUnit results ───────────────────────────────
-                        junit allowEmptyResults: true,
-                                testResults: 'target/surefire-reports/*.xml'
+                            // ── JUnit results ───────────────────────────────
+                            junit allowEmptyResults: true,
+                                    testResults: 'target/surefire-reports/*.xml'
 
-                        // ── Allure Report ───────────────────────────────
-                        // One results dir per site (see "Run Tests Per Site"
-                        // stage), plus the nightly accessibility/visual dirs
-                        // when the "Nightly Extra Coverage" stage ran — pass
-                        // all of them so the single generated report covers
-                        // every suite that ran, not just whichever happened
-                        // to write last.
-                        def resultDirs = env.SITES_TO_RUN?.trim()
-                                ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
-                                : []
-                        if (env.RUN_MOBILE == 'true') {
-                            resultDirs += [[path: 'target/allure-results/mobile']]
-                        }
-                        if (!resultDirs) {
-                            resultDirs = [[path: 'target/allure-results']]
-                        }
-                        if (env.NIGHTLY_RESULT_DIRS) {
-                            resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
-                        }
-                        allure([
-                                includeProperties: false,
-                                jdk: '',
-                                results: resultDirs
-                        ])
-
-                        // ── Extent Report (HTML Publisher) ──────────────
-                        if (fileExists('target/extent-reports')) {
-                            publishHTML(target: [
-                                    allowMissing         : true,
-                                    alwaysLinkToLastBuild: true,
-                                    keepAll              : true,
-                                    reportDir            : 'target/extent-reports',
-                                    reportFiles          : '*.html',
-                                    reportName           : 'Extent Test Report'
+                            // ── Allure Report ───────────────────────────────
+                            // One results dir per site (see "Run Tests Per Site"
+                            // stage), plus the nightly accessibility/visual dirs
+                            // when the "Nightly Extra Coverage" stage ran — pass
+                            // all of them so the single generated report covers
+                            // every suite that ran, not just whichever happened
+                            // to write last.
+                            def resultDirs = env.SITES_TO_RUN?.trim()
+                                    ? env.SITES_TO_RUN.split(',').collect { [path: "target/allure-results/${it}"] }
+                                    : []
+                            if (env.RUN_MOBILE == 'true') {
+                                resultDirs += [[path: 'target/allure-results/mobile']]
+                            }
+                            if (!resultDirs) {
+                                resultDirs = [[path: 'target/allure-results']]
+                            }
+                            if (env.NIGHTLY_RESULT_DIRS) {
+                                resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
+                            }
+                            allure([
+                                    includeProperties: false,
+                                    jdk: '',
+                                    results: resultDirs
                             ])
-                        }
 
-                        // ── Archive raw artifacts ───────────────────────
-                        archiveArtifacts allowEmptyArchive: true,
-                                artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
-                                fingerprint: true
+                            // ── Extent Report (HTML Publisher) ──────────────
+                            if (fileExists('target/extent-reports')) {
+                                publishHTML(target: [
+                                        allowMissing         : true,
+                                        alwaysLinkToLastBuild: true,
+                                        keepAll              : true,
+                                        reportDir            : 'target/extent-reports',
+                                        reportFiles          : '*.html',
+                                        reportName           : 'Extent Test Report'
+                                ])
+                            }
 
-                        // ── ADB memory-leak cleanup ─────────────────────
-                        // "adb reconnect offline" forces adb to drop and
-                        // re-probe any device/emulator connection it still
-                        // thinks is live, which is the fix for the specific
-                        // case that bit us on this box: a build that ran the
-                        // Mobile Test stage leaves adb's own server process
-                        // running (by design — it's meant to be reused by
-                        // the next build to skip a slow cold restart), but
-                        // each new emulator boot across many local runs was
-                        // gradually growing that server's memory footprint.
-                        // Only runs when the mobile stage actually executed
-                        // and left an adb binary behind — a browser-only
-                        // build (RUN_MOBILE == 'false') has neither, so this
-                        // step is a deliberate no-op there rather than an
-                        // error.
-                        if (env.RUN_MOBILE == 'true') {
-                            sh '''
+                            // ── Archive raw artifacts ───────────────────────
+                            archiveArtifacts allowEmptyArchive: true,
+                                    artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**',
+                                    fingerprint: true
+
+                            // ── ADB memory-leak cleanup ─────────────────────
+                            // "adb reconnect offline" forces adb to drop and
+                            // re-probe any device/emulator connection it still
+                            // thinks is live, which is the fix for the specific
+                            // case that bit us on this box: a build that ran the
+                            // Mobile Test stage leaves adb's own server process
+                            // running (by design — it's meant to be reused by
+                            // the next build to skip a slow cold restart), but
+                            // each new emulator boot across many local runs was
+                            // gradually growing that server's memory footprint.
+                            // Only runs when the mobile stage actually executed
+                            // and left an adb binary behind — a browser-only
+                            // build (RUN_MOBILE == 'false') has neither, so this
+                            // step is a deliberate no-op there rather than an
+                            // error.
+                            if (env.RUN_MOBILE == 'true') {
+                                sh '''
                                 ADB_BIN="${ANDROID_SDK_ROOT:-${WORKSPACE}/.android-sdk}/platform-tools/adb"
                                 if [ -x "$ADB_BIN" ]; then
                                     # This post block runs outside the Mobile
@@ -802,15 +851,15 @@ pipeline {
                                     ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
                                 fi
                             '''
-                        }
+                            }
 
-                        // ── Cache Self-Healing Repository ───────────────
-                        // See "Restore Self-Healing Cache" stage above for
-                        // the full reasoning — this is the write half of
-                        // that same round trip. Must run before cleanWs()
-                        // below, which deletes the workspace (including
-                        // self-healing-data/) unconditionally.
-                        sh '''
+                            // ── Cache Self-Healing Repository ───────────────
+                            // See "Restore Self-Healing Cache" stage above for
+                            // the full reasoning — this is the write half of
+                            // that same round trip. Must run before cleanWs()
+                            // below, which deletes the workspace (including
+                            // self-healing-data/) unconditionally.
+                            sh '''
                             CACHE_DIR="${JENKINS_HOME}/selfhealing-cache/${JOB_NAME}"
                             if [ -f "self-healing-data/locator-repository.json" ]; then
                                 mkdir -p "$CACHE_DIR"
@@ -818,17 +867,18 @@ pipeline {
                             fi
                         '''
 
-                        // ── Workspace cleanup ───────────────────────────
-                        // Runs last, after artifacts are already archived
-                        // above, so nothing needed by this build's own
-                        // report/archive steps is lost — this only clears
-                        // disk for the NEXT build (and the NVMe SSD's free
-                        // space generally, given how much target/ and
-                        // .android-sdk/ accumulate per run on this box).
-                        cleanWs(
-                                deleteDirs: true,
-                                notFailBuild: true
-                        )
+                            // ── Workspace cleanup ───────────────────────────
+                            // Runs last, after artifacts are already archived
+                            // above, so nothing needed by this build's own
+                            // report/archive steps is lost — this only clears
+                            // disk for the NEXT build (and the NVMe SSD's free
+                            // space generally, given how much target/ and
+                            // .android-sdk/ accumulate per run on this box).
+                            cleanWs(
+                                    deleteDirs: true,
+                                    notFailBuild: true
+                            )
+                        }
                     }
                 } catch (Throwable t) {
                     echo "post{always{}} cleanup could not run (no executor available to reclaim: ${t.message}) — the build's real failure is above this message, not this one."
