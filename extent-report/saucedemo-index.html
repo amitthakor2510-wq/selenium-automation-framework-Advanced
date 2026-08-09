@@ -35,7 +35,7 @@
 <a href="#"><span class="badge badge-primary">saucedemo Regression/Smoke Report</span></a>
 </li>
 <li class="m-r-10">
-<a href="#"><span class="badge badge-primary">Aug 08, 2026 03:21:26</span></a>
+<a href="#"><span class="badge badge-primary">Aug 09, 2026 03:25:52</span></a>
 </li>
 </ul>
 </div>
@@ -45,11 +45,6 @@
 <li class="nav-item dropdown" onclick="toggleView('test-view')">
 <a id="nav-test" class="dropdown-toggle" href="#">
 <span class="ico"><i class="fa fa-list"></i></span>
-</a>
-</li>
-<li class="nav-item dropdown" onclick="toggleView('exception-view')">
-<a id="nav-exception" class="dropdown-toggle" href="#">
-<span class="ico"><i class="fa fa-bug"></i></span>
 </a>
 </li>
 <li class="nav-item dropdown" onclick="toggleView('category-view')">
@@ -87,7 +82,6 @@
 <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-exclamation-circle"></i></a>
 <ul id="status-toggle" class="dropdown-menu dropdown-md p-v-0">
 <a class="dropdown-item" status="pass" href="#"><span>Pass</span><span class="status success"></span></a>
-<a class="dropdown-item" status="skip" href="#"><span>Skip</span><span class="status warning"></span></a>
 <div class="dropdown-divider"></div>
 <a status="clear" class="dropdown-item" href="#"><span>Clear</span><span class="pull-right"><i class="fa fa-close"></i></span></a>
 </ul>
@@ -101,7 +95,7 @@
 <li class="dropdown">
 <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-tag"></i></a>
 <ul id="tag-toggle" class="dropdown-menu dropdown-md p-v-0">
-<a class="dropdown-item" href="#">keyboard-driven</a><a class="dropdown-item" href="#">smoke</a><a class="dropdown-item" href="#">keyword-driven</a><a class="dropdown-item" href="#">regression</a><a class="dropdown-item" href="#">data-driven</a>
+<a class="dropdown-item" href="#">regression</a><a class="dropdown-item" href="#">keyword-driven</a><a class="dropdown-item" href="#">data-driven</a><a class="dropdown-item" href="#">keyboard-driven</a><a class="dropdown-item" href="#">smoke</a>
 </ul>
 </li>
 <li class="dropdown">
@@ -113,25 +107,25 @@
 </ul>
 </div>    <div class="test-list-wrapper scrollable">
       <ul class="test-list-item">
-        <li class="test-item"  status="skip" test-id="1"
+        <li class="test-item"  status="pass" test-id="1"
           author="saucedemo"
           tag="keyboard-driven keyword-driven regression"
           device="edge">
           <div class="test-detail">
             <p class="name">keyboardOnlyLogin</p>
             <p class="text-sm">
-              <span>3:21:27 AM</span> / <span>00:00:00:028</span>
-              <span class="badge skip-bg log float-right">Skip</span>
+              <span>3:25:52 AM</span> / <span>00:00:01:094</span>
+              <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
           <div class="test-contents d-none">
 <div class="detail-head">
 <div class="p-v-10">
 <div class="info">
-<h5 class="test-status text-skip">keyboardOnlyLogin</h5>
-<span class='badge badge-success'>08.08.2026 3:21:27 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:21:27 AM</span>
-<span class='badge badge-default'>00:00:00:028</span>
+<h5 class="test-status text-pass">keyboardOnlyLogin</h5>
+<span class='badge badge-success'>08.09.2026 3:25:52 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:25:54 AM</span>
+<span class='badge badge-default'>00:00:01:094</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=1</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -149,76 +143,10 @@
   <thead><tr><th class="status-col">Status</th><th class="timestamp-col">Timestamp</th><th class="details-col">Details</th></tr></thead>
   <tbody>
       <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:21:27 AM</td>
+        <td><span class="badge log pass-bg">Pass</span></td>
+        <td>3:25:54 AM</td>
         <td>
-          Test Skipped
-        </td>
-      </tr>
-      <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:21:27 AM</td>
-        <td>
-          <textarea readonly class="code-block">org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
-Build info: version: '4.21.0', revision: '79ed462ef4'
-System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.17.0-1020-azure', java.version: '17.0.19'
-Driver info: org.openqa.selenium.edge.EdgeDriver
-Command: [8b82d3e6199531b2b93a066fe075a75c, get {url=https://www.saucedemo.com}]
-Capabilities {acceptInsecureCerts: false, browserName: MicrosoftEdge, browserVersion: 150.0.4078.83, fedcm:accounts: true, goog:processID: 2426, ms:edgeOptions: {debuggerAddress: localhost:38849}, msedge: {msedgedriverVersion: 150.0.4078.105 (a88426f15a5..., userDataDir: /tmp/selenium-profile-11893...}, networkConnectionEnabled: false, pageLoadStrategy: eager, platformName: linux, proxy: Proxy(), se:cdp: ws://localhost:38849/devtoo..., se:cdpVersion: 150.0.4078.83, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
-Session ID: 8b82d3e6199531b2b93a066fe075a75c
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:399)
-	at org.openqa.selenium.remote.http.AddSeleniumUserAgent.lambda$apply$0(AddSeleniumUserAgent.java:42)
-	at org.openqa.selenium.remote.http.Filter.lambda$andFinally$1(Filter.java:55)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute(JdkHttpClient.java:355)
-	at org.openqa.selenium.remote.HttpCommandExecutor.execute(HttpCommandExecutor.java:187)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.invokeExecute(DriverCommandExecutor.java:216)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.execute(DriverCommandExecutor.java:174)
-	at org.openqa.selenium.remote.RemoteWebDriver.execute(RemoteWebDriver.java:518)
-	at org.openqa.selenium.remote.RemoteWebDriver.get(RemoteWebDriver.java:300)
-	at com.automation.sites.core.BaseTest.setUp(BaseTest.java:72)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:139)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethodConsideringTimeout(MethodInvocationHelper.java:69)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurationMethod(ConfigInvoker.java:393)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurations(ConfigInvoker.java:326)
-	at org.testng.internal.invokers.TestInvoker.runConfigMethods(TestInvoker.java:810)
-	at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:578)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:228)
-	at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
-	at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:961)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:201)
-	at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:148)
-	at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:128)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at org.testng.TestRunner.privateRun(TestRunner.java:819)
-	at org.testng.TestRunner.run(TestRunner.java:619)
-	at org.testng.SuiteRunner.runTest(SuiteRunner.java:443)
-	at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:437)
-	at org.testng.SuiteRunner.privateRun(SuiteRunner.java:397)
-	at org.testng.SuiteRunner.run(SuiteRunner.java:336)
-	at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
-	at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
-	at org.testng.TestNG.runSuitesSequentially(TestNG.java:1301)
-	at org.testng.TestNG.runSuitesLocally(TestNG.java:1228)
-	at org.testng.TestNG.runSuites(TestNG.java:1134)
-	at org.testng.TestNG.run(TestNG.java:1101)
-	at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
-	at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
-	at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
-	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
-	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
-	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
-	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-Caused by: java.util.concurrent.TimeoutException
-	at java.base/java.util.concurrent.CompletableFuture.timedGet(CompletableFuture.java:1960)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2095)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:382)
-	... 45 more
-</textarea>
-          
+          Test Passed
         </td>
       </tr>
   </tbody>
@@ -226,25 +154,25 @@ Caused by: java.util.concurrent.TimeoutException
 </div>
           </div>
         </li>
-        <li class="test-item"  status="skip" test-id="2"
+        <li class="test-item"  status="pass" test-id="2"
           author="saucedemo"
           tag="keyword-driven regression"
           device="edge">
           <div class="test-detail">
             <p class="name">lockedOutLoginShowsError</p>
             <p class="text-sm">
-              <span>3:22:09 AM</span> / <span>00:00:00:008</span>
-              <span class="badge skip-bg log float-right">Skip</span>
+              <span>3:25:55 AM</span> / <span>00:00:00:673</span>
+              <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
           <div class="test-contents d-none">
 <div class="detail-head">
 <div class="p-v-10">
 <div class="info">
-<h5 class="test-status text-skip">lockedOutLoginShowsError</h5>
-<span class='badge badge-success'>08.08.2026 3:22:09 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:09 AM</span>
-<span class='badge badge-default'>00:00:00:008</span>
+<h5 class="test-status text-pass">lockedOutLoginShowsError</h5>
+<span class='badge badge-success'>08.09.2026 3:25:55 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:25:56 AM</span>
+<span class='badge badge-default'>00:00:00:673</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=2</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -261,76 +189,10 @@ Caused by: java.util.concurrent.TimeoutException
   <thead><tr><th class="status-col">Status</th><th class="timestamp-col">Timestamp</th><th class="details-col">Details</th></tr></thead>
   <tbody>
       <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:22:09 AM</td>
+        <td><span class="badge log pass-bg">Pass</span></td>
+        <td>3:25:56 AM</td>
         <td>
-          Test Skipped
-        </td>
-      </tr>
-      <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:22:09 AM</td>
-        <td>
-          <textarea readonly class="code-block">org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
-Build info: version: '4.21.0', revision: '79ed462ef4'
-System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.17.0-1020-azure', java.version: '17.0.19'
-Driver info: org.openqa.selenium.edge.EdgeDriver
-Command: [8b82d3e6199531b2b93a066fe075a75c, get {url=https://www.saucedemo.com}]
-Capabilities {acceptInsecureCerts: false, browserName: MicrosoftEdge, browserVersion: 150.0.4078.83, fedcm:accounts: true, goog:processID: 2426, ms:edgeOptions: {debuggerAddress: localhost:38849}, msedge: {msedgedriverVersion: 150.0.4078.105 (a88426f15a5..., userDataDir: /tmp/selenium-profile-11893...}, networkConnectionEnabled: false, pageLoadStrategy: eager, platformName: linux, proxy: Proxy(), se:cdp: ws://localhost:38849/devtoo..., se:cdpVersion: 150.0.4078.83, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
-Session ID: 8b82d3e6199531b2b93a066fe075a75c
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:399)
-	at org.openqa.selenium.remote.http.AddSeleniumUserAgent.lambda$apply$0(AddSeleniumUserAgent.java:42)
-	at org.openqa.selenium.remote.http.Filter.lambda$andFinally$1(Filter.java:55)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute(JdkHttpClient.java:355)
-	at org.openqa.selenium.remote.HttpCommandExecutor.execute(HttpCommandExecutor.java:187)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.invokeExecute(DriverCommandExecutor.java:216)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.execute(DriverCommandExecutor.java:174)
-	at org.openqa.selenium.remote.RemoteWebDriver.execute(RemoteWebDriver.java:518)
-	at org.openqa.selenium.remote.RemoteWebDriver.get(RemoteWebDriver.java:300)
-	at com.automation.sites.core.BaseTest.setUp(BaseTest.java:72)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:139)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethodConsideringTimeout(MethodInvocationHelper.java:69)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurationMethod(ConfigInvoker.java:393)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurations(ConfigInvoker.java:326)
-	at org.testng.internal.invokers.TestInvoker.runConfigMethods(TestInvoker.java:810)
-	at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:578)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:228)
-	at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
-	at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:961)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:201)
-	at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:148)
-	at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:128)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at org.testng.TestRunner.privateRun(TestRunner.java:819)
-	at org.testng.TestRunner.run(TestRunner.java:619)
-	at org.testng.SuiteRunner.runTest(SuiteRunner.java:443)
-	at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:437)
-	at org.testng.SuiteRunner.privateRun(SuiteRunner.java:397)
-	at org.testng.SuiteRunner.run(SuiteRunner.java:336)
-	at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
-	at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
-	at org.testng.TestNG.runSuitesSequentially(TestNG.java:1301)
-	at org.testng.TestNG.runSuitesLocally(TestNG.java:1228)
-	at org.testng.TestNG.runSuites(TestNG.java:1134)
-	at org.testng.TestNG.run(TestNG.java:1101)
-	at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
-	at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
-	at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
-	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
-	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
-	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
-	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-Caused by: java.util.concurrent.TimeoutException
-	at java.base/java.util.concurrent.CompletableFuture.timedGet(CompletableFuture.java:1960)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2095)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:382)
-	... 45 more
-</textarea>
-          
+          Test Passed
         </td>
       </tr>
   </tbody>
@@ -338,25 +200,25 @@ Caused by: java.util.concurrent.TimeoutException
 </div>
           </div>
         </li>
-        <li class="test-item"  status="skip" test-id="3"
+        <li class="test-item"  status="pass" test-id="3"
           author="saucedemo"
           tag="keyword-driven regression"
           device="edge">
           <div class="test-detail">
             <p class="name">validLogin</p>
             <p class="text-sm">
-              <span>3:22:17 AM</span> / <span>00:00:00:005</span>
-              <span class="badge skip-bg log float-right">Skip</span>
+              <span>3:25:57 AM</span> / <span>00:00:00:757</span>
+              <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
           <div class="test-contents d-none">
 <div class="detail-head">
 <div class="p-v-10">
 <div class="info">
-<h5 class="test-status text-skip">validLogin</h5>
-<span class='badge badge-success'>08.08.2026 3:22:17 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:17 AM</span>
-<span class='badge badge-default'>00:00:00:005</span>
+<h5 class="test-status text-pass">validLogin</h5>
+<span class='badge badge-success'>08.09.2026 3:25:57 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:25:58 AM</span>
+<span class='badge badge-default'>00:00:00:757</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=3</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -373,76 +235,10 @@ Caused by: java.util.concurrent.TimeoutException
   <thead><tr><th class="status-col">Status</th><th class="timestamp-col">Timestamp</th><th class="details-col">Details</th></tr></thead>
   <tbody>
       <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:22:17 AM</td>
+        <td><span class="badge log pass-bg">Pass</span></td>
+        <td>3:25:58 AM</td>
         <td>
-          Test Skipped
-        </td>
-      </tr>
-      <tr class="event-row">
-        <td><span class="badge log skip-bg">Skip</span></td>
-        <td>3:22:17 AM</td>
-        <td>
-          <textarea readonly class="code-block">org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
-Build info: version: '4.21.0', revision: '79ed462ef4'
-System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.17.0-1020-azure', java.version: '17.0.19'
-Driver info: org.openqa.selenium.edge.EdgeDriver
-Command: [8b82d3e6199531b2b93a066fe075a75c, get {url=https://www.saucedemo.com}]
-Capabilities {acceptInsecureCerts: false, browserName: MicrosoftEdge, browserVersion: 150.0.4078.83, fedcm:accounts: true, goog:processID: 2426, ms:edgeOptions: {debuggerAddress: localhost:38849}, msedge: {msedgedriverVersion: 150.0.4078.105 (a88426f15a5..., userDataDir: /tmp/selenium-profile-11893...}, networkConnectionEnabled: false, pageLoadStrategy: eager, platformName: linux, proxy: Proxy(), se:cdp: ws://localhost:38849/devtoo..., se:cdpVersion: 150.0.4078.83, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
-Session ID: 8b82d3e6199531b2b93a066fe075a75c
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:399)
-	at org.openqa.selenium.remote.http.AddSeleniumUserAgent.lambda$apply$0(AddSeleniumUserAgent.java:42)
-	at org.openqa.selenium.remote.http.Filter.lambda$andFinally$1(Filter.java:55)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute(JdkHttpClient.java:355)
-	at org.openqa.selenium.remote.HttpCommandExecutor.execute(HttpCommandExecutor.java:187)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.invokeExecute(DriverCommandExecutor.java:216)
-	at org.openqa.selenium.remote.service.DriverCommandExecutor.execute(DriverCommandExecutor.java:174)
-	at org.openqa.selenium.remote.RemoteWebDriver.execute(RemoteWebDriver.java:518)
-	at org.openqa.selenium.remote.RemoteWebDriver.get(RemoteWebDriver.java:300)
-	at com.automation.sites.core.BaseTest.setUp(BaseTest.java:72)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:139)
-	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethodConsideringTimeout(MethodInvocationHelper.java:69)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurationMethod(ConfigInvoker.java:393)
-	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurations(ConfigInvoker.java:326)
-	at org.testng.internal.invokers.TestInvoker.runConfigMethods(TestInvoker.java:810)
-	at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:578)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:228)
-	at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
-	at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:961)
-	at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:201)
-	at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:148)
-	at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:128)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at org.testng.TestRunner.privateRun(TestRunner.java:819)
-	at org.testng.TestRunner.run(TestRunner.java:619)
-	at org.testng.SuiteRunner.runTest(SuiteRunner.java:443)
-	at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:437)
-	at org.testng.SuiteRunner.privateRun(SuiteRunner.java:397)
-	at org.testng.SuiteRunner.run(SuiteRunner.java:336)
-	at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
-	at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
-	at org.testng.TestNG.runSuitesSequentially(TestNG.java:1301)
-	at org.testng.TestNG.runSuitesLocally(TestNG.java:1228)
-	at org.testng.TestNG.runSuites(TestNG.java:1134)
-	at org.testng.TestNG.run(TestNG.java:1101)
-	at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
-	at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
-	at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
-	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
-	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
-	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
-	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-Caused by: java.util.concurrent.TimeoutException
-	at java.base/java.util.concurrent.CompletableFuture.timedGet(CompletableFuture.java:1960)
-	at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2095)
-	at org.openqa.selenium.remote.http.jdk.JdkHttpClient.execute0(JdkHttpClient.java:382)
-	... 45 more
-</textarea>
-          
+          Test Passed
         </td>
       </tr>
   </tbody>
@@ -457,7 +253,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLogin</p>
             <p class="text-sm">
-              <span>3:22:18 AM</span> / <span>00:00:01:844</span>
+              <span>3:25:59 AM</span> / <span>00:00:00:712</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -466,9 +262,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLogin</h5>
-<span class='badge badge-success'>08.08.2026 3:22:18 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:19 AM</span>
-<span class='badge badge-default'>00:00:01:844</span>
+<span class='badge badge-success'>08.09.2026 3:25:59 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:25:59 AM</span>
+<span class='badge badge-default'>00:00:00:712</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=4</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -486,7 +282,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:19 AM</td>
+        <td>3:25:59 AM</td>
         <td>
           Test Passed
         </td>
@@ -503,7 +299,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:22:20 AM</span> / <span>00:00:00:863</span>
+              <span>3:26:00 AM</span> / <span>00:00:00:664</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -512,9 +308,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.08.2026 3:22:20 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:21 AM</span>
-<span class='badge badge-default'>00:00:00:863</span>
+<span class='badge badge-success'>08.09.2026 3:26:00 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:01 AM</span>
+<span class='badge badge-default'>00:00:00:664</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=5</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -532,7 +328,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:21 AM</td>
+        <td>3:26:01 AM</td>
         <td>
           Test Passed
         </td>
@@ -549,7 +345,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:22:22 AM</span> / <span>00:00:00:760</span>
+              <span>3:26:02 AM</span> / <span>00:00:00:578</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -558,9 +354,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.08.2026 3:22:22 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:23 AM</span>
-<span class='badge badge-default'>00:00:00:760</span>
+<span class='badge badge-success'>08.09.2026 3:26:02 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:02 AM</span>
+<span class='badge badge-default'>00:00:00:578</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=6</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -578,7 +374,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:23 AM</td>
+        <td>3:26:02 AM</td>
         <td>
           Test Passed
         </td>
@@ -595,7 +391,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:22:24 AM</span> / <span>00:00:00:740</span>
+              <span>3:26:03 AM</span> / <span>00:00:00:594</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -604,9 +400,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.08.2026 3:22:24 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:25 AM</span>
-<span class='badge badge-default'>00:00:00:740</span>
+<span class='badge badge-success'>08.09.2026 3:26:03 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:04 AM</span>
+<span class='badge badge-default'>00:00:00:594</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=7</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -624,7 +420,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:25 AM</td>
+        <td>3:26:04 AM</td>
         <td>
           Test Passed
         </td>
@@ -641,7 +437,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:22:27 AM</span> / <span>00:00:00:823</span>
+              <span>3:26:06 AM</span> / <span>00:00:00:683</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -650,9 +446,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.08.2026 3:22:27 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:28 AM</span>
-<span class='badge badge-default'>00:00:00:823</span>
+<span class='badge badge-success'>08.09.2026 3:26:06 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:06 AM</span>
+<span class='badge badge-default'>00:00:00:683</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=8</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -670,7 +466,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:28 AM</td>
+        <td>3:26:06 AM</td>
         <td>
           Test Passed
         </td>
@@ -687,7 +483,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:22:28 AM</span> / <span>00:00:00:731</span>
+              <span>3:26:08 AM</span> / <span>00:00:00:559</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -696,9 +492,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.08.2026 3:22:28 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:29 AM</span>
-<span class='badge badge-default'>00:00:00:731</span>
+<span class='badge badge-success'>08.09.2026 3:26:08 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:09 AM</span>
+<span class='badge badge-default'>00:00:00:559</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=9</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -716,7 +512,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:29 AM</td>
+        <td>3:26:09 AM</td>
         <td>
           Test Passed
         </td>
@@ -733,7 +529,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:22:30 AM</span> / <span>00:00:00:722</span>
+              <span>3:26:09 AM</span> / <span>00:00:00:542</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -742,9 +538,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.08.2026 3:22:30 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:31 AM</span>
-<span class='badge badge-default'>00:00:00:722</span>
+<span class='badge badge-success'>08.09.2026 3:26:09 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:10 AM</span>
+<span class='badge badge-default'>00:00:00:542</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=10</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -762,7 +558,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:31 AM</td>
+        <td>3:26:10 AM</td>
         <td>
           Test Passed
         </td>
@@ -779,7 +575,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:22:32 AM</span> / <span>00:00:00:808</span>
+              <span>3:26:11 AM</span> / <span>00:00:00:695</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -788,9 +584,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.08.2026 3:22:32 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:33 AM</span>
-<span class='badge badge-default'>00:00:00:808</span>
+<span class='badge badge-success'>08.09.2026 3:26:11 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:12 AM</span>
+<span class='badge badge-default'>00:00:00:695</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=11</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -808,7 +604,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:33 AM</td>
+        <td>3:26:12 AM</td>
         <td>
           Test Passed
         </td>
@@ -825,7 +621,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:22:34 AM</span> / <span>00:00:00:690</span>
+              <span>3:26:13 AM</span> / <span>00:00:00:641</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -834,9 +630,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.08.2026 3:22:34 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:34 AM</span>
-<span class='badge badge-default'>00:00:00:690</span>
+<span class='badge badge-success'>08.09.2026 3:26:13 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:13 AM</span>
+<span class='badge badge-default'>00:00:00:641</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=12</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -854,7 +650,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:34 AM</td>
+        <td>3:26:13 AM</td>
         <td>
           Test Passed
         </td>
@@ -871,7 +667,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:22:35 AM</span> / <span>00:00:00:662</span>
+              <span>3:26:14 AM</span> / <span>00:00:00:629</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -880,9 +676,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.08.2026 3:22:35 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:36 AM</span>
-<span class='badge badge-default'>00:00:00:662</span>
+<span class='badge badge-success'>08.09.2026 3:26:14 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:15 AM</span>
+<span class='badge badge-default'>00:00:00:629</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=13</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -900,7 +696,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:36 AM</td>
+        <td>3:26:15 AM</td>
         <td>
           Test Passed
         </td>
@@ -917,7 +713,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:22:37 AM</span> / <span>00:00:00:770</span>
+              <span>3:26:16 AM</span> / <span>00:00:00:690</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -926,9 +722,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.08.2026 3:22:37 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:38 AM</span>
-<span class='badge badge-default'>00:00:00:770</span>
+<span class='badge badge-success'>08.09.2026 3:26:16 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:17 AM</span>
+<span class='badge badge-default'>00:00:00:690</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=14</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -946,7 +742,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:38 AM</td>
+        <td>3:26:17 AM</td>
         <td>
           Test Passed
         </td>
@@ -963,7 +759,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:22:39 AM</span> / <span>00:00:00:778</span>
+              <span>3:26:18 AM</span> / <span>00:00:00:614</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -972,9 +768,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.08.2026 3:22:39 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:39 AM</span>
-<span class='badge badge-default'>00:00:00:778</span>
+<span class='badge badge-success'>08.09.2026 3:26:18 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:19 AM</span>
+<span class='badge badge-default'>00:00:00:614</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=15</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -992,7 +788,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:39 AM</td>
+        <td>3:26:19 AM</td>
         <td>
           Test Passed
         </td>
@@ -1009,7 +805,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:22:40 AM</span> / <span>00:00:00:651</span>
+              <span>3:26:20 AM</span> / <span>00:00:00:569</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -1018,9 +814,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.08.2026 3:22:40 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:41 AM</span>
-<span class='badge badge-default'>00:00:00:651</span>
+<span class='badge badge-success'>08.09.2026 3:26:20 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:21 AM</span>
+<span class='badge badge-default'>00:00:00:569</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=16</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -1038,7 +834,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:41 AM</td>
+        <td>3:26:21 AM</td>
         <td>
           Test Passed
         </td>
@@ -1055,7 +851,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:22:42 AM</span> / <span>00:00:00:742</span>
+              <span>3:26:22 AM</span> / <span>00:00:00:717</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -1064,9 +860,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.08.2026 3:22:42 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:43 AM</span>
-<span class='badge badge-default'>00:00:00:742</span>
+<span class='badge badge-success'>08.09.2026 3:26:22 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:23 AM</span>
+<span class='badge badge-default'>00:00:00:717</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=17</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -1084,7 +880,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:43 AM</td>
+        <td>3:26:23 AM</td>
         <td>
           Test Passed
         </td>
@@ -1101,7 +897,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:22:43 AM</span> / <span>00:00:00:690</span>
+              <span>3:26:24 AM</span> / <span>00:00:00:575</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -1110,9 +906,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.08.2026 3:22:43 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:44 AM</span>
-<span class='badge badge-default'>00:00:00:690</span>
+<span class='badge badge-success'>08.09.2026 3:26:24 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:24 AM</span>
+<span class='badge badge-default'>00:00:00:575</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=18</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -1130,7 +926,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:44 AM</td>
+        <td>3:26:24 AM</td>
         <td>
           Test Passed
         </td>
@@ -1147,7 +943,7 @@ Caused by: java.util.concurrent.TimeoutException
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:22:45 AM</span> / <span>00:00:00:664</span>
+              <span>3:26:25 AM</span> / <span>00:00:00:583</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -1156,9 +952,9 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.08.2026 3:22:45 AM</span>
-<span class='badge badge-danger'>08.08.2026 3:22:46 AM</span>
-<span class='badge badge-default'>00:00:00:664</span>
+<span class='badge badge-success'>08.09.2026 3:26:25 AM</span>
+<span class='badge badge-danger'>08.09.2026 3:26:26 AM</span>
+<span class='badge badge-default'>00:00:00:583</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=19</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -1176,7 +972,7 @@ Caused by: java.util.concurrent.TimeoutException
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:22:46 AM</td>
+        <td>3:26:26 AM</td>
         <td>
           Test Passed
         </td>
@@ -1195,70 +991,7 @@ Caused by: java.util.concurrent.TimeoutException
 </div>
 <div class="test-content-detail"><div class="detail-body"></div></div>
 </div></div>
-<div class="test-wrapper row view exception-view attributes-view">
-<div class="test-list">
-<div class="test-list-tools">
-<ul class="tools pull-left"><li><a href=""><span class="font-size-14">Exception</span></a></li></ul>
-<ul class="tools text-right"><li><a href="#"><span class="badge badge-primary">1</span></a></li></ul>
-</div>
-<div class="test-list-wrapper scrollable">
-<ul class="test-list-item">
-<li class="test-item">
-<div class="test-detail">
-<span class="meta">
-<span class='badge log badge-skip'>3</span>
-</span>
-<p class="name">org.openqa.selenium.TimeoutException</p>
-<p class="duration text-sm">3 tests</p>
-</div>
-<div class="test-contents d-none">
-<div class="info">
-<h4>org.openqa.selenium.TimeoutException</h4>
-<span status="skip" class='badge log badge-skip'>3 skipped</span>
-</div>
-<table class='table table-sm mt-4'>
-<thead>
-<tr>
-<th class="status-col">Status</th>
-<th class="timestamp-col">Timestamp</th>
-<th>TestName</th>
-</tr>
-</thead>
-<tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
-<td>
-<a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:09 AM</td>
-<td>
-<a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:17 AM</td>
-<td>
-<a href="#" class="linked" test-id='3' id='3'>validLogin</a>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-</ul>
-</div>
-</div>
-<div class="test-content scrollable">
-<div class="test-content-detail">
-<div class="detail-body"></div>
-</div>
-</div>
-</div><div class="test-wrapper row view category-view attributes-view">
+<div class="test-wrapper row view category-view attributes-view">
 <div class="test-list">
 <div class="test-list-tools">
 <ul class="tools pull-left"><li><a href=""><span class="font-size-14">Category</span></a></li></ul>
@@ -1269,15 +1002,15 @@ Caused by: java.util.concurrent.TimeoutException
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log badge-skip'>1</span>
+<span class='badge log pass-bg'>19</span>
 </span>
-<p class="name">keyboard-driven</p>
-<p class="duration text-sm">1 tests</p>
+<p class="name">regression</p>
+<p class="duration text-sm">19 tests</p>
 </div>
 <div class="test-contents d-none">
 <div class="info">
-<h4>keyboard-driven</h4>
-<span status="skip" class='badge log badge-skip'>1 skipped</span>
+<h4>regression</h4>
+<span status="pass" class='badge log pass-bg'>19 passed</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1288,9 +1021,346 @@ Caused by: java.util.concurrent.TimeoutException
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:52 AM</td>
+<td>
+<a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:55 AM</td>
+<td>
+<a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:57 AM</td>
+<td>
+<a href="#" class="linked" test-id='3' id='3'>validLogin</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:59 AM</td>
+<td>
+<a href="#" class="linked" test-id='4' id='4'>verifyLogin</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:00 AM</td>
+<td>
+<a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:02 AM</td>
+<td>
+<a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:03 AM</td>
+<td>
+<a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:06 AM</td>
+<td>
+<a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:08 AM</td>
+<td>
+<a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:09 AM</td>
+<td>
+<a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:11 AM</td>
+<td>
+<a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:13 AM</td>
+<td>
+<a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:14 AM</td>
+<td>
+<a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:16 AM</td>
+<td>
+<a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:18 AM</td>
+<td>
+<a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:20 AM</td>
+<td>
+<a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:22 AM</td>
+<td>
+<a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:24 AM</td>
+<td>
+<a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:25 AM</td>
+<td>
+<a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</li>
+<li class="test-item">
+<div class="test-detail">
+<span class="meta">
+<span class='badge log pass-bg'>3</span>
+</span>
+<p class="name">keyword-driven</p>
+<p class="duration text-sm">3 tests</p>
+</div>
+<div class="test-contents d-none">
+<div class="info">
+<h4>keyword-driven</h4>
+<span status="pass" class='badge log pass-bg'>3 passed</span>
+</div>
+<table class='table table-sm mt-4'>
+<thead>
+<tr>
+<th class="status-col">Status</th>
+<th class="timestamp-col">Timestamp</th>
+<th>TestName</th>
+</tr>
+</thead>
+<tbody>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:52 AM</td>
+<td>
+<a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:55 AM</td>
+<td>
+<a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:57 AM</td>
+<td>
+<a href="#" class="linked" test-id='3' id='3'>validLogin</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</li>
+<li class="test-item">
+<div class="test-detail">
+<span class="meta">
+<span class='badge log pass-bg'>15</span>
+</span>
+<p class="name">data-driven</p>
+<p class="duration text-sm">15 tests</p>
+</div>
+<div class="test-contents d-none">
+<div class="info">
+<h4>data-driven</h4>
+<span status="pass" class='badge log pass-bg'>15 passed</span>
+</div>
+<table class='table table-sm mt-4'>
+<thead>
+<tr>
+<th class="status-col">Status</th>
+<th class="timestamp-col">Timestamp</th>
+<th>TestName</th>
+</tr>
+</thead>
+<tbody>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:00 AM</td>
+<td>
+<a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:02 AM</td>
+<td>
+<a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:03 AM</td>
+<td>
+<a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:06 AM</td>
+<td>
+<a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:08 AM</td>
+<td>
+<a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:09 AM</td>
+<td>
+<a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:11 AM</td>
+<td>
+<a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:13 AM</td>
+<td>
+<a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:14 AM</td>
+<td>
+<a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:16 AM</td>
+<td>
+<a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:18 AM</td>
+<td>
+<a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:20 AM</td>
+<td>
+<a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:22 AM</td>
+<td>
+<a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:24 AM</td>
+<td>
+<a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
+</td>
+</tr>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:26:25 AM</td>
+<td>
+<a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</li>
+<li class="test-item">
+<div class="test-detail">
+<span class="meta">
+<span class='badge log pass-bg'>1</span>
+</span>
+<p class="name">keyboard-driven</p>
+<p class="duration text-sm">1 tests</p>
+</div>
+<div class="test-contents d-none">
+<div class="info">
+<h4>keyboard-driven</h4>
+<span status="pass" class='badge log pass-bg'>1 passed</span>
+</div>
+<table class='table table-sm mt-4'>
+<thead>
+<tr>
+<th class="status-col">Status</th>
+<th class="timestamp-col">Timestamp</th>
+<th>TestName</th>
+</tr>
+</thead>
+<tbody>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
 </td>
@@ -1323,348 +1393,9 @@ Caused by: java.util.concurrent.TimeoutException
 <tbody>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:18 AM</td>
+<td>03:25:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>verifyLogin</a>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-<li class="test-item">
-<div class="test-detail">
-<span class="meta">
-<span class='badge log badge-skip'>3</span>
-</span>
-<p class="name">keyword-driven</p>
-<p class="duration text-sm">3 tests</p>
-</div>
-<div class="test-contents d-none">
-<div class="info">
-<h4>keyword-driven</h4>
-<span status="skip" class='badge log badge-skip'>3 skipped</span>
-</div>
-<table class='table table-sm mt-4'>
-<thead>
-<tr>
-<th class="status-col">Status</th>
-<th class="timestamp-col">Timestamp</th>
-<th>TestName</th>
-</tr>
-</thead>
-<tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
-<td>
-<a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:09 AM</td>
-<td>
-<a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:17 AM</td>
-<td>
-<a href="#" class="linked" test-id='3' id='3'>validLogin</a>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-<li class="test-item">
-<div class="test-detail">
-<span class="meta">
-<span class='badge log pass-bg'>16</span>
-<span class='badge log badge-skip'>3</span>
-</span>
-<p class="name">regression</p>
-<p class="duration text-sm">19 tests</p>
-</div>
-<div class="test-contents d-none">
-<div class="info">
-<h4>regression</h4>
-<span status="pass" class='badge log pass-bg'>16 passed</span>
-<span status="skip" class='badge log badge-skip'>3 skipped</span>
-</div>
-<table class='table table-sm mt-4'>
-<thead>
-<tr>
-<th class="status-col">Status</th>
-<th class="timestamp-col">Timestamp</th>
-<th>TestName</th>
-</tr>
-</thead>
-<tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
-<td>
-<a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:09 AM</td>
-<td>
-<a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:17 AM</td>
-<td>
-<a href="#" class="linked" test-id='3' id='3'>validLogin</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:18 AM</td>
-<td>
-<a href="#" class="linked" test-id='4' id='4'>verifyLogin</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:20 AM</td>
-<td>
-<a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:22 AM</td>
-<td>
-<a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:24 AM</td>
-<td>
-<a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:27 AM</td>
-<td>
-<a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:28 AM</td>
-<td>
-<a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:30 AM</td>
-<td>
-<a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:32 AM</td>
-<td>
-<a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:34 AM</td>
-<td>
-<a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:35 AM</td>
-<td>
-<a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:37 AM</td>
-<td>
-<a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:39 AM</td>
-<td>
-<a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:40 AM</td>
-<td>
-<a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:42 AM</td>
-<td>
-<a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:43 AM</td>
-<td>
-<a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:45 AM</td>
-<td>
-<a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-<li class="test-item">
-<div class="test-detail">
-<span class="meta">
-<span class='badge log pass-bg'>15</span>
-</span>
-<p class="name">data-driven</p>
-<p class="duration text-sm">15 tests</p>
-</div>
-<div class="test-contents d-none">
-<div class="info">
-<h4>data-driven</h4>
-<span status="pass" class='badge log pass-bg'>15 passed</span>
-</div>
-<table class='table table-sm mt-4'>
-<thead>
-<tr>
-<th class="status-col">Status</th>
-<th class="timestamp-col">Timestamp</th>
-<th>TestName</th>
-</tr>
-</thead>
-<tbody>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:20 AM</td>
-<td>
-<a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:22 AM</td>
-<td>
-<a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:24 AM</td>
-<td>
-<a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:27 AM</td>
-<td>
-<a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:28 AM</td>
-<td>
-<a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:30 AM</td>
-<td>
-<a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:32 AM</td>
-<td>
-<a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:34 AM</td>
-<td>
-<a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:35 AM</td>
-<td>
-<a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:37 AM</td>
-<td>
-<a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:39 AM</td>
-<td>
-<a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:40 AM</td>
-<td>
-<a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:42 AM</td>
-<td>
-<a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:43 AM</td>
-<td>
-<a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
-</td>
-</tr>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:45 AM</td>
-<td>
-<a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
 </td>
 </tr>
 </tbody>
@@ -1690,8 +1421,7 @@ Caused by: java.util.concurrent.TimeoutException
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log pass-bg'>16</span>
-<span class='badge log badge-skip'>3</span>
+<span class='badge log pass-bg'>19</span>
 </span>
 <p class="name">edge</p>
 <p class="duration text-sm">19 tests</p>
@@ -1699,8 +1429,7 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="test-contents d-none">
 <div class="info">
 <h4>edge</h4>
-<span status="pass" class='badge log pass-bg'>16 passed</span>
-<span status="skip" class='badge log badge-skip'>3 skipped</span>
+<span status="pass" class='badge log pass-bg'>19 passed</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1711,135 +1440,135 @@ Caused by: java.util.concurrent.TimeoutException
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
 </td>
 </tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:09 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:55 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
 </td>
 </tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:17 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:57 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>validLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:18 AM</td>
+<td>03:25:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>verifyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:20 AM</td>
+<td>03:26:00 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:22 AM</td>
+<td>03:26:02 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:24 AM</td>
+<td>03:26:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:27 AM</td>
+<td>03:26:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:28 AM</td>
+<td>03:26:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:30 AM</td>
+<td>03:26:09 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:32 AM</td>
+<td>03:26:11 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:34 AM</td>
+<td>03:26:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:35 AM</td>
+<td>03:26:14 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:37 AM</td>
+<td>03:26:16 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:39 AM</td>
+<td>03:26:18 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:40 AM</td>
+<td>03:26:20 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:42 AM</td>
+<td>03:26:22 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:43 AM</td>
+<td>03:26:24 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:45 AM</td>
+<td>03:26:25 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
 </td>
@@ -1867,8 +1596,7 @@ Caused by: java.util.concurrent.TimeoutException
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log pass-bg'>16</span>
-<span class='badge log badge-skip'>3</span>
+<span class='badge log pass-bg'>19</span>
 </span>
 <p class="name">saucedemo</p>
 <p class="duration text-sm">19 tests</p>
@@ -1876,8 +1604,7 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="test-contents d-none">
 <div class="info">
 <h4>saucedemo</h4>
-<span status="pass" class='badge log pass-bg'>16 passed</span>
-<span status="skip" class='badge log badge-skip'>3 skipped</span>
+<span status="pass" class='badge log pass-bg'>19 passed</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1888,135 +1615,135 @@ Caused by: java.util.concurrent.TimeoutException
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:21:27 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>keyboardOnlyLogin</a>
 </td>
 </tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:09 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:55 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>lockedOutLoginShowsError</a>
 </td>
 </tr>
-<tr class="tag-test-status" status="skip">
-<td><span class="badge log skip-bg">Skip</span></td>
-<td>03:22:17 AM</td>
+<tr class="tag-test-status" status="pass">
+<td><span class="badge log pass-bg">Pass</span></td>
+<td>03:25:57 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>validLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:18 AM</td>
+<td>03:25:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>verifyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:20 AM</td>
+<td>03:26:00 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:22 AM</td>
+<td>03:26:02 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:24 AM</td>
+<td>03:26:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:27 AM</td>
+<td>03:26:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:28 AM</td>
+<td>03:26:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:30 AM</td>
+<td>03:26:09 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:32 AM</td>
+<td>03:26:11 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:34 AM</td>
+<td>03:26:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:35 AM</td>
+<td>03:26:14 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:37 AM</td>
+<td>03:26:16 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:39 AM</td>
+<td>03:26:18 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:40 AM</td>
+<td>03:26:20 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:42 AM</td>
+<td>03:26:22 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:43 AM</td>
+<td>03:26:24 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:22:45 AM</td>
+<td>03:26:25 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
 </td>
@@ -2038,19 +1765,19 @@ Caused by: java.util.concurrent.TimeoutException
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0">Started</p>
-<h3>Aug 08, 2026 03:21:26</h3>
+<h3>Aug 09, 2026 03:25:52</h3>
 </div></div>
 </div>
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0">Ended</p>
-<h3>Aug 08, 2026 03:22:46</h3>
+<h3>Aug 09, 2026 03:26:26</h3>
 </div></div>
 </div>
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0 text-pass">Tests Passed</p>
-<h3>16</h3>
+<h3>19</h3>
 </div></div>
 </div>
 <div class="col-md-3">
@@ -2072,13 +1799,13 @@ Caused by: java.util.concurrent.TimeoutException
 </div>
 </div>
 <div class="card-footer">
-<div><small data-tooltip='84%'>
-<b>16</b> tests passed
+<div><small data-tooltip='100%'>
+<b>19</b> tests passed
 </small>
 </div>
 <div>
 <small data-tooltip='0%'><b>0</b> tests failed,
-<b>3</b> skipped, <b data-tooltip='0%'>0</b> others
+<b>0</b> skipped, <b data-tooltip='0%'>0</b> others
 </small>
 </div>
 </div>
@@ -2095,10 +1822,10 @@ Caused by: java.util.concurrent.TimeoutException
 </div>
 </div>
 <div class="card-footer">
-<div><small data-tooltip='72%'><b>16</b> events passed</small></div>
+<div><small data-tooltip='100%'><b>19</b> events passed</small></div>
 <div>
 <small data-tooltip='0%'><b>0</b> events failed,
-<b data-tooltip='%'>6</b> others
+<b data-tooltip='%'>0</b> others
 </small>
 </div>
 </div>
@@ -2114,7 +1841,7 @@ Caused by: java.util.concurrent.TimeoutException
 </div></div>
 <script>
 var timeline = {
-"keyboardOnlyLogin":0.028,"lockedOutLoginShowsError":0.008,"validLogin":0.005,"verifyLogin":1.844,"verifyLoginFromCsv":0.863,"verifyLoginFromCsv":0.76,"verifyLoginFromCsv":0.74,"verifyLoginFromExcel":0.823,"verifyLoginFromExcel":0.731,"verifyLoginFromExcel":0.722,"verifyLoginFromJson":0.808,"verifyLoginFromJson":0.69,"verifyLoginFromJson":0.662,"verifyLoginFromYaml":0.77,"verifyLoginFromYaml":0.778,"verifyLoginFromYaml":0.651,"verifyLoginFromZip":0.742,"verifyLoginFromZip":0.69,"verifyLoginFromZip":0.664
+"keyboardOnlyLogin":1.094,"lockedOutLoginShowsError":0.673,"validLogin":0.757,"verifyLogin":0.712,"verifyLoginFromCsv":0.664,"verifyLoginFromCsv":0.578,"verifyLoginFromCsv":0.594,"verifyLoginFromExcel":0.683,"verifyLoginFromExcel":0.559,"verifyLoginFromExcel":0.542,"verifyLoginFromJson":0.695,"verifyLoginFromJson":0.641,"verifyLoginFromJson":0.629,"verifyLoginFromYaml":0.69,"verifyLoginFromYaml":0.614,"verifyLoginFromYaml":0.569,"verifyLoginFromZip":0.717,"verifyLoginFromZip":0.575,"verifyLoginFromZip":0.583
 };
 </script>
 <div class="row">
@@ -2126,11 +1853,11 @@ var timeline = {
 <tbody>
 <tr>
 <td>saucedemo</td>
-<td>16</td>
+<td>19</td>
 <td>0</td>
-<td>3</td>
 <td>0</td>
-<td>84.211%</td>
+<td>0</td>
+<td>100%</td>
 </tr>
 </tbody>
 </table></div>
@@ -2142,16 +1869,8 @@ var timeline = {
 <div class="card-body pb-0 pt-0"><table class="table table-sm table-bordered">
 <thead><tr class="bg-gray"><th>Name</th><th>Passed</th><th>Failed</th><th>Skipped</th><th>Others</th><th>Passed %</th></tr></thead><tbody>
 <tr>
-<td>keyboard-driven</td>
-<td>0</td>
-<td>0</td>
-<td>1</td>
-<td>0</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>smoke</td>
-<td>1</td>
+<td>regression</td>
+<td>19</td>
 <td>0</td>
 <td>0</td>
 <td>0</td>
@@ -2159,23 +1878,31 @@ var timeline = {
 </tr>
 <tr>
 <td>keyword-driven</td>
-<td>0</td>
-<td>0</td>
 <td>3</td>
 <td>0</td>
-<td>0%</td>
-</tr>
-<tr>
-<td>regression</td>
-<td>16</td>
 <td>0</td>
-<td>3</td>
 <td>0</td>
-<td>84.211%</td>
+<td>100%</td>
 </tr>
 <tr>
 <td>data-driven</td>
 <td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>keyboard-driven</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>smoke</td>
+<td>1</td>
 <td>0</td>
 <td>0</td>
 <td>0</td>
@@ -2193,11 +1920,11 @@ var timeline = {
 <tbody>
 <tr>
 <td>edge</td>
-<td>16</td>
+<td>19</td>
 <td>0</td>
-<td>3</td>
 <td>0</td>
-<td>84.211%</td>
+<td>0</td>
+<td>100%</td>
 </tr>
 </tbody>
 </table></div>
@@ -2242,10 +1969,10 @@ var timeline = {
 <script>
 var statusGroup = {
 parentCount: 5,
-passParent: 16,
+passParent: 19,
 failParent: 0,
 warningParent: 0,
-skipParent: 3,
+skipParent: 0,
 childCount: 5,
 passChild: 0,
 failChild: 0,
@@ -2259,10 +1986,10 @@ warningGrandChild: 0,
 skipGrandChild: 0,
 infoGrandChild: 0,
 eventsCount: 5,
-passEvents: 16,
+passEvents: 19,
 failEvents: 0,
 warningEvents: 0,
-skipEvents: 6,
+skipEvents: 0,
 infoEvents: 0
 };
 </script>        </div>
