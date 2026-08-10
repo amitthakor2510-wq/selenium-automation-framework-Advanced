@@ -1,0 +1,3 @@
+[SEVERE] https://demoqa.com/ - Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[SEVERE] https://demoqa.com/auto-complete - Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+[SEVERE] https://demoqa.com/favicon.ico - Failed to load resource: the server responded with a status of 500 (Internal Server Error)
