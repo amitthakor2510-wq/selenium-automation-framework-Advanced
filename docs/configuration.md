@@ -4,8 +4,9 @@
 
 ```properties
 # ── Browser ────────────────────────────────────────────────────────
-browser=chrome          # chrome | firefox | edge
+browser=chrome          # chrome | firefox | edge | brave | safari
 headless=false           # true = no visible window (use true on CI/CD)
+                          # (ignored for safari — see 🧭 Safari below)
 
 # ── Timeouts ───────────────────────────────────────────────────────
 timeout=10               # seconds to wait for elements before failing
@@ -78,5 +79,31 @@ docker compose down -v
 
 Reports, screenshots, Allure results, and `target/debug-dumps/` are all volume-mounted back to your host `target/` folder, so they're available after the container exits exactly as they would be from a local `mvn test` run.
 
+Safari has no Grid node image (see the comment at the top of `docker-compose.yml`) and cannot run through this compose file — use the local (non-Grid) path documented below instead.
+
 ---
+
+## 🧭 Safari
+
+Safari is fully supported by `DriverFactory`, but it has real platform constraints the other four browsers don't, so it's driven a little differently:
+
+| Constraint | Why | What it means for you |
+|---|---|---|
+| **macOS only** | `safaridriver` ships inside the OS — there's no Linux/Windows build, and `WebDriverManager` has nothing to download for it | Local runs and CI runs both need a real Mac |
+| **One-time enable** | Remote Automation is off by default | Run `safaridriver --enable` once per machine (`sudo` on a local Mac; not needed on a hosted macOS CI runner) before the first session — otherwise every run fails fast with `Could not create a session` |
+| **No headless mode** | WebKit's automation surface has no equivalent of `--headless` | `-Dheadless=true` is accepted but ignored — `DriverFactory` logs a warning and opens a normal windowed session anyway |
+| **One session per machine** | A WebKit/Apple limitation, not a Selenium one | Never point a `parallel="classes"`/`thread-count>1` suite at `browser=safari` — use the dedicated `testng-suites/<site>-safari-<suite>.xml` files, which are `parallel="none"` |
+
+```bash
+# One-time setup (macOS)
+safaridriver --enable
+
+# Run it
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-safari-smoke.xml -Dbrowser=safari
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-safari-regression.xml -Dbrowser=safari
+```
+
+Downloaded files land in the signed-in user's real `~/Downloads` — there's no per-session download-directory isolation the way `DriverFactory.getDownloadPath()` gives Chrome/Brave/Edge, so `UploadDownloadTest`-style assertions on a specific download path aren't portable to Safari as-is.
+
+**CI:** Safari is opt-in and runs on a separate macOS agent/runner in all three pipelines — see [🧭 Safari](ci-cd.md#-safari) in the CI/CD guide.
 

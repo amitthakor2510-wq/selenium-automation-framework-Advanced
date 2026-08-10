@@ -33,7 +33,7 @@
 |---|---|
 | 🧱 **Language / Build** | Java 17 · Maven |
 | 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
-| 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave) |
+| 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave, Safari — Safari is macOS-only, no headless mode, one session per machine; see [Safari](docs/configuration.md#-safari)) |
 | 📄 **Design Pattern** | Page Object Model |
 | 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) — both also show the keyword-driven style (`KeywordDrivenTextBoxTest`, `KeywordDrivenLoginTest`) |
 | 📊 **Data-Driven Formats** | Excel · CSV · JSON · YAML · ZIP — same `DataRow` shape from every format |
@@ -330,6 +330,10 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dtest
 
 # Different browser
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dbrowser=firefox
+
+# Safari (macOS only — run `safaridriver --enable` once first, and use the
+# dedicated *-safari-*.xml suite, which is parallel="none"; see docs/configuration.md#-safari)
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-safari-regression.xml -Dbrowser=safari
 
 # Headless — no browser window
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dheadless=true

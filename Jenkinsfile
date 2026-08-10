@@ -49,6 +49,12 @@ pipeline {
                 defaultValue: '0',
                 description: 'Number of retries for failed tests. 0 = disabled for CI speed.'
         )
+
+        string(
+                name: 'SECURITY_FAIL_CVSS',
+                defaultValue: '11',
+                description: 'OWASP Dependency-Check: fail the Security Scan stage on any dependency with a CVSS score >= this value. 11 = never fails (report-only). 7 is a common "fail on High/Critical" cutoff — see the "security" profile comment in pom.xml.'
+        )
     }
 
     options {
@@ -288,6 +294,44 @@ pipeline {
             }
         }
 
+        stage('Secret Scan') {
+            // Runs right after Checkstyle — fast (no CVE database to
+            // build, unlike the nightly-only Security Scan stage below),
+            // so it can run on every build rather than being cron-gated.
+            // Marks the build UNSTABLE rather than failing it outright:
+            // a repo's first-ever gitleaks run commonly turns up
+            // pre-existing/false-positive matches in history or test
+            // fixtures that need triage before this can safely hard-fail
+            // builds — switch the UNSTABLE below to `error(...)` once
+            // that initial pass is clean (or a .gitleaksignore baseline
+            // is in place).
+            steps {
+                script {
+                    sh '''
+                        if ! command -v gitleaks &> /dev/null; then
+                            echo "gitleaks not found - installing..."
+                            GITLEAKS_VERSION="8.18.4"
+                            if ! wget -q -O gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"; then
+                                echo "ERROR: failed to download gitleaks (check agent internet access / DNS / proxy)."
+                                exit 1
+                            fi
+                            mkdir -p .gitleaks-bin
+                            tar -xzf gitleaks.tar.gz -C .gitleaks-bin gitleaks
+                        fi
+                    '''
+                    int exitCode = sh(
+                            script: 'PATH="$PWD/.gitleaks-bin:$PATH" gitleaks detect --source . --report-format json --report-path gitleaks-report.json --redact',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'gitleaks found potential secrets — see the gitleaks-report.json artifact.'
+                    }
+                    archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Discover Site Projects') {
             steps {
                 script {
@@ -304,6 +348,15 @@ pipeline {
                         def fileName = path.tokenize('/').last()
                         fileName.replace("-${params.SUITE_TYPE}.xml", '')
                     }
+                    // testng-suites/ still has *-safari-<suite>.xml files (kept for
+                    // the GitHub Actions pipeline's Safari job) which also end in
+                    // "-${params.SUITE_TYPE}.xml", so the glob/collect above picks
+                    // them up too — producing bogus pseudo-sites like "demoqa-safari"
+                    // that don't correspond to any real config/<site>.properties file.
+                    // Jenkins no longer runs Safari at all, so strip these out
+                    // rather than let SiteRegistry.validate() reject them and fail
+                    // the whole "Run Tests Per Site" stage.
+                    allSites = allSites.findAll { !it.endsWith('-safari') }
 
                     // "mobile" is excluded here and run as its own dedicated
                     // stage below instead. Unlike every other discovered site,
@@ -911,6 +964,35 @@ pipeline {
                         currentBuild.result = 'UNSTABLE'
                         echo "Performance smoke check reported issues (exit ${exitCode}) — see target/jmeter/reports"
                     }
+                }
+            }
+        }
+        stage('Security Scan (Nightly)') {
+            // Same cron-only gating as "Nightly Extra Coverage" and
+            // "Performance Smoke" above — OWASP Dependency-Check's first
+            // run downloads/builds the NVD CVE database locally, which is
+            // slow (several minutes), so this runs nightly rather than on
+            // every build. SECURITY_FAIL_CVSS defaults to 11 (never
+            // fails) — report-only until the team deliberately opts into
+            // gating builds on it via that build parameter, same
+            // reasoning as the "security" profile's own comment in
+            // pom.xml.
+            when {
+                expression {
+                    currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                }
+            }
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: "mvn -B -ntp verify -Psecurity -DfailBuildOnCVSS=${params.SECURITY_FAIL_CVSS}",
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "OWASP Dependency-Check reported issues (exit ${exitCode}) — see target/dependency-check-report.html"
+                    }
+                    archiveArtifacts artifacts: 'target/dependency-check-report.*', allowEmptyArchive: true
                 }
             }
         }

@@ -85,6 +85,44 @@ cat > "testng-suites/${SITE}-smoke.xml" <<EOF
 EOF
 echo "[✓] Created testng-suites/${SITE}-smoke.xml"
 
+# =========================================================================
+# 3b. Safari variants — parallel="none" is required, not a style choice:
+#     only one SafariDriver session may exist on a machine at a time (see
+#     DriverFactory.createSafariDriver()'s javadoc), so a thread-count>1
+#     suite fails outright under browser=safari. Same groups/packages as
+#     the plain suites above; run with -Dbrowser=safari (macOS only, no
+#     -Dheadless — Safari has no headless mode). See docs/configuration.md#-safari.
+# =========================================================================
+cat > "testng-suites/${SITE}-safari-regression.xml" <<EOF
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="${SITE^} Safari Regression Suite" parallel="none">
+    <test name="${SITE^} Safari Regression Tests" preserve-order="true">
+        <groups>
+            <run><include name="regression"/></run>
+        </groups>
+        <packages>
+            <package name="com.automation.sites.${SITE}.tests"/>
+        </packages>
+    </test>
+</suite>
+EOF
+echo "[✓] Created testng-suites/${SITE}-safari-regression.xml"
+
+cat > "testng-suites/${SITE}-safari-smoke.xml" <<EOF
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="${SITE^} Safari Smoke Suite" parallel="none">
+    <test name="${SITE^} Safari Smoke Tests" preserve-order="true">
+        <groups>
+            <run><include name="smoke"/></run>
+        </groups>
+        <packages>
+            <package name="com.automation.sites.${SITE}.tests"/>
+        </packages>
+    </test>
+</suite>
+EOF
+echo "[✓] Created testng-suites/${SITE}-safari-smoke.xml"
+
 mkdir -p "src/main/java/com/automation/sites/${SITE}/pages"
 mkdir -p "src/test/java/com/automation/sites/${SITE}/tests"
 mkdir -p "src/test/resources/testdata/keyword"

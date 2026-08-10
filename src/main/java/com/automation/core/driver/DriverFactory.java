@@ -17,6 +17,9 @@ import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.safari.SafariDriver;
+import org.openqa.selenium.safari.SafariDriverService;
+import org.openqa.selenium.safari.SafariOptions;
 
 import java.io.File;
 import java.io.InputStream;
@@ -31,9 +34,36 @@ import java.util.Collections;
 
 /**
  * Single place responsible for creating a WebDriver instance.
- * Supports chrome / firefox / edge / brave, and a headless=true/false
+ * Supports chrome / firefox / edge / brave / safari, and a headless=true/false
  * config flag so Jenkins can run headless while local dev
  * runs with a visible browser.
+ *
+ * SAFARI — two hard platform constraints that don't apply to any other
+ * browser this factory supports, both enforced/documented at the call
+ * sites below rather than silently worked around:
+ * <ol>
+ *   <li><b>macOS only.</b> SafariDriver ships as part of the OS
+ *   (/usr/bin/safaridriver) — there is no Linux/Windows build, and
+ *   WebDriverManager cannot download one. {@code safaridriver --enable}
+ *   (or Safari &gt; Develop &gt; Allow Remote Automation) must already have
+ *   been run on the host once; if it hasn't, session creation fails with
+ *   a clear "Could not create a session" error from Selenium itself.</li>
+ *   <li><b>Headless is not supported at all</b> — there is no Safari
+ *   equivalent of {@code --headless}. Requesting headless=true with
+ *   browser=safari is logged as a warning and a normal windowed session
+ *   is launched anyway, rather than either silently pretending to be
+ *   headless or failing the whole run over a flag that every other
+ *   browser accepts.</li>
+ *   <li><b>Only one SafariDriver session may be open on a machine at a
+ *   time</b> (a WebKit/Apple limitation, not a Selenium one) — a second
+ *   concurrent session fails outright. This factory does not serialize
+ *   Safari session creation itself, because the session's whole lifetime
+ *   (not just creation) needs to be exclusive and that lifetime is owned
+ *   by BaseTest/the TestNG suite, not this class. Any suite that runs
+ *   Safari MUST use {@code parallel="none"} (see
+ *   testng-suites/*-safari-*.xml) — do not point a thread-count&gt;1 suite
+ *   at browser=safari.</li>
+ * </ol>
  *
  * DOCKER / SELENIUM GRID:
  * When grid.enabled=true (or -Dgrid.enabled=true), the browser is not
@@ -80,6 +110,25 @@ public final class DriverFactory {
             edgeOptions.addArguments("--headless=new");
         }
         return edgeOptions;
+    }
+
+    /**
+     * Grid-specific SafariOptions. Unlike Firefox/Edge's remote-options
+     * builders above, this ignores {@code headless} entirely rather than
+     * silently accepting-and-dropping it — Safari has no headless
+     * capability to set in the first place, on Grid or otherwise, so
+     * there's no flag here to conditionally add. A Selenium Grid Safari
+     * node is itself a real Mac (Grid does not — cannot — offer a
+     * containerized Safari node the way it does chrome/firefox/edge), so
+     * the same one-session-at-a-time constraint documented on the class
+     * javadoc applies to that node too.
+     */
+    private static SafariOptions buildSafariRemoteOptions(boolean headless) {
+        if (headless) {
+            logger.warning("[DriverFactory] headless=true was requested for safari, but Safari has no"
+                + " headless mode — launching a normal windowed remote session instead.");
+        }
+        return new SafariOptions();
     }
 
     /**
@@ -147,6 +196,18 @@ public final class DriverFactory {
             @Override
             public Capabilities buildRemoteOptions(boolean headless) {
                 return buildEdgeRemoteOptions(headless);
+            }
+        });
+
+        PROVIDERS.put("safari", new BrowserProvider() {
+            @Override
+            public WebDriver createLocalDriver(boolean headless) {
+                return createSafariDriver(headless);
+            }
+
+            @Override
+            public Capabilities buildRemoteOptions(boolean headless) {
+                return buildSafariRemoteOptions(headless);
             }
         });
     }
@@ -920,6 +981,57 @@ public final class DriverFactory {
                 .usingPort(candidatePort(attempt))
                 .build();
             return new EdgeDriver(service, options);
+        });
+    }
+
+    // ── Safari ────────────────────────────────────────────────────────────────
+
+    /**
+     * Launches a local Safari session via the OS-provided safaridriver.
+     * <p>
+     * Deliberately much smaller than createChromeDriver()/createEdgeDriver():
+     * SafariOptions has no equivalent of --headless, --disable-notifications,
+     * --user-data-dir, --no-sandbox, or a download.default_directory prefs
+     * map — WebKit's automation surface just doesn't expose those knobs, so
+     * there is nothing to port over from the Chromium-based browsers here,
+     * not an oversight. Downloaded files land in the signed-in user's real
+     * ~/Downloads (there is no per-session isolation the way
+     * {@link #getDownloadPath()} gives Chrome/Brave/Edge); a suite that
+     * asserts on a specific download path is not portable to Safari as-is.
+     * <p>
+     * No WebDriverManager.safaridriver().setup() call — safaridriver ships
+     * inside macOS itself (there's no separate binary to download/version-
+     * match), and WebDriverManager has no such method. It must already be
+     * enabled once on the host via {@code safaridriver --enable} — this
+     * method deliberately does not try to run that itself (it needs sudo).
+     */
+    private static WebDriver createSafariDriver(boolean headless) {
+        if (headless) {
+            // See the class javadoc — Safari has no headless mode at all.
+            // Failing the whole run over a flag every other supported
+            // browser silently accepts would be surprising for a suite
+            // that runs the same -Dheadless=true across a browser matrix;
+            // warn and launch a normal windowed session instead.
+            logger.warning("[DriverFactory] headless=true was requested for safari, but Safari has no"
+                + " headless mode — launching a normal windowed session instead.");
+        }
+
+        SafariOptions options = new SafariOptions();
+
+        // Reuses the exact same explicit-deterministic-port retry
+        // machinery as Chrome/Edge above (candidatePort() /
+        // createWithPortConflictRetry()) purely for consistency and to
+        // absorb an unrelated process already sitting on the computed
+        // port. It is NOT what makes concurrent Safari sessions safe —
+        // see the class javadoc: only one SafariDriver session may exist
+        // on the machine at all, a constraint this retry loop cannot fix
+        // and does not attempt to. Callers must run Safari suites with
+        // parallel="none".
+        return createWithPortConflictRetry("safari", attempt -> {
+            SafariDriverService service = new SafariDriverService.Builder()
+                .usingPort(candidatePort(attempt))
+                .build();
+            return new SafariDriver(service, options);
         });
     }
 

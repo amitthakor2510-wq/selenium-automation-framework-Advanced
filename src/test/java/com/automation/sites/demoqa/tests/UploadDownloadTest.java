@@ -92,8 +92,16 @@ public class UploadDownloadTest extends BaseTest {
         );
     }
 
+    // "safari-unsupported": Safari has no download.default_directory-style
+    // capability at all (see DriverFactory.createSafariDriver()'s javadoc) —
+    // downloaded files always land in the signed-in user's real ~/Downloads,
+    // not the per-thread isolated path DriverFactory.getDownloadPath()
+    // configures for Chrome/Brave/Edge, so this specific assertion can never
+    // pass under Safari regardless of app behavior. testng-suites/*-safari-*.xml
+    // excludes this group; verifyFileUpload above has no such dependency and
+    // still runs under Safari.
     @Test(priority = 2,
-        groups = {"regression"},
+        groups = {"regression", "safari-unsupported"},
         description = "Upload and Download - Verify File Download")
     public void verifyFileDownload() {
         Assert.assertNotNull(downloadFolderPath,

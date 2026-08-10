@@ -29,6 +29,10 @@ on:
         description: "Retries for failed tests"
         type: string
         default: "0"
+      run_safari:
+        description: "Also run Safari (needs a macos-latest runner minute budget — runs automatically on every push, this only controls manual dispatch runs)"
+        type: boolean
+        default: false
   # Accessibility (axe-core) and visual-regression (AShot screenshot
   # diffing) are opt-in by nature — both slower and more flake-prone than
   # the regular functional suites, and only exist for demoqa — so they
@@ -313,6 +317,85 @@ jobs:
           path: target/jacoco.exec
           retention-days: 7
           if-no-files-found: warn
+
+  # ================================================================
+  # STAGE 2a - Safari (macOS runner)
+  # ================================================================
+  # Chrome/Firefox/Edge above all run on ubuntu-latest — Safari has no
+  # Linux build at all (safaridriver ships inside macOS itself), so this
+  # is a separate job on macos-latest rather than a fourth entry in the
+  # `test` job's browser matrix. Runs on every push (macos-latest runner
+  # minutes cost several times the per-minute rate of ubuntu-latest, but
+  # this is intentionally wired into the default push trigger) — also
+  # runnable on-demand via workflow_dispatch + the run_safari input for
+  # PRs or ad-hoc runs outside a push.
+  test-safari:
+    needs: build
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_safari == true)
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [ demoqa, saucedemo ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # macos-latest runners ship Safari but Remote Automation is off by
+      # default — without this every session fails immediately with
+      # "Could not create a session" from Selenium itself, same failure
+      # mode documented on DriverFactory.createSafariDriver(). Enabling it
+      # doesn't need sudo on the hosted macOS runner (the runner user
+      # already owns /usr/bin/safaridriver's config).
+      - name: Enable Safari WebDriver
+        run: safaridriver --enable
+
+      # Uses the dedicated *-safari-<suite>.xml suite files (parallel="none")
+      # instead of the plain ones the `test` job above uses: Safari allows
+      # only one WebDriver session on a machine at a time (see
+      # DriverFactory.createSafariDriver()'s javadoc), so a thread-count>1
+      # suite would fail outright under Safari. No -Dheadless is passed —
+      # Safari has no headless mode, and DriverFactory already warns and
+      # continues if one reaches it anyway.
+      - name: Run Tests
+        run: |
+          echo "======= Running Tests: site=${{ matrix.site }} browser=safari ======="
+          mvn -B test \
+            -Dsite=${{ matrix.site }} \
+            -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
+            -Dbrowser=safari \
+            -Dhuman.pause.enabled=false \
+            -Dretry.count=${{ env.RETRY_COUNT }} \
+            -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari \
+            -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.site }}-safari
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Extent + Surefire Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.site }}-safari-${{ github.run_id }}
+          path: |
+            target/extent-reports/
+            target/screenshots/
+            target/surefire-reports/
+            target/self-healing/
+          retention-days: 7
 
   # ================================================================
   # STAGE 2b - Mobile Test (Android emulator + Appium)
@@ -613,6 +696,88 @@ jobs:
           retention-days: 7
 
   # ================================================================
+  # Security — OWASP Dependency-Check (mvn verify -Psecurity, see pom.xml)
+  # ================================================================
+  # Scans every resolved dependency against the NVD CVE database. First
+  # run downloads/builds that database locally and is slow (several
+  # minutes), so this runs nightly (same trigger as
+  # accessibility-visual-test) rather than on every push — an unrelated
+  # dependency bump landing mid-review shouldn't have to wait on a
+  # multi-minute CVE-database rebuild just to merge. SECURITY_FAIL_CVSS
+  # defaults to 11 (never fails) — report-only until the team
+  # deliberately opts into gating merges on it via a repo/org Variable,
+  # same reasoning as the profile's own comment in pom.xml.
+  # ================================================================
+  security-scan:
+    needs: build
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # Caches the downloaded NVD CVE database across runs — without
+      # this, every nightly run would rebuild it from scratch (several
+      # minutes just for the database, before any actual scanning
+      # starts). Keyed loosely (no lockfile hash) since the database
+      # itself, not this repo's dependency tree, is what's being cached.
+      - name: Cache OWASP Dependency-Check database
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-dc-db-${{ runner.os }}
+
+      - name: Run OWASP Dependency-Check
+        env:
+          SECURITY_FAIL_CVSS: ${{ vars.SECURITY_FAIL_CVSS || '11' }}
+        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS
+
+      - name: Upload Dependency-Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check-report
+          path: |
+            target/dependency-check-report.html
+            target/dependency-check-report.json
+          retention-days: 30
+
+  # ================================================================
+  # Secret scanning — gitleaks
+  # ================================================================
+  # Runs on every push/PR (unlike security-scan above, this is fast — no
+  # CVE database to build) so a committed credential gets flagged before
+  # it merges, not discovered later on a nightly run. exit-code left at
+  # gitleaks-action's default (fails the step, not the whole workflow —
+  # see continue-on-error below) for now: a repo's first-ever gitleaks
+  # run commonly turns up pre-existing/false-positive matches in history
+  # or test fixtures that need triage before this can safely block
+  # pushes — drop continue-on-error once that initial pass is clean (or
+  # a .gitleaksignore baseline is in place).
+  # ================================================================
+  secret-scan:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ================================================================
   # STAGE 2f - PR Comment (results summary posted on the pull request)
   # ================================================================
   # Gives a reviewer pass/fail counts and a link to the full reports
@@ -663,10 +828,12 @@ jobs:
   # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
-    needs: [ test, mobile-test, accessibility-visual-test ]
+    needs: [ test, mobile-test, accessibility-visual-test, test-safari ]
     # accessibility-visual-test only actually runs on the schedule
-    # trigger (see its own `if:` above) — `always()` here means this job
-    # still runs on ordinary pushes/PRs even though that one job shows as
+    # trigger, and test-safari runs on every push (plus manual dispatch
+    # with run_safari ticked — see each job's own `if:` above) but is
+    # still skipped on PR runs — `always()` here means this job still
+    # runs on ordinary pushes/PRs even though those jobs may show as
     # skipped rather than succeeded, which `needs:` alone would block on.
     if: always()
     runs-on: ubuntu-latest

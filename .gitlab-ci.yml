@@ -42,6 +42,12 @@ variables:
   # driver-binary cache actually persists between pipeline runs, the same
   # way .m2/repository already does.
   WDM_CACHE_PATH: "$CI_PROJECT_DIR/.wdm"
+  # Overridable via a CI/CD variable (Settings > CI/CD > Variables) once
+  # the team is ready to gate merges on it — see the security-scan job
+  # below and the "security" profile's comment in pom.xml. 11 = never
+  # fails the build (report-only), 7 is a common "fail on High/Critical"
+  # cutoff.
+  SECURITY_FAIL_CVSS: "11"
 
 # A superseded pipeline (e.g. a second push to the same MR before the
 # first pipeline finished) cancels the older one instead of letting both
@@ -70,8 +76,7 @@ build:
     - echo "======= Building Project ======="
     - mvn -B clean compile test-compile
   only:
-    - main
-    - master
+    - branches
     - merge_requests
 
 # ================================================================
@@ -88,8 +93,7 @@ checkstyle:
     - echo "======= Running Checkstyle (checkstyle.xml) ======="
     - mvn -B checkstyle:check@checkstyle-check
   only:
-    - main
-    - master
+    - branches
     - merge_requests
 
 # ================================================================
@@ -101,51 +105,91 @@ test:
   parallel:
     matrix:
       # Every site that has a <site>-<suite>.xml under testng-suites/ runs
-      # as its own parallel job instance — previously this pipeline only
-      # ever tested "demoqa" via a hardcoded SITE variable, so "saucedemo"
-      # had no CI coverage at all despite the framework fully supporting it.
+      # as its own parallel job instance, cross-joined with every browser —
+      # previously this pipeline only ever tested "demoqa" against Chrome
+      # via a hardcoded SITE/BROWSER variable, so neither "saucedemo" nor
+      # firefox/edge had any CI coverage despite the framework fully
+      # supporting them (the GitHub Actions pipeline already covers all
+      # six site x browser combinations). 2 sites x 3 browsers = 6 parallel
+      # job instances.
       - SITE: [ demoqa, saucedemo ]
+        BROWSER: [ chrome, firefox, edge ]
   script:
-    - 'echo "======= Running Tests: site=$SITE ======="'
+    - 'echo "======= Running Tests: site=$SITE browser=$BROWSER ======="'
     - echo "Site=$SITE Suite=$SUITE_TYPE Browser=$BROWSER Headless=$HEADLESS"
-    # Previously this just exited 1 if Chrome was missing instead of
-    # installing it, which meant the test stage could never pass on a
-    # fresh/ephemeral runner (the normal case for GitLab shared
-    # runners — they don't retain packages between jobs). Actually
-    # install it here, the same way the GitHub Actions pipeline does,
-    # using the modern apt-key-free (signed-by) method since apt-key
-    # is removed on current Debian/Ubuntu base images.
+    # Install-if-missing, split per browser (same pattern as the GitHub
+    # Actions pipeline's Setup Chrome/Verify Firefox/Setup Edge steps) so
+    # a fresh/ephemeral runner — the normal case for GitLab shared
+    # runners, which don't retain packages between jobs — can pass on
+    # any of the three, not just chrome.
     - |
-      if ! command -v google-chrome &> /dev/null; then
-        echo "Chrome not found - installing..."
-        if [ "$(id -u)" = "0" ]; then
-          SUDO=""
-        elif sudo -n true 2>/dev/null; then
-          SUDO="sudo"
-        else
-          echo "ERROR: Chrome not installed, and this job has no root/sudo access to install it."
-          echo "One-time fix on this host: install Chrome yourself once (see docs/configuration.md), then re-run this job."
+      if [ "$(id -u)" = "0" ]; then
+        SUDO=""
+      elif sudo -n true 2>/dev/null; then
+        SUDO="sudo"
+      else
+        SUDO="__NONE__"
+      fi
+      install_guard() {
+        if [ "$SUDO" = "__NONE__" ]; then
+          echo "ERROR: $1 not installed, and this job has no root/sudo access to install it."
+          echo "One-time fix on this host: install $1 yourself once (see docs/configuration.md), then re-run this job."
           exit 1
         fi
-        $SUDO apt-get update -qq
-        $SUDO apt-get install -y -qq wget gnupg
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
-        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
-        $SUDO apt-get update -qq
-        $SUDO apt-get install -y -qq google-chrome-stable
-      fi
-      echo "Chrome: $(google-chrome --version)"
-    # -Dallure.results.directory=target/allure-results/$SITE — GitLab
-    # automatically merges artifacts from every parallel:matrix instance
-    # of this job for any downstream job that declares `dependencies:
-    # [test]`. Allure's own result files are UUID-named so that merge is
-    # safe on its own, but environment.properties/categories.json (written
-    # once per JVM by AllureEnvironmentWriter) are NOT — two sites both
-    # writing to the same shared target/allure-results/environment.properties
-    # would leave the merged report's "Environment" widget showing only
-    # whichever site's file happened to survive the merge. Each site gets
-    # its own subdirectory instead; see the "report" stage below for how
-    # they're combined back together for `allure generate`.
+      }
+      case "$BROWSER" in
+        chrome)
+          if ! command -v google-chrome &> /dev/null; then
+            echo "Chrome not found - installing..."
+            install_guard "Chrome"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq wget gnupg
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq google-chrome-stable
+          fi
+          echo "Chrome: $(google-chrome --version)"
+          ;;
+        firefox)
+          # Most Debian/Ubuntu base images ship Firefox as a pre-installed
+          # snap/apt package already, which GeckoDriver can drive
+          # directly — install only if it's genuinely missing, same
+          # install-if-missing pattern as the other two browsers.
+          if ! command -v firefox &> /dev/null; then
+            echo "Firefox not found - installing..."
+            install_guard "Firefox"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq firefox-esr || $SUDO apt-get install -y -qq firefox
+          fi
+          echo "Firefox: $(firefox --version 2>/dev/null || firefox-esr --version)"
+          ;;
+        edge)
+          if ! command -v microsoft-edge-stable &> /dev/null; then
+            echo "Edge not found - installing..."
+            install_guard "Edge"
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq wget gnupg
+            wget -q -O - https://packages.microsoft.com/keys/microsoft.asc | $SUDO gpg --dearmor -o /usr/share/keyrings/microsoft-edge-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-edge-keyring.gpg] https://packages.microsoft.com/repos/edge stable main" | $SUDO tee /etc/apt/sources.list.d/microsoft-edge.list > /dev/null
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y -qq microsoft-edge-stable
+          fi
+          echo "Edge: $(microsoft-edge-stable --version)"
+          ;;
+      esac
+    # -Dallure.results.directory=target/allure-results/$SITE-$BROWSER —
+    # GitLab automatically merges artifacts from every parallel:matrix
+    # instance of this job for any downstream job that declares
+    # `dependencies: [test]`. Allure's own result files are UUID-named so
+    # that merge is safe on its own, but environment.properties/
+    # categories.json (written once per JVM by AllureEnvironmentWriter)
+    # are NOT — two instances both writing to the same shared
+    # target/allure-results/environment.properties would leave the merged
+    # report's "Environment" widget showing only whichever instance's
+    # file happened to survive the merge. Each site+browser combination
+    # gets its own subdirectory instead; see the "report" stage below for
+    # how they're combined back together for `allure generate`.
     - mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
@@ -153,19 +197,24 @@ test:
       -Dheadless=$HEADLESS
       -Dhuman.pause.enabled=false
       -Dretry.count=$RETRY_COUNT
-      -Dallure.results.directory=target/allure-results/$SITE
+      -Dallure.results.directory=target/allure-results/$SITE-$BROWSER
       -Dwdm.cachePath=$WDM_CACHE_PATH
       -Dmaven.test.failure.ignore=true
     # Same collision the comment above describes for surefire's
     # testng-results.xml applies to a bare target/jacoco.exec too — every
-    # SITE instance would write that same path, and GitLab's artifact
-    # merge keeps only one of them. Copy each instance's exec file to a
-    # SITE-named path before it can collide, feeding the coverage-gate
-    # job's merge step in the "report" stage below.
-    - mkdir -p target/jacoco-artifacts
-    - cp target/jacoco.exec target/jacoco-artifacts/$SITE.exec
+    # matrix instance would write that same path, and GitLab's artifact
+    # merge keeps only one of them. Only the chrome leg feeds the
+    # coverage gate (same core/ classes get exercised regardless of which
+    # browser ran them, so one exec per site is enough — matches the
+    # GitHub Actions pipeline's "chrome leg only" jacoco upload) rather
+    # than merging three redundant copies of the same coverage per site.
+    - |
+      if [ "$BROWSER" = "chrome" ]; then
+        mkdir -p target/jacoco-artifacts
+        cp target/jacoco.exec target/jacoco-artifacts/$SITE.exec
+      fi
   artifacts:
-    name: "test-results-$CI_JOB_NAME-$SITE-$CI_COMMIT_REF_SLUG"
+    name: "test-results-$CI_JOB_NAME-$SITE-$BROWSER-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 7 days
     paths:
@@ -177,13 +226,12 @@ test:
     reports:
       # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
       # lands at the same path, so GitLab's artifact merge keeps only one
-      # site's copy for the JUnit report widget/summary grep below — not a
-      # combined total. The individual per-class XML files (and the Allure
-      # report, which IS fully merged) are unaffected.
+      # instance's copy for the JUnit report widget/summary grep below —
+      # not a combined total. The individual per-class XML files (and the
+      # Allure report, which IS fully merged) are unaffected.
       junit: target/surefire-reports/*.xml
   only:
-    - main
-    - master
+    - branches
     - merge_requests
 
 # ================================================================
@@ -392,8 +440,7 @@ mobile-test:
     reports:
       junit: target/surefire-reports/*.xml
   only:
-    - main
-    - master
+    - branches
     - merge_requests
 
 # ================================================================
@@ -458,6 +505,78 @@ accessibility-visual-test:
       - target/surefire-reports/
     reports:
       junit: target/surefire-reports/*.xml
+
+# ================================================================
+# Security — OWASP Dependency-Check (mvn verify -Psecurity, see pom.xml)
+# ================================================================
+# Scans every resolved dependency against the NVD CVE database. First
+# run downloads/builds that database locally and is slow (several
+# minutes); subsequent runs reuse the cached copy from the `cache:`
+# block above being extended, so this runs nightly (same trigger as
+# accessibility-visual-test) rather than on every push — an unrelated
+# dependency bump landing mid-review shouldn't have to wait on a
+# multi-minute CVE-database rebuild just to merge. allow_failure: true
+# and SECURITY_FAIL_CVSS defaults to 11 (never fails) — report-only
+# until the team deliberately opts into gating merges on it, same
+# reasoning as the profile's own comment in pom.xml.
+# ================================================================
+security-scan:
+  stage: test
+  interruptible: true
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - echo "======= Running OWASP Dependency-Check (mvn verify -Psecurity) ======="
+    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS
+  artifacts:
+    name: "owasp-dependency-check-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 30 days
+    paths:
+      - target/dependency-check-report.html
+      - target/dependency-check-report.json
+
+# ================================================================
+# Secret scanning — gitleaks
+# ================================================================
+# Runs on every push/MR (unlike security-scan above, this is fast — no
+# CVE database to build) so a committed credential gets flagged before
+# it merges, not discovered later on a nightly run. allow_failure: true
+# for now: a repo's first-ever gitleaks run commonly turns up
+# pre-existing/false-positive matches in history or test fixtures that
+# need triage before this can safely block pushes — flip to false once
+# that initial pass is clean (or a .gitleaksignore baseline is in
+# place).
+# ================================================================
+secret-scan:
+  stage: test
+  interruptible: true
+  allow_failure: true
+  script:
+    - echo "======= Running gitleaks secret scan ======="
+    - |
+      if ! command -v gitleaks &> /dev/null; then
+        echo "gitleaks not found - installing..."
+        GITLEAKS_VERSION="8.18.4"
+        if ! wget -q -O gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"; then
+          echo "ERROR: failed to download gitleaks (check runner internet access / DNS / proxy)."
+          exit 1
+        fi
+        mkdir -p .gitleaks-bin
+        tar -xzf gitleaks.tar.gz -C .gitleaks-bin gitleaks
+        export PATH="$CI_PROJECT_DIR/.gitleaks-bin:$PATH"
+      fi
+    - gitleaks detect --source . --report-format json --report-path gitleaks-report.json --redact
+  artifacts:
+    name: "gitleaks-report-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 30 days
+    paths:
+      - gitleaks-report.json
+  only:
+    - branches
+    - merge_requests
 
 # ================================================================
 # Performance smoke — perf/basic-smoke.jmx via the pom.xml `perf` Maven
@@ -525,8 +644,7 @@ coverage-gate:
     - test
     - mobile-test
   only:
-    - main
-    - master
+    - branches
     - merge_requests
 
 # Allure → GitLab Pages  |  Extent → artifact
@@ -612,8 +730,7 @@ report:
     - test
     - mobile-test
   only:
-    - main
-    - master
+    - branches
 pages:
   stage: pages
   interruptible: true
@@ -625,5 +742,4 @@ pages:
   dependencies:
     - report
   only:
-    - main
-    - master
+    - branches

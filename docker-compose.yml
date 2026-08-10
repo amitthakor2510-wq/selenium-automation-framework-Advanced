@@ -20,6 +20,18 @@
 # RAM/CPU for that many concurrent full browser processes.
 # =============================================================================
 
+# SAFARI — deliberately has no node service here, unlike chrome/firefox/
+# edge above. Selenium's official Grid node images only exist for
+# Chromium/Gecko-based browsers; there is no (and cannot be a)
+# selenium/node-safari image, because safaridriver ships inside macOS
+# itself and Apple doesn't license/support it running inside a Linux
+# container. Safari can still be exercised via this same Grid (grid.
+# enabled=true, see DriverFactory) if selenium-hub is pointed at a REAL
+# Mac running its own `selenium-server` node registered against this hub
+# — that machine is out of scope for this compose file (which only stands
+# up containerized nodes) and must be run separately. For a normal local
+# run, Safari goes through DriverFactory's local (non-Grid) path instead —
+# see testng-suites/*-safari-*.xml and the Safari section of docs/ci-cd.md.
 services:
 
   selenium-hub:
