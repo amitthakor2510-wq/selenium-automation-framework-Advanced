@@ -3,11 +3,31 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
+import java.util.logging.Logger;
+
 public class ToolTipsPage extends BasePage {
+
+    private static final Logger logger = Logger.getLogger(ToolTipsPage.class.getName());
+
+    // BUG FIX (confirmed against a live Jenkins run — verifyButtonTooltip and
+    // verifyTextFieldTooltip both timed out waiting 20s for .tooltip-inner,
+    // even with HumanActions.hover()'s belt-and-braces JS event dispatch
+    // already in place): Bootstrap's tooltip plugin only binds its
+    // mouseenter/mouseleave listeners once per page load, and on a small
+    // fraction of runs (headless Chrome, this suite's -Dheadless=true in
+    // Jenkins/CI) that initial bind loses the race against our own
+    // navigate-then-hover sequence — the hover events land before the
+    // plugin has attached, so nothing shows. Same class of flakiness
+    // BrokenLinksImagesPage.isValidImageLoaded() already retries around for
+    // a similarly timing-sensitive third-party page. A fresh page load
+    // re-runs Bootstrap's own init and gives the listener a second chance
+    // to be bound before the next hover attempt.
+    private static final int MAX_HOVER_ATTEMPTS = 3;
 
     // ── Navigation ─────────────────────────────────────────────────────────────
     private final By widgetsCard  = By.xpath("//h5[text()='Widgets']");
@@ -31,25 +51,35 @@ public class ToolTipsPage extends BasePage {
     }
 
     public String getButtonTooltipText() {
-        WebElement button = wait.until(
-            ExpectedConditions.visibilityOfElementLocated(hoverButton)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", button);
-        highlightAndHover(button);
-        return wait.until(
-            ExpectedConditions.visibilityOfElementLocated(toolTipText)
-        ).getText().trim();
+        return hoverAndGetTooltipText(hoverButton, "button");
     }
 
     public String getTextFieldTooltipText() {
-        WebElement field = wait.until(
-            ExpectedConditions.visibilityOfElementLocated(hoverTextField)
-        );
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", field);
-        highlightAndHover(field);
-        return wait.until(
-            ExpectedConditions.visibilityOfElementLocated(toolTipText)
-        ).getText().trim();
+        return hoverAndGetTooltipText(hoverTextField, "text field");
+    }
+
+    private String hoverAndGetTooltipText(By targetLocator, String label) {
+        for (int attempt = 1; attempt <= MAX_HOVER_ATTEMPTS; attempt++) {
+            WebElement target = wait.until(ExpectedConditions.visibilityOfElementLocated(targetLocator));
+            js.executeScript("arguments[0].scrollIntoView({block:'center'});", target);
+            highlightAndHover(target);
+            try {
+                return wait.until(
+                    ExpectedConditions.visibilityOfElementLocated(toolTipText)
+                ).getText().trim();
+            } catch (TimeoutException te) {
+                logger.info("Tooltip for " + label + " did not appear (attempt " + attempt + "/" + MAX_HOVER_ATTEMPTS + ")");
+                if (attempt == MAX_HOVER_ATTEMPTS) {
+                    throw te;
+                }
+                // Fresh navigation re-runs Bootstrap's own tooltip init —
+                // see MAX_HOVER_ATTEMPTS javadoc above — instead of retrying
+                // the hover against a page whose listener may never bind.
+                navigateToToolTips();
+            }
+        }
+        // Unreachable: the loop above always either returns or throws.
+        throw new IllegalStateException("Unreachable");
     }
 
     private void highlightAndHover(WebElement element) {

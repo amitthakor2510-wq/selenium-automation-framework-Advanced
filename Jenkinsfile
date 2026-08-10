@@ -706,11 +706,27 @@ pipeline {
                         # likely to time out here. Both the wait-for-device
                         # gate and the boot_completed poll loop below use this
                         # same budget so neither cuts the other off early.
+                        #
+                        # ROOT CAUSE (2026-08-10 build): even the full 600s
+                        # software-mode budget wasn't enough on this shared
+                        # box — emulator.log showed "Boot completed in
+                        # 223507 ms" internally, so the guest itself wasn't
+                        # the bottleneck; adbd's own late-boot work (crypto/
+                        # keystore init, the same class of gap the AES-NI
+                        # capability check above exists for) never finished
+                        # within the remaining budget, most likely because
+                        # this run was also competing with the box's own
+                        # background load (see "Acquire Shared-Box Lock"
+                        # stage above) for the same limited CPU that software
+                        # (TCG) emulation already needs more of than hardware
+                        # acceleration would. 900s gives that extra margin
+                        # instead of failing at exactly the point the
+                        # previous 600s budget was already found wanting.
                         WAIT_SECS=300
                         POLL_ITERS=60
                         if [ "$ACCEL_MODE" = "off" ]; then
-                            WAIT_SECS=600
-                            POLL_ITERS=120
+                            WAIT_SECS=900
+                            POLL_ITERS=180
                         fi
                         if ! timeout $WAIT_SECS "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
                             echo "ERROR: emulator did not come up within ${WAIT_SECS}s — it may have crashed. Check emulator.log below."
@@ -724,6 +740,19 @@ pipeline {
                                 echo "Emulator booted"
                                 BOOTED=1
                                 break
+                            fi
+                            # Cheap early-exit for a DIFFERENT failure mode than
+                            # "stuck offline": if the qemu process itself has
+                            # died (crashed, OOM-killed, etc.) there is no point
+                            # burning the rest of the ${WAIT_SECS}s budget
+                            # polling a device that will never come back. This
+                            # is intentionally separate from the "offline"
+                            # nudge below — a dead process can't be reconnected,
+                            # only a still-running-but-stuck one can.
+                            if ! pgrep -f "emulator.*-avd $ANDROID_AVD_NAME" > /dev/null 2>&1; then
+                                echo "ERROR: emulator process for $ANDROID_AVD_NAME is no longer running (crashed?) at attempt $i/$POLL_ITERS — stopping early instead of waiting out the full timeout. Check emulator.log below."
+                                cat emulator.log 2>/dev/null || true
+                                exit 1
                             fi
                             # Mid-loop nudge for the adb-server-race case above:
                             # if the device is still registered as "offline"

@@ -150,11 +150,22 @@ jobs:
           mvn -B checkstyle:check@checkstyle-check
 
   # ================================================================
-  # STAGE 2 - Test (one matrix job per site, running in parallel)
+  # STAGE 2 - Test (one matrix job per site x browser, running in
+  # parallel — including Safari, see matrix.os below)
   # ================================================================
   test:
     needs: build
-    runs-on: ubuntu-latest
+    # runs-on is now driven by matrix.os instead of being hardcoded to
+    # ubuntu-latest. Safari has no Linux build at all (safaridriver ships
+    # inside macOS itself) — it used to be its own separate `test-safari`
+    # job/workflow-run entry purely because of that runner difference, even
+    # though it's conceptually just a fourth browser leg of the same site
+    # matrix. GitHub Actions lets `runs-on` reference matrix context, so
+    # folding safari's `os: macos-latest` into the same `include` list
+    # below puts it back under the single "test" job umbrella (shows as
+    # "test (demoqa, safari)" / "test (saucedemo, safari)" next to the
+    # other browsers) instead of a separately-named job in the run graph.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       # Multi-browser matrix — was previously a single hardcoded ${{
@@ -163,18 +174,48 @@ jobs:
       # resolves differently under Marionette or Chromium-Edge's CDP
       # implementation) had no way to surface on a normal push/PR; someone
       # had to remember to manually dispatch with browser=firefox first.
-      # `include` cross-joins every site with every browser (3 browsers x
-      # 2 sites = 6 jobs) rather than a flat matrix.browser list, which
-      # would otherwise still need matrix.site cross-joined automatically —
-      # same result, `include` just makes the resulting parallel job count
-      # explicit and easy to reason about at a glance. On a manual
+      # `include` cross-joins every site with every browser (4 browsers x
+      # 2 sites = 8 jobs, including safari) rather than a flat
+      # matrix.browser list, which would otherwise still need matrix.site
+      # cross-joined automatically — same result, `include` just makes the
+      # resulting parallel job count explicit and easy to reason about at
+      # a glance, and lets safari carry its own `os: macos-latest` (every
+      # other browser gets `os: ubuntu-latest`) alongside it. On a manual
       # workflow_dispatch run where the browser input is set, only that
       # one browser runs (matches the existing single-browser dispatch
-      # behavior instead of always fanning out to all three regardless of
-      # what was asked for).
+      # behavior instead of always fanning out to all four regardless of
+      # what was asked for) — safari only joins that single-browser list
+      # when the run_safari input is also ticked, since it costs several
+      # times the per-minute rate of the ubuntu-latest legs.
       matrix:
         site: [ demoqa, saucedemo ]
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.browser) || '["chrome","firefox","edge"]') }}
+        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.browser) || '["chrome","firefox","edge","safari"]') }}
+        # `include` here isn't adding a new combination — every browser
+        # value already exists from the site x browser cross product
+        # above. It matches by shared key (browser) and layers `os` on top
+        # of every combination with that browser, regardless of site — so
+        # this doesn't need its own `site:` entries. Safari's `os:
+        # macos-latest` is what actually runs it on a different runner
+        # than the other three; whether it *should* run at all on this
+        # push/dispatch is a separate question, answered by the job-level
+        # `if:` below.
+        include:
+          - browser: chrome
+            os: ubuntu-latest
+          - browser: firefox
+            os: ubuntu-latest
+          - browser: edge
+            os: ubuntu-latest
+          - browser: safari
+            os: macos-latest
+    # Safari costs several times the per-minute rate of the ubuntu-latest
+    # legs, so — same as the old dedicated test-safari job — it only runs
+    # on an actual push, or on-demand via workflow_dispatch + run_safari.
+    # Chrome/Firefox/Edge are unaffected by this condition since it's
+    # `true` for every event that would normally run them anyway (push,
+    # pull_request, workflow_dispatch); it only ever screens out the
+    # safari leg specifically.
+    if: matrix.browser != 'safari' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_safari == true)
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -193,7 +234,9 @@ jobs:
       # binary from scratch, which is both slower and adds an avoidable
       # dependency on the driver CDN being reachable/not rate-limiting.
       # Keyed on browser (not site) since the same driver binary is shared
-      # across both sites' matrix jobs.
+      # across both sites' matrix jobs. Safari ships its own driver inside
+      # macOS (no WebDriverManager download), so this cache is simply
+      # unused (and harmless) on that leg.
       - name: Cache WebDriverManager binaries
         uses: actions/cache@v4
         with:
@@ -255,26 +298,66 @@ jobs:
             echo "Edge already installed: $(microsoft-edge-stable --version)"
           fi
 
+      # macos-latest runners ship Safari but Remote Automation is off by
+      # default — without this every session fails immediately with
+      # "Could not create a session" from Selenium itself, same failure
+      # mode documented on DriverFactory.createSafariDriver(). BUG FIX:
+      # `safaridriver --enable` without sudo prompts an interactive
+      # "Password:" on current macos-latest images (enabling it modifies
+      # a system-level launchd/TCC setting, not a per-user one) — with no
+      # TTY attached in Actions that prompt just hangs the step until it's
+      # killed, surfacing as "Error: Process completed with exit code 1."
+      # The runner user has passwordless sudo configured, so running the
+      # same command under sudo lets it complete non-interactively instead
+      # of ever hitting that prompt.
+      - name: Enable Safari WebDriver
+        if: matrix.browser == 'safari'
+        run: sudo safaridriver --enable
+
       - name: Run Tests
         run: |
           echo "======= Running Tests: site=${{ matrix.site }} browser=${{ matrix.browser }} ======="
-          mvn -B test \
-            -Dsite=${{ matrix.site }} \
-            -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
-            -Dbrowser=${{ matrix.browser }} \
-            -Dheadless=${{ env.HEADLESS }} \
-            -Dhuman.pause.enabled=false \
-            -Dretry.count=${{ env.RETRY_COUNT }} \
-            -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-healing-report.json \
-            -Dmaven.test.failure.ignore=true
+          if [ "${{ matrix.browser }}" = "safari" ]; then
+            # Uses the dedicated *-safari-<suite>.xml suite files
+            # (parallel="none") instead of the plain ones the other three
+            # browsers use: Safari allows only one WebDriver session on a
+            # machine at a time (see DriverFactory.createSafariDriver()'s
+            # javadoc), so a thread-count>1 suite would fail outright under
+            # Safari. No -Dheadless is passed — Safari has no headless
+            # mode, and DriverFactory already warns and continues if one
+            # reaches it anyway. -Dallure.results.directory keeps this
+            # leg's results in their own subfolder for the same reason the
+            # old dedicated job did: merge-multiple in the allure-report
+            # job's download step needs every leg's folder name to differ.
+            mvn -B test \
+              -Dsite=${{ matrix.site }} \
+              -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
+              -Dbrowser=safari \
+              -Dhuman.pause.enabled=false \
+              -Dretry.count=${{ env.RETRY_COUNT }} \
+              -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari \
+              -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
+              -Dmaven.test.failure.ignore=true
+          else
+            mvn -B test \
+              -Dsite=${{ matrix.site }} \
+              -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
+              -Dbrowser=${{ matrix.browser }} \
+              -Dheadless=${{ env.HEADLESS }} \
+              -Dhuman.pause.enabled=false \
+              -Dretry.count=${{ env.RETRY_COUNT }} \
+              -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-healing-report.json \
+              -Dmaven.test.failure.ignore=true
+          fi
 
       # Each matrix job's own runner/filesystem is already isolated from
       # the others, so there's no risk of two sites' results overwriting
       # each other here the way there would be if they ran in the same
       # JVM — unlike the Jenkinsfile's parallel per-site stage, no
-      # -Dallure.results.directory override is needed. Results still land
-      # in the artifact under a per-site folder purely so the merge step
-      # in the allure-report job below can tell them apart.
+      # -Dallure.results.directory override is needed outside the safari
+      # leg above. Results still land in the artifact under a per-site
+      # folder purely so the merge step in the allure-report job below can
+      # tell them apart.
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -317,85 +400,6 @@ jobs:
           path: target/jacoco.exec
           retention-days: 7
           if-no-files-found: warn
-
-  # ================================================================
-  # STAGE 2a - Safari (macOS runner)
-  # ================================================================
-  # Chrome/Firefox/Edge above all run on ubuntu-latest — Safari has no
-  # Linux build at all (safaridriver ships inside macOS itself), so this
-  # is a separate job on macos-latest rather than a fourth entry in the
-  # `test` job's browser matrix. Runs on every push (macos-latest runner
-  # minutes cost several times the per-minute rate of ubuntu-latest, but
-  # this is intentionally wired into the default push trigger) — also
-  # runnable on-demand via workflow_dispatch + the run_safari input for
-  # PRs or ad-hoc runs outside a push.
-  test-safari:
-    needs: build
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_safari == true)
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        site: [ demoqa, saucedemo ]
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      # macos-latest runners ship Safari but Remote Automation is off by
-      # default — without this every session fails immediately with
-      # "Could not create a session" from Selenium itself, same failure
-      # mode documented on DriverFactory.createSafariDriver(). Enabling it
-      # doesn't need sudo on the hosted macOS runner (the runner user
-      # already owns /usr/bin/safaridriver's config).
-      - name: Enable Safari WebDriver
-        run: safaridriver --enable
-
-      # Uses the dedicated *-safari-<suite>.xml suite files (parallel="none")
-      # instead of the plain ones the `test` job above uses: Safari allows
-      # only one WebDriver session on a machine at a time (see
-      # DriverFactory.createSafariDriver()'s javadoc), so a thread-count>1
-      # suite would fail outright under Safari. No -Dheadless is passed —
-      # Safari has no headless mode, and DriverFactory already warns and
-      # continues if one reaches it anyway.
-      - name: Run Tests
-        run: |
-          echo "======= Running Tests: site=${{ matrix.site }} browser=safari ======="
-          mvn -B test \
-            -Dsite=${{ matrix.site }} \
-            -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
-            -Dbrowser=safari \
-            -Dhuman.pause.enabled=false \
-            -Dretry.count=${{ env.RETRY_COUNT }} \
-            -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari \
-            -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
-            -Dmaven.test.failure.ignore=true
-
-      - name: Upload Allure Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results-${{ matrix.site }}-safari
-          path: target/allure-results/
-          retention-days: 7
-
-      - name: Upload Extent + Surefire Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.site }}-safari-${{ github.run_id }}
-          path: |
-            target/extent-reports/
-            target/screenshots/
-            target/surefire-reports/
-            target/self-healing/
-          retention-days: 7
 
   # ================================================================
   # STAGE 2b - Mobile Test (Android emulator + Appium)
@@ -710,7 +714,14 @@ jobs:
   # ================================================================
   security-scan:
     needs: build
-    if: github.event_name == 'schedule'
+    # Still nightly-only on push/PR (by design — see the block comment
+    # above: the first CVE-database build is several minutes and
+    # shouldn't gate every push), but now also runnable on demand via
+    # workflow_dispatch instead of only ever firing on the 02:00 cron —
+    # showing as "skipped" on an ordinary push run is expected, not a
+    # bug; use "Run workflow" if you need to see it run without waiting
+    # for the nightly schedule.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -828,13 +839,16 @@ jobs:
   # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
-    needs: [ test, mobile-test, accessibility-visual-test, test-safari ]
+    needs: [ test, mobile-test, accessibility-visual-test ]
     # accessibility-visual-test only actually runs on the schedule
-    # trigger, and test-safari runs on every push (plus manual dispatch
-    # with run_safari ticked — see each job's own `if:` above) but is
-    # still skipped on PR runs — `always()` here means this job still
-    # runs on ordinary pushes/PRs even though those jobs may show as
-    # skipped rather than succeeded, which `needs:` alone would block on.
+    # trigger, and the safari leg of `test` above only runs on push (plus
+    # manual dispatch with run_safari ticked — see the `test` job's own
+    # `if:`) but is still skipped on PR runs — `always()` here means this
+    # job still runs on ordinary pushes/PRs even though those jobs may
+    # show as skipped rather than succeeded, which `needs:` alone would
+    # block on. test-safari no longer exists as a separate job — its
+    # matrix legs are now folded into `test` (see matrix.os there), so
+    # `needs: test` already covers them.
     if: always()
     runs-on: ubuntu-latest
     permissions:
