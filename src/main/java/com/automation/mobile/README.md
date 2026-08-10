@@ -1,32 +1,38 @@
+<div align="center">
+
 # 📱 Mobile (Appium) Module
 
-Android/iOS app testing under the same automation + Allure/Extent
-reporting umbrella as the rest of this framework — same Page Object +
-TestNG pattern, just pointed at a mobile driver instead of a browser one.
-This module is additive: it doesn't touch or depend on anything in
-`com.automation.sites` (the web/browser side), so working with mobile
-tests never risks breaking a web test or vice versa.
+*Android/iOS app testing under the same automation + Allure/Extent reporting umbrella as the rest of this framework.*
+
+</div>
+
+Same Page Object + TestNG pattern, just pointed at a mobile driver instead
+of a browser one. This module is additive: it doesn't touch or depend on
+anything in `com.automation.sites` (the web/browser side), so working with
+mobile tests never risks breaking a web test or vice versa.
 
 ## 📋 Table of Contents
-- [Quick Start](#-quick-start)
-- [Local Emulator Visibility — Genymotion + `wmctrl`](#-local-emulator-visibility--genymotion--wmctrl)
-- [Real Device Walkthrough — Samsung Galaxy S24](#-real-device-walkthrough--samsung-galaxy-s24)
-- [What's Here](#-whats-here)
-- [Configuration — `mobile.properties`](#️-configuration--mobileproperties)
-- [Adding Your Own App](#-adding-your-own-app)
-- [Verified](#-verified)
-- [Still Open](#-still-open)
-- [Dependency](#-dependency)
-- [Related Docs](#-related-docs)
+- [⚡ Quick Start](#-quick-start)
+- [👀 Local Emulator Visibility — Genymotion + `wmctrl`](#-local-emulator-visibility--genymotion--wmctrl)
+- [📱 Real Device Walkthrough — Samsung Galaxy S24](#-real-device-walkthrough--samsung-galaxy-s24)
+- [🧩 What's Here](#-whats-here)
+- [⚙️ Configuration — `mobile.properties`](#️-configuration--mobileproperties)
+- [➕ Adding Your Own App](#-adding-your-own-app)
+- [✅ Verified](#-verified)
+- [🚧 Still Open](#-still-open)
+- [📦 Dependency](#-dependency)
+- [📚 Related Docs](#-related-docs)
+
+---
 
 ## ⚡ Quick Start
+
+> [!WARNING]
+> `mvn test` does **not** start the Appium server or an emulator/device for you locally (only the CI pipelines do, in their own dedicated setup steps). Skip step 1 below and the test fails with `SessionNotCreatedException` / `ConnectException` on `127.0.0.1:4723` — not a test/code error.
+
 ```bash
 # 1. Start the Appium server (separately installed: npm install -g appium)
-#    and make sure an emulator/device is already up — `adb devices` should
-#    list it. mvn test does NOT start either of these for you locally
-#    (only the CI pipelines do, in their own dedicated setup steps) — if
-#    you skip this, the test fails with SessionNotCreatedException /
-#    ConnectException on 127.0.0.1:4723, not a test/code error.
+#    and make sure an emulator/device is already up — `adb devices` should list it.
 appium
 adb devices
 
@@ -37,21 +43,17 @@ cp src/test/resources/config/mobile.properties.example \
 # below, leave mobile.app.path empty and set:
 #   mobile.app.package=com.android.settings
 #   mobile.app.activity=.Settings
-# These two are NOT optional for the example to do anything visible: if
-# neither mobile.app.path nor mobile.app.package/activity is set, Appium
-# starts a session with no target app at all — it lands on whatever
-# screen the device already had open (usually the home launcher) and
-# every element lookup then fails with a confusing NoSuchElementError
-# that looks unrelated to config. AppiumDriverFactory logs a clear
-# warning when this happens, but it's easy to miss in the noise — set
-# them properly (or pass -Dmobile.app.package=... -Dmobile.app.activity=...
-# on the command line) instead of relying on the warning to catch it.
 
 # 3. Run the example test — works against any Android emulator/device,
 #    no app-under-test setup required
 mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml \
   -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings
 ```
+
+> [!IMPORTANT]
+> `mobile.app.package`/`mobile.app.activity` (or `mobile.app.path`) are **not optional** for the example to show anything visible. If neither is set, Appium starts a session with no target app — it lands on whatever screen the device already had open (usually the home launcher), and every element lookup then fails with a confusing `NoSuchElementError` that looks unrelated to config. `AppiumDriverFactory` logs a warning when this happens, but it's easy to miss — set the properties explicitly (or pass `-Dmobile.app.package=... -Dmobile.app.activity=...` on the command line) rather than relying on the warning to catch it.
+
+---
 
 ## 👀 Local Emulator Visibility — Genymotion + `wmctrl`
 
@@ -91,6 +93,8 @@ it in Genymotion's UI.
 `wmctrl` only affects window focus on the host machine — it's cosmetic for
 watching the run, and has no effect on the Appium session itself. Skip it
 entirely in CI or on a headless AVD; there's no window to focus.
+
+---
 
 ## 📱 Real Device Walkthrough — Samsung Galaxy S24
 
@@ -176,7 +180,9 @@ at a real serial/IP instead of an emulator name like `emulator-5554`.
   check **Settings → Apps → \<your app\> → Battery → Unrestricted** — One
   UI aggressively backgrounds apps by default.
 
-## 🧩 What's here
+---
+
+## 🧩 What's Here
 
 | File | Web equivalent | Role |
 |---|---|---|
@@ -185,6 +191,8 @@ at a real serial/IP instead of an emulator name like `emulator-5554`.
 | `src/test/java/.../mobile/core/MobileBaseTest.java` | `sites/core/BaseTest` | Creates the Appium driver in `@BeforeMethod`, quits it in `@AfterMethod`, implements `DriverProvider` so the existing `TestListener` (screenshot-on-failure, Allure/Extent attachments) works unmodified for mobile tests too |
 | `sites/settings/pages/SettingsHomePage.java` + `.../settings/tests/SettingsHomeTest.java` (under `src/test/java`) | a `LoginPage` + `LoginTest` | Working example against Android's **built-in Settings app** — runs end-to-end on any emulator/device with zero app-under-test setup, the same way demoqa/saucedemo let you try the web module with just a browser. Use as the template for a real app |
 | `testng-suites/mobile-smoke.xml` / `mobile-regression.xml` | `demoqa-smoke.xml` / `-regression.xml` | Scan `com.automation.mobile.sites.*` the same way the web suites scan `com.automation.sites.<site>.tests` |
+
+---
 
 ## ⚙️ Configuration — `mobile.properties`
 
@@ -204,7 +212,9 @@ Copied from `mobile.properties.example` (see Quick Start above). Loaded the same
 
 Point `appium.server.url` at a remote/cloud grid (BrowserStack, Sauce Labs, a self-hosted grid) instead of a local Appium server the same way — just change the URL.
 
-## ➕ Adding your own app
+---
+
+## ➕ Adding Your Own App
 
 1. Add screen objects under `com.automation.mobile.sites.<app>.pages`, extending `BaseMobilePage`, using real element IDs/accessibility labels pulled via `appium inspector` or `uiautomatorviewer` (the mobile equivalent of browser DevTools).
 2. Add test classes under `com.automation.mobile.sites.<app>.tests`, extending `MobileBaseTest` — same Page Object + TestNG + Allure pattern as `SettingsHomeTest`.
@@ -212,6 +222,8 @@ Point `appium.server.url` at a remote/cloud grid (BrowserStack, Sauce Labs, a se
 4. Run it: `mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/<your-suite>.xml` (copy `mobile-smoke.xml` as a starting point — swap the `<package>` to your new test package if you don't want it lumped in with the Settings example).
 
 `AppiumDriverFactory.createDriver()` gives you a `RemoteWebDriver` — from there it's the same Page Object + TestNG + Allure workflow already used for demoqa/saucedemo, just with mobile locators (resource-id, accessibility-id, or a `UiSelector` string via `AppiumBy`) instead of CSS/XPath.
+
+---
 
 ## ✅ Verified
 
@@ -233,15 +245,30 @@ Point `appium.server.url` at a remote/cloud grid (BrowserStack, Sauce Labs, a se
   `-Dretry.count` actually applies to mobile runs too (it silently didn't,
   before that was fixed).
 
-## 🚧 Still open
+---
+
+## 🚧 Still Open
 
 - Only one screen (`SettingsHomePage`) is covered — extend with real screens once a target app is wired in.
 - iOS (`IOSDriver`/`XCUITestOptions`) hasn't been run against a real simulator/device — only the Android path above is confirmed live.
+
+---
 
 ## 📦 Dependency
 
 `io.appium:java-client` (version `9.3.0`) was added to `pom.xml` for this — see the `<!-- Appium -->` comment there. Confirmed resolving and compiling cleanly against Maven Central (`mvn dependency:resolve compile test-compile`).
 
-## 📚 Related docs
+---
 
-Main project README: `README.md` at the project root — see especially the "Mobile Testing (Appium)" section for a shorter overview, and "Specialized Testing" for accessibility/visual/perf, which are also opt-in test types outside the default web suites.
+## 📚 Related Docs
+
+Main project README: [`README.md`](../../../../../../README.md) at the project root — see especially the "Mobile Testing (Appium)" section for a shorter overview, and "Specialized Testing" for accessibility/visual/perf, which are also opt-in test types outside the default web suites.
+
+---
+
+<div align="center">
+
+<sub>⬆️ <a href="#-mobile-appium-module">Back to top</a></sub>
+
+</div>
+

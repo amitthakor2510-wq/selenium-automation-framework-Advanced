@@ -1,6 +1,23 @@
-# Troubleshooting & Glossary
+<div align="center">
+
+# 🩹 Troubleshooting & Glossary
+
+*Errors that have actually come up in this codebase, what caused them, and what fixed them — plus a plain-English glossary of every term this project's docs use.*
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [🩹 Common Errors and Fixes](#-common-errors-and-fixes)
+- [📖 Glossary](#-glossary)
+
+---
 
 ## 🩹 Common Errors and Fixes
+
+> [!TIP]
+> This table only grows in one direction — every real bug this project hits gets a one-line row here so the next person (probably future-you) doesn't have to re-diagnose it from scratch. See [🤝 Contributing](../README.md#-contributing) in the main README.
 
 | Error | Cause | Fix |
 |---|---|---|
@@ -67,3 +84,8 @@
 
 ---
 
+<div align="center">
+
+<sub>⬆️ <a href="#-troubleshooting--glossary">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

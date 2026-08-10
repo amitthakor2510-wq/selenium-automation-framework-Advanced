@@ -88,7 +88,7 @@ env:
   HEADLESS: ${{ (github.event_name == 'workflow_dispatch' && inputs.headless == false) && 'false' || 'true' }}
   RETRY_COUNT: ${{ inputs.retry_count || '0' }}
   # No MAVEN_OPTS override for maven.repo.local here — every job below uses
-  # `cache: 'maven'` on actions/setup-java@v4, which caches Maven's DEFAULT
+  # `cache: 'maven'` on actions/setup-java@v5, which caches Maven's DEFAULT
   # local repo (~/.m2/repository). A previous version of this workflow
   # redirected it to a workspace-relative path via MAVEN_OPTS, which meant
   # that cache was faithfully saving/restoring an always-empty ~/.m2/repository
@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -138,7 +138,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -234,7 +234,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -431,7 +431,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -572,7 +572,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -653,7 +653,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -741,7 +741,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'

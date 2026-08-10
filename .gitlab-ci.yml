@@ -339,34 +339,68 @@ mobile-test:
       if [ ! -d "$ANDROID_AVD_HOME/${ANDROID_AVD_NAME}.avd" ]; then
         echo "no" | avdmanager create avd -n "$ANDROID_AVD_NAME" -k "system-images;android-30;default;x86_64" --force
       fi
-    # If /dev/kvm isn't accessible to this runner (common the first time
-    # this job runs on a given machine, or if the runner isn't configured
-    # to pass --device=/dev/kvm through to its job containers), the
-    # emulator silently falls back to slow software emulation instead of
-    # failing outright — flagged here so an unusually slow run points
-    # back at this instead of looking like a mystery regression. Granting
-    # KVM access is a one-time host/runner config change, not something
-    # safe to script unattended inside a CI job.
+    # This runner is the same class of shared persistent host (no
+    # guaranteed real KVM passthrough) that the Jenkins pipeline's Mobile
+    # Test stage was hardened against: a bare "does /dev/kvm exist" check
+    # isn't enough, because a host can have /dev/kvm present yet still not
+    # pass through the vmx/svm/aes CPU flags the guest needs — the
+    # emulator then boots INTERNALLY ("Boot completed in NNNN ms" in
+    # emulator.log) while adbd's own late-boot crypto/keystore init never
+    # finishes, leaving the device stuck "offline" forever instead of
+    # failing fast or falling back cleanly. Explicitly forcing "-accel
+    # off" (software mode) whenever any of those checks fail avoids that
+    # half-broken state, matching the Jenkinsfile's own capability check.
     - |
-      if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
-        echo "WARNING: /dev/kvm not accessible to this job — emulator will run in slow software mode."
+      ACCEL_MODE="off"
+      if [ -e /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ] \
+         && grep -qE '^flags\s*:.*\baes\b' /proc/cpuinfo 2>/dev/null \
+         && grep -qE '^flags\s*:.*\b(vmx|svm)\b' /proc/cpuinfo 2>/dev/null; then
+        ACCEL_MODE="on"
+        echo "KVM + required CPU virtualization/AES-NI flags detected — using hardware acceleration."
+      else
+        echo "WARNING: this runner can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm/aes CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto', which has been known to land in a half-broken state where the guest boots internally but adbd never comes online."
       fi
-    - $ANDROID_SDK_ROOT/emulator/emulator -avd $ANDROID_AVD_NAME -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
-    - |
+      $ANDROID_SDK_ROOT/emulator/emulator -avd $ANDROID_AVD_NAME -accel $ACCEL_MODE -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
       echo "Waiting for emulator to boot..."
-      if ! timeout 120 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
-        echo "ERROR: emulator did not come up within 120s — it may have crashed. Check emulator.log below."
+      # -accel off trades speed for reliability, so a cold software-
+      # emulated boot needs a much wider budget than a working hardware-
+      # accelerated one gets — matching the Jenkinsfile's own scaling
+      # (300s/60 polls on hardware accel, 900s/180 polls forced off).
+      WAIT_SECS=300
+      POLL_ITERS=60
+      if [ "$ACCEL_MODE" = "off" ]; then
+        WAIT_SECS=900
+        POLL_ITERS=180
+      fi
+      if ! timeout $WAIT_SECS "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
+        echo "ERROR: emulator did not come up within ${WAIT_SECS}s — it may have crashed. Check emulator.log below."
         cat emulator.log 2>/dev/null || true
         exit 1
       fi
-      for i in $(seq 1 60); do
+      # adb wait-for-device above only requires the device to be
+      # REGISTERED — it can still be stuck "offline" and never reach
+      # sys.boot_completed=1, exactly the failure signature above.
+      # Without this explicit BOOTED guard, a device that stays offline
+      # for the whole loop below fell through silently into starting
+      # Appium and running mvn test against a half-booted device, which
+      # produces confusing Appium/test failures instead of a clear
+      # infra-timeout diagnosis (same fix already applied in Jenkinsfile).
+      BOOTED=0
+      for i in $(seq 1 $POLL_ITERS); do
         boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
         if [ "$boot_completed" = "1" ]; then
           echo "Emulator booted"
+          BOOTED=1
           break
         fi
         sleep 5
       done
+      if [ "$BOOTED" != "1" ]; then
+        echo "ERROR: emulator registered but never reached sys.boot_completed=1 within ${WAIT_SECS}s — likely still 'offline' (see adb devices below). Check emulator.log."
+        "$ANDROID_SDK_ROOT/platform-tools/adb" devices || true
+        cat emulator.log 2>/dev/null || true
+        exit 1
+      fi
     - |
       # Don't `apt-get install npm` here — on a NodeSource-installed
       # nodejs (which is what this host actually has), npm ships bundled

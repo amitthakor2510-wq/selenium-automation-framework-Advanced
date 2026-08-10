@@ -1,4 +1,16 @@
-# Extending the Framework
+<div align="center">
+
+# ➕ Extending the Framework
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [➕ Adding a New Site](#-adding-a-new-site--auto-configured-across-all-3-testing-styles)
+- [🧭 Debugging a Live Site Redesign](#-debugging-a-live-site-redesign--lessons-from-a-real-session)
+
+---
 
 ## ➕ Adding a New Site — Auto-Configured Across All 3 Testing Styles
 
@@ -13,7 +25,7 @@ one. Jenkins/GitHub/GitLab all auto-discover the new suite files on next run.
 ./Scripts/new-site.sh mysite https://mysite.com
 ```
 Creates:
-```
+```text
 src/test/resources/config/mysite.properties
 testng-suites/mysite-regression.xml
 testng-suites/mysite-smoke.xml
@@ -31,12 +43,14 @@ src/test/java/.../sites/mysite/tests/KeywordDrivenMysiteHomeTest.java
 src/test/resources/testdata/mysite_home.csv
 src/test/java/.../sites/mysite/tests/MysiteHomeDataDrivenTest.java
 ```
-All three land in the same `com.automation.sites.mysite.tests` package, so
-the generated regression/smoke suite XML picks up all of them automatically
-— no per-type suite wiring needed. Re-running the script against a site
-that already has a `config/<site>.properties` file refuses to run rather
-than clobbering existing work — remove the site's files first (or pick a
-new name) if you really want to regenerate.
+
+> [!NOTE]
+> All three land in the same `com.automation.sites.mysite.tests` package, so
+> the generated regression/smoke suite XML picks up all of them automatically
+> — no per-type suite wiring needed. Re-running the script against a site
+> that already has a `config/<site>.properties` file refuses to run rather
+> than clobbering existing work — remove the site's files first (or pick a
+> new name) if you really want to regenerate.
 
 ### Step 2 — Fill in the placeholders
 Each generated file is a real, compiling, runnable stub — not empty
@@ -75,10 +89,14 @@ demoqa.com's Book Store Application was redesigned mid-development of this suite
 | Adding a book triggers a **native JS `alert()`**, but deleting one shows a **rendered in-page modal** (not a native dialog) | `alertIsPresent()` correctly caught the add-alert, but timed out on delete and silently moved on with the modal still open, blocking everything after it | Add: accept the native alert. Delete: click the modal's `OK` button directly by locating it in the DOM |
 | Profile page collection table renders asynchronously after the username label appears | One-shot `findElements()` reads (`getBookCount()`, `isBookListed()`) intermittently returned stale/empty results depending on timing | Added polling variants (`waitForBookListed(...)`, retry inside `deleteBookByTitle(...)`) instead of trusting a single snapshot right after navigation |
 
-**Takeaways baked into the framework as a result:**
-- `dumpPageForDebugging(String label)` (in `BookStoreApplicationPage` / `ProfilePage`) writes full page source to `target/debug-dumps/` on locator timeout — check there first the next time a previously-passing test breaks against a live site.
-- Prefer **polling** (`wait.until(...)`) over one-shot DOM reads for anything that updates asynchronously after a navigation or an action — a single `findElements()` call has no guarantee the render has settled.
-- Don't assume a confirmation dialog is a native `alert()`/`confirm()` just because a sibling action's confirmation is — check both, or check the actual DOM/screenshot before writing the handling code.
+> [!TIP]
+> **Takeaways baked into the framework as a result:**
+> - `dumpPageForDebugging(String label)` (in `BookStoreApplicationPage` / `ProfilePage`) writes full page source to `target/debug-dumps/` on locator timeout — check there first the next time a previously-passing test breaks against a live site.
+> - Prefer **polling** (`wait.until(...)`) over one-shot DOM reads for anything that updates asynchronously after a navigation or an action — a single `findElements()` call has no guarantee the render has settled.
+> - Don't assume a confirmation dialog is a native `alert()`/`confirm()` just because a sibling action's confirmation is — check both, or check the actual DOM/screenshot before writing the handling code.
 
----
+<div align="center">
 
+<sub>⬆️ <a href="#-extending-the-framework">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

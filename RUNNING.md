@@ -1,23 +1,33 @@
-# 🚀 Running Everything — Master Guide
+<div align="center">
 
-One place for every way to run this framework, and where the results land afterward. For narrative "why" explanations, see the linked deep-dive docs — this file is commands only.
+# 🚀 Running Everything
+### Master Guide
+
+*One place for every way to run this framework, and where the results land afterward.*
+
+</div>
+
+---
+
+For narrative "why" explanations, see the linked deep-dive docs — this file is commands only.
 
 ## 📋 Table of Contents
-- [Prerequisites](#-prerequisites)
-- [Local — Browser Tests](#-local--browser-tests)
-- [Docker — Selenium Grid](#-docker--selenium-grid)
-- [Keyword-Driven & Data-Driven Tests](#-keyword-driven--data-driven-tests)
-- [REST API Tests](#-rest-api-tests)
-- [Accessibility, Visual Regression & Performance](#️️-accessibility-visual-regression--performance)
-- [Mobile (Appium)](#-mobile-appium)
-- [Viewing Reports](#-viewing-reports)
-- [Code Coverage & Code Quality](#-code-coverage--code-quality)
-- [CI/CD](#-cicd)
-- [Command Cheat Sheet](#-command-cheat-sheet)
+- [✅ Prerequisites](#-prerequisites)
+- [🖥️ Local — Browser Tests](#️-local--browser-tests)
+- [🐳 Docker — Selenium Grid](#-docker--selenium-grid)
+- [🧵 Keyword-Driven & Data-Driven Tests](#-keyword-driven--data-driven-tests)
+- [🌐 REST API Tests](#-rest-api-tests)
+- [♿🖼️⏱️ Accessibility, Visual Regression & Performance](#️️-accessibility-visual-regression--performance)
+- [📱 Mobile (Appium)](#-mobile-appium)
+- [📊 Viewing Reports](#-viewing-reports)
+- [📊 Code Coverage & Code Quality](#-code-coverage--code-quality)
+- [🔄 CI/CD](#-cicd)
+- [🧾 Command Cheat Sheet](#-command-cheat-sheet)
 
 ---
 
 ## ✅ Prerequisites
+
 - Java 17 — `java -version`
 - Maven 3.9+ — `mvn -version` — **or skip installing Maven entirely and use
   the bundled wrapper**: `./mvnw -version` (Windows: `mvnw.cmd -version`).
@@ -62,7 +72,9 @@ mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.x
 # Disable retry — see a failure immediately instead of it re-running
 mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
 ```
-Any `global.properties` key can be overridden the same way with `-Dkey=value`. Full key reference: [`docs/configuration.md`](docs/configuration.md).
+
+> [!TIP]
+> Any `global.properties` key can be overridden the same way with `-Dkey=value`. Full key reference: [`docs/configuration.md`](docs/configuration.md).
 
 ---
 
@@ -228,3 +240,9 @@ Three pipelines are included and runnable as-is — Jenkins, GitHub Actions, Git
 | Open Allure report | `allure serve target/allure-results` |
 | Coverage report | `mvn test` then open `target/site/jacoco/index.html` |
 | Style/quality gate | `mvn verify` |
+
+<div align="center">
+
+<sub>⬆️ <a href="#-running-everything">Back to top</a> · <a href="README.md">← Back to README</a></sub>
+
+</div>

@@ -1,4 +1,17 @@
-# Configuration & Environments
+<div align="center">
+
+# ⚙️ Configuration & Environments
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [🔧 Configuration — `global.properties`](#-configuration--globalproperties)
+- [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid)
+- [🧭 Safari](#-safari)
+
+---
 
 ## 🔧 Configuration — `global.properties`
 
@@ -77,9 +90,11 @@ open http://localhost:4444/ui
 docker compose down -v
 ```
 
-Reports, screenshots, Allure results, and `target/debug-dumps/` are all volume-mounted back to your host `target/` folder, so they're available after the container exits exactly as they would be from a local `mvn test` run.
+> [!NOTE]
+> Reports, screenshots, Allure results, and `target/debug-dumps/` are all volume-mounted back to your host `target/` folder, so they're available after the container exits exactly as they would be from a local `mvn test` run.
 
-Safari has no Grid node image (see the comment at the top of `docker-compose.yml`) and cannot run through this compose file — use the local (non-Grid) path documented below instead.
+> [!WARNING]
+> Safari has no Grid node image (see the comment at the top of `docker-compose.yml`) and cannot run through this compose file — use the local (non-Grid) path documented below instead.
 
 ---
 
@@ -103,7 +118,13 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-safari-smoke.xml -Dbr
 mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-safari-regression.xml -Dbrowser=safari
 ```
 
-Downloaded files land in the signed-in user's real `~/Downloads` — there's no per-session download-directory isolation the way `DriverFactory.getDownloadPath()` gives Chrome/Brave/Edge, so `UploadDownloadTest`-style assertions on a specific download path aren't portable to Safari as-is.
+> [!CAUTION]
+> Downloaded files land in the signed-in user's real `~/Downloads` — there's no per-session download-directory isolation the way `DriverFactory.getDownloadPath()` gives Chrome/Brave/Edge, so `UploadDownloadTest`-style assertions on a specific download path aren't portable to Safari as-is.
 
 **CI:** Safari is opt-in and runs on a separate macOS agent/runner in all three pipelines — see [🧭 Safari](ci-cd.md#-safari) in the CI/CD guide.
 
+<div align="center">
+
+<sub>⬆️ <a href="#️-configuration--environments">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

@@ -1,8 +1,21 @@
-# Reports & Code Quality
+<div align="center">
+
+# 📈 Reports & Code Quality
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [📈 Test Reports](#-test-reports)
+- [📊 Code Coverage — JaCoCo](#-code-coverage--jacoco)
+- [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)
+
+---
 
 ## 📈 Test Reports
 
-```
+```text
 target/
 ├── extent-reports/
 │   └── demoqa-report.html         # Custom HTML report — open in Chrome
@@ -115,7 +128,8 @@ open target/site/jacoco/index.html   # macOS
 1. **`prepare-agent`** attaches a Java agent at JVM startup that records which lines/branches actually execute while TestNG runs.
 2. **`report`** turns that recorded data into the HTML report above — line/branch coverage per package and class, down to which specific lines a given test hit.
 
-One wiring detail if you ever touch Surefire's config: this project's `<argLine>` is a literal, hardcoded block (AspectJ weaver + logging config + heap flags), not a reference to the default `@{argLine}` property. JaCoCo's `prepare-agent` is configured to write its instrumentation flags into a separate `jacocoArgLine` property instead — using the default property name there would have silently overwritten the whole hardcoded block instead of adding to it. If you add more Surefire config later, keep referencing `@{jacocoArgLine}` explicitly rather than switching back to `@{argLine}`.
+> [!WARNING]
+> One wiring detail if you ever touch Surefire's config: this project's `<argLine>` is a literal, hardcoded block (AspectJ weaver + logging config + heap flags), not a reference to the default `@{argLine}` property. JaCoCo's `prepare-agent` is configured to write its instrumentation flags into a separate `jacocoArgLine` property instead — using the default property name there would have silently overwritten the whole hardcoded block instead of adding to it. If you add more Surefire config later, keep referencing `@{jacocoArgLine}` explicitly rather than switching back to `@{argLine}`.
 
 ### Coverage gate (CI)
 
@@ -160,7 +174,11 @@ All three pipelines now run Checkstyle on every push/PR/build, invoking the name
 | GitLab CI | `checkstyle` job, `stage: test` (parallel with the browser/mobile jobs) |
 | Jenkins | `Checkstyle` stage, right after `Build` |
 
-On GitHub Actions, a PR also gets the Checkstyle result surfaced directly in the automated PR comment (see `post_pr_comment.py`), alongside the test pass/fail summary.
+> [!NOTE]
+> On GitHub Actions, a PR also gets the Checkstyle result surfaced directly in the automated PR comment (see `post_pr_comment.py`), alongside the test pass/fail summary.
 
----
+<div align="center">
 
+<sub>⬆️ <a href="#-reports--code-quality">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

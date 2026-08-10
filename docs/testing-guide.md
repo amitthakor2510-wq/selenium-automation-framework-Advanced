@@ -1,4 +1,21 @@
-# Testing Guide
+<div align="center">
+
+# 🧪 Testing Guide
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [🔁 Retry & Resilience](#-retry--resilience)
+- [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
+- [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)
+- [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
+- [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance)
+- [📱 Mobile Testing (Appium)](#-mobile-testing-appium)
+- [🚦 Smoke vs Regression](#-smoke-vs-regression)
+
+---
 
 ## 🔁 Retry & Resilience
 
@@ -14,7 +31,8 @@ Two listeners work together so no test needs to opt in manually:
 mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
 ```
 
-> ⚠️ **CI defaults to `retry.count=0`** in both the GitHub Actions workflow and typical Jenkins params, trading resilience for fast, unambiguous CI signal. Locally, leaving the default `2` in place absorbs one-off network/render hiccups without masking a real break.
+> [!WARNING]
+> **CI defaults to `retry.count=0`** in both the GitHub Actions workflow and typical Jenkins params, trading resilience for fast, unambiguous CI signal. Locally, leaving the default `2` in place absorbs one-off network/render hiccups without masking a real break.
 
 Page objects add a second layer of resilience beyond retry: several locators are wrapped to dump the full page source to `target/debug-dumps/*.html` on a `TimeoutException`/`NoSuchElementException`, rather than failing with only a stack trace. See [🧭 Debugging a Live Site Redesign](extending.md#-debugging-a-live-site-redesign--lessons-from-a-real-session) for why that pattern exists and how to use the dumps it produces.
 
@@ -90,6 +108,7 @@ Page objects add a second layer of resilience beyond retry: several locators are
 | 15 | Delete from profile | Confirms the in-page delete modal, polls until the row is gone |
 | 16 | Logout | Redirects to `/login`, closing out the session |
 
+> [!NOTE]
 > Tests 11–16 replace what used to be a separate `ProfileTest` class — merged here so the whole flow (register → shop → manage collection → logout) runs against one real user session instead of two independently-registered ones.
 </details>
 
@@ -113,8 +132,9 @@ Page objects add a second layer of resilience beyond retry: several locators are
 
 Two eventual-consistency details worth knowing if you're extending this class:
 
-- **Test 8** polls up to 3 times (with a short sleep) after the delete before asserting the book is gone — a single immediate `GET` right after `DELETE` occasionally still shows the stale collection.
-- **Test 9 expects `204`, not `200`.** DemoQA's own Swagger docs list `200` for `DELETE /Account/v1/User/{UUID}`, but the live API actually returns `204 No Content` — the docs don't match the real response. Asserting `200` here fails every run; this is the one endpoint in the class where the documented contract and the actual behavior disagree.
+> [!IMPORTANT]
+> - **Test 8** polls up to 3 times (with a short sleep) after the delete before asserting the book is gone — a single immediate `GET` right after `DELETE` occasionally still shows the stale collection.
+> - **Test 9 expects `204`, not `200`.** DemoQA's own Swagger docs list `200` for `DELETE /Account/v1/User/{UUID}`, but the live API actually returns `204 No Content` — the docs don't match the real response. Asserting `200` here fails every run; this is the one endpoint in the class where the documented contract and the actual behavior disagree.
 
 Run it on its own:
 ```bash
@@ -147,7 +167,7 @@ Adding a brand-new site with all three styles already scaffolded is one command 
 
 Three opt-in test types beyond standard functional coverage — none run in CI by default (all three are extra network/compute cost per run), each is one explicit command:
 
-### Accessibility — axe-core
+### ♿ Accessibility — axe-core
 `AccessibilityTest` runs a WCAG/GIGW-adjacent scan (via [axe-core](https://www.deque.com/axe/)) against demoqa pages and asserts on violation severity, not just "does the page look right." Relevant specifically for government-portal-style QA subject to GIGW accessibility guidelines, but useful for any UI.
 ```bash
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml
@@ -156,15 +176,16 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml
 - `a11y.failOn` (config, default `critical,serious`) — which violation severities actually fail the test vs. just get logged/attached to Allure; tighten once known issues on a page are triaged
 - Violations are attached to the Allure report as a readable list, not just a pass/fail
 
-### Visual Regression — AShot
+### 🖼️ Visual Regression — AShot
 `VisualRegressionTest` captures a pixel-level screenshot of a page and diffs it against a committed baseline image on every subsequent run, catching unintended layout/styling drift that a functional assertion wouldn't notice.
 ```bash
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-visual.xml
 ```
-- **First run per snapshot name always passes** — it's capturing the baseline. Commit that baseline image; from the second run on, it's a real regression check.
-- Only one demoqa page has a baseline so far — extend coverage to more pages as they stabilize (a page whose layout is still actively changing will just generate false-positive diffs).
 
-### Performance Smoke — JMeter
+> [!TIP]
+> **First run per snapshot name always passes** — it's capturing the baseline. Commit that baseline image; from the second run on, it's a real regression check. Only one demoqa page has a baseline so far — extend coverage to more pages as they stabilize (a page whose layout is still actively changing will just generate false-positive diffs).
+
+### ⏱️ Performance Smoke — JMeter
 A lightweight response-time/response-code check (not a load or capacity test) via the `perf` Maven profile, so `mvn test` — used everywhere else, CI included — is completely unaffected by its presence.
 ```bash
 mvn verify -Pperf
@@ -210,19 +231,20 @@ mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml
 
 Full setup guide, including remote/cloud grid config (BrowserStack, Sauce Labs): **[`src/main/java/com/automation/mobile/README.md`](../src/main/java/com/automation/mobile/README.md)**.
 
+> [!NOTE]
 > **Known gaps, stated plainly:** only one screen (`SettingsHomePage`) is covered so far, and iOS (`IOSDriver`) hasn't been run against a real simulator/device — only the Android path is confirmed live. The Android path itself **is** wired into all three CI pipelines (Jenkins, GitHub Actions, GitLab CI each boot an emulator + Appium server and run the mobile suite) and has been verified end-to-end against a real emulator (Genymotion, Android 15/API 35). See [✅ Verified](../src/main/java/com/automation/mobile/README.md#-verified) in the mobile module's own README, and the [Roadmap](roadmap.md) for the full list of what's still open.
 
 ---
 
 ## 🚦 Smoke vs Regression
 
-### Smoke — run first, fast
+### 🟢 Smoke — run first, fast
 Quick check that critical paths work. Run after every deployment.
 ```bash
 mvn test -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
 ```
 
-### Regression — run for full coverage
+### 🔵 Regression — run for full coverage
 Complete suite. Run nightly or before submitting a report.
 ```bash
 mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
@@ -235,7 +257,11 @@ mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 @Test(groups = {"smoke", "regression"}) // both suites
 ```
 
+> [!NOTE]
 > `accessibility`, `visual`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly.
 
----
+<div align="center">
 
+<sub>⬆️ <a href="#-testing-guide">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

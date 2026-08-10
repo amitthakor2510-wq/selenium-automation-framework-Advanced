@@ -1,20 +1,35 @@
+<div align="center">
+
 # 🐳 Running the Framework in Docker
+
+*A disposable Selenium Grid instead of a locally installed browser.*
+
+</div>
+
+---
 
 Two new files at the project root — `Dockerfile` and `docker-compose.yml` — let
 you run the whole suite against a disposable Selenium Grid instead of a
 locally installed browser. `.dockerignore` keeps the build context small.
 
 ## 📋 Table of Contents
-- [What It Spins Up](#-what-it-spins-up)
-- [Quick Start](#-quick-start)
-- [How It Connects](#-how-it-connects-what-changed-in-the-framework-itself)
-- [Running Without Docker Compose](#-running-without-docker-compose-single-container-against-an-existing-grid)
+- [🧩 What It Spins Up](#-what-it-spins-up)
+- [⚡ Quick Start](#-quick-start)
+- [🔌 How It Connects](#-how-it-connects-what-changed-in-the-framework-itself)
+- [🔒 Running as Non-Root](#-running-as-non-root)
+- [🧱 Running Without Docker Compose](#-running-without-docker-compose-single-container-against-an-existing-grid)
+
+---
 
 ## 🧩 What It Spins Up
-- `selenium-hub` — the Grid router
-- `chrome`, `firefox`, `edge` — one node per browser (each exposes a noVNC
-  viewer so you can watch a run live)
-- `tests` — builds this project and runs `mvn test` against the hub
+
+| Service | Role |
+|---|---|
+| `selenium-hub` | The Grid router |
+| `chrome`, `firefox`, `edge` | One node per browser (each exposes a noVNC viewer so you can watch a run live) |
+| `tests` | Builds this project and runs `mvn test` against the hub |
+
+---
 
 ## ⚡ Quick Start
 
@@ -47,12 +62,16 @@ open http://localhost:7900        # firefox: 7901, edge: 7902
 docker compose down -v
 ```
 
-Reports land back on the host under `target/allure-results`,
-`target/extent-reports`, `target/surefire-reports`, `target/debug-dumps`, and
-`target/screenshots` via the volume mounts in `docker-compose.yml`, so
-`mvn allure:serve` still works locally after a containerized run.
+> [!NOTE]
+> Reports land back on the host under `target/allure-results`,
+> `target/extent-reports`, `target/surefire-reports`, `target/debug-dumps`, and
+> `target/screenshots` via the volume mounts in `docker-compose.yml`, so
+> `mvn allure:serve` still works locally after a containerized run.
+
+---
 
 ## 🔌 How It Connects (What Changed in the Framework Itself)
+
 - `DriverFactory.createDriver()` now checks `grid.enabled`. When true, it
   builds a `RemoteWebDriver` pointed at `grid.url` instead of launching a
   local browser binary — same `ChromeOptions`/`FirefoxOptions`/`EdgeOptions`
@@ -73,23 +92,31 @@ Reports land back on the host under `target/allure-results`,
   Grid — so the image stays small and browser versions upgrade independently
   by bumping the `selenium/node-*` image tags in `docker-compose.yml`.
 
+---
+
 ## 🔒 Running as Non-Root
+
 The `tests` image runs as a dedicated non-root user (`automation`, uid/gid
 `1000`) rather than root — nothing at runtime needs root, since the image
 never installs OS packages and the browsers themselves live in the separate
-`selenium/node-*` containers, not this one. The one thing this changes for
-you: the six `target/...` folders bind-mounted into the container (see
-`docker-compose.yml`) must be writable by uid 1000. Docker auto-creates a
-bind-mount source directory that doesn't yet exist on the host, but does so
-owned by root with normal (non-world-writable) permissions — which the
-container's non-root user then can't write into, and every test run fails
-at the first attempt to write a screenshot/report. Step 1b above
-(`mkdir -p ... && chmod -R 777 target`) avoids that by creating those
-folders yourself, once, before the first `docker compose run`. If your host
-UID happens to already be `1000` (the default first user on many Linux
-distros), a plain `mkdir -p target/...` without the `chmod` is enough.
+`selenium/node-*` containers, not this one.
+
+> [!WARNING]
+> The one thing this changes for you: the six `target/...` folders bind-mounted into the container (see
+> `docker-compose.yml`) must be writable by uid 1000. Docker auto-creates a
+> bind-mount source directory that doesn't yet exist on the host, but does so
+> owned by root with normal (non-world-writable) permissions — which the
+> container's non-root user then can't write into, and every test run fails
+> at the first attempt to write a screenshot/report. Step 1b above
+> (`mkdir -p ... && chmod -R 777 target`) avoids that by creating those
+> folders yourself, once, before the first `docker compose run`. If your host
+> UID happens to already be `1000` (the default first user on many Linux
+> distros), a plain `mkdir -p target/...` without the `chmod` is enough.
+
+---
 
 ## 🧱 Running Without Docker Compose (Single Container Against an Existing Grid)
+
 ```bash
 docker build -t selenium-framework .
 docker run --rm \
@@ -97,3 +124,9 @@ docker run --rm \
   -e SITE=demoqa -e BROWSER=chrome \
   selenium-framework
 ```
+
+<div align="center">
+
+<sub>⬆️ <a href="#-running-the-framework-in-docker">Back to top</a> · <a href="README.md">← Back to README</a></sub>
+
+</div>

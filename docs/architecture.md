@@ -1,4 +1,22 @@
-# Architecture & Design
+<div align="center">
+
+# 📐 Architecture & Design
+
+*How a test actually runs, end to end — core files, the Page Object pattern, and the Selenium concepts this framework leans on.*
+
+</div>
+
+---
+
+## 📋 Table of Contents
+- [🧠 What Is This? (From Scratch)](#-what-is-this-from-scratch)
+- [🏗️ Architecture — How a Test Runs](#️-architecture--how-a-test-runs)
+- [🔑 Core Files — What Each One Does](#-core-files--what-each-one-does)
+- [🩹 Self-Healing Locators](#-self-healing-locators)
+- [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
+- [🧰 Key Selenium Concepts Used](#-key-selenium-concepts-used)
+
+---
 
 ## 🧠 What Is This? (From Scratch)
 
@@ -465,3 +483,8 @@ element.getAttribute("aria-selected")   // true/false — is selected
 
 ---
 
+<div align="center">
+
+<sub>⬆️ <a href="#-architecture--design">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>

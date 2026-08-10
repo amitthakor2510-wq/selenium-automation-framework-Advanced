@@ -1,6 +1,9 @@
-# 🤖 Selenium Automation Framework — Advanced Edition
+<div align="center">
 
-> **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven, with dual reporting (Allure + Extent), data-driven testing across 5 file formats, keyword-driven scripting, accessibility (axe-core) and visual-regression (AShot) checks, an opt-in JMeter performance smoke check, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline (Jenkins + GitHub Actions + GitLab CI).
+# 🤖 Selenium Automation Framework
+### Advanced Edition
+
+**A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven — with dual reporting, data-driven testing across 5 file formats, keyword-driven scripting, accessibility & visual-regression checks, an opt-in performance smoke test, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline.
 
 <!--
   CI Status badge below is a static placeholder — the dynamic GitHub Actions
@@ -11,23 +14,29 @@
   once that's true — until then the dynamic badge just renders as a broken
   image, which is why it's a static one here instead.
 -->
-<p align="left">
+<p>
   <img alt="CI Status" src="https://img.shields.io/badge/CI-passing-2ea44f?style=flat-square&logo=githubactions&logoColor=white">
   <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
   <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.21.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
   <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.9.0-orange?style=flat-square">
   <img alt="Maven" src="https://img.shields.io/badge/Maven-Build-C71A36?style=flat-square&logo=apachemaven&logoColor=white">
+  <br/>
   <img alt="Allure" src="https://img.shields.io/badge/Allure-2.27.0-FF5252?style=flat-square">
   <img alt="Extent Reports" src="https://img.shields.io/badge/Extent%20Reports-5.1.2-blue?style=flat-square">
   <img alt="Rest Assured" src="https://img.shields.io/badge/Rest%20Assured-5.4.0-25A162?style=flat-square">
   <img alt="JaCoCo" src="https://img.shields.io/badge/Coverage-JaCoCo%200.8.12-C4A000?style=flat-square">
   <img alt="Checkstyle" src="https://img.shields.io/badge/Code%20Style-Checkstyle-6DB33F?style=flat-square">
+  <br/>
   <img alt="Docker" src="https://img.shields.io/badge/Docker-Selenium%20Grid-2496ED?style=flat-square&logo=docker&logoColor=white">
   <img alt="CI" src="https://img.shields.io/badge/CI-Jenkins%20%7C%20GitHub%20Actions%20%7C%20GitLab-2088FF?style=flat-square&logo=githubactions&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square">
 </p>
 
-### ⚡ At a Glance
+</div>
+
+<br/>
+
+## ⚡ At a Glance
 
 | | |
 |---|---|
@@ -67,28 +76,38 @@ open target/extent-reports/demoqa-report.html   # macOS
 # or: xdg-open target/extent-reports/demoqa-report.html   # Linux
 ```
 
-Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Running Against a Dockerized Selenium Grid](docs/configuration.md#-running-against-a-dockerized-selenium-grid).
+> [!TIP]
+> Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Running Against a Dockerized Selenium Grid](docs/configuration.md#-running-against-a-dockerized-selenium-grid).
 
 ---
 
 ## 📋 Table of Contents
 
-- [Quick Start](#-quick-start)
-- [Tech Stack](#%EF%B8%8F-tech-stack)
-- [Project Structure](#%EF%B8%8F-project-structure)
-- [Running Tests Locally](#-running-tests-locally)
-- [Conventions Cheatsheet](CONVENTIONS.md) — quick "how do I do X here" reference: writing a Page Object/Test, logging, config, reports, CI
-- **Deep dives (in `/docs`):**
-  - [Architecture & Design](docs/architecture.md) — how a test runs, core files, page-object pattern, key Selenium concepts
-  - [Testing Guide](docs/testing-guide.md) — retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression
-  - [Configuration & Environments](docs/configuration.md) — `global.properties`, Dockerized Selenium Grid
-  - [Reports & Code Quality](docs/reports-and-quality.md) — test reports, JaCoCo coverage, Checkstyle
-  - [CI/CD Pipelines](docs/ci-cd.md) — Jenkins, GitHub Actions, GitLab CI
-  - [Extending the Framework](docs/extending.md) — adding a new site, debugging a live site redesign
-  - [Troubleshooting & Glossary](docs/troubleshooting.md) — common errors and fixes, glossary
-  - [Roadmap](docs/roadmap.md) — suggestions and planned work
-- [Contributing](#-contributing)
-- [License](#-license)
+- [⚡ At a Glance](#-at-a-glance)
+- [🚀 Quick Start](#-quick-start)
+- [⚙️ Tech Stack](#%EF%B8%8F-tech-stack)
+- [🗂️ Project Structure](#%EF%B8%8F-project-structure)
+- [🧬 Module Map](#-module-map--how-the-pieces-connect)
+- [🚀 Running Tests Locally](#-running-tests-locally)
+- [🧭 Conventions Cheatsheet](CONVENTIONS.md) — quick "how do I do X here" reference: writing a Page Object/Test, logging, config, reports, CI
+
+**Deep dives (in `/docs`):**
+
+| Guide | What's inside |
+|---|---|
+| 📐 [Architecture & Design](docs/architecture.md) | How a test runs, core files, page-object pattern, key Selenium concepts |
+| 🧪 [Testing Guide](docs/testing-guide.md) | Retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression |
+| ⚙️ [Configuration & Environments](docs/configuration.md) | `global.properties`, Dockerized Selenium Grid |
+| 📈 [Reports & Code Quality](docs/reports-and-quality.md) | Test reports, JaCoCo coverage, Checkstyle |
+| 🔄 [CI/CD Pipelines](docs/ci-cd.md) | Jenkins, GitHub Actions, GitLab CI |
+| ➕ [Extending the Framework](docs/extending.md) | Adding a new site, debugging a live site redesign |
+| 🩹 [Troubleshooting & Glossary](docs/troubleshooting.md) | Common errors and fixes, glossary |
+| 🗺️ [Roadmap](docs/roadmap.md) | Suggestions and planned work |
+
+- [🤝 Contributing](#-contributing)
+- [📜 License](#-license)
+
+---
 
 ## ⚙️ Tech Stack
 
@@ -122,7 +141,7 @@ Prefer not to install Chrome/Firefox/Edge locally? Skip straight to [🐳 Runnin
 
 ## 🗂️ Project Structure
 
-```
+```text
 selenium-automation-framework/
 │
 ├── Jenkinsfile                          # Jenkins CI/CD pipeline
@@ -248,6 +267,7 @@ selenium-automation-framework/
                     └── demoqa_textbox_keywords.csv       # Scripted Text Box test cases for the keyword engine
 ```
 
+> [!NOTE]
 > **Three modules live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST), and also carries the accessibility/visual-regression opt-in suites. `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. `mobile` is a separate Appium module for Android/iOS app testing, run with `-Dsite=mobile` rather than a browser. See [Keyword-Driven & Data-Driven Testing](docs/testing-guide.md#-keyword-driven--data-driven-testing) and [Mobile Testing (Appium)](docs/testing-guide.md#-mobile-testing-appium) in the Testing Guide.
 
 ### 🧬 Module Map — how the pieces connect
@@ -311,7 +331,7 @@ Every site/mobile module leans on the same `core` — no test class ever re-impl
 
 ## 🚀 Running Tests Locally
 
-### Prerequisites
+### ✅ Prerequisites
 - Java 17 — `java -version`
 - Maven 3.9+ — `mvn -version`
 - Chrome/Firefox/Edge browser installed (or use the [Docker Grid](docs/configuration.md#-running-against-a-dockerized-selenium-grid) instead)
@@ -356,105 +376,17 @@ This started as a personal/portfolio framework, but it's structured to take cont
 3. **New Page Object method?** Route clicks/types through `HumanActions`, not raw `WebElement` calls — that's what keeps every action showing up as an Allure step for free.
 4. **Bug fixes**, especially ones like the DemoQA `200`-vs-`204` mismatch in [Common Errors and Fixes](docs/troubleshooting.md#-common-errors-and-fixes), are exactly the kind of PR this project wants — a one-line fix plus a one-line addition to that table so the next person doesn't re-discover it the hard way.
 
-Keep PRs scoped to one concern (one bug, one site, one feature) — this project's commit history is meant to be a readable log of *why* things are the way they are, not just *what* changed, so a PR description that explains the "why" is worth as much as the diff itself.
+> [!IMPORTANT]
+> Keep PRs scoped to one concern (one bug, one site, one feature) — this project's commit history is meant to be a readable log of *why* things are the way they are, not just *what* changed, so a PR description that explains the "why" is worth as much as the diff itself.
 
 ---
 
 ## 📜 License
 
 MIT — see [`LICENSE`](LICENSE). Use freely for learning, portfolio, and real-world QA practice.
-=======
-# selenium-automation-framework-Advanced
 
+<div align="center">
 
+<sub>⬆️ <a href="#-selenium-automation-framework">Back to top</a></sub>
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://192.168.1.130/amitthakor304/selenium-automation-framework-advanced.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://192.168.1.130/amitthakor304/selenium-automation-framework-advanced/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
->>>>>>> 4a1821080b666f87d8fe2685d7aab119b9a917c8
+</div>

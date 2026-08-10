@@ -1,4 +1,10 @@
-# CI/CD Pipelines
+<div align="center">
+
+# 🔄 CI/CD Pipelines
+
+</div>
+
+---
 
 All three pipelines cover the same three test tracks per commit — browser
 sites (demoqa, saucedemo), mobile (Android emulator + Appium), and a nightly
@@ -6,6 +12,15 @@ demoqa-only accessibility/visual suite — plus Allure + Extent reporting,
 a nightly OWASP dependency-vulnerability scan, and secret scanning
 (gitleaks). Safari only runs in the GitHub Actions pipeline — see
 [🧭 Safari](#-safari).
+
+## 📋 Table of Contents
+- [🔄 Jenkins CI/CD Setup](#-jenkins-cicd-setup)
+- [🧭 Safari](#-safari)
+- [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
+- [🦊 GitLab CI/CD Pipeline](#-gitlab-cicd-pipeline)
+- [🖥️ Running Jenkins + GitLab + Appium on One Machine](#️-running-jenkins--a-self-hosted-gitlab--appiumemulator-on-one-local-machine)
+
+---
 
 ## 🔄 Jenkins CI/CD Setup
 
@@ -32,7 +47,7 @@ a nightly OWASP dependency-vulnerability scan, and secret scanning
 | `SECURITY_FAIL_CVSS` | number | 11 | OWASP Dependency-Check: fail the nightly Security Scan stage on any dependency with a CVSS score at or above this value. 11 = never fails (report-only); 7 is a common "fail on High/Critical" cutoff |
 
 ### Pipeline stages
-```
+```text
 Cleanup (Stale Processes) → kills any orphaned node/adb/qemu-system-x86_64 processes and
                            stale AVD/adb *.lock files left behind by a crashed previous
                            run, before checkout — best-effort, no-ops on a clean agent
@@ -75,14 +90,15 @@ Security Scan (Nightly)  → mvn verify -Psecurity (OWASP Dependency-Check) agai
                            unless that build parameter is lowered
 ```
 
-Build history is capped to the last 10 builds (`buildDiscarder`). The
-`post { always { ... } }` block also runs `adb reconnect offline` (only
-when the Mobile Test stage ran) and `cleanWs()` after archiving
-artifacts, to keep adb's connection state and workspace disk usage from
-creeping up across many local runs.
+> [!NOTE]
+> Build history is capped to the last 10 builds (`buildDiscarder`). The
+> `post { always { ... } }` block also runs `adb reconnect offline` (only
+> when the Mobile Test stage ran) and `cleanWs()` after archiving
+> artifacts, to keep adb's connection state and workspace disk usage from
+> creeping up across many local runs.
 
 ### After build — where to look
-```
+```text
 Job → Build #N
 ├── Console Output      → full Maven logs, errors, test output
 ├── Test Results        → pass/fail count, failed test names
@@ -91,7 +107,9 @@ Job → Build #N
 ```
 
 ### Fix report styling in Jenkins
-Jenkins blocks external CSS by default — report appears unstyled.
+
+> [!WARNING]
+> Jenkins blocks external CSS by default — report appears unstyled.
 
 Quick fix (resets on restart) — run in Script Console:
 ```groovy
@@ -137,10 +155,11 @@ alongside every other browser's in the same merged Allure/Extent report,
 under a `<site>-safari` results subdirectory so they never collide with
 `<site>`'s own chrome/firefox/edge run.
 
-Safari deliberately doesn't feed the JaCoCo coverage gate — the same
-`core/` code paths are already exercised by the chrome/firefox/edge runs,
-so including it would only make the coverage gate flakier without
-covering any additional code.
+> [!NOTE]
+> Safari deliberately doesn't feed the JaCoCo coverage gate — the same
+> `core/` code paths are already exercised by the chrome/firefox/edge runs,
+> so including it would only make the coverage gate flakier without
+> covering any additional code.
 
 ---
 
@@ -151,7 +170,7 @@ plus a manual `workflow_dispatch` with its own inputs, plus a nightly cron —
 and is the only one of the three pipelines that also **publishes a live
 Allure report with trend history** to GitHub Pages.
 
-```
+```text
 build                      → mvn clean compile test-compile (fails fast on compile errors)
 checkstyle                  → mvn checkstyle:check@checkstyle-check, parallel with test/
                               mobile-test — a violation fails this job (surfaced on PRs via
@@ -206,10 +225,11 @@ allure-report                → downloads this run's Allure results (all sites 
 | `retry_count` | string | 0 |
 | `run_safari` | boolean | false |
 
-`test-safari` already runs on every push automatically — see
-[🧭 Safari](#-safari). The `run_safari` input only matters for a manual
-`workflow_dispatch` run (e.g. re-running Safari alone against a specific
-branch without pushing).
+> [!TIP]
+> `test-safari` already runs on every push automatically — see
+> [🧭 Safari](#-safari). The `run_safari` input only matters for a manual
+> `workflow_dispatch` run (e.g. re-running Safari alone against a specific
+> branch without pushing).
 
 A push to the same branch/PR cancels whatever run is still in progress for
 that ref (`concurrency:` block).
@@ -223,7 +243,7 @@ if that branch doesn't exist yet.
 ## 🦊 GitLab CI/CD Pipeline
 
 ### Pipeline stages
-```
+```text
 build                      → mvn compile — catches syntax errors before wasting time on tests
 checkstyle                  → mvn checkstyle:check@checkstyle-check, same `test` stage as
                               test/mobile-test/perf-smoke so it runs in parallel with them
@@ -265,7 +285,7 @@ pages                        → publishes public/ to GitLab Pages
 ```
 
 ### Variables you can override per run
-```
+```text
 SUITE_TYPE          = regression (or smoke)
 BROWSER             = chrome     (default for jobs that don't matrix over browser)
 HEADLESS            = true       (always true on CI)
@@ -276,11 +296,12 @@ SECURITY_FAIL_CVSS  = 11         (OWASP Dependency-Check fail threshold — 11 =
 The pipeline runs on every push to any branch, plus merge requests (`only:
 branches, merge_requests` on each job) — not just `main`/`master`.
 
-A superseded pipeline (e.g. a second push to the same MR before the first
-pipeline finishes) auto-cancels the older one (`workflow.auto_cancel`).
+> [!NOTE]
+> A superseded pipeline (e.g. a second push to the same MR before the first
+> pipeline finishes) auto-cancels the older one (`workflow.auto_cancel`).
 
 ### View report after pipeline
-```
+```text
 GitLab Pages URL → /allure-report      (full merged Allure report, all sites + mobile)
 GitLab Pages URL → /extent-report      (Extent HTML report)
 GitLab Job → Browse Artifacts → target/extent-reports/, target/allure-results/
@@ -300,20 +321,25 @@ overlapping Jenkins+emulator load, not as an actual pipeline config bug.
 Confirm this is what's happening by watching `sudo gitlab-ctl tail puma`
 and `sudo gitlab-ctl tail sidekiq` during a push.
 
-Fixes applied for this setup:
-- **`/etc/gitlab/gitlab.rb`**: capped `sidekiq['concurrency']` to 5,
-  `puma['worker_processes']` to 2, trimmed PostgreSQL/Redis memory
-  ceilings, and disabled the bundled Prometheus monitoring stack
-  (`prometheus_monitoring['enable'] = false`) — all overkill for a
-  single-user local instance. Apply with `sudo gitlab-ctl reconfigure &&
-  sudo gitlab-ctl restart` after editing. Only use setting names that
-  appear (even commented-out) in your own `gitlab.rb` — an unrecognized
-  key like a stale `grafana[...]` line makes `reconfigure` fail outright
-  with `Mixlib::Config::UnknownConfigOptionError` rather than being
-  silently ignored.
-- **`Jenkinsfile`**: added a `Cleanup (Stale Processes)` stage that runs
-  first, before checkout, killing any orphaned `node`/`adb`/
-  `qemu-system-x86_64` processes and stale AVD/adb lock files left by a
-  previous crashed run — see the Pipeline stages diagram above.
+> [!TIP]
+> **Fixes applied for this setup:**
+> - **`/etc/gitlab/gitlab.rb`**: capped `sidekiq['concurrency']` to 5,
+>   `puma['worker_processes']` to 2, trimmed PostgreSQL/Redis memory
+>   ceilings, and disabled the bundled Prometheus monitoring stack
+>   (`prometheus_monitoring['enable'] = false`) — all overkill for a
+>   single-user local instance. Apply with `sudo gitlab-ctl reconfigure &&
+>   sudo gitlab-ctl restart` after editing. Only use setting names that
+>   appear (even commented-out) in your own `gitlab.rb` — an unrecognized
+>   key like a stale `grafana[...]` line makes `reconfigure` fail outright
+>   with `Mixlib::Config::UnknownConfigOptionError` rather than being
+>   silently ignored.
+> - **`Jenkinsfile`**: added a `Cleanup (Stale Processes)` stage that runs
+>   first, before checkout, killing any orphaned `node`/`adb`/
+>   `qemu-system-x86_64` processes and stale AVD/adb lock files left by a
+>   previous crashed run — see the Pipeline stages diagram above.
 
----
+<div align="center">
+
+<sub>⬆️ <a href="#-cicd-pipelines">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
+
+</div>
