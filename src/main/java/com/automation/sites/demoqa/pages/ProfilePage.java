@@ -79,8 +79,8 @@ public class ProfilePage extends BasePage {
             return (int) driver.findElements(tableRows).stream()
                 .filter(r -> {
                     try {
-                        String text = r.getText().trim();
-                        return !text.isEmpty();
+                        String text = r.getText();
+                        return text != null && !text.trim().isEmpty();
                     } catch (StaleElementReferenceException e) {
                         return false;
                     }
@@ -108,7 +108,8 @@ public class ProfilePage extends BasePage {
             return driver.findElements(tableRows).stream()
                 .map(r -> {
                     try {
-                        return r.getText().trim();
+                        String text = r.getText();
+                        return text == null ? "" : text.trim();
                     } catch (StaleElementReferenceException e) {
                         return "";
                     }

@@ -23,24 +23,23 @@ public class DraggablePage extends BasePage {
     private final By simpleTab     = By.id("draggableExample-tab-simple");
     private final By simpleDragBox = By.id("dragBox");
 
-    // BUG FIX (confirmed against a live Jenkins run — DraggableTest#verifyXAxisRestriction
-    // failed with "X should change did not expect [625] but found [625]", while the SAME
-    // run's log showed the box's Y coordinate moving instead): demoqa's element ids on
-    // this tab name the axis that's LOCKED, not the axis the box is free to move on —
-    // id="restrictedX" is the box whose X coordinate is restricted (i.e. it can only
-    // move along Y), and id="restrictedY" is the box whose Y coordinate is restricted
-    // (i.e. it can only move along X). That's the exact inverse of what these two
-    // fields' names ("onlyXBox" = "the box that only moves in X") assumed, so
-    // onlyXBox/onlyYBox were pointing at the wrong elements — verifyXAxisRestriction
-    // was actually dragging the Y-only box and asserting X-only behavior against it
-    // (and vice versa in verifyYAxisRestriction, which happened to still pass because
-    // its two assertions are the mirror image of each other's failure mode... no, both
-    // were silently exercising the wrong box). Swapped here so "onlyXBox" really is the
-    // element that's free to move on the X axis, matching what DraggableTest's method
-    // names and assertions expect.
+    // BUG FIX (confirmed against a fresh local run — DraggableTest#verifyXAxisRestriction
+    // failed with "X should change did not expect [1024] but found [1024]" and
+    // #verifyYAxisRestriction failed with "X should NOT change ... expected [625] but
+    // found [675]"): a prior hardening pass swapped these two ids on the theory that
+    // demoqa names each element for the axis that's LOCKED rather than the axis it's
+    // free to move on. This run's before/after coordinates disprove that theory —
+    // dragging the element the code called "onlyXBox" (id="restrictedY") moved its Y
+    // coordinate by exactly the requested Y offset and left X untouched, and dragging
+    // "onlyYBox" (id="restrictedX") moved X by exactly the requested X offset and left
+    // Y untouched. So the ids name the axis the box IS free to move on, the plain
+    // reading: id="restrictedX" is the box restricted TO the X axis (X-only movable),
+    // and id="restrictedY" is the box restricted TO the Y axis (Y-only movable).
+    // Reverted the earlier swap so "onlyXBox" really is the X-only-movable element,
+    // matching what DraggableTest's method names and assertions expect.
     private final By axisTab  = By.id("draggableExample-tab-axisRestriction");
-    private final By onlyXBox = By.id("restrictedY");
-    private final By onlyYBox = By.id("restrictedX");
+    private final By onlyXBox = By.id("restrictedX");
+    private final By onlyYBox = By.id("restrictedY");
 
     private final By containerTab    = By.id("draggableExample-tab-containerRestriction");
     private final By containedBox    = By.cssSelector("#containmentWrapper > div");

@@ -458,14 +458,41 @@ pipeline {
                         // Same "install if missing" pattern as GitHub
                         // Actions/GitLab CI use for their mobile jobs, so a
                         // node that already has these cached only downloads
-                        // on a cold cache. This stage assumes the Jenkins
-                        // agent has KVM available (/dev/kvm) the same way the
-                        // other two pipelines require it — if it doesn't,
-                        // the emulator will still boot but very slowly.
+                        // on a cold cache.
+                        //
+                        // ROOT CAUSE (2026-08-10 build): a bare "does /dev/kvm
+                        // exist" check isn't enough — this agent HAS /dev/kvm,
+                        // so the emulator's default "-accel auto" picked
+                        // hardware acceleration, but the underlying host/
+                        // hypervisor doesn't pass through full CPU
+                        // virtualization features to the guest (confirmed in
+                        // that build's emulator.log: "host doesn't support
+                        // requested feature: CPUID.01H:ECX.aes", "Not all
+                        // modern X86 virtualization features supported...
+                        // Setting AVD to run with 1 vCPU core only"). That
+                        // produces a half-broken state, not a clean fallback:
+                        // the guest's own boot sequence completes internally
+                        // ("Boot completed in NNNN ms" in emulator.log) but
+                        // AES-NI-dependent late-boot work (Android's keystore/
+                        // crypto init) never finishes, so adbd never comes
+                        // fully online — every `adb shell` call reports
+                        // "device offline" forever, and the build eventually
+                        // times out. Explicit software mode (-accel off) is
+                        // slower but doesn't hit that AES-NI gap, so it's the
+                        // more reliable choice on hosts that fail this check
+                        // — flip ACCEL_MODE (and the matching timeout below)
+                        // to "on" once this agent has real nested-virt
+                        // passthrough with AES-NI exposed to the guest.
                         sh '''
                         set -e
-                        if [ ! -e /dev/kvm ] || [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
-                            echo "WARNING: /dev/kvm not accessible to this agent — emulator will run in slow software mode."
+                        ACCEL_MODE="off"
+                        if [ -e /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ] \\
+                           && grep -qE '^flags\\s*:.*\\baes\\b' /proc/cpuinfo 2>/dev/null \\
+                           && grep -qE '^flags\\s*:.*\\b(vmx|svm)\\b' /proc/cpuinfo 2>/dev/null; then
+                            ACCEL_MODE="on"
+                            echo "KVM + required CPU virtualization/AES-NI flags detected — using hardware acceleration."
+                        else
+                            echo "WARNING: this agent can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm/aes CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto' — auto has been landing in a half-broken state here where the guest boots internally but adbd never comes online. Software mode is slower but avoids that failure signature; see the Coverage Gate/wait-for-device timeout below, which is widened accordingly."
                         fi
 
                         if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
@@ -511,6 +538,34 @@ pipeline {
                         # leftover process, not the one we just started. This
                         # is consistent with the "Cleanup (Stale Processes)"
                         # stage's own killall -9 for the same class of process.
+                        # ROOT CAUSE (2026-08-10 build): the pipeline-start
+                        # "Cleanup (Stale Processes)" stage only runs ONCE,
+                        # at the very beginning of a build — it can't clean up
+                        # anything that starts an emulator LATER, whether from
+                        # this same build (a Jenkins controller restart mid-
+                        # build, exactly what that 2026-08-10 log showed: a
+                        # 3-day gap between pipeline stages) or from a
+                        # completely different build/job that ran on this box
+                        # in between (e.g. the nightly cron trigger firing
+                        # during that gap) and never got to its own post{}
+                        # cleanup because IT also hit a controller restart.
+                        # That's a plausible source for the stray
+                        # "emulator-5556" seen alongside this build's own
+                        # "emulator-5554" in that build's post-cleanup "adb
+                        # reconnect offline" step — a second, unrelated local
+                        # AVD instance nobody tore down. The pkill just below
+                        # only matches THIS build's own AVD name
+                        # ($ANDROID_AVD_NAME), so it can't catch an orphan
+                        # under a different name/port. This blanket kill runs
+                        # immediately before this stage launches its own
+                        # emulator (not earlier, so it can't collide with a
+                        # still-legitimate concurrent process elsewhere in the
+                        # pipeline) and is safe here because "Acquire
+                        # Shared-Box Lock" guarantees no other build is
+                        # actively running on this box right now.
+                        killall -9 qemu-system-x86_64 2>/dev/null || true
+                        sleep 1
+
                         pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
                         pkill -9 -f "appium" 2>/dev/null || true
                         # NOTE: this used to also `adb kill-server` here as a
@@ -560,7 +615,7 @@ pipeline {
                         # port is free — auto-assignment is exactly how the
                         # Genymotion device and this AVD could otherwise end
                         # up ambiguous to a bare `adb` call.
-                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
+                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -accel "$ACCEL_MODE" -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
 
                         echo "Waiting for emulator to boot..."
                         # ANDROID_SERIAL=emulator-5554 (exported above) scopes
@@ -587,13 +642,30 @@ pipeline {
                         # this shorter, earlier gate was aborting the stage
                         # before that more patient loop ever got a chance to
                         # run. Matching both to 300s removes that inconsistency.
-                        if ! timeout 300 "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
-                            echo "ERROR: emulator did not come up within 300s — it may have crashed. Check emulator.log below."
+                        #
+                        # WAIT_SECS scales with ACCEL_MODE: forcing "-accel
+                        # off" above (see the capability check near the top of
+                        # this script) trades speed for reliability — a cold
+                        # software-emulated boot genuinely takes longer than a
+                        # working hardware-accelerated one, so a fixed 300s
+                        # budget that was already tight under degraded/
+                        # half-broken "auto" acceleration would be even more
+                        # likely to time out here. Both the wait-for-device
+                        # gate and the boot_completed poll loop below use this
+                        # same budget so neither cuts the other off early.
+                        WAIT_SECS=300
+                        POLL_ITERS=60
+                        if [ "$ACCEL_MODE" = "off" ]; then
+                            WAIT_SECS=600
+                            POLL_ITERS=120
+                        fi
+                        if ! timeout $WAIT_SECS "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
+                            echo "ERROR: emulator did not come up within ${WAIT_SECS}s — it may have crashed. Check emulator.log below."
                             cat emulator.log 2>/dev/null || true
                             exit 1
                         fi
                         BOOTED=0
-                        for i in $(seq 1 60); do
+                        for i in $(seq 1 $POLL_ITERS); do
                             boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
                             if [ "$boot_completed" = "1" ]; then
                                 echo "Emulator booted"
@@ -629,7 +701,7 @@ pipeline {
                         # infra-timeout diagnosis the wait-for-device gate above
                         # already gives.
                         if [ "$BOOTED" != "1" ]; then
-                            echo "ERROR: emulator registered but never reached sys.boot_completed=1 within 300s — likely still 'offline' (see adb devices below). Check emulator.log."
+                            echo "ERROR: emulator registered but never reached sys.boot_completed=1 within ${WAIT_SECS}s — likely still 'offline' (see adb devices below). Check emulator.log."
                             "$ANDROID_SDK_ROOT/platform-tools/adb" devices || true
                             cat emulator.log 2>/dev/null || true
                             exit 1
