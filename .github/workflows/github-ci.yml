@@ -189,16 +189,37 @@ jobs:
       # times the per-minute rate of the ubuntu-latest legs.
       matrix:
         site: [ demoqa, saucedemo ]
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.browser) || '["chrome","firefox","edge","safari"]') }}
+        # Safari is folded directly into the generated browser list instead
+        # of being filtered out afterwards with a job-level `if:` — GitHub
+        # Actions does NOT expose the `matrix` context to a job-level `if:`
+        # condition (it's only available in `runs-on`, `steps.if`, etc.), so
+        # the previous `if: matrix.browser != 'safari' || ...` below failed
+        # workflow validation outright ("Unrecognized named-value: 'matrix'"
+        # at Line 218) and the whole pipeline couldn't even start. Baking
+        # the same push/dispatch+run_safari condition into which JSON array
+        # gets generated keeps the identical intent — safari only shows up
+        # as a matrix combination when it should run at all, so there's
+        # nothing left to filter with a job-level `if:`.
+        #   - push                        -> chrome, firefox, edge, safari
+        #   - pull_request / schedule     -> chrome, firefox, edge (no safari)
+        #   - workflow_dispatch           -> just the selected browser, plus
+        #                                    safari too if run_safari is
+        #                                    ticked (the dispatch `browser`
+        #                                    input's own options list is
+        #                                    chrome/firefox/edge only, so it
+        #                                    can never BE safari itself —
+        #                                    run_safari is the only way to
+        #                                    add it on a manual run)
+        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && ((inputs.run_safari == true && format('["{0}","safari"]', inputs.browser)) || format('["{0}"]', inputs.browser)) || (github.event_name == 'push' && '["chrome","firefox","edge","safari"]') || '["chrome","firefox","edge"]') }}
         # `include` here isn't adding a new combination — every browser
         # value already exists from the site x browser cross product
         # above. It matches by shared key (browser) and layers `os` on top
         # of every combination with that browser, regardless of site — so
         # this doesn't need its own `site:` entries. Safari's `os:
         # macos-latest` is what actually runs it on a different runner
-        # than the other three; whether it *should* run at all on this
-        # push/dispatch is a separate question, answered by the job-level
-        # `if:` below.
+        # than the other three; it's simply absent from every combination
+        # above (and this `include` list has nothing to match) whenever the
+        # browser array above didn't generate a "safari" entry.
         include:
           - browser: chrome
             os: ubuntu-latest
@@ -208,14 +229,6 @@ jobs:
             os: ubuntu-latest
           - browser: safari
             os: macos-latest
-    # Safari costs several times the per-minute rate of the ubuntu-latest
-    # legs, so — same as the old dedicated test-safari job — it only runs
-    # on an actual push, or on-demand via workflow_dispatch + run_safari.
-    # Chrome/Firefox/Edge are unaffected by this condition since it's
-    # `true` for every event that would normally run them anyway (push,
-    # pull_request, workflow_dispatch); it only ever screens out the
-    # safari leg specifically.
-    if: matrix.browser != 'safari' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.run_safari == true)
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
