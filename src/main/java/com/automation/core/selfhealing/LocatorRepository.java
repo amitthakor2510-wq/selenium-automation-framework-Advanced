@@ -19,7 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Holds the "known good" {@link ElementFingerprint} for every element the
@@ -51,7 +52,7 @@ import java.util.logging.Logger;
  */
 public final class LocatorRepository {
 
-    private static final Logger logger = Logger.getLogger(LocatorRepository.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(LocatorRepository.class);
 
     private static final Map<String, ElementFingerprint> FINGERPRINTS = new ConcurrentHashMap<>();
     private static final List<HealingEvent> HEALING_EVENTS = Collections.synchronizedList(new ArrayList<>());
@@ -108,7 +109,7 @@ public final class LocatorRepository {
             // A corrupt/stale repository file should never block a test run —
             // self-healing just starts cold (no baseline to heal against yet)
             // until fresh fingerprints are captured this run.
-            logger.warning("[SelfHealing] Could not load locator repository at " + path
+            logger.warn("[SelfHealing] Could not load locator repository at " + path
                 + " (starting fresh): " + e.getMessage());
         }
     }
@@ -160,7 +161,7 @@ public final class LocatorRepository {
                         // (extremely unlikely under the FileLock above, but not impossible on
                         // filesystems where locking is advisory-only) — proceed with just this
                         // JVM's own fingerprints rather than losing the whole flush over it.
-                        logger.warning("[SelfHealing] Existing locator repository at " + path
+                        logger.warn("[SelfHealing] Existing locator repository at " + path
                             + " was unreadable during merge (starting from this run's data only): "
                             + parseEx.getMessage());
                     }
@@ -174,7 +175,7 @@ public final class LocatorRepository {
                 channel.write(ByteBuffer.wrap(out), 0);
             }
         } catch (Exception e) {
-            logger.warning("[SelfHealing] Could not persist locator repository to " + path + ": " + e.getMessage());
+            logger.warn("[SelfHealing] Could not persist locator repository to " + path + ": " + e.getMessage());
         }
         SelfHealingReportWriter.write(new ArrayList<>(HEALING_EVENTS));
     }

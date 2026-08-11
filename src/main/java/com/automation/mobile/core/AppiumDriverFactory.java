@@ -14,7 +14,8 @@ import java.net.URI;
 import java.net.URL;
 import java.time.Duration;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Mobile counterpart to core.driver.DriverFactory — same "one place creates
@@ -40,7 +41,7 @@ import java.util.logging.Logger;
  */
 public final class AppiumDriverFactory {
 
-    private static final Logger logger = Logger.getLogger(AppiumDriverFactory.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(AppiumDriverFactory.class);
 
     private AppiumDriverFactory() {
     }
@@ -85,7 +86,7 @@ public final class AppiumDriverFactory {
                 // the test then fails with a confusing NoSuchElementError
                 // that looks unrelated to configuration. Surface it here,
                 // in our own log, right where the driver is being built.
-                logger.warning("[AppiumDriverFactory] No mobile.app.path, mobile.app.package, or "
+                logger.warn("[AppiumDriverFactory] No mobile.app.path, mobile.app.package, or "
                     + "mobile.app.activity set — the session will start with NO target app "
                     + "(landing on whatever screen the device is already on, typically the home "
                     + "launcher). If your test expects a specific app/screen, set "
@@ -118,7 +119,7 @@ public final class AppiumDriverFactory {
             // way to point at an app here. Same reasoning as the Android
             // branch above: warn plainly in our own log rather than letting
             // this surface only as a confusing NoSuchElementError later.
-            logger.warning("[AppiumDriverFactory] No mobile.app.path set for iOS — the session "
+            logger.warn("[AppiumDriverFactory] No mobile.app.path set for iOS — the session "
                 + "will start with NO target app (landing on whatever screen the simulator/device "
                 + "is already on). Set mobile.app.path to a .ipa/.app in mobile.properties or via "
                 + "-D overrides if your test expects a specific app/screen.");
@@ -165,7 +166,7 @@ public final class AppiumDriverFactory {
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
-                    logger.warning("[AppiumDriverFactory] " + platformLabel + " session creation: retrying"
+                    logger.warn("[AppiumDriverFactory] " + platformLabel + " session creation: retrying"
                         + " after a likely device/emulator settling race (attempt " + attempt + "/"
                         + SESSION_CREATION_MAX_ATTEMPTS + "). Previous failure: " + lastFailure.getMessage());
                 }

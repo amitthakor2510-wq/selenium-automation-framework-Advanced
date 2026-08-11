@@ -11,7 +11,8 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +35,7 @@ import java.util.stream.Collectors;
  */
 public final class AccessibilityUtils {
 
-    private static final Logger logger = Logger.getLogger(AccessibilityUtils.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(AccessibilityUtils.class);
 
     private AccessibilityUtils() {
     }
@@ -105,7 +106,7 @@ public final class AccessibilityUtils {
         if (!violations.isEmpty()) {
             String suppressedNote = suppressed.isEmpty() ? ""
                 : " — " + suppressed.size() + " suppressed as known issue(s): " + summarize(suppressed);
-            logger.warning("[AccessibilityUtils] '" + pageName + "' — " + violations.size()
+            logger.warn("[AccessibilityUtils] '" + pageName + "' — " + violations.size()
                 + " axe-core violation rule(s) found (" + blocking.size() + " at/above fail threshold "
                 + failOnImpacts + "): " + summarize(violations) + suppressedNote);
         }
@@ -150,7 +151,7 @@ public final class AccessibilityUtils {
         } catch (Exception e) {
             // Reporting is best-effort — never let an Allure attachment failure
             // mask the real accessibility result.
-            logger.warning("[AccessibilityUtils] Could not attach axe report to Allure: " + e.getMessage());
+            logger.warn("[AccessibilityUtils] Could not attach axe report to Allure: " + e.getMessage());
         }
     }
 }

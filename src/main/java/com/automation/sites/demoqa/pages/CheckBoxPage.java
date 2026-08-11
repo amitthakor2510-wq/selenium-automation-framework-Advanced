@@ -11,11 +11,12 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CheckBoxPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(CheckBoxPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(CheckBoxPage.class);
 
     // CONFIRMED via full page-source dump (target/debug-dumps) after two
     // rct-* guesses both failed to find anything: demoqa has switched the

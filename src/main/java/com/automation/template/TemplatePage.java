@@ -1,6 +1,7 @@
 package com.automation.template;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
@@ -37,7 +38,7 @@ public class TemplatePage extends BasePage {
     // hand — a mismatched name here is a real bug we found and fixed across
     // 19 files in this framework: it doesn't error, it just silently
     // misattributes every log line to the wrong class in test output.
-    private static final Logger logger = Logger.getLogger(TemplatePage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(TemplatePage.class);
 
     // ── Locators ─────────────────────────────────────────────────────────
     // Declare every locator as a `private final By` field at the top of the

@@ -88,13 +88,28 @@ generates and why all three exist.
 
 ## 📝 Logging
 
+This project logs through **SLF4J** (`org.slf4j.Logger`) as the API, with
+**Log4j2** as the actual backend behind it (`log4j-slf4j2-impl` bridges
+the two) — not `java.util.logging`, and not calling the Log4j2 API
+directly. See the "Logging" dependency block in `pom.xml` for the full
+rationale (it's also the exact same backend WebDriverManager's SLF4J
+calls and Apache POI's own Log4j2-API calls both get routed into, so
+there's exactly one logging pipeline in this project, not three).
+
 > [!WARNING]
-> Every class gets its own `private static final Logger logger = Logger.getLogger(<ClassName>.class.getName());` — copy-paste the class
-> name exactly, don't hand-type it. A mismatch doesn't error, it just
-> silently misattributes every log line to the wrong class — a real bug
-> found and fixed across 19 files in this codebase.
+> Every class gets its own
+> `private static final Logger logger = LoggerFactory.getLogger(<ClassName>.class);`
+> — copy-paste the class name exactly, don't hand-type it. A mismatch
+> doesn't error, it just silently misattributes every log line to the
+> wrong class — a real bug found and fixed across 19 files in this
+> codebase back when it logged through `java.util.logging`.
 >
 > **Never** `System.out.println` / `System.err.println`. Same 19-file bug.
+
+- Imports: `org.slf4j.Logger` + `org.slf4j.LoggerFactory` — **not** `org.apache.logging.log4j.Logger` and **not** `java.util.logging.Logger`.
+- Level mapping vs. the old `java.util.logging` convention, if you're used to it: `logger.warning(...)` → `logger.warn(...)`, `logger.fine(...)` → `logger.debug(...)`, `logger.info(...)` stays `logger.info(...)`.
+- Config lives in [`src/test/resources/log4j2.xml`](src/test/resources/log4j2.xml) — console output plus one rolling file per site at `target/logs/<site>.log` (e.g. `target/logs/demoqa.log`), picked automatically from `-Dsite=...`. Override the level for a single run with `-Dlog.level=DEBUG`.
+- `src/test/resources/logging.properties` is a **different, unrelated file** — it only silences Selenium's own internal `java.util.logging` CDP-version warnings and has nothing to do with this project's own logging. Don't confuse the two.
 
 ---
 

@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.sites.core.BaseTest;
 import com.automation.core.config.ConfigReader;
@@ -60,7 +61,7 @@ import java.util.UUID;
  */
 public class BookStoreApplicationTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(BookStoreApplicationTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(BookStoreApplicationTest.class);
 
     // ── Auto-generated credentials (unique per run to avoid "username taken") ──
     private static final String UNIQUE_ID           = UUID.randomUUID().toString().substring(0, 8);

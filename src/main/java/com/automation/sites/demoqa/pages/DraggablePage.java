@@ -11,11 +11,12 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DraggablePage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(DraggablePage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DraggablePage.class);
 
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
     private final By draggableMenu    = By.xpath("//span[text()='Dragabble']");
@@ -171,7 +172,7 @@ public class DraggablePage extends BasePage {
             if (!expectedMovement || !after.equals(before)) {
                 break;
             }
-            logger.warning("[DraggablePage] Drag attempt " + attempt + "/" + MAX_DRAG_ATTEMPTS
+            logger.warn("[DraggablePage] Drag attempt " + attempt + "/" + MAX_DRAG_ATTEMPTS
                 + " produced no movement for " + locator + " (still at " + after + ") — retrying");
         }
     }

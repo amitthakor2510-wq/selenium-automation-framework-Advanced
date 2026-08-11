@@ -6,7 +6,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Writes target/self-healing/healing-report.json — every locator that broke
@@ -18,7 +19,7 @@ import java.util.logging.Logger;
  */
 final class SelfHealingReportWriter {
 
-    private static final Logger logger = Logger.getLogger(SelfHealingReportWriter.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(SelfHealingReportWriter.class);
 
     private SelfHealingReportWriter() {
     }
@@ -32,11 +33,11 @@ final class SelfHealingReportWriter {
         try {
             Files.createDirectories(path.getParent());
             LocatorRepository.mapper().writerWithDefaultPrettyPrinter().writeValue(path.toFile(), events);
-            logger.warning("[SelfHealing] " + events.size()
+            logger.warn("[SelfHealing] " + events.size()
                 + " locator(s) had drifted and were self-healed this run. See " + path
                 + " — each entry is a real locator to fix, even though the test(s) still passed.");
         } catch (Exception e) {
-            logger.warning("[SelfHealing] Could not write healing report to " + path + ": " + e.getMessage());
+            logger.warn("[SelfHealing] Could not write healing report to " + path + ": " + e.getMessage());
         }
     }
 }

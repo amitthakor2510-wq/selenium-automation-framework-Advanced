@@ -76,6 +76,20 @@
     <allure.version>2.27.0</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
 
+    <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
+         dependency block below for the full rationale). Pinned as its own
+         property so log4j-core / log4j-slf4j2-impl always move together. -->
+    <log4j.version>2.23.1</log4j.version>
+
+    <!-- SLF4J — the logging API this project's own code, and
+         WebDriverManager, compile against and call. Log4j2 above is what
+         actually reads log4j2.xml and writes the output; log4j-slf4j2-impl
+         (declared alongside log4j-core in the dependency block below)
+         is the bridge that routes SLF4J calls into it. Pinned to match
+         the SLF4J 2.x line log4j-slf4j2-impl and Selenium/WebDriverManager
+         both expect (not the older SLF4J 1.x API). -->
+    <slf4j.version>2.0.13</slf4j.version>
+
     <!-- OWASP dependency-check version — see the "security" profile below.
          Kept as its own property (not inlined) so it can be bumped without
          hunting through the profile block. -->
@@ -104,6 +118,15 @@
            macOS:       /Applications/Firefox.app/Contents/MacOS/firefox
            Windows:     C:\Program Files\Mozilla Firefox\firefox.exe        -->
     <firefox.binary></firefox.binary>
+
+    <!-- Log4j2 level for this project's own com.automation loggers — see
+         src/test/resources/log4j2.xml. Must be listed here AND in
+         surefire's systemPropertyVariables below (same reason
+         retry.count/grid.enabled are): a bare -Dlog.level=DEBUG on the
+         outer `mvn test` invocation only reaches Maven's own JVM, not the
+         forked surefire JVM that actually runs the tests and initializes
+         Log4j2, unless it's explicitly forwarded. -->
+    <log.level>INFO</log.level>
   </properties>
 
   <dependencyManagement>
@@ -142,11 +165,39 @@
       <version>4.21.0</version>
     </dependency>
 
-    <!-- SLF4J (logging backend for WebDriverManager etc.) -->
+    <!-- Logging — this project's own code (every class in com.automation),
+         plus WebDriverManager, logs through the SLF4J API
+         (org.slf4j.Logger / LoggerFactory.getLogger(...)) — SLF4J is just
+         the interface; it does no logging itself. log4j-slf4j2-impl below
+         is the bridge that routes every SLF4J call into Log4j2, and
+         log4j-core is the actual engine that reads
+         src/test/resources/log4j2.xml (console + one rolling file per
+         site under target/logs/<site>.log) and writes the output. Net
+         result: one unified pipeline, one config file, two different
+         front-door APIs feeding into it (SLF4J for our own code +
+         WebDriverManager, Log4j2's own native API for Apache POI below,
+         which logs through that directly rather than through SLF4J). -->
     <dependency>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>2.0.13</version>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+
+    <!-- Routes SLF4J calls (this project's own code above, plus
+         WebDriverManager and any other library that logs through the
+         SLF4J API) into the Log4j2 backend above, instead of standing up
+         a second, independent logging pipeline side-by-side with it.
+         slf4j2-impl (not the older slf4j-impl) because this project's
+         code, Selenium, and WebDriverManager all pull in SLF4J 2.x. -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <version>${log4j.version}</version>
     </dependency>
 
     <!-- TestNG -->
@@ -211,25 +262,13 @@
       <version>5.2.5</version>
     </dependency>
 
-    <!-- Bridges Apache POI's internal logging (poi-ooxml logs through the
-         Log4j2 API, not SLF4J) into this project's actual logging backend
-         (slf4j-simple above). Without this, Log4j2 finds its API on the
-         classpath (pulled in transitively by poi-ooxml) but no implementation
-         bound to it, and falls back to its own bare console SimpleLogger —
-         visible as this startup warning the moment any Excel test-data file
-         (e.g. login.xlsx) is first read:
-           ERROR StatusLogger Log4j2 could not find a logging implementation.
-           Please add log4j-core to the classpath. Using SimpleLogger...
-         Adding log4j-core directly (as that message suggests) would just
-         stand up a second, independent logging backend side-by-side with
-         slf4j-simple instead of unifying POI's logging into the one this
-         project already uses — log4j-to-slf4j routes it into the existing
-         backend instead. -->
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-to-slf4j</artifactId>
-      <version>2.23.1</version>
-    </dependency>
+    <!-- NOTE on Apache POI's logging: poi-ooxml logs through the Log4j2
+         API directly (not SLF4J, unlike this project's own code and
+         WebDriverManager above) — but since log4j-core above IS the real
+         backend either way, POI's Log4j2 API calls resolve against it
+         directly with no bridge needed, landing in the same
+         src/test/resources/log4j2.xml-configured output as everything
+         else. -->
 
     <!-- CSV -->
     <dependency>
@@ -363,6 +402,9 @@
             <wdm.forceDownload>${wdm.forceDownload}</wdm.forceDownload>
             <!-- Firefox binary path (empty = auto-detect) -->
             <firefox.binary>${firefox.binary}</firefox.binary>
+            <!-- Log4j2 level override — see the <log.level> comment in
+                 <properties> above. -->
+            <log.level>${log.level}</log.level>
           </systemPropertyVariables>
           <testFailureIgnore>true</testFailureIgnore>
           <!-- AspectJ weaver is required for @Step and @Attachment annotations to work.

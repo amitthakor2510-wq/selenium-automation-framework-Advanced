@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  This project's own logging config — everything under com.automation logs
+  through the SLF4J API (org.slf4j.Logger / LoggerFactory.getLogger(...)),
+  bridged into this Log4j2 backend by log4j-slf4j2-impl (see pom.xml).
+  WebDriverManager also logs through SLF4J and lands here the same way;
+  Apache POI logs through the Log4j2 API directly and lands here too, no
+  bridge needed. One config file, one output pipeline, two front-door APIs
+  feeding into it. NOT the same thing as
+  src/test/resources/logging.properties one directory over — that file is
+  unrelated and must stay: it silences Selenium's OWN internal
+  java.util.logging warnings (CDP version mismatches), which is a
+  completely separate logging pipeline Selenium manages internally,
+  independent of whatever logging framework the rest of this project uses.
+
+  status="WARN" below only controls Log4j2's own internal
+  startup/self-diagnostic noise (e.g. "could not find a logging
+  implementation") — it has no effect on the loggers this project's code
+  actually uses; those are controlled by the <Loggers> block below.
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+  <Properties>
+    <!-- -Dsite=demoqa / saucedemo / mobile picks the log file name —
+         matches the same -Dsite convention ConfigReader already reads
+         config/<site>.properties from. Falls back to "run" so a plain
+         `mvn test` with no -Dsite (or any tool invocation outside the
+         suite XMLs) still gets a sensible file instead of an error. -->
+    <Property name="LOG_DIR">target/logs</Property>
+    <Property name="SITE">${sys:site:-run}</Property>
+    <!-- -Dlog.level=DEBUG for a noisy run, e.g. chasing a self-healing
+         threshold decision or a keyword-engine step-by-step trace,
+         without editing this file. Defaults to INFO. -->
+    <Property name="LOG_LEVEL">${sys:log.level:-INFO}</Property>
+    <Property name="CONSOLE_PATTERN">
+      %d{HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=blue} [%t] %style{%logger{1.}}{cyan} - %msg%n%throwable
+    </Property>
+    <Property name="FILE_PATTERN">
+      %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{1.} - %msg%n%throwable
+    </Property>
+  </Properties>
+
+  <Appenders>
+
+    <!-- Human-eyeballing-a-local-run output — colorized, short timestamp. -->
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${CONSOLE_PATTERN}" disableAnsi="false"/>
+    </Console>
+
+    <!-- One physical appender definition; ${SITE} in the file name means
+         a -Dsite=demoqa run writes target/logs/demoqa.log, -Dsite=saucedemo
+         writes target/logs/saucedemo.log, -Dsite=mobile writes
+         target/logs/mobile.log — no per-site XML duplication needed.
+         Size + time based rollover keeps any single run's log from
+         growing unbounded during a long regression/parallel suite, and
+         gzips rolled-over files so they're cheap to keep around as a CI
+         artifact (see the "Upload Extent + Surefire Artifacts" step in
+         .github/workflows/github-ci.yml, which already grabs target/ —
+         adding target/logs/ there picks these up for free). -->
+    <RollingFile name="SiteFile"
+                 fileName="${LOG_DIR}/${SITE}.log"
+                 filePattern="${LOG_DIR}/archive/${SITE}-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout pattern="${FILE_PATTERN}"/>
+      <Policies>
+        <!-- Roll if the file survives past midnight (keeps one calendar
+             day's worth of a long-lived local dev log together)... -->
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <!-- ...or once it hits 20MB, whichever comes first — a single
+             `mvn test -DsuiteXmlFile=...-regression.xml` run with
+             thread-count="3" and self-healing/keyword-engine DEBUG
+             logging on can generate a lot of output well within one day. -->
+        <SizeBasedTriggeringPolicy size="20 MB"/>
+      </Policies>
+      <!-- Keep the last 10 rolled files per site so target/logs/ doesn't
+           grow unbounded across many local runs; CI starts with a clean
+           target/ every job anyway, so this mainly protects local dev. -->
+      <DefaultRolloverStrategy max="10">
+        <Delete basePath="${LOG_DIR}/archive" maxDepth="1">
+          <IfFileName glob="${SITE}-*.log.gz"/>
+          <IfAccumulatedFileCount exceeds="10"/>
+        </Delete>
+      </DefaultRolloverStrategy>
+    </RollingFile>
+
+  </Appenders>
+
+  <Loggers>
+
+    <!-- This project's own code — everything under com.automation.
+         Level is overridable per-run with -Dlog.level=DEBUG. -->
+    <Logger name="com.automation" level="${LOG_LEVEL}" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="SiteFile"/>
+    </Logger>
+
+    <!-- Third-party libraries that route through SLF4J (WebDriverManager)
+         or the Log4j2 API directly (Apache POI) — see the log4j-slf4j2-impl
+         and log4j-core dependency comments in pom.xml. Kept one level
+         quieter than our own code by default: these are chatty at INFO
+         (WebDriverManager logs every cache check; POI logs XML parsing
+         internals) and rarely what you're actually debugging. Bump to
+         INFO/DEBUG with -Dlog.level.thirdparty=... if you ARE chasing a
+         driver-download or Excel-parsing issue specifically. -->
+    <Logger name="io.github.bonigarcia" level="${sys:log.level.thirdparty:-WARN}" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="SiteFile"/>
+    </Logger>
+    <Logger name="org.apache.poi" level="${sys:log.level.thirdparty:-WARN}" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="SiteFile"/>
+    </Logger>
+
+    <!-- Everything else (Selenium's own SLF4J-facing bits, Netty inside
+         the Grid RemoteWebDriver HTTP client, TestNG, etc.) — root catches
+         whatever isn't explicitly claimed above. Selenium's
+         java.util.logging-based CDP warnings do NOT come through here at
+         all; those are still governed entirely by
+         src/test/resources/logging.properties, a separate pipeline. -->
+    <Root level="WARN">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="SiteFile"/>
+    </Root>
+
+  </Loggers>
+
+</Configuration>

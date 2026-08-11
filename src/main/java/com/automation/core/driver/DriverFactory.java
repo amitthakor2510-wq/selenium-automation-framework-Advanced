@@ -1,6 +1,7 @@
 package com.automation.core.driver;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.DriverInitializationException;
@@ -74,7 +75,7 @@ import java.util.Collections;
  */
 public final class DriverFactory {
 
-    private static final Logger logger = Logger.getLogger(DriverFactory.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DriverFactory.class);
 
     private DriverFactory() {
     }
@@ -125,7 +126,7 @@ public final class DriverFactory {
      */
     private static SafariOptions buildSafariRemoteOptions(boolean headless) {
         if (headless) {
-            logger.warning("[DriverFactory] headless=true was requested for safari, but Safari has no"
+            logger.warn("[DriverFactory] headless=true was requested for safari, but Safari has no"
                 + " headless mode — launching a normal windowed remote session instead.");
         }
         return new SafariOptions();
@@ -392,7 +393,7 @@ public final class DriverFactory {
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
-                    logger.warning("[DriverFactory] " + browserLabel + " driver: retrying after a free-port"
+                    logger.warn("[DriverFactory] " + browserLabel + " driver: retrying after a free-port"
                         + " allocation race (attempt " + attempt + "/" + DRIVER_CREATION_MAX_ATTEMPTS + ").");
                 }
                 return creator.apply(attempt);
@@ -639,7 +640,7 @@ public final class DriverFactory {
             File logDir = new File(System.getProperty("user.dir") + File.separator
                 + "target" + File.separator + "logs" + File.separator + safeSiteName());
             if (!logDir.exists() && !logDir.mkdirs()) {
-                logger.warning("[DriverFactory] Could not create log directory: " + logDir);
+                logger.warn("[DriverFactory] Could not create log directory: " + logDir);
                 return null;
             }
             File logFile = new File(logDir,
@@ -647,7 +648,7 @@ public final class DriverFactory {
             logger.info("[DriverFactory] Verbose chromedriver log: " + logFile.getAbsolutePath());
             return logFile;
         } catch (Exception e) {
-            logger.warning("[DriverFactory] Could not set up verbose chromedriver logging: "
+            logger.warn("[DriverFactory] Could not set up verbose chromedriver logging: "
                 + e.getMessage());
             return null;
         }
@@ -701,7 +702,7 @@ public final class DriverFactory {
             registerTempProfileCleanup(tempProfile);
             return tempProfile;
         } catch (java.io.IOException e) {
-            logger.warning("[DriverFactory] Could not create temp profile dir: "
+            logger.warn("[DriverFactory] Could not create temp profile dir: "
                 + e.getMessage());
             return null;
         }
@@ -1012,7 +1013,7 @@ public final class DriverFactory {
             // browser silently accepts would be surprising for a suite
             // that runs the same -Dheadless=true across a browser matrix;
             // warn and launch a normal windowed session instead.
-            logger.warning("[DriverFactory] headless=true was requested for safari, but Safari has no"
+            logger.warn("[DriverFactory] headless=true was requested for safari, but Safari has no"
                 + " headless mode — launching a normal windowed session instead.");
         }
 
@@ -1074,7 +1075,7 @@ public final class DriverFactory {
         if (!file.delete()) {
             // Best-effort only — a lingering lock file or open handle here
             // just means one leftover temp dir, not a build failure.
-            logger.fine("[DriverFactory] Could not delete temp profile file/dir: "
+            logger.debug("[DriverFactory] Could not delete temp profile file/dir: "
                 + file.getAbsolutePath());
         }
     }

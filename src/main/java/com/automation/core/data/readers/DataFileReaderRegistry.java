@@ -7,7 +7,8 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Picks the right DataFileReader for a file by extension. This is the one
@@ -23,7 +24,7 @@ import java.util.logging.Logger;
  */
 public final class DataFileReaderRegistry {
 
-    private static final Logger logger = Logger.getLogger(DataFileReaderRegistry.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DataFileReaderRegistry.class);
 
     private final ExcelDataFileReader excelReader = new ExcelDataFileReader();
     private final CsvDataFileReader csvReader = new CsvDataFileReader();

@@ -1,6 +1,7 @@
 package com.automation.template;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.sites.core.BaseTest;
 import org.testng.Assert;
@@ -31,7 +32,7 @@ public class TemplateTest extends BaseTest {
     // logger output is what actually shows up correctly attributed in CI
     // console output and gets picked up consistently regardless of which
     // pipeline (Jenkins/GitLab/GitHub) is running it.
-    private static final Logger logger = Logger.getLogger(TemplateTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(TemplateTest.class);
 
     // The page object under test — created fresh per test method in
     // @BeforeMethod below, NOT as a field initializer, because getDriver()
@@ -63,7 +64,7 @@ public class TemplateTest extends BaseTest {
     // reference RetryAnalyzer or add anything retry-related here.
 
     @Test(priority = 1, groups = {"smoke", "regression"},
-            description = "Template Page - Verify search returns results")
+        description = "Template Page - Verify search returns results")
     public void verifySearchReturnsResults() {
         logger.info("Starting verifySearchReturnsResults");
 
@@ -80,11 +81,11 @@ public class TemplateTest extends BaseTest {
         // one in a new test would be an unexplained dependency nobody else
         // in the codebase uses.
         Assert.assertTrue(resultCount > 0,
-                "Expected at least one result, got " + resultCount);
+            "Expected at least one result, got " + resultCount);
     }
 
     @Test(priority = 2, groups = {"regression"},
-            description = "Template Page - Verify first result text is not empty")
+        description = "Template Page - Verify first result text is not empty")
     public void verifyFirstResultHasText() {
         templatePage.navigateToTemplatePage();
         templatePage.search("example query");
@@ -99,11 +100,11 @@ public class TemplateTest extends BaseTest {
     // belongs in the fuller nightly suite rather than gating every PR — a
     // secondary check on a widget's state, not a critical user path.
     @Test(priority = 3, groups = {"regression"},
-            description = "Template Page - Verify search button is present")
+        description = "Template Page - Verify search button is present")
     public void verifySearchButtonVisible() {
         templatePage.navigateToTemplatePage();
         Assert.assertTrue(templatePage.isSearchButtonVisible(),
-                "Search button should be visible on page load");
+            "Search button should be visible on page load");
     }
 
     // Nothing to clean up in an @AfterMethod here — BaseTest's own

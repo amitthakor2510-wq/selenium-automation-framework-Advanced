@@ -8,7 +8,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -20,7 +21,7 @@ import java.util.zip.ZipInputStream;
  */
 public class ZipDataFileReader implements DataFileReader {
 
-    private static final Logger logger = Logger.getLogger(ZipDataFileReader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ZipDataFileReader.class);
 
     private final DataFileReaderRegistry registry;
 

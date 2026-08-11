@@ -10,10 +10,11 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ScreenshotUtil {
-    private static final Logger logger = Logger.getLogger(ScreenshotUtil.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ScreenshotUtil.class);
 
     private ScreenshotUtil() {
         // Private constructor to hide the implicit public one
@@ -47,7 +48,7 @@ public class ScreenshotUtil {
             Files.copy(src.toPath(), Paths.get(filePath), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
         } catch (IOException e) {
-            logger.warning("IOException while saving file screenshot: " + e.getMessage());
+            logger.warn("IOException while saving file screenshot: " + e.getMessage());
             // Nothing was actually written — returning filePath here would give
             // callers (e.g. Allure attachments) a path to a file that doesn't exist.
             return null;
@@ -56,7 +57,7 @@ public class ScreenshotUtil {
             // NoSuchSessionException) must not turn a genuine test failure into a
             // secondary uncaught exception here — same defensive rule this class's
             // other two capture methods (and FailureDiagnostics) already follow.
-            logger.warning("Could not capture file screenshot: " + e.getMessage());
+            logger.warn("Could not capture file screenshot: " + e.getMessage());
             return null;
         }
 
@@ -75,7 +76,7 @@ public class ScreenshotUtil {
             TakesScreenshot ts = (TakesScreenshot) driver;
             return ts.getScreenshotAs(OutputType.BASE64);
         } catch (Exception e) {
-            logger.warning("Exception while taking base64 screenshot: " + e.getMessage());
+            logger.warn("Exception while taking base64 screenshot: " + e.getMessage());
             return "";
         }
     }
@@ -87,7 +88,7 @@ public class ScreenshotUtil {
         try {
             return ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
         } catch (Exception e) {
-            logger.warning("Could not take screenshot: " + e.getMessage());
+            logger.warn("Could not take screenshot: " + e.getMessage());
             return new byte[0];
         }
     }

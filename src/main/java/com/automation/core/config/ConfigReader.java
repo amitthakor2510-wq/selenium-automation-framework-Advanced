@@ -38,8 +38,8 @@ public class ConfigReader {
     private static final ThreadLocal<Boolean> initializedTL =
         ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<String> activeSiteTL = new ThreadLocal<>();
-    private static final java.util.logging.Logger logger =
-        java.util.logging.Logger.getLogger(ConfigReader.class.getName());
+    private static final org.slf4j.Logger logger =
+        org.slf4j.LoggerFactory.getLogger(ConfigReader.class);
 
     private ConfigReader() {
     }

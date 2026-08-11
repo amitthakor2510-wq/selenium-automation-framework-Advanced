@@ -82,8 +82,8 @@ public class BaseTest implements DriverProvider {
                 // failures (e.g. attaching to an already-running browser
                 // instance) that left the window open with no error shown.
                 // Log it so a failed teardown is visible instead of silent.
-                java.util.logging.Logger.getLogger(BaseTest.class.getName())
-                    .warning("[BaseTest] driver.quit() failed: " + e.getMessage());
+                org.slf4j.LoggerFactory.getLogger(BaseTest.class)
+                    .warn("[BaseTest] driver.quit() failed: " + e.getMessage());
             } finally {
                 driver.remove(); // Important for memory cleanup
             }

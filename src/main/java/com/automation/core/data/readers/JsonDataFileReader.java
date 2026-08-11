@@ -10,7 +10,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads .json test data. Expects a JSON array of objects:
@@ -21,7 +22,7 @@ import java.util.logging.Logger;
  */
 public class JsonDataFileReader implements DataFileReader {
 
-    private static final Logger logger = Logger.getLogger(JsonDataFileReader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(JsonDataFileReader.class);
 
     @Override
     public List<DataRow> read(File file) {

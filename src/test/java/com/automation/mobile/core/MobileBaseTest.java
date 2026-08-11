@@ -64,8 +64,8 @@ public class MobileBaseTest implements DriverProvider {
                 // Previously swallowed silently — same fix as BaseTest.java:
                 // log it so a failed Appium session teardown is visible
                 // instead of hidden.
-                java.util.logging.Logger.getLogger(MobileBaseTest.class.getName())
-                    .warning("[MobileBaseTest] driver.quit() failed: " + e.getMessage());
+                org.slf4j.LoggerFactory.getLogger(MobileBaseTest.class)
+                    .warn("[MobileBaseTest] driver.quit() failed: " + e.getMessage());
             } finally {
                 driver.remove();
             }

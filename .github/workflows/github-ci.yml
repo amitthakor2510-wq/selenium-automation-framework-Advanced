@@ -393,6 +393,7 @@ jobs:
           name: test-results-${{ matrix.site }}-${{ matrix.browser }}-${{ github.run_id }}
           path: |
             target/extent-reports/
+            target/logs/
             target/screenshots/
             target/surefire-reports/
             target/downloads/
@@ -530,6 +531,7 @@ jobs:
           name: test-results-mobile-${{ github.run_id }}
           path: |
             target/extent-reports/
+            target/logs/
             target/screenshots/
             target/surefire-reports/
             target/self-healing/
@@ -707,6 +709,7 @@ jobs:
           name: test-results-demoqa-${{ matrix.suite }}-${{ github.run_id }}
           path: |
             target/extent-reports/
+            target/logs/
             target/screenshots/
             target/surefire-reports/
             target/self-healing/

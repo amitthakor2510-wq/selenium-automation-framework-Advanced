@@ -16,11 +16,12 @@ import java.time.Duration;
 import java.util.List;
 
 import static java.util.stream.Collectors.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BookStoreApplicationPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(BookStoreApplicationPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(BookStoreApplicationPage.class);
 
     // ── Login ───────────────────────────────────────────────────────────────────
     private final By usernameField = By.id("userName");
@@ -130,7 +131,7 @@ public class BookStoreApplicationPage extends BasePage {
 
         if (!driver.getCurrentUrl().contains("/profile")) {
             String error = getLoginErrorMessage();
-            logger.warning("  Login did not reach /profile. Error text: '" + error + "'");
+            logger.warn("  Login did not reach /profile. Error text: '" + error + "'");
         }
     }
 
@@ -220,7 +221,7 @@ public class BookStoreApplicationPage extends BasePage {
             logger.info("  Screenshot saved: " + screenshotPath);
             logger.info("  --- End diagnostics ---");
         } catch (Exception e) {
-            logger.warning("  isLoggedIn diagnostics capture failed: " + e.getMessage());
+            logger.warn("  isLoggedIn diagnostics capture failed: " + e.getMessage());
         }
     }
 

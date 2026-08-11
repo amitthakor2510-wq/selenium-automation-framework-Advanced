@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.DraggablePage;
@@ -11,7 +12,7 @@ import org.testng.annotations.Test;
 
 public class DraggableTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(DraggableTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DraggableTest.class);
 
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Draggable - Simple Box Moves To New Position")

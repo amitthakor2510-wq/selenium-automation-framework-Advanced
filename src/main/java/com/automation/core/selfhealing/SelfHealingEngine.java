@@ -16,7 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Drop-in replacement for {@code wait.until(ExpectedConditions.visibility/
@@ -53,7 +54,7 @@ import java.util.logging.Logger;
  */
 public final class SelfHealingEngine {
 
-    private static final Logger logger = Logger.getLogger(SelfHealingEngine.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(SelfHealingEngine.class);
 
     /** Common, relatively stable attributes worth capturing when present. */
     private static final String[] TRACKED_ATTRIBUTES = {
@@ -109,13 +110,13 @@ public final class SelfHealingEngine {
         double threshold = parseThreshold();
         ScoredCandidate best = findBestMatch(driver, baseline, requireClickable);
         if (best == null || best.score < threshold) {
-            logger.warning("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
+            logger.warn("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
                 + " (best score " + (best == null ? "n/a" : String.format(Locale.ROOT, "%.2f", best.score))
                 + ", threshold " + threshold + "). Falling back to the original failure.");
             return null;
         }
 
-        logger.warning("[SelfHealing] '" + key + "' — original locator " + locator
+        logger.warn("[SelfHealing] '" + key + "' — original locator " + locator
             + " no longer matches; healed onto " + describe(best.element)
             + " (confidence " + String.format(Locale.ROOT, "%.2f", best.score) + ").");
 
@@ -142,7 +143,7 @@ public final class SelfHealingEngine {
         } catch (Exception e) {
             // Fingerprinting is a best-effort side-channel — never let it
             // break the actual test interaction that just succeeded.
-            logger.fine("[SelfHealing] Could not fingerprint element for '" + key + "': " + e.getMessage());
+            logger.debug("[SelfHealing] Could not fingerprint element for '" + key + "': " + e.getMessage());
         }
     }
 

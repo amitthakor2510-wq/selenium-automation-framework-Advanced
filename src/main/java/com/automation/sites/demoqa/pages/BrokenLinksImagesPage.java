@@ -7,11 +7,12 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrokenLinksImagesPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(BrokenLinksImagesPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(BrokenLinksImagesPage.class);
 
     // The failure resolved img.complete=true with naturalWidth=0 in ~6s (well
     // under the 10s poll deadline) — not a slow/timed-out load, a genuine

@@ -220,6 +220,7 @@ test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/logs/
       - target/screenshots/
       - target/surefire-reports/
       - target/jacoco-artifacts/
@@ -466,6 +467,7 @@ mobile-test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/logs/
       - target/screenshots/
       - target/surefire-reports/
       - target/jacoco-artifacts/
@@ -535,6 +537,7 @@ accessibility-visual-test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/logs/
       - target/screenshots/
       - target/surefire-reports/
     reports:
@@ -751,6 +754,7 @@ report:
     paths:
       - public/
       - target/extent-reports/
+      - target/logs/
       - target/screenshots/
     reports:
       junit: target/surefire-reports/*.xml

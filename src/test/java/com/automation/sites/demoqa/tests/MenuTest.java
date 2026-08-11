@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.MenuPage;
@@ -9,7 +10,7 @@ import org.testng.annotations.Test;
 
 public class MenuTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(MenuTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(MenuTest.class);
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},

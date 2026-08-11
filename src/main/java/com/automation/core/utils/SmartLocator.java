@@ -10,7 +10,8 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tries a primary locator first, then falls back to one or more alternates
@@ -50,7 +51,7 @@ import java.util.logging.Logger;
  */
 public final class SmartLocator {
 
-    private static final Logger logger = Logger.getLogger(SmartLocator.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(SmartLocator.class);
     private static final Duration FALLBACK_WAIT = Duration.ofSeconds(2);
 
     private SmartLocator() {
@@ -88,7 +89,7 @@ public final class SmartLocator {
                     // Not a failure — but worth knowing about, since it means the
                     // primary locator has drifted and the framework quietly
                     // absorbed it instead of failing the build outright.
-                    logger.warning("[SmartLocator] '" + description + "' — primary locator "
+                    logger.warn("[SmartLocator] '" + description + "' — primary locator "
                         + primary + " did not match; recovered using fallback #" + i + ": " + locator);
                 }
                 return element;

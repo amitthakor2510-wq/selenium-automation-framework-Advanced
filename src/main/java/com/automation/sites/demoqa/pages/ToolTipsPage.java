@@ -8,11 +8,12 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ToolTipsPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(ToolTipsPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ToolTipsPage.class);
 
     // BUG FIX (confirmed against a live Jenkins run — verifyButtonTooltip and
     // verifyTextFieldTooltip both timed out waiting 20s for .tooltip-inner,

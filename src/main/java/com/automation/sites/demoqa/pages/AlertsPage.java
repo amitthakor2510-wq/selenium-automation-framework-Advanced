@@ -13,11 +13,12 @@ import org.openqa.selenium.devtools.v125.page.Page;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
 import java.util.Optional;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AlertsPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(AlertsPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(AlertsPage.class);
 
     private final By alertButton      = By.id("alertButton");
     private final By timerAlertButton = By.id("timerAlertButton");
@@ -125,7 +126,7 @@ public class AlertsPage extends BasePage {
                 }
             }
         } catch (Exception e) {
-            logger.warning("[AlertsPage] Could not determine browser version for CDP compatibility check: " + e.getMessage());
+            logger.warn("[AlertsPage] Could not determine browser version for CDP compatibility check: " + e.getMessage());
         }
         // Unknown version — default to attempting CDP; the existing try/catch
         // below still falls back safely if it turns out to be incompatible.
@@ -162,7 +163,7 @@ public class AlertsPage extends BasePage {
                 devTools.send(Page.handleJavaScriptDialog(true, Optional.of(text)));
                 logger.info("[AlertsPage] Handled prompt via CDP with text: \"" + text + "\"");
             } catch (Exception e) {
-                logger.warning("[AlertsPage] CDP handling failed, falling back to Alert.sendKeys: " + e.getMessage());
+                logger.warn("[AlertsPage] CDP handling failed, falling back to Alert.sendKeys: " + e.getMessage());
                 Alert alert = driver.switchTo().alert();
                 alert.sendKeys(text);
                 alert.accept();

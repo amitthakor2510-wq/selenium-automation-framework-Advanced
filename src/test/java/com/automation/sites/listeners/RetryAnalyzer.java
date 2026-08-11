@@ -1,6 +1,7 @@
 package com.automation.sites.listeners;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.ConfigException;
@@ -11,7 +12,7 @@ import org.testng.ITestResult;
 
 public class RetryAnalyzer implements IRetryAnalyzer {
 
-    private static final Logger logger = Logger.getLogger(RetryAnalyzer.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(RetryAnalyzer.class);
 
     private int count = 0;
 

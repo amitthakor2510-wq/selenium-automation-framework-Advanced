@@ -5,7 +5,8 @@ import org.openqa.selenium.logging.LogEntry;
 import org.openqa.selenium.logging.LogType;
 
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Best-effort diagnostics captured only when a test fails, and attached
@@ -20,7 +21,7 @@ import java.util.logging.Logger;
  */
 public final class FailureDiagnostics {
 
-    private static final Logger logger = Logger.getLogger(FailureDiagnostics.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(FailureDiagnostics.class);
 
     private FailureDiagnostics() {
     }
@@ -33,7 +34,7 @@ public final class FailureDiagnostics {
         try {
             return driver.getPageSource();
         } catch (Exception e) {
-            logger.warning("Could not capture page source: " + e.getMessage());
+            logger.warn("Could not capture page source: " + e.getMessage());
             return "";
         }
     }

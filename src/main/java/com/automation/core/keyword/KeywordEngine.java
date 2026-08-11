@@ -19,7 +19,8 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Executes a list of KeywordStep against a live WebDriver session, resolving
@@ -39,7 +40,7 @@ import java.util.logging.Logger;
  */
 public class KeywordEngine {
 
-    private static final Logger logger = Logger.getLogger(KeywordEngine.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(KeywordEngine.class);
 
     private final WebDriver driver;
     private final ObjectRepository repo;

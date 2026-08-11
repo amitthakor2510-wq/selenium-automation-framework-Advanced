@@ -12,7 +12,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads .yaml/.yml test data. Expects a YAML list of flat mappings, e.g.:
@@ -28,7 +29,7 @@ import java.util.logging.Logger;
  */
 public class YamlDataFileReader implements DataFileReader {
 
-    private static final Logger logger = Logger.getLogger(YamlDataFileReader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(YamlDataFileReader.class);
 
     @Override
     @SuppressWarnings("unchecked")

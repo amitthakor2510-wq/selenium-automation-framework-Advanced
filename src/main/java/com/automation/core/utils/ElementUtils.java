@@ -7,7 +7,8 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Shared element-state helpers used by both BasePage and KeywordEngine.
@@ -26,7 +27,7 @@ import java.util.logging.Logger;
  */
 public final class ElementUtils {
 
-    private static final Logger logger = Logger.getLogger(ElementUtils.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ElementUtils.class);
 
     private ElementUtils() {
     }
@@ -42,7 +43,7 @@ public final class ElementUtils {
         } catch (Exception e) {
             // Anything else (e.g. a crashed/dead session) is a real failure,
             // not "element not displayed" — surface it instead of hiding it.
-            logger.warning("[ElementUtils] isDisplayed check failed unexpectedly for "
+            logger.warn("[ElementUtils] isDisplayed check failed unexpectedly for "
                 + locator + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());
             throw e;
         }

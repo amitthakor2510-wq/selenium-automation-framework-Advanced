@@ -12,12 +12,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Reads .csv test data. First row is always the header row. */
 public class CsvDataFileReader implements DataFileReader {
 
-    private static final Logger logger = Logger.getLogger(CsvDataFileReader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(CsvDataFileReader.class);
 
     @Override
     public List<DataRow> read(File file) {

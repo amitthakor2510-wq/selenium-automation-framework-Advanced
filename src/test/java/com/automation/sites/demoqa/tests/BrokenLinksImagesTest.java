@@ -6,11 +6,12 @@ import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrokenLinksImagesTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(BrokenLinksImagesTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(BrokenLinksImagesTest.class);
 
     @Test(priority = 1, groups = {"smoke", "regression"},
         description = "Broken Links Images - Valid Image Loads")
@@ -31,7 +32,7 @@ public class BrokenLinksImagesTest extends BaseTest {
             String message = "Valid image did not load after 3 retries with fresh page loads — "
                 + "confirmed external CDN flakiness on demoqa's image host (Toolsqa.jpg), not a "
                 + "framework/app bug. Skipping instead of failing the build.";
-            logger.warning("[BrokenLinksImagesTest] " + message);
+            logger.warn("[BrokenLinksImagesTest] " + message);
             throw new SkipException(message);
         }
     }

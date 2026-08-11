@@ -92,12 +92,12 @@ public abstract class BasePage {
      * drifted slightly — one used logger.info while the other two used
      * logger.fine for the identical situation, an inconsistency rather
      * than an intentional difference. Uses this page's own runtime class
-     * for the logger name (Logger.getLogger(getClass().getName())) so log
+     * for the logger name (LoggerFactory.getLogger(getClass())) so log
      * output still reads as coming from e.g. CheckBoxPage, not BasePage.
      */
     protected void dumpPageForDebugging(String label) {
-        java.util.logging.Logger logger =
-            java.util.logging.Logger.getLogger(getClass().getName());
+        org.slf4j.Logger logger =
+            org.slf4j.LoggerFactory.getLogger(getClass());
         try {
             java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
             java.nio.file.Files.createDirectories(dir);
@@ -105,10 +105,10 @@ public abstract class BasePage {
                 + "-" + System.currentTimeMillis() + ".html";
             java.nio.file.Path file = dir.resolve(fileName);
             java.nio.file.Files.writeString(file, driver.getPageSource());
-            logger.fine("  DEBUG full page source written to: " + file.toAbsolutePath());
+            logger.debug("  DEBUG full page source written to: " + file.toAbsolutePath());
         } catch (Exception writeEx) {
-            logger.fine("  DEBUG could not write page source dump: " + writeEx.getMessage());
+            logger.debug("  DEBUG could not write page source dump: " + writeEx.getMessage());
         }
-        logger.fine("  DEBUG current URL: " + driver.getCurrentUrl());
+        logger.debug("  DEBUG current URL: " + driver.getCurrentUrl());
     }
 }

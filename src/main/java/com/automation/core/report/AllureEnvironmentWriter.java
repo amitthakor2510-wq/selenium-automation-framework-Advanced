@@ -8,7 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Populates two Allure files that the plain allure-testng dependency does
@@ -31,7 +32,7 @@ import java.util.logging.Logger;
  */
 public final class AllureEnvironmentWriter {
 
-    private static final Logger logger = Logger.getLogger(AllureEnvironmentWriter.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(AllureEnvironmentWriter.class);
     private static volatile boolean written = false;
 
     private AllureEnvironmentWriter() {
@@ -54,7 +55,7 @@ public final class AllureEnvironmentWriter {
             writeCategories(resultsDir);
             writeExecutorInfo(resultsDir);
         } catch (IOException e) {
-            logger.warning("Could not write Allure environment/categories/executor files: " + e.getMessage());
+            logger.warn("Could not write Allure environment/categories/executor files: " + e.getMessage());
         }
     }
 

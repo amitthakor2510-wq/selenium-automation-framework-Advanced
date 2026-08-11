@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
@@ -31,7 +32,7 @@ import static java.util.stream.Collectors.toList;
  */
 public class ProfilePage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(ProfilePage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ProfilePage.class);
 
     // Same site-wide table redesign confirmed on /books and /webtables:
     // plain semantic <table>/<tr>/<td>, no more react-table ".rt-*" classes.

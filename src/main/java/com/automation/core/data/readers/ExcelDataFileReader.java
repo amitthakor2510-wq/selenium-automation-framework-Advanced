@@ -19,12 +19,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Reads .xlsx/.xls test data. First row is always the header row. */
 public class ExcelDataFileReader implements DataFileReader {
 
-    private static final Logger logger = Logger.getLogger(ExcelDataFileReader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(ExcelDataFileReader.class);
 
     /** Reads the first sheet — used by the generic read() entry point. */
     @Override
@@ -55,7 +56,7 @@ public class ExcelDataFileReader implements DataFileReader {
             // First row = headers
             Row headerRow = sheet.getRow(0);
             if (headerRow == null) {
-                logger.warning("[ExcelDataFileReader] Excel file has no header row: " + file.getName());
+                logger.warn("[ExcelDataFileReader] Excel file has no header row: " + file.getName());
                 return rows;
             }
 

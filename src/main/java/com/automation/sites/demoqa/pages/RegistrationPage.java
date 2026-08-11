@@ -15,11 +15,12 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RegistrationPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(RegistrationPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(RegistrationPage.class);
 
     // IDs verified from compiled RegistrationPage.class:
     private final By firstNameInput  = By.id("firstname");
@@ -121,7 +122,7 @@ public class RegistrationPage extends BasePage {
         try {
             js.executeScript(script);
         } catch (Exception e) {
-            logger.warning("  Network capture install failed (non-fatal): " + e.getMessage());
+            logger.warn("  Network capture install failed (non-fatal): " + e.getMessage());
         }
     }
 
@@ -266,11 +267,11 @@ public class RegistrationPage extends BasePage {
             logger.info("  No alert appeared");
             lastServerErrorText = captureServerErrorText();
             if (!lastServerErrorText.isEmpty()) {
-                logger.warning("  Server error text: '" + lastServerErrorText + "'");
+                logger.warn("  Server error text: '" + lastServerErrorText + "'");
             } else {
                 lastNetworkErrorInfo = captureNetworkErrorInfo();
                 if (!lastNetworkErrorInfo.isEmpty()) {
-                    logger.warning("  Actual API response: " + lastNetworkErrorInfo);
+                    logger.warn("  Actual API response: " + lastNetworkErrorInfo);
                 } else {
                     logger.info("  No API response captured either — request may never have fired "
                         + "(button/JS issue) or fired to an unexpected URL.");
@@ -345,13 +346,13 @@ public class RegistrationPage extends BasePage {
                     "'captcha')]");
             java.util.List<WebElement> errorEls = driver.findElements(likelyErrorText);
             if (errorEls.isEmpty()) {
-                logger.warning("  No error/validation text found anywhere on the page");
+                logger.warn("  No error/validation text found anywhere on the page");
             } else {
                 for (WebElement el : errorEls) {
                     try {
                         String text = el.getText().trim();
                         if (!text.isEmpty()) {
-                            logger.warning("  Possible error text: '" + text + "'");
+                            logger.warn("  Possible error text: '" + text + "'");
                         }
                     } catch (Exception ignored) {
                         // element went stale between findElements() and getText() — skip it
@@ -363,7 +364,7 @@ public class RegistrationPage extends BasePage {
             logger.info("  Screenshot saved: " + screenshotPath);
             logger.info("  --- End diagnostics ---");
         } catch (Exception e) {
-            logger.warning("  Diagnostics capture failed: " + e.getMessage());
+            logger.warn("  Diagnostics capture failed: " + e.getMessage());
         }
     }
 
@@ -381,7 +382,7 @@ public class RegistrationPage extends BasePage {
             return true;
         }
         if (alert.contains("already exist") || alert.contains("user exists")) {
-            logger.warning("  Registration failed — user already exists: " + lastAlertText);
+            logger.warn("  Registration failed — user already exists: " + lastAlertText);
             return false;
         }
 
@@ -389,7 +390,7 @@ public class RegistrationPage extends BasePage {
         // surfaces "Please verify ReCaptcha!" and "User already exists!".
         String serverError = lastServerErrorText.toLowerCase();
         if (serverError.contains("captcha")) {
-            logger.warning("  Registration blocked by DemoQA's ReCaptcha check: '"
+            logger.warn("  Registration blocked by DemoQA's ReCaptcha check: '"
                 + lastServerErrorText + "'. This is a server-side rate-limit/bot-detection "
                 + "response, not a locator or timing bug — it cannot be satisfied by "
                 + "Selenium. Reduce registration frequency, reuse an existing test "
@@ -398,15 +399,15 @@ public class RegistrationPage extends BasePage {
             return false;
         }
         if (serverError.contains("already exist") || serverError.contains("user exists")) {
-            logger.warning("  Registration failed — user already exists: " + lastServerErrorText);
+            logger.warn("  Registration failed — user already exists: " + lastServerErrorText);
             return false;
         }
         if (!serverError.isEmpty()) {
-            logger.warning("  Registration failed — server error: " + lastServerErrorText);
+            logger.warn("  Registration failed — server error: " + lastServerErrorText);
             return false;
         }
         if (!lastNetworkErrorInfo.isEmpty()) {
-            logger.warning("  Registration failed — actual API response: " + lastNetworkErrorInfo);
+            logger.warn("  Registration failed — actual API response: " + lastNetworkErrorInfo);
             return false;
         }
 

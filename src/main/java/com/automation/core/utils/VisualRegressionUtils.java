@@ -16,7 +16,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Pixel-level visual regression checks via AShot. Locator-based assertions
@@ -43,7 +44,7 @@ import java.util.logging.Logger;
  */
 public final class VisualRegressionUtils {
 
-    private static final Logger logger = Logger.getLogger(VisualRegressionUtils.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(VisualRegressionUtils.class);
     private static final Path BASELINE_DIR = Paths.get("src", "test", "resources", "visual-baselines");
     private static final Path DIFF_DIR = Paths.get("target", "visual-diffs");
 
@@ -87,7 +88,7 @@ public final class VisualRegressionUtils {
                 ImageIO.write(diff.getMarkedImage(), "png", diffPath.toFile());
                 attachToAllure(snapshotName, diffPath, actualDiffPixels);
 
-                logger.warning("[VisualRegressionUtils] '" + snapshotName + "' — visual diff detected: "
+                logger.warn("[VisualRegressionUtils] '" + snapshotName + "' — visual diff detected: "
                     + actualDiffPixels + " differing pixel(s) (threshold " + allowedDiffPixels
                     + "). Diff image: " + diffPath);
 
@@ -115,7 +116,7 @@ public final class VisualRegressionUtils {
                 "png"
             );
         } catch (Exception e) {
-            logger.warning("[VisualRegressionUtils] Could not attach diff image to Allure: " + e.getMessage());
+            logger.warn("[VisualRegressionUtils] Could not attach diff image to Allure: " + e.getMessage());
         }
     }
 

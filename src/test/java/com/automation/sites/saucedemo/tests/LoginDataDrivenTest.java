@@ -1,6 +1,7 @@
 package com.automation.sites.saucedemo.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.data.DataProviderFactory;
 import com.automation.core.data.DataRow;
@@ -16,7 +17,7 @@ import org.testng.annotations.Test;
 @Story("Login - Data Driven")
 public class LoginDataDrivenTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(LoginDataDrivenTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(LoginDataDrivenTest.class);
 
     // ── Data Providers ────────────────────────────────────────────────────────
     // Point to whichever file format you prefer — all produce the same result

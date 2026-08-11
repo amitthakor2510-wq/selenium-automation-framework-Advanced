@@ -1157,7 +1157,7 @@ pipeline {
 
                     // ── Archive raw artifacts ───────────────────────
                     archiveArtifacts allowEmptyArchive: true,
-                            artifacts: 'target/extent-reports/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
+                            artifacts: 'target/extent-reports/**, target/logs/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
                             fingerprint: true
 
                     // ── ADB memory-leak cleanup ─────────────────────

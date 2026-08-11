@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.core.BaseTest;
@@ -15,7 +16,7 @@ import java.io.IOException;
 
 public class UploadDownloadTest extends BaseTest {
 
-    private static final Logger logger = Logger.getLogger(UploadDownloadTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(UploadDownloadTest.class);
 
     // FIX #1: Was 'private static' — changed to instance fields so each
     // thread gets its own copy. Static + parallel execution = race condition.

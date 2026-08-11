@@ -9,7 +9,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reads test data from Excel (.xlsx/.xls), CSV, JSON, YAML, or ZIP files.
@@ -57,7 +58,7 @@ import java.util.logging.Logger;
  */
 public class DataProvider {
 
-    private static final Logger logger = Logger.getLogger(DataProvider.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DataProvider.class);
     private static final DataFileReaderRegistry REGISTRY = new DataFileReaderRegistry();
 
     private DataProvider() {}

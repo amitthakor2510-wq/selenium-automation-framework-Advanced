@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.tests;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.api.ApiClient;
 import com.automation.sites.core.BaseApiTest;
@@ -40,7 +41,7 @@ import static org.hamcrest.Matchers.*;
  */
 public class BookStoreApiTest extends BaseApiTest {
 
-    private static final Logger logger = Logger.getLogger(BookStoreApiTest.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(BookStoreApiTest.class);
 
     private static final String UNIQUE_ID = UUID.randomUUID().toString().substring(0, 8);
     private static final String API_USERNAME = "ApiTest_" + UNIQUE_ID;

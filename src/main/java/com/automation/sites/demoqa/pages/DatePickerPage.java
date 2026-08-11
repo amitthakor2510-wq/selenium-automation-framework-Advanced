@@ -1,6 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.ElementUtils;
@@ -15,7 +16,7 @@ import org.openqa.selenium.support.ui.Select;
 
 public class DatePickerPage extends BasePage {
 
-    private static final Logger logger = Logger.getLogger(DatePickerPage.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(DatePickerPage.class);
 
     private final By dateInput   = By.id("datePickerMonthYearInput");
 
