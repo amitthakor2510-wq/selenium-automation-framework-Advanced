@@ -649,6 +649,32 @@ pipeline {
                         # emulator launches instead of concurrently with it.
                         "$ANDROID_SDK_ROOT/platform-tools/adb" start-server 2>/dev/null || true
 
+                        # ROOT CAUSE (2026-08-11 build): forcing "-accel off" above
+                        # was NOT enough on its own — emulator.log for that run
+                        # still showed "Boot completed in 258160 ms" internally
+                        # (so the guest itself did finish booting, well inside
+                        # budget) yet every adb call against it reported "device
+                        # offline" forever afterward, exactly the AES-NI/late-boot
+                        # symptom the ACCEL_MODE check above exists to avoid. The
+                        # same log also showed "Could not open libX11-xcb.so, try
+                        # libX11-xcb.so.1" during the emulator's own graphics
+                        # backend init — even with -no-window, "-gpu
+                        # swiftshader_indirect" still tries to stand up a real
+                        # host-side GLX/EGL context via libX11 first, and this
+                        # agent doesn't have that library installed. That failed
+                        # attempt doesn't crash the emulator outright, but it
+                        # leaves gfxstream in a degraded state that appears to be
+                        # what's actually stalling the guest's late-boot
+                        # SurfaceFlinger/crypto-keystore work adbd depends on —
+                        # matching the "boots internally, adbd never comes
+                        # online" signature far better than pure CPU contention
+                        # does at 258s into a 900s budget. Best-effort install so
+                        # a node that already has it (or lacks apt/sudo entirely)
+                        # doesn't fail the stage either way.
+                        if command -v apt-get > /dev/null 2>&1; then
+                            (sudo -n apt-get update -qq && sudo -n apt-get install -y -qq libx11-xcb1 libxcb1) > /dev/null 2>&1 || true
+                        fi
+
                         # -no-snapshot-load: cleanWs() in post{} wipes the
                         # entire workspace (including .android-sdk/avd/) after
                         # every single build, so a "default_boot" snapshot
@@ -668,7 +694,16 @@ pipeline {
                         # port is free — auto-assignment is exactly how the
                         # Genymotion device and this AVD could otherwise end
                         # up ambiguous to a bare `adb` call.
-                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -accel "$ACCEL_MODE" -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu swiftshader_indirect -camera-back none > emulator.log 2>&1 &
+                        # -gpu off (not swiftshader_indirect): swiftshader_indirect
+                        # still stands up a host-side GLX/EGL context via libX11
+                        # first — see the libX11-xcb.so install attempt above and
+                        # its comment for why that was landing in a degraded state
+                        # on this agent. -no-window means no host display is ever
+                        # actually needed, so -gpu off (guest-only software
+                        # rendering, no host GL/X11 involvement at all) sidesteps
+                        # that dependency entirely instead of just papering over
+                        # a missing library.
+                        "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -accel "$ACCEL_MODE" -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu off -camera-back none > emulator.log 2>&1 &
 
                         echo "Waiting for emulator to boot..."
                         # ANDROID_SERIAL=emulator-5554 (exported above) scopes

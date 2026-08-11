@@ -8,10 +8,12 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-
-import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ResizablePage extends BasePage {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResizablePage.class);
 
     private final By interactionsCard = By.xpath("//h5[text()='Interactions']");
     private final By resizableMenu    = By.xpath("//span[text()='Resizable']");
@@ -53,23 +55,65 @@ public class ResizablePage extends BasePage {
     }
 
     /**
-     * Drags the resize handle by offsetX pixels right and offsetY pixels down.
-     *
-     * NEW CONCEPT — moveByOffset(x, y):
-     * Moves the mouse BY a pixel amount from its current position.
-     * Unlike moveToElement() which moves TO an element,
-     * moveByOffset is used when you need pixel-level drag control.
-     * Positive x = right, positive y = down, negative = opposite direction.
-     * Box is clamped: min 150x150, max 500x300.
+     * Drags the resize handle in small steps rather than one big jump.
+     * <p>
+     * BUG FIX (confirmed against a live Jenkins run — ResizableTest#verifyResizeIncrease
+     * failed AGAIN even after the handle selector was correctly scoped to the
+     * "-se" (bottom-right) handle: Before 200x200, After 300x174 — width grew
+     * correctly but height still shrank, the exact same symptom the old
+     * unscoped-selector bug produced, which ruled out a wrong-handle theory.
+     * The actual cause is the drag mechanics, not the locator: the previous
+     * implementation did ONE moveToElement().clickAndHold().moveByOffset(deltaX,
+     * deltaY).release() — a single large jump. react-resizable's DraggableCore
+     * computes each resize increment from a STREAM of mousemove events relative
+     * to the last one it saw, the same class of library as jQuery UI's
+     * draggable() (see DraggablePage.smoothDrag(), which this mirrors) — a
+     * single huge synthetic jump is exactly the pattern already found to
+     * produce unreliable/incorrect deltas for that kind of listener, rather
+     * than a clean one-shot "move to this final position". Breaking the same
+     * offset into many small incremental moveByOffset() steps (with a short
+     * pause between each, matching smoothDrag()) gives the library a normal
+     * stream of small deltas to accumulate instead of one it may mis-track.
      */
+    private static final int RESIZE_STEPS = 30;
+
+    private void smoothResizeDrag(WebElement handle, int totalX, int totalY) {
+        new Actions(driver).clickAndHold(handle).perform();
+        HumanActions.microPause();
+
+        int baseStepX = totalX / RESIZE_STEPS;
+        int baseStepY = totalY / RESIZE_STEPS;
+        int remX = totalX - baseStepX * RESIZE_STEPS;
+        int remY = totalY - baseStepY * RESIZE_STEPS;
+
+        for (int i = 0; i < RESIZE_STEPS; i++) {
+            int stepX = baseStepX + (Math.abs(i) < Math.abs(remX) ? Integer.signum(remX) : 0);
+            int stepY = baseStepY + (Math.abs(i) < Math.abs(remY) ? Integer.signum(remY) : 0);
+            if (stepX != 0 || stepY != 0) {
+                new Actions(driver).moveByOffset(stepX, stepY).perform();
+            }
+            HumanActions.microPause();
+        }
+
+        new Actions(driver).release().perform();
+        HumanActions.microPause();
+    }
+
+    /**
+     * Drags the resize handle by offsetX pixels right and offsetY pixels down.
+     * Box is clamped: min 150x150, max 500x300. Retries the drag (re-locating
+     * the handle fresh each time) if the resulting size didn't actually move
+     * in the expected direction — same defensive pattern as
+     * DraggablePage#dragWithRetry(), for the same class of first-attempt
+     * flakiness on this app's drag-driven widgets.
+     */
+    private static final int MAX_RESIZE_ATTEMPTS = 3;
+
     public void resizeBy(int offsetX, int offsetY) {
-        WebElement handle = wait.until(ExpectedConditions.visibilityOfElementLocated(resizableHandle));
-        js.executeScript("arguments[0].scrollIntoView({block:'center'});", handle);
-        HumanActions.pause();
         // Compute the current box size and clamp the requested resize to the allowed min/max so we
         // don't attempt to move the pointer far outside the viewport (which can raise
         // MoveTargetOutOfBoundsException on some drivers).
-        org.openqa.selenium.Dimension current = driver.findElement(resizableBox).getSize();
+        Dimension current = driver.findElement(resizableBox).getSize();
         int currentW = current.getWidth();
         int currentH = current.getHeight();
 
@@ -80,17 +124,30 @@ public class ResizablePage extends BasePage {
         int deltaX = desiredW - currentW;
         int deltaY = desiredH - currentH;
 
-        // Use dragAndDropBy which is clearer for resizing by pixel offsets.
-        // If the delta is zero (already at limit), skip the action.
-        if (deltaX != 0 || deltaY != 0) {
-            new Actions(driver)
-                .moveToElement(handle)
-                .clickAndHold()
-                .pause(Duration.ofMillis(150))
-                .moveByOffset(deltaX, deltaY)
-                .pause(Duration.ofMillis(150))
-                .release()
-                .perform();
+        if (deltaX == 0 && deltaY == 0) {
+            HumanActions.pause();
+            return;
+        }
+
+        for (int attempt = 1; attempt <= MAX_RESIZE_ATTEMPTS; attempt++) {
+            WebElement handle = wait.until(ExpectedConditions.visibilityOfElementLocated(resizableHandle));
+            js.executeScript("arguments[0].scrollIntoView({block:'center'});", handle);
+            HumanActions.pause();
+
+            smoothResizeDrag(handle, deltaX, deltaY);
+
+            Dimension after = driver.findElement(resizableBox).getSize();
+            boolean widthOk  = deltaX == 0 || (deltaX > 0 ? after.getWidth()  > currentW : after.getWidth()  < currentW);
+            boolean heightOk = deltaY == 0 || (deltaY > 0 ? after.getHeight() > currentH : after.getHeight() < currentH);
+
+            if (widthOk && heightOk) {
+                HumanActions.pause();
+                return;
+            }
+            logger.warn("[ResizablePage] Resize attempt " + attempt + "/" + MAX_RESIZE_ATTEMPTS
+                + " produced unexpected size " + after.getWidth() + "x" + after.getHeight()
+                + " (before " + currentW + "x" + currentH + ", requested delta "
+                + deltaX + "," + deltaY + ") — retrying");
         }
 
         HumanActions.pause();

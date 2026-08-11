@@ -113,7 +113,7 @@ public class BookStoreApplicationTest extends BaseTest {
     // Suppress per-method driver creation — this class owns the session
     @Override
     @BeforeMethod(alwaysRun = true)
-    public void setUp() { /* intentionally blank */ }
+    public void setUp(java.lang.reflect.Method testMethod) { /* intentionally blank */ }
 
     @Override
     @AfterMethod(alwaysRun = true)
