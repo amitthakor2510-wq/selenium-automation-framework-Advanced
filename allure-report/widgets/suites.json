@@ -1,1 +1,1 @@
-{"total":3,"items":[{"uid":"137d7d6a38d636c5de74f0849f4d7f50","name":"DemoQA Regression Suite","statistic":{"failed":8,"broken":4,"skipped":15,"passed":93,"unknown":0,"total":120}},{"uid":"6008329df6f322ad3814979683c3994a","name":"SauceDemo Regression Suite","statistic":{"failed":0,"broken":0,"skipped":0,"passed":19,"unknown":1,"total":20}},{"uid":"94edc5aba05bc717a69b45846d029966","name":"Mobile Regression Suite","statistic":{"failed":0,"broken":0,"skipped":0,"passed":2,"unknown":0,"total":2}}]}
+{"total":0,"items":[]}
