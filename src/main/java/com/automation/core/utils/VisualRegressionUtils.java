@@ -83,7 +83,15 @@ public final class VisualRegressionUtils {
             int actualDiffPixels = diff.getDiffSize();
 
             if (actualDiffPixels > allowedDiffPixels) {
-                Path diffPath = DIFF_DIR.resolve(snapshotName + "-diff.png");
+                // Namespaced by site + thread ID, not just snapshotName: two
+                // different sites (or two parallel test classes reusing the
+                // same snapshot name) writing a diff at the same moment would
+                // otherwise race on one shared file — same bug class as the
+                // chromedriver-log and temp-profile-dir fixes elsewhere in
+                // this project, just missed here since this class was added
+                // after that hardening pass.
+                Path diffPath = DIFF_DIR.resolve(site + "-" + snapshotName
+                    + "-thread-" + Thread.currentThread().getId() + "-diff.png");
                 Files.createDirectories(DIFF_DIR);
                 ImageIO.write(diff.getMarkedImage(), "png", diffPath.toFile());
                 attachToAllure(snapshotName, diffPath, actualDiffPixels);

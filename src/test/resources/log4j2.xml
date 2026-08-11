@@ -13,6 +13,25 @@
   completely separate logging pipeline Selenium manages internally,
   independent of whatever logging framework the rest of this project uses.
 
+  %X{test} in the patterns below is an SLF4J MDC (Mapped Diagnostic
+  Context) value. It's set from two places now: BaseTest.setUp() /
+  MobileBaseTest.setUp() tag it first (via TestNG's @BeforeMethod(Method)
+  injection), covering driver-creation logging during setup itself; then
+  TestListener.beforeInvocation() re-sets the identical value once the
+  @Test body starts (belt-and-braces — see that method's comment), and
+  TestListener.afterInvocation() clears it once the @Test body finishes.
+  It's what makes target/logs/<site>.log readable once parallel="classes"
+  actually has 2-3 test classes' worth of log lines interleaving on
+  different threads at once: every line — including setup AND teardown —
+  is tagged with the specific test that produced it, independent of which
+  thread happened to run it. TestListener.afterInvocation() deliberately
+  does NOT clear the tag (unlike earlier versions of this framework) —
+  BaseTest.tearDown()/MobileBaseTest.tearDown() clear it themselves, in an
+  outer finally, only after driver.quit() has logged, so that line stays
+  tagged too instead of coming through as empty "[]" MDC. Empty brackets
+  "[]" in the output now mean only static init or JVM startup — outside
+  any test's lifetime entirely.
+
   status="WARN" below only controls Log4j2's own internal
   startup/self-diagnostic noise (e.g. "could not find a logging
   implementation") — it has no effect on the loggers this project's code
@@ -33,10 +52,10 @@
          without editing this file. Defaults to INFO. -->
     <Property name="LOG_LEVEL">${sys:log.level:-INFO}</Property>
     <Property name="CONSOLE_PATTERN">
-      %d{HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=blue} [%t] %style{%logger{1.}}{cyan} - %msg%n%throwable
+      %d{HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=blue} [%t] %style{[%X{test}]}{magenta} %style{%logger{1.}}{cyan} - %msg%n%throwable
     </Property>
     <Property name="FILE_PATTERN">
-      %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %logger{1.} - %msg%n%throwable
+      %d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] [%X{test}] %logger{1.} - %msg%n%throwable
     </Property>
   </Properties>
 

@@ -211,8 +211,9 @@ public class ProfilePage extends BasePage {
         logger.info("[ProfilePage] Book deleted successfully");
     }
 
-    // dumpPageForDebugging(label) is inherited from BasePage — see there
-    // for the shared implementation (was a duplicate of this class's own
-    // copy, which used logger.info where the other two copies used
-    // logger.fine, until consolidated).
+    // dumpPageForDebugging(label) is inherited from BasePage, which itself
+    // just delegates to core/utils/DebugDumpUtils — see there for the
+    // shared implementation (was a duplicate of this class's own copy,
+    // which used logger.info where the other two copies used logger.fine,
+    // until consolidated, then promoted out of BasePage into core/utils).
 }

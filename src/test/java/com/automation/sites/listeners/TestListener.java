@@ -11,6 +11,7 @@ import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import io.qameta.allure.Allure;
 import org.openqa.selenium.WebDriver;
+import org.slf4j.MDC;
 import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
 import org.testng.ITestContext;
@@ -110,6 +111,29 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         if (!method.isTestMethod()) {
             return;
         }
+        // Tags every SLF4J log line this thread emits for the rest of this
+        // test — page objects, DriverFactory, self-healing, etc. — with
+        // which test produced it. Essential once parallel="classes" is
+        // actually running multiple test classes concurrently (see the
+        // testng-suites/*.xml files): without this, target/logs/<site>.log
+        // interleaves lines from 2-3 threads with zero way to tell which
+        // test each one belongs to. Set here (IInvokedMethodListener) rather
+        // than ITestListener.onTestStart() for the same ordering-guarantee
+        // reason the rest of this class's javadoc explains — beforeInvocation
+        // is guaranteed to fire before the actual @Test method body runs,
+        // with no cross-listener race. NOTE: this fires after @BeforeMethod
+        // (BaseTest.setUp() / MobileBaseTest.setUp()) already completed —
+        // driver-creation log lines from setUp() itself are tagged
+        // separately, by setUp() itself setting the same MDC key via
+        // TestNG's @BeforeMethod(Method) dependency injection (see
+        // BaseTest.setUp), since this listener can't reach back into a
+        // @BeforeMethod that already finished. This call re-sets the
+        // identical value for the @Test body itself — redundant with that
+        // one, but harmless, and keeps this listener correct on its own
+        // even for a test class whose setUp() doesn't tag MDC itself.
+        MDC.put("test", result.getTestClass().getRealClass().getSimpleName()
+            + "#" + result.getMethod().getMethodName());
+
         if (isAllureTestCaseOpen()) {
             tagSeverity(result);
             Allure.parameter("Site", ConfigReader.get("site", ConfigReader.getActiveSite()));
@@ -122,7 +146,19 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         if (!method.isTestMethod()) {
             return;
         }
+        // NOTE: does NOT MDC.remove("test") here. afterInvocation() fires
+        // strictly before @AfterMethod (BaseTest.tearDown() /
+        // MobileBaseTest.tearDown()) runs — clearing the tag at this point
+        // used to leave driver.quit() logging in tearDown() untagged (empty
+        // "[]" MDC), the exact same class of gap setUp() had before it got
+        // its own MDC.put() (see BaseTest.setUp's comment). The tag is
+        // removed instead in tearDown()'s own finally block, once teardown
+        // logging has actually happened, which is also guaranteed to run
+        // (alwaysRun = true) so this thread's next test still starts clean.
+        afterTestInvocation(method, result);
+    }
 
+    private void afterTestInvocation(IInvokedMethod method, ITestResult result) {
         WebDriver driver = getDriver(result);
         int retryAttempts = retryAttemptsSoFar(result);
 

@@ -95,6 +95,32 @@
          hunting through the profile block. -->
     <dependency-check.version>10.0.4</dependency-check.version>
 
+    <!-- JUnit 5 — used ONLY for the small set of fast, WebDriver-free unit
+         tests under src/test/java/com/automation/core/data/** (DataRow,
+         CsvDataFileReader, JsonDataFileReader). Deliberately separate from
+         this project's TestNG browser suite: mutation testing (see the
+         "mutation" profile below) reruns its target tests once per
+         surviving mutant, which is only practical against tests that don't
+         launch a real browser. JUnit 5, not TestNG, because pitest-maven's
+         JUnit 5 support (pitest-junit5-plugin) is the actively-maintained,
+         first-party integration; TestNG support exists but is community-
+         maintained and less current. These tests are intentionally NOT
+         wired into the TestNG suiteXmlFiles-driven `mvn test` — they're
+         picked up and executed directly by pitest-maven itself, the same
+         way `mvn verify -Pperf`/`-Psecurity` run their own tooling without
+         touching the default build (see those profiles' comments below).
+         Same build-verification caveat as axe-core/ashot above: this
+         sandbox has no Maven Central access, so pin/version compatibility
+         hasn't been build-verified here — run `mvn dependency:resolve
+         -Pmutation` locally and bump if needed. -->
+    <junit.version>5.10.2</junit.version>
+
+    <!-- PIT (pitest) mutation testing — see the "mutation" profile below.
+         Kept as its own properties for the same reason dependency-check.version
+         is: bump without hunting through the profile block. -->
+    <pitest.version>1.16.1</pitest.version>
+    <pitest-junit5.version>1.2.1</pitest-junit5.version>
+
     <!-- Lombok — pinned explicitly (previously undeclared even though
          RegistrationPage.java uses @Getter, so it was resolving from an
          unpinned transitive version). 1.18.30+ is required for JDK 21+:
@@ -328,6 +354,18 @@
       <groupId>io.appium</groupId>
       <artifactId>java-client</artifactId>
       <version>9.3.0</version>
+    </dependency>
+
+    <!-- JUnit 5 — see the <junit.version> property comment above for why
+         this exists alongside TestNG rather than instead of it. Aggregator
+         artifact pulls in both junit-jupiter-api (assertions/annotations)
+         and junit-jupiter-engine (the runtime the mutation profile's PIT
+         run and any local `mvn test` of these specific classes needs). -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
@@ -719,6 +757,105 @@
              overrides it, e.g. -DfailBuildOnCVSS=7. -->
         <failBuildOnCVSS>11</failBuildOnCVSS>
       </properties>
+    </profile>
+
+    <!-- Opt-in mutation testing (PIT/pitest) — same pattern as the "perf"
+         and "security" profiles above: a profile, not a plugin under
+         <build><plugins>, so `mvn test` (used everywhere else in this
+         project, CI included) is completely unaffected by its presence.
+
+         WHY THIS EXISTS: JaCoCo (bound into the main build above) answers
+         "did any test execute this line" — it says nothing about whether
+         the tests that executed it would actually catch a bug there. A
+         test that calls a method and asserts nothing (or asserts something
+         trivially true) shows as 100% covered and would never fail no
+         matter how badly that method broke. PIT answers the sharper
+         question: it mutates the target class's bytecode one small change
+         at a time (flips a `<` to `<=`, negates a boolean, changes `+` to
+         `-`, removes a method call, etc.) and reruns the target tests
+         against each mutant. A mutant that still makes every test pass is
+         "survived" — a concrete, named example of a bug your tests would
+         actually have missed. Mutation score (killed / total mutants) is a
+         real test-quality signal in a way line coverage % is not.
+
+         WHY IT'S SCOPED SO NARROWLY (targetClasses/targetTests below):
+         PIT reruns the ENTIRE target test suite once per mutant. Against
+         this project's TestNG suites, that means relaunching a real
+         browser (or several, under parallel="classes") per mutant — for a
+         class with even a few dozen viable mutants, that's a few dozen
+         full WebDriver sessions just to evaluate ONE class, easily hours
+         for the framework as a whole, and inherently flaky in a way a
+         mutation-testing signal shouldn't be. Scoped instead to the one
+         corner of this codebase with genuinely fast, pure-logic JUnit 5
+         unit tests with zero WebDriver/browser involvement (see the
+         <junit.version> property comment, and
+         src/test/java/com/automation/core/data/**): DataRow's
+         case-insensitive lookup/trim/required-column logic, and the
+         CSV/JSON data-file readers' parsing and edge-case handling. Not
+         wildcarded to the whole core/data/readers package — Excel/YAML/Zip
+         readers and DataFileReaderRegistry have no matching unit tests yet,
+         and PIT would report every mutant in them as trivially "survived"
+         (nothing exercises the class at all), which isn't a real quality
+         signal, just noise that would make the actually-tested classes'
+         score look artificially bad by association. Add a reader to
+         targetClasses below only once it has real unit tests to back it.
+
+         Run explicitly with:
+           mvn verify -Pmutation
+         HTML report lands at target/pit-reports/index.html. mutationThreshold
+         defaults to 0 (i.e. never fails the build, matching the "security"
+         profile's failBuildOnCVSS=11 default-safe pattern above) — raise it
+         once the team is ready to gate merges on a specific mutation score. -->
+    <profile>
+      <id>mutation</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <version>${pitest.version}</version>
+            <configuration>
+              <targetClasses>
+                <param>com.automation.core.data.DataRow</param>
+                <param>com.automation.core.data.readers.CsvDataFileReader</param>
+                <param>com.automation.core.data.readers.JsonDataFileReader</param>
+              </targetClasses>
+              <targetTests>
+                <param>com.automation.core.data.DataRowTest</param>
+                <param>com.automation.core.data.readers.CsvDataFileReaderTest</param>
+                <param>com.automation.core.data.readers.JsonDataFileReaderTest</param>
+              </targetTests>
+              <outputFormats>
+                <outputFormat>HTML</outputFormat>
+                <outputFormat>XML</outputFormat>
+              </outputFormats>
+              <reportsDirectory>${project.build.directory}/pit-reports</reportsDirectory>
+              <timestampedReports>false</timestampedReports>
+              <mutationThreshold>0</mutationThreshold>
+            </configuration>
+            <dependencies>
+              <!-- JUnit 5 support for pitest-maven — without this, PIT falls
+                   back to its default JUnit 3/4 test-unit finder and simply
+                   won't discover the @Test-annotated JUnit 5 classes above
+                   at all (reports "no mutations found", not an error). -->
+              <dependency>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-junit5-plugin</artifactId>
+                <version>${pitest-junit5.version}</version>
+              </dependency>
+            </dependencies>
+            <executions>
+              <execution>
+                <id>mutation-coverage</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>mutationCoverage</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

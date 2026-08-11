@@ -79,7 +79,7 @@
 | JMeter | A load/performance testing tool; used here only for a lightweight response-time smoke check, not real load testing |
 | Self-healing locator (manual) | A locator strategy that tries a primary element selector and automatically falls back to alternates a developer explicitly wrote (see `SmartLocator.java`) |
 | Self-healing locator (automatic) | Framework-wide auto-recovery: when any locator breaks, `SelfHealingEngine` re-finds the element by scoring live DOM elements against a fingerprint saved the last time that locator succeeded — no explicit fallback required (see [🩹 Self-Healing Locators](architecture.md#-self-healing-locators)) |
-| Element fingerprint | The identifying snapshot (`tag`, `id`, `name`, classes, text, key attributes) `SelfHealingEngine` captures for every successfully-found element, used as the baseline to heal against if that locator later breaks |
+| Element fingerprint | The identifying snapshot (`tag`, `id`, `name`, classes, text, key attributes, plus an optional visual screenshot hash when `self-healing.visual.enabled=true`) `SelfHealingEngine` captures for every successfully-found element, used as the baseline to heal against if that locator later breaks |
 | Opt-in test type | A test suite that exists in the repo but isn't run by the default CI pipeline — must be triggered explicitly with its own suite file or Maven profile |
 
 ---

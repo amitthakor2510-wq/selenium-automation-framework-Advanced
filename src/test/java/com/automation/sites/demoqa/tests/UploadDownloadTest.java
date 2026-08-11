@@ -13,6 +13,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Method;
 
 public class UploadDownloadTest extends BaseTest {
 
@@ -25,8 +26,8 @@ public class UploadDownloadTest extends BaseTest {
 
     @Override
     @BeforeMethod(alwaysRun = true)
-    public void setUp() {
-        super.setUp();
+    public void setUp(Method testMethod) {
+        super.setUp(testMethod);
         prepareFiles();
     }
 

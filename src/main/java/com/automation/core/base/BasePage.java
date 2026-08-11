@@ -2,6 +2,7 @@ package com.automation.core.base;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.selfhealing.SelfHealingEngine;
+import com.automation.core.utils.DebugDumpUtils;
 import com.automation.core.utils.ElementUtils;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -87,28 +88,19 @@ public abstract class BasePage {
      * found after a wait, URL not reached, etc.) — call this right before
      * throwing/failing so the dump captures the actual DOM at that moment.
      *
-     * Moved here from 3 separate copy-pasted private implementations
-     * (BookStoreApplicationPage, CheckBoxPage, ProfilePage) that had
-     * drifted slightly — one used logger.info while the other two used
-     * logger.fine for the identical situation, an inconsistency rather
-     * than an intentional difference. Uses this page's own runtime class
-     * for the logger name (LoggerFactory.getLogger(getClass())) so log
-     * output still reads as coming from e.g. CheckBoxPage, not BasePage.
+     * Thin delegate to {@link DebugDumpUtils}, the actual shared
+     * implementation (moved there from here per docs/roadmap.md's tracked
+     * tech-debt item — see that class's javadoc for the full history: this
+     * was originally 3 separate copy-pasted implementations in
+     * BookStoreApplicationPage/CheckBoxPage/ProfilePage before an earlier
+     * pass consolidated them here, and this pass finishes that promotion
+     * into core/utils, matching every other shared driver-facing helper in
+     * this project). Kept as a protected method here — not just deleted in
+     * favor of callers using DebugDumpUtils directly — so every existing
+     * page-object call site (dumpPageForDebugging("...")) keeps working
+     * unqualified and inherited, with no per-call-site edits required.
      */
     protected void dumpPageForDebugging(String label) {
-        org.slf4j.Logger logger =
-            org.slf4j.LoggerFactory.getLogger(getClass());
-        try {
-            java.nio.file.Path dir = java.nio.file.Paths.get("target", "debug-dumps");
-            java.nio.file.Files.createDirectories(dir);
-            String fileName = label.replaceAll("[^a-zA-Z0-9]", "")
-                + "-" + System.currentTimeMillis() + ".html";
-            java.nio.file.Path file = dir.resolve(fileName);
-            java.nio.file.Files.writeString(file, driver.getPageSource());
-            logger.debug("  DEBUG full page source written to: " + file.toAbsolutePath());
-        } catch (Exception writeEx) {
-            logger.debug("  DEBUG could not write page source dump: " + writeEx.getMessage());
-        }
-        logger.debug("  DEBUG current URL: " + driver.getCurrentUrl());
+        DebugDumpUtils.dumpPageForDebugging(driver, getClass(), label);
     }
 }

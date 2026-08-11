@@ -7,9 +7,12 @@ import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.utils.HumanActions;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.WebDriver;
+import org.slf4j.MDC;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
+
+import java.lang.reflect.Method;
 
 /**
  * Every site's test classes extend this. Site is selected via
@@ -44,7 +47,24 @@ public class BaseTest implements DriverProvider {
     protected static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp() {
+    public void setUp(Method testMethod) {
+        // Tags every SLF4J log line this thread emits from here on —
+        // including DriverFactory.createDriver() below — with the test
+        // that's about to run, via the same "ClassName#methodName" MDC key
+        // TestListener.beforeInvocation() uses. TestNG injects the upcoming
+        // @Test method into any @BeforeMethod that declares a
+        // java.lang.reflect.Method parameter (its own dependency-injection
+        // feature — see TestNG docs "5.19 Dependency injection"), which is
+        // what makes this possible from inside @BeforeMethod at all: the
+        // IInvokedMethodListener hook TestListener uses fires strictly
+        // AFTER this method finishes, so relying on it alone left every
+        // driver-creation log line untagged, empty "[]" MDC, during exactly
+        // the window 2-3 parallel threads are most likely to be racing to
+        // spin up a browser at once. TestListener's own MDC.put() moments
+        // later just re-sets the identical value once the @Test body
+        // itself starts — redundant, but harmless.
+        MDC.put("test", testMethod.getDeclaringClass().getSimpleName() + "#" + testMethod.getName());
+
         // Writes environment.properties/categories.json into
         // target/allure-results once per JVM. This USED to be called from
         // TestListener.onStart(ITestContext) — but that's a <test>-level
@@ -74,19 +94,30 @@ public class BaseTest implements DriverProvider {
 
     @AfterMethod(alwaysRun = true)
     public void tearDown() {
-        if (getDriver() != null) {
-            try {
-                getDriver().quit();
-            } catch (Exception e) {
-                // Previously swallowed silently — that hid real quit()
-                // failures (e.g. attaching to an already-running browser
-                // instance) that left the window open with no error shown.
-                // Log it so a failed teardown is visible instead of silent.
-                org.slf4j.LoggerFactory.getLogger(BaseTest.class)
-                    .warn("[BaseTest] driver.quit() failed: " + e.getMessage());
-            } finally {
-                driver.remove(); // Important for memory cleanup
+        // Outer finally clears the MDC "test" tag set in setUp()/
+        // TestListener.beforeInvocation(). TestListener.afterInvocation()
+        // deliberately does NOT clear it (see that method's comment) so
+        // that driver.quit() below stays tagged instead of logging under
+        // an empty "[]" MDC; clearing it here — the last thing this thread
+        // does for this test, guaranteed via alwaysRun=true even if setUp()
+        // itself failed — is what actually closes that gap.
+        try {
+            if (getDriver() != null) {
+                try {
+                    getDriver().quit();
+                } catch (Exception e) {
+                    // Previously swallowed silently — that hid real quit()
+                    // failures (e.g. attaching to an already-running browser
+                    // instance) that left the window open with no error shown.
+                    // Log it so a failed teardown is visible instead of silent.
+                    org.slf4j.LoggerFactory.getLogger(BaseTest.class)
+                        .warn("[BaseTest] driver.quit() failed: " + e.getMessage());
+                } finally {
+                    driver.remove(); // Important for memory cleanup
+                }
             }
+        } finally {
+            MDC.remove("test");
         }
     }
 

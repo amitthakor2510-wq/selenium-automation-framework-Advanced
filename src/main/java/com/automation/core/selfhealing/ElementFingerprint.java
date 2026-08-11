@@ -31,6 +31,14 @@ public class ElementFingerprint {
     /** type, placeholder, aria-label, role, href, title, data-testid — whichever were present. */
     public Map<String, String> attributes = new LinkedHashMap<>();
     public String parentTag;
+    /**
+     * Perceptual difference-hash of the element's own screenshot (see
+     * {@link VisualHasher}), captured only when self-healing.visual.enabled
+     * is true. Null otherwise — visual healing degrades gracefully to
+     * DOM-only scoring wherever this is absent, including for fingerprints
+     * captured before visual healing was turned on.
+     */
+    public String visualHash;
 
     /** No-arg constructor required by Jackson. */
     public ElementFingerprint() {

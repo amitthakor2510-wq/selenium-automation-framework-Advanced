@@ -56,7 +56,7 @@
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
 | 🔒 **Dependency Vulnerability Scan** | OWASP Dependency-Check — opt-in `mvn verify -Psecurity`, HTML+JSON report at `target/dependency-check-report.html`. Report-only by default (`failBuildOnCVSS=11`); pass `-DfailBuildOnCVSS=7` to gate a build on High/Critical CVEs once the team's ready to enforce it |
-| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locators (`SelfHealingEngine` — automatic DOM-similarity recovery on every page object, `SmartLocator` for explicit hand-picked fallbacks) |
+| 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locators (`SelfHealingEngine` — automatic DOM-similarity recovery on every page object with an opt-in visual/screenshot-hash fallback, `SmartLocator` for explicit hand-picked fallbacks) |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
 | 🔄 **CI/CD** | Jenkinsfile · `.github/workflows/github-ci.yml` · `.gitlab-ci.yml` (all three included and runnable as-is, including a dedicated mobile/Appium job in each) |
 
@@ -206,7 +206,7 @@ selenium-automation-framework/
     │   │   └── selfhealing/                      # Automatic self-healing locators (see docs/architecture.md)
     │   │       ├── SelfHealingEngine.java        # Auto re-finds a broken locator by DOM similarity
     │   │       ├── LocatorRepository.java        # Persists known-good element fingerprints across runs
-    │   │       └── ElementFingerprint.java / HealingEvent.java / SelfHealingReportWriter.java
+    │   │       └── ElementFingerprint.java / HealingEvent.java / SelfHealingReportWriter.java / VisualHasher.java
     │   │
     │   ├── sites/                       # SITE-SPECIFIC Page Objects only
     │   │   ├── demoqa/pages/            # 32 Page Objects — Elements, Forms, Widgets, Interactions, Book Store

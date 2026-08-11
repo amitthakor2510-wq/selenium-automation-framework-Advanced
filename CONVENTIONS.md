@@ -109,6 +109,7 @@ there's exactly one logging pipeline in this project, not three).
 - Imports: `org.slf4j.Logger` + `org.slf4j.LoggerFactory` — **not** `org.apache.logging.log4j.Logger` and **not** `java.util.logging.Logger`.
 - Level mapping vs. the old `java.util.logging` convention, if you're used to it: `logger.warning(...)` → `logger.warn(...)`, `logger.fine(...)` → `logger.debug(...)`, `logger.info(...)` stays `logger.info(...)`.
 - Config lives in [`src/test/resources/log4j2.xml`](src/test/resources/log4j2.xml) — console output plus one rolling file per site at `target/logs/<site>.log` (e.g. `target/logs/demoqa.log`), picked automatically from `-Dsite=...`. Override the level for a single run with `-Dlog.level=DEBUG`.
+- Every log line also carries `[%X{test}]` — an SLF4J MDC value tagging which test produced it, set/cleared automatically per test by `TestListener` (you never set this yourself). It's what keeps `target/logs/<site>.log` readable under the `parallel="classes"` suites, where 2-3 test classes' log lines interleave on different threads at once.
 - `src/test/resources/logging.properties` is a **different, unrelated file** — it only silences Selenium's own internal `java.util.logging` CDP-version warnings and has nothing to do with this project's own logging. Don't confuse the two.
 
 ---

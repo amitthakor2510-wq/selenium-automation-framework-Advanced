@@ -27,15 +27,28 @@ import org.slf4j.LoggerFactory;
  * How it works:
  *   1. Try the given locator normally, with the caller's own wait/timeout.
  *   2. On success, snapshot the element's identifying attributes (tag, id,
- *      name, classes, text, a handful of common attributes, parent tag)
- *      as an {@link ElementFingerprint} and remember it against a key
- *      derived from the current page + the locator itself.
+ *      name, classes, text, a handful of common attributes, parent tag —
+ *      plus a perceptual screenshot hash when self-healing.visual.enabled,
+ *      see below) as an {@link ElementFingerprint} and remember it against
+ *      a key derived from the current page + the locator itself.
  *   3. If the locator times out, look up the fingerprint saved the last
  *      time this exact locator succeeded (possibly in an earlier run —
  *      see {@link LocatorRepository}), scan the live DOM for elements of
- *      the same tag, and score each one against that fingerprint.
- *   4. If the best match clears the confidence threshold, use it, log a
- *      warning (so the drift doesn't go unnoticed even though the test
+ *      the same tag, and score each one against that fingerprint by
+ *      attribute/text similarity (DOM stage).
+ *   4. If the best DOM match clears the confidence threshold, use it.
+ *      Otherwise, if visual healing is enabled and the baseline has a
+ *      screenshot hash, fall back to a visual stage (see {@link
+ *      VisualHasher}): screenshot a small pool of plausible candidates —
+ *      the strongest near-miss DOM candidates, plus (when DOM scoring
+ *      found nothing worth screenshotting at all, e.g. the element's tag
+ *      itself changed) a broader scan of common interactive elements —
+ *      and blend a perceptual-hash similarity into each one's score. This
+ *      recovers cases DOM scoring structurally cannot: an icon button with
+ *      no id/name/stable text, or a `<button>` that became a
+ *      `<div role="button">`.
+ *   5. If the best match (DOM or visual) clears the threshold, use it, log
+ *      a warning (so the drift doesn't go unnoticed even though the test
  *      passes), and record a {@link HealingEvent} for the end-of-run
  *      report. Otherwise the original timeout is rethrown — healing only
  *      ever recovers a run, never silently invents an answer that wasn't
@@ -44,6 +57,15 @@ import org.slf4j.LoggerFactory;
  * There is nothing to heal against the very first time a locator is ever
  * used (no fingerprint recorded yet) — that case just behaves exactly like
  * a normal wait.until(...) and fails normally, as it should.
+ *
+ * The visual stage is opt-in (self-healing.visual.enabled=false by
+ * default): capturing a fingerprint's screenshot hash costs one extra
+ * element screenshot on every successful find, not just on a heal, and
+ * SelfHealingEngine.find/findClickable run on effectively every page
+ * interaction across ~34 page objects — on by default would tax every
+ * green run to pay for a cost that only matters on the rare broken one.
+ * Turn it on for suites where recovering icon-only/tag-changed elements is
+ * worth that per-find overhead.
  *
  * This is the general, automatic counterpart to {@link SmartLocator}: that
  * class is for locators a developer has *already* seen break and wants an
@@ -63,6 +85,16 @@ public final class SelfHealingEngine {
 
     private static final int MAX_CANDIDATES_SCANNED = 300;
     private static final int MAX_TEXT_LENGTH = 100;
+
+    /** DOM score below which a stage-1 candidate isn't worth spending a screenshot on in stage 2. */
+    private static final double DOM_NEAR_MISS_FLOOR = 0.15;
+    /** Cap on how many stage-1 near-misses get screenshotted — screenshots are the expensive part. */
+    private static final int MAX_VISUAL_CANDIDATES_FROM_DOM = 5;
+    /** Cap on the broad tag-agnostic scan, used only when stage 1 found nothing at all. */
+    private static final int MAX_VISUAL_CANDIDATES_BROAD = 20;
+    /** Common interactive element shapes for the broad scan — deliberately not tag-scoped. */
+    private static final String VISUAL_BROAD_SCAN_SELECTOR =
+        "button, a, input, select, textarea, [role='button'], [role='link'], [role='tab'], [onclick]";
 
     private SelfHealingEngine() {
     }
@@ -85,7 +117,7 @@ public final class SelfHealingEngine {
         String key = elementKey(driver, locator);
         try {
             WebElement element = wait.until(condition.apply(locator));
-            captureAndStore(key, element);
+            captureAndStore(driver, key, element);
             return element;
         } catch (TimeoutException | NoSuchElementException primaryFailure) {
             if (!ConfigReader.getBoolean("self-healing.enabled", true)) {
@@ -108,21 +140,148 @@ public final class SelfHealingEngine {
         }
 
         double threshold = parseThreshold();
-        ScoredCandidate best = findBestMatch(driver, baseline, requireClickable);
-        if (best == null || best.score < threshold) {
-            logger.warn("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
-                + " (best score " + (best == null ? "n/a" : String.format(Locale.ROOT, "%.2f", best.score))
-                + ", threshold " + threshold + "). Falling back to the original failure.");
+
+        // Stage 1: DOM attribute/text similarity, scanned within baseline.tag
+        // — unchanged cost/behavior from before visual healing existed.
+        List<ScoredCandidate> domRanked = rankByDom(driver, baseline, requireClickable);
+        ScoredCandidate best = domRanked.isEmpty() ? null : domRanked.get(0);
+
+        if (best != null && best.score >= threshold) {
+            return heal(key, locator, best, "dom");
+        }
+
+        // Stage 2: visual fallback — only if opted in and there's a baseline
+        // screenshot hash to compare against.
+        if (nonEmpty(baseline.visualHash) && ConfigReader.getBoolean("self-healing.visual.enabled", false)) {
+            ScoredCandidate visualBest = attemptVisualHeal(driver, baseline, requireClickable, domRanked, threshold);
+            if (visualBest != null) {
+                return heal(key, locator, visualBest, "visual");
+            }
+        }
+
+        logger.warn("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
+            + " (best score " + (best == null ? "n/a" : String.format(Locale.ROOT, "%.2f", best.score))
+            + ", threshold " + threshold + "). Falling back to the original failure.");
+        return null;
+    }
+
+    private static WebElement heal(String key, By locator, ScoredCandidate winner, String matchMethod) {
+        logger.warn("[SelfHealing] '" + key + "' — original locator " + locator
+            + " no longer matches; healed onto " + describe(winner.element)
+            + " (confidence " + String.format(Locale.ROOT, "%.2f", winner.score)
+            + ", method: " + matchMethod + ").");
+
+        LocatorRepository.recordHeal(
+            new HealingEvent(key, locator.toString(), describe(winner.element), winner.score, matchMethod));
+        // Note: intentionally NOT re-screenshotting here for a fresh visualHash
+        // even when matchMethod is "visual" — winner.element was already
+        // screenshotted once during scoring; re-capturing would just spend a
+        // second screenshot confirming the same pixels moments later.
+        return winner.element;
+    }
+
+    /**
+     * Screenshots a small, targeted pool of candidates and blends a visual
+     * similarity score into each one's DOM score, looking for a candidate
+     * that now clears {@code threshold} where DOM alone fell short.
+     * <p>
+     * The pool is: the strongest near-miss same-tag candidates from stage 1
+     * (elements that look somewhat right on attributes but not enough), plus
+     * — only when stage 1 found nothing worth considering at all, which
+     * happens when the element's tag itself changed — a broader scan of
+     * common interactive elements. Screenshots are the expensive part of
+     * this (a round trip per candidate, more so against a Grid node), so
+     * both pools are capped well below stage 1's DOM-only scan.
+     */
+    private static ScoredCandidate attemptVisualHeal(WebDriver driver, ElementFingerprint baseline,
+                                                     boolean requireClickable, List<ScoredCandidate> domRanked,
+                                                     double threshold) {
+        List<WebElement> pool = new ArrayList<>();
+        for (ScoredCandidate c : domRanked) {
+            if (c.score < DOM_NEAR_MISS_FLOOR || pool.size() >= MAX_VISUAL_CANDIDATES_FROM_DOM) {
+                break;
+            }
+            pool.add(c.element);
+        }
+        if (pool.isEmpty()) {
+            pool.addAll(scanInteractiveElements(driver, requireClickable));
+        }
+        if (pool.isEmpty()) {
             return null;
         }
 
-        logger.warn("[SelfHealing] '" + key + "' — original locator " + locator
-            + " no longer matches; healed onto " + describe(best.element)
-            + " (confidence " + String.format(Locale.ROOT, "%.2f", best.score) + ").");
+        double visualWeight = parseVisualWeight();
+        WebElement bestElement = null;
+        double bestCombined = 0.0;
 
-        LocatorRepository.recordHeal(new HealingEvent(key, locator.toString(), describe(best.element), best.score));
-        captureAndStore(key, best.element);
-        return best.element;
+        for (WebElement candidate : pool) {
+            String candidateHash;
+            try {
+                if (!candidate.isDisplayed()) {
+                    continue;
+                }
+                candidateHash = VisualHasher.hash(driver, candidate);
+            } catch (StaleElementReferenceException ignored) {
+                continue;
+            }
+            if (candidateHash == null) {
+                continue;
+            }
+            double visualScore = VisualHasher.similarity(baseline.visualHash, candidateHash);
+            double domScore = score(baseline, buildFingerprint(candidate));
+            double combined = visualWeight * visualScore + (1 - visualWeight) * domScore;
+            if (combined > bestCombined) {
+                bestCombined = combined;
+                bestElement = candidate;
+            }
+        }
+
+        if (bestElement == null || bestCombined < threshold) {
+            return null;
+        }
+        return new ScoredCandidate(bestElement, bestCombined);
+    }
+
+    /**
+     * Broad, tag-agnostic scan used only when stage 1 has literally nothing
+     * to offer (baseline.tag itself no longer matches anything sensible) —
+     * covers the case DOM scoring structurally cannot: the element's tag
+     * changed (e.g. a `<button>` refactored into a `<div role="button">`).
+     */
+    private static List<WebElement> scanInteractiveElements(WebDriver driver, boolean requireClickable) {
+        try {
+            List<WebElement> found = driver.findElements(By.cssSelector(VISUAL_BROAD_SCAN_SELECTOR));
+            List<WebElement> eligible = new ArrayList<>();
+            for (WebElement el : found) {
+                if (eligible.size() >= MAX_VISUAL_CANDIDATES_BROAD) {
+                    break;
+                }
+                try {
+                    if (!el.isDisplayed()) {
+                        continue;
+                    }
+                    if (requireClickable && !el.isEnabled()) {
+                        continue;
+                    }
+                    eligible.add(el);
+                } catch (StaleElementReferenceException ignored) {
+                    // Skip; it vanished mid-scan.
+                }
+            }
+            return eligible;
+        } catch (Exception e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    private static double parseVisualWeight() {
+        String raw = ConfigReader.get("self-healing.visual.weight", "0.5");
+        try {
+            double w = Double.parseDouble(raw.trim());
+            return Math.max(0.0, Math.min(1.0, w));
+        } catch (NumberFormatException e) {
+            return 0.5;
+        }
     }
 
     private static double parseThreshold() {
@@ -137,9 +296,13 @@ public final class SelfHealingEngine {
 
     // ── Fingerprint capture ──────────────────────────────────────────────────
 
-    private static void captureAndStore(String key, WebElement element) {
+    private static void captureAndStore(WebDriver driver, String key, WebElement element) {
         try {
-            LocatorRepository.put(key, buildFingerprint(element));
+            ElementFingerprint fp = buildFingerprint(element);
+            if (ConfigReader.getBoolean("self-healing.visual.enabled", false)) {
+                fp.visualHash = VisualHasher.hash(driver, element);
+            }
+            LocatorRepository.put(key, fp);
         } catch (Exception e) {
             // Fingerprinting is a best-effort side-channel — never let it
             // break the actual test interaction that just succeeded.
@@ -216,10 +379,16 @@ public final class SelfHealingEngine {
     // ── Candidate search + scoring ───────────────────────────────────────────
 
     /**
-     * Scans all elements matching baseline.tag and returns the highest-scoring
-     * one that is actually usable — i.e. when {@code requireClickable} is set,
+     * Scans all elements matching baseline.tag, scores each against the
+     * baseline, and returns every usable candidate with a nonzero score,
+     * ranked best-first — i.e. when {@code requireClickable} is set,
      * candidates that are displayed but disabled are skipped during scanning
      * itself, not just checked against the single overall top-scorer.
+     * <p>
+     * Returning the full ranking (not just the winner) is what lets stage 2
+     * (see {@link #attemptVisualHeal}) target its screenshots at the
+     * strongest near-misses instead of re-scanning from scratch or —
+     * worse — screenshotting every candidate indiscriminately.
      * <p>
      * BUG FIX: this used to pick the single best-scoring candidate across ALL
      * displayed elements first, then reject it afterward in attemptHeal() if
@@ -231,17 +400,16 @@ public final class SelfHealingEngine {
      * eligibility up front means the best-scoring candidate returned here is
      * always one the caller can actually use.
      */
-    private static ScoredCandidate findBestMatch(WebDriver driver, ElementFingerprint baseline,
-                                                 boolean requireClickable) {
+    private static List<ScoredCandidate> rankByDom(WebDriver driver, ElementFingerprint baseline,
+                                                   boolean requireClickable) {
         List<WebElement> candidates;
         try {
             candidates = driver.findElements(By.tagName(baseline.tag));
         } catch (Exception e) {
-            return null;
+            return new ArrayList<>();
         }
 
-        WebElement bestElement = null;
-        double bestScore = 0.0;
+        List<ScoredCandidate> ranked = new ArrayList<>();
         int scanned = 0;
 
         for (WebElement candidate : candidates) {
@@ -256,16 +424,16 @@ public final class SelfHealingEngine {
                     continue;
                 }
                 double s = score(baseline, buildFingerprint(candidate));
-                if (s > bestScore) {
-                    bestScore = s;
-                    bestElement = candidate;
+                if (s > 0.0) {
+                    ranked.add(new ScoredCandidate(candidate, s));
                 }
             } catch (StaleElementReferenceException ignored) {
                 // Element vanished mid-scan (re-render) — skip it.
             }
         }
 
-        return bestElement == null ? null : new ScoredCandidate(bestElement, bestScore);
+        ranked.sort((a, b) -> Double.compare(b.score, a.score));
+        return ranked;
     }
 
     /**

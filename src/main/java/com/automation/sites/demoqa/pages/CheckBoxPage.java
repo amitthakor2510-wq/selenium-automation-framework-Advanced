@@ -97,7 +97,8 @@ public class CheckBoxPage extends BasePage {
             .isDisplayed();
     }
 
-    // dumpPageForDebugging(label) is inherited from BasePage — see there
-    // for the shared implementation (was a duplicate of this class's own
-    // copy until consolidated).
+    // dumpPageForDebugging(label) is inherited from BasePage, which itself
+    // just delegates to core/utils/DebugDumpUtils — see there for the
+    // shared implementation (was a duplicate of this class's own copy
+    // until consolidated, then promoted out of BasePage into core/utils).
 }

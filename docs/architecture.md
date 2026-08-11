@@ -159,7 +159,7 @@ A quick-reference map first — expand **📖 Full details** below each group fo
 | `ExtentManager.java` | Builds the Extent HTML report |
 | `ScreenshotUtil.java` | Takes the pass/fail screenshot |
 | `SmartLocator.java` | Tries a locator, falls back to alternates if it breaks |
-| `SelfHealingEngine.java` | Auto-recovers a broken locator by DOM-similarity matching |
+| `SelfHealingEngine.java` | Auto-recovers a broken locator by DOM-similarity matching, with an optional visual/screenshot-hash fallback (`VisualHasher.java`) |
 | `AccessibilityUtils.java` | Runs an axe-core accessibility scan |
 | `VisualRegressionUtils.java` | Pixel-diffs a screenshot against a saved baseline |
 
@@ -257,7 +257,7 @@ Every locator in this framework eventually goes through one of three chokepoints
 
 1. Try the locator normally, with the caller's own configured timeout.
 2. **On success** — snapshot the element's identifying attributes (tag, `id`, `name`, class list, visible text, a handful of common attributes like `role`/`aria-label`/`data-testid`, and its parent tag) into an `ElementFingerprint`, and store it in `LocatorRepository` keyed by *page URL + locator*.
-3. **On failure** (`TimeoutException`) — look up the fingerprint saved the last time that exact locator succeeded (this run, or a previous one — the repository is loaded from disk at startup), scan the live DOM for elements sharing the same tag, and score each one against the fingerprint:
+3. **On failure** (`TimeoutException`) — look up the fingerprint saved the last time that exact locator succeeded (this run, or a previous one — the repository is loaded from disk at startup), scan the live DOM for elements sharing the same tag, and score each one against the fingerprint (**DOM stage**):
 
 | Signal | Weight |
 |---|---|
@@ -268,20 +268,24 @@ Every locator in this framework eventually goes through one of three chokepoints
 | Tracked attributes (`type`, `placeholder`, `aria-label`, `role`, `href`, `title`, `data-testid`) | 10% |
 | Same parent tag | 5% |
 
-4. If the best-scoring candidate clears `self-healing.threshold` (default `0.55`), the engine uses it, logs a `WARNING` (so the drift is visible even though the test still passes), and records the heal for the end-of-run report. If nothing clears the threshold — or nothing was ever fingerprinted for that locator in the first place — the original `TimeoutException` propagates exactly as it always did. Healing only ever recovers a run; it never invents a match that isn't really there.
+4. If the best DOM candidate clears `self-healing.threshold` (default `0.55`), the engine uses it immediately — no screenshots taken. **Otherwise**, if `self-healing.visual.enabled=true` and the baseline has a stored screenshot hash, a **visual stage** kicks in (`VisualHasher`): it screenshots a small, targeted pool of candidates — the strongest DOM near-misses, or (only when DOM scoring found nothing at all, i.e. the element's *tag itself* changed) a broader scan of common interactive elements (`button`, `a`, `input`, `[role='button']`, etc.) — computes a perceptual difference-hash (dHash) of each, and blends that similarity with the candidate's DOM score. This is what lets healing recover an icon-only button with no id/name/stable text, or a `<button>` refactored into a `<div role="button">` — cases the DOM stage structurally can't match. If the best result from either stage clears the threshold, the engine uses it, logs a `WARNING` (so the drift is visible even though the test still passes), and records the heal — tagged `dom` or `visual` — for the end-of-run report. If nothing clears the threshold — or nothing was ever fingerprinted for that locator in the first place — the original `TimeoutException` propagates exactly as it always did. Healing only ever recovers a run; it never invents a match that isn't really there.
+
+Visual healing is **off by default** because capturing a screenshot hash happens at fingerprint-capture time (step 2 above) — on every successful find, not just on a heal — and `find`/`findClickable` run on effectively every page interaction across ~34 page objects. Turn it on (`-Dself-healing.visual.enabled=true`) for suites where recovering those DOM-invisible cases is worth the added per-find screenshot cost.
 
 **Where the output goes:**
-- `target/self-healing/locator-repository.json` — the fingerprint store, persisted between runs so healing works from the *first* locator failure of a fresh run, not just after this run has already seen the element once.
-- `target/self-healing/healing-report.json` — written only if at least one heal happened; a flat list of `{elementKey, originalLocator, healedDescription, score, timestamp}`, meant to be reviewed (or wired into CI as a build artifact) so a locator that quietly drifted still gets fixed properly instead of staying invisible behind a passing test.
+- `self-healing-data/locator-repository.json` — the fingerprint store, persisted between runs so healing works from the *first* locator failure of a fresh run, not just after this run has already seen the element once. Deliberately outside `target/`, which `mvn clean` wipes before every run.
+- `target/self-healing/healing-report.json` — written only if at least one heal happened; a flat list of `{elementKey, originalLocator, healedDescription, score, matchMethod, timestamp}` (`matchMethod` is `dom` or `visual`), meant to be reviewed (or wired into CI as a build artifact) so a locator that quietly drifted still gets fixed properly instead of staying invisible behind a passing test.
 
 **Config** (`global.properties`, all overridable with `-Dkey=value`):
 
 | Key | Default | Meaning |
 |---|---|---|
 | `self-healing.enabled` | `true` | Master switch. `false` restores plain fail-on-first-miss behavior. |
-| `self-healing.threshold` | `0.55` | Minimum similarity score to accept a healed match. |
-| `self-healing.repository.path` | `target/self-healing/locator-repository.json` | Where fingerprints persist between runs. |
+| `self-healing.threshold` | `0.55` | Minimum similarity score (DOM or blended DOM+visual) to accept a healed match. |
+| `self-healing.repository.path` | `self-healing-data/locator-repository.json` | Where fingerprints persist between runs. |
 | `self-healing.report.path` | `target/self-healing/healing-report.json` | Where the end-of-run heal summary is written. |
+| `self-healing.visual.enabled` | `false` | Turns on the screenshot-hash fallback stage (and the extra per-find screenshot needed to capture its baseline). |
+| `self-healing.visual.weight` | `0.5` | How much the visual similarity counts vs. the DOM score once the visual stage runs (`0.0` = visual score ignored, `1.0` = DOM score ignored). |
 
 **What this is not:** it can't heal a locator that has *never* successfully resolved (no fingerprint to compare against — a typo in a brand-new locator still fails immediately, as it should), and it isn't visual/screenshot matching — purely DOM attribute/text/structure similarity. For a locator you already know is fragile and want an explicit, hand-picked (not scored) fallback for, `SmartLocator` is still the right tool — see above.
 

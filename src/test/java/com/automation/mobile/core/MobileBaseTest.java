@@ -5,9 +5,12 @@ import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.slf4j.MDC;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
+
+import java.lang.reflect.Method;
 
 /**
  * Mobile counterpart to com.automation.sites.core.BaseTest — every Appium
@@ -37,7 +40,13 @@ public class MobileBaseTest implements DriverProvider {
     protected static final ThreadLocal<RemoteWebDriver> driver = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp() {
+    public void setUp(Method testMethod) {
+        // Same reasoning as BaseTest.setUp(Method): tags AppiumDriverFactory's
+        // driver-creation logging below with the upcoming test's name via
+        // TestNG's @BeforeMethod(Method) injection, closing the same
+        // untagged-setup-log gap for the mobile module.
+        MDC.put("test", testMethod.getDeclaringClass().getSimpleName() + "#" + testMethod.getName());
+
         // Same reasoning as BaseTest.setUp(): TestListener.onStart() (a
         // <test>-level ITestListener callback) fires before TestNG has
         // discovered this class's @Listeners annotation, so it never
@@ -57,18 +66,26 @@ public class MobileBaseTest implements DriverProvider {
 
     @AfterMethod(alwaysRun = true)
     public void tearDown() {
-        if (getDriver() != null) {
-            try {
-                getDriver().quit();
-            } catch (Exception e) {
-                // Previously swallowed silently — same fix as BaseTest.java:
-                // log it so a failed Appium session teardown is visible
-                // instead of hidden.
-                org.slf4j.LoggerFactory.getLogger(MobileBaseTest.class)
-                    .warn("[MobileBaseTest] driver.quit() failed: " + e.getMessage());
-            } finally {
-                driver.remove();
+        // Same reasoning as BaseTest.tearDown(): TestListener.afterInvocation()
+        // no longer clears the MDC "test" tag, so driver.quit() below stays
+        // tagged; this outer finally is what actually clears it once teardown
+        // logging is done, guaranteed via alwaysRun=true.
+        try {
+            if (getDriver() != null) {
+                try {
+                    getDriver().quit();
+                } catch (Exception e) {
+                    // Previously swallowed silently — same fix as BaseTest.java:
+                    // log it so a failed Appium session teardown is visible
+                    // instead of hidden.
+                    org.slf4j.LoggerFactory.getLogger(MobileBaseTest.class)
+                        .warn("[MobileBaseTest] driver.quit() failed: " + e.getMessage());
+                } finally {
+                    driver.remove();
+                }
             }
+        } finally {
+            MDC.remove("test");
         }
     }
 
