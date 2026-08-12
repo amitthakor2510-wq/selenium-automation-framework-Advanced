@@ -33,6 +33,7 @@ public final class SourcePathResolver {
             case MAIN -> MAIN_ROOT;
             case TEST -> TEST_ROOT;
             case NONE -> null;
+            default -> throw new IllegalStateException("Unreachable — Root has exactly these three values.");
         };
         if (prefix == null) {
             return Optional.empty();
