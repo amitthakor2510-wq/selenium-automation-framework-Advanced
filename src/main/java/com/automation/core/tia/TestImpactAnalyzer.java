@@ -154,7 +154,27 @@ public final class TestImpactAnalyzer {
             }
         }
 
-        // 3) Resource changes: literal reference first, then per-site fallback, then unsafe.
+        // 4) Coverage-observed dependencies: a second, independent signal alongside the bytecode
+        //    graph above — built from an actual JaCoCo per-test-class capture run (see
+        //    com.automation.core.coverage), it catches classes reached only through reflection
+        //    or dynamic dispatch with a computed (non-literal) name, which leave no matching
+        //    string anywhere in the caller's compiled constant pool for DependencyGraph to find.
+        //    Purely additive — loadIfPresent() degrades to an empty, no-op map whenever no
+        //    capture run has ever happened, so this changes nothing for anyone who hasn't opted
+        //    in (see CoverageMap's own javadoc on why staleness is safe here too).
+        CoverageMap coverageMap = CoverageMap.loadIfPresent(repoRoot);
+        if (!coverageMap.isEmpty()) {
+            for (String seed : allSeeds) {
+                for (String testFqcn : coverageMap.testsThatObserved(seed)) {
+                    if (concreteTestClasses.contains(testFqcn)) {
+                        addReason(impacted, testFqcn, ImpactReason.COVERAGE_OBSERVED_DEPENDENCY,
+                            "coverage capture observed this test executing changed class: " + seed);
+                    }
+                }
+            }
+        }
+
+        // 5) Resource changes: literal reference first, then per-site fallback, then unsafe.
         for (ChangedFile f : resourceChanges) {
             Set<String> literalRefs = resourceIndex.referencingClasses(f.path());
             if (!literalRefs.isEmpty()) {

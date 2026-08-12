@@ -15,5 +15,12 @@ public enum ImpactReason {
     /** A changed resource file (test data, keyword script) is literally referenced by this test's source. */
     RESOURCE_LITERAL_REFERENCE,
     /** A changed per-site resource (config/objectrepository) has no literal reference; every test for that site is included. */
-    RESOURCE_SITE_FALLBACK
+    RESOURCE_SITE_FALLBACK,
+    /**
+     * A JaCoCo coverage-map capture run observed this test executing a changed class at runtime,
+     * even though no static reference to it exists anywhere in the test's (or its dependencies')
+     * compiled bytecode — the case a computed/reflective class reference leaves no trace for
+     * {@link DependencyGraph} to find. See {@link CoverageMap}.
+     */
+    COVERAGE_OBSERVED_DEPENDENCY
 }

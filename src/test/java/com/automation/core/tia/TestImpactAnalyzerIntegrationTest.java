@@ -193,4 +193,52 @@ class TestImpactAnalyzerIntegrationTest {
         assertEquals(ImpactResult.Mode.IMPACTED, result.mode());
         assertTrue(result.impactedTests().isEmpty());
     }
+
+    @Test
+    void coverageMapCatchesDependencyTheBytecodeGraphCannotSee() throws Exception {
+        seedBaseFixture();
+        compileAll();
+        commit("base");
+
+        // Simulate what com.automation.core.coverage.CoverageMapBuilder would have produced
+        // from a real JaCoCo capture run: LoginTest was OBSERVED, at runtime, to execute
+        // StringHelper — even though (per the fixture) nothing in LoginTest's or its
+        // dependencies' compiled bytecode statically references StringHelper at all. This is
+        // exactly the reflection/dynamic-dispatch case DependencyGraph alone can't trace.
+        TiaTestFixtures.write(repo, "target/tia/coverage-map.txt",
+            "com.automation.sites.saucedemo.tests.LoginTest\tcom.automation.core.util.StringHelper\n");
+
+        TiaTestFixtures.write(repo, "src/main/java/com/automation/core/util/StringHelper.java",
+            "package com.automation.core.util;\npublic class StringHelper { public static String shout(String s) { return s.toUpperCase() + \"!\"; } }\n");
+        compileAll();
+
+        ImpactResult result = analyze("HEAD");
+
+        assertEquals(ImpactResult.Mode.IMPACTED, result.mode());
+        // Bytecode graph alone would only find ButtonsTest (see
+        // mainClassChangeImpactsOnlyItsDependentTest) — the coverage map adds LoginTest too.
+        assertEquals(Set.of(
+            "com.automation.sites.demoqa.tests.ButtonsTest",
+            "com.automation.sites.saucedemo.tests.LoginTest"
+        ), result.impactedTests().keySet());
+        assertTrue(result.impactedTests().get("com.automation.sites.saucedemo.tests.LoginTest").stream()
+            .anyMatch(detail -> detail.reason() == ImpactReason.COVERAGE_OBSERVED_DEPENDENCY));
+    }
+
+    @Test
+    void missingCoverageMapChangesNothing() throws Exception {
+        // No target/tia/coverage-map.txt written at all — must behave identically to a run
+        // where coverage-based fallback was never opted into.
+        seedBaseFixture();
+        compileAll();
+        commit("base");
+
+        TiaTestFixtures.write(repo, "src/main/java/com/automation/core/util/StringHelper.java",
+            "package com.automation.core.util;\npublic class StringHelper { public static String shout(String s) { return s.toUpperCase() + \"!\"; } }\n");
+        compileAll();
+
+        ImpactResult result = analyze("HEAD");
+
+        assertEquals(Set.of("com.automation.sites.demoqa.tests.ButtonsTest"), result.impactedTests().keySet());
+    }
 }
