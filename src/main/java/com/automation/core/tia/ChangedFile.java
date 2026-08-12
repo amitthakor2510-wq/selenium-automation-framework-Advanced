@@ -36,8 +36,12 @@ public final class ChangedFile {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ChangedFile that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ChangedFile that)) {
+            return false;
+        }
         return path.equals(that.path) && Objects.equals(oldPath, that.oldPath) && type == that.type;
     }
 

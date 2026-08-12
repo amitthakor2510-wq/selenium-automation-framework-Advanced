@@ -60,9 +60,13 @@ public final class GitDiffReader {
     static List<ChangedFile> parseNameStatus(List<String> lines) {
         List<ChangedFile> out = new ArrayList<>();
         for (String line : lines) {
-            if (line.isBlank()) continue;
+            if (line.isBlank()) {
+                continue;
+            }
             String[] parts = line.split("\t");
-            if (parts.length < 2) continue;
+            if (parts.length < 2) {
+                continue;
+            }
             ChangeType type = classify(parts[0]);
             if (type == ChangeType.RENAMED && parts.length >= 3) {
                 out.add(new ChangedFile(parts[2], parts[1], type));

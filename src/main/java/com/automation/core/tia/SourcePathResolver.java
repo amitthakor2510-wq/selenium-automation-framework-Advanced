@@ -14,8 +14,12 @@ public final class SourcePathResolver {
     public enum Root { MAIN, TEST, NONE }
 
     public static Root rootOf(String repoRelativePath) {
-        if (repoRelativePath.startsWith(MAIN_ROOT)) return Root.MAIN;
-        if (repoRelativePath.startsWith(TEST_ROOT)) return Root.TEST;
+        if (repoRelativePath.startsWith(MAIN_ROOT)) {
+            return Root.MAIN;
+        }
+        if (repoRelativePath.startsWith(TEST_ROOT)) {
+            return Root.TEST;
+        }
         return Root.NONE;
     }
 
