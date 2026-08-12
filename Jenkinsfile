@@ -406,17 +406,31 @@ pipeline {
 
                     // Each branch below runs `mvn test` as its own separate
                     // JVM, so a shared/global Maven local repo is safe to
-                    // read from concurrently. The only genuinely shared
-                    // OUTPUT that two branches running at once would
-                    // otherwise collide on is target/allure-results/
-                    // environment.properties (AllureEnvironmentWriter writes
-                    // it once per JVM) and the default target/jacoco.exec
-                    // path (JaCoCo's prepare-agent writes there unless
-                    // overridden) — every branch here is a distinct
-                    // `sh` step sharing one `agent any` workspace, not an
-                    // isolated node the way GitHub Actions/GitLab's matrix
-                    // jobs get, so both are explicitly redirected to a
-                    // per-branch path below instead of relying on defaults.
+                    // read from concurrently. The genuinely shared OUTPUTs
+                    // that two branches running at once would otherwise
+                    // collide on are target/allure-results/environment.
+                    // properties (AllureEnvironmentWriter writes it once per
+                    // JVM), the default target/jacoco.exec path (JaCoCo's
+                    // prepare-agent writes there unless overridden), and
+                    // (BUG FIX) target/self-healing/healing-report.json —
+                    // SelfHealingReportWriter had the same default-path
+                    // collision as the other two, just missed when this
+                    // stage was first written: with no per-branch override,
+                    // two sites' JVMs finishing self-healing's shutdown-hook
+                    // flush at close to the same moment would have one
+                    // completely overwrite the other's report (no merge,
+                    // unlike LocatorRepository.flush()'s locator-repository.
+                    // json handling), silently losing that site's whole list
+                    // of self-healed locators — exactly the collision class
+                    // github-ci.yml's matrix already avoids by passing an
+                    // explicit -Dself-healing.report.path=target/self-healing
+                    // /<site>[-<browser>]-healing-report.json per job, and
+                    // that pom.xml's own comment on the property already
+                    // documents. Every branch here is a distinct `sh` step
+                    // sharing one `agent any` workspace, not an isolated node
+                    // the way GitHub Actions/GitLab's matrix jobs get, so all
+                    // three are explicitly redirected to a per-branch path
+                    // below instead of relying on defaults.
                     def branches = [:]
                     sites.each { site ->
                         browsers.each { browser ->
@@ -437,6 +451,7 @@ pipeline {
                                           -Dallure.results.directory=target/allure-results/${key} \\
                                           -Djacoco.destFile=target/jacoco-artifacts/${key}.exec \\
                                           -Dsurefire.reportsDirectory=target/surefire-reports/${key} \\
+                                          -Dself-healing.report.path=target/self-healing/${key}-healing-report.json \\
                                           -Dmaven.test.failure.ignore=true
                                     """,
                                         returnStatus: true
@@ -530,12 +545,32 @@ pipeline {
                         // crypto init) never finishes, so adbd never comes
                         // fully online — every `adb shell` call reports
                         // "device offline" forever, and the build eventually
-                        // times out. Explicit software mode (-accel off) is
-                        // slower but doesn't hit that AES-NI gap, so it's the
-                        // more reliable choice on hosts that fail this check
-                        // — flip ACCEL_MODE (and the matching timeout below)
-                        // to "on" once this agent has real nested-virt
-                        // passthrough with AES-NI exposed to the guest.
+                        // times out.
+                        //
+                        // CORRECTION (2026-08-12 build): the assumption below
+                        // used to be that explicit software mode (-accel off)
+                        // sidesteps this because TCG doesn't advertise AES-NI
+                        // as a *hardware* passthrough gap. That's disproven by
+                        // this build's own emulator.log: even with ACCEL_MODE
+                        // forced to "off", it hit the identical signature
+                        // ("Boot completed in 226137 ms" internally, then every
+                        // adb shell call reporting "device offline" for the
+                        // rest of the budget). TCG's own log lines explain why:
+                        // "TCG doesn't support requested feature:
+                        // CPUID.01H:ECX.avx" / "...f16c" — software emulation
+                        // has its own missing-CPU-feature gaps, not just
+                        // hardware passthrough gaps, and Android's late-boot
+                        // crypto/keystore init can stall on either. So
+                        // ACCEL_MODE=off is still the safer default (it avoids
+                        // the *specific* AES-NI passthrough gap and is more
+                        // predictable), but it is NOT a guaranteed fix — on a
+                        // sufficiently loaded/under-provisioned host, both
+                        // modes can leave adbd stuck offline forever. The
+                        // durable fix is real nested-virt with a full CPU
+                        // feature set exposed to the guest (see the
+                        // diagnostics block below, which now runs on every
+                        // Mobile Test build so this doesn't have to be
+                        // re-diagnosed from scratch each time).
                         sh '''
                         set -e
                         ACCEL_MODE="off"
@@ -545,8 +580,21 @@ pipeline {
                             ACCEL_MODE="on"
                             echo "KVM + required CPU virtualization/AES-NI flags detected — using hardware acceleration."
                         else
-                            echo "WARNING: this agent can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm/aes CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto' — auto has been landing in a half-broken state here where the guest boots internally but adbd never comes online. Software mode is slower but avoids that failure signature; see the Coverage Gate/wait-for-device timeout below, which is widened accordingly."
+                            echo "WARNING: this agent can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm/aes CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto' — auto has been landing in a half-broken state here where the guest boots internally but adbd never comes online. Software mode is slower and lowers the odds of hitting that same signature, but does NOT eliminate it — see the diagnostics below and the Coverage Gate/wait-for-device timeout, which is widened accordingly."
                         fi
+
+                        # Host diagnostics — printed on every Mobile Test run (not
+                        # just on failure) so a stuck-offline emulator can be
+                        # root-caused directly from this build's own log instead
+                        # of re-investigating from scratch. Every command here is
+                        # best-effort (never fails the stage on its own).
+                        echo "--- Mobile Test host diagnostics ---"
+                        echo "/dev/kvm: $([ -e /dev/kvm ] && ls -l /dev/kvm || echo 'not present')"
+                        echo "kvm kernel module: $(lsmod 2>/dev/null | grep -E '^kvm' || echo 'not loaded / lsmod unavailable')"
+                        echo "CPU virt/crypto flags: $(grep -m1 -oE '(vmx|svm|aes|avx|f16c)' /proc/cpuinfo | sort -u | tr '\\n' ' ' || echo 'none detected')"
+                        echo "nproc: $(nproc 2>/dev/null || echo unknown)  loadavg: $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null || echo unknown)"
+                        echo "ACCEL_MODE for this run: $ACCEL_MODE"
+                        echo "-------------------------------------"
 
                         if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
                             echo "Android SDK not found - installing cmdline-tools..."
@@ -800,45 +848,79 @@ pipeline {
                         # before that more patient loop ever got a chance to
                         # run. Matching both to 300s removes that inconsistency.
                         #
-                        # WAIT_SECS scales with ACCEL_MODE: forcing "-accel
-                        # off" above (see the capability check near the top of
-                        # this script) trades speed for reliability — a cold
-                        # software-emulated boot genuinely takes longer than a
-                        # working hardware-accelerated one, so a fixed 300s
-                        # budget that was already tight under degraded/
-                        # half-broken "auto" acceleration would be even more
-                        # likely to time out here. Both the wait-for-device
-                        # gate and the boot_completed poll loop below use this
-                        # same budget so neither cuts the other off early.
-                        #
-                        # ROOT CAUSE (2026-08-10 build): even the full 600s
-                        # software-mode budget wasn't enough on this shared
-                        # box — emulator.log showed "Boot completed in
-                        # 223507 ms" internally, so the guest itself wasn't
-                        # the bottleneck; adbd's own late-boot work (crypto/
-                        # keystore init, the same class of gap the AES-NI
-                        # capability check above exists for) never finished
-                        # within the remaining budget, most likely because
-                        # this run was also competing with the box's own
-                        # background load (see "Acquire Shared-Box Lock"
-                        # stage above) for the same limited CPU that software
-                        # (TCG) emulation already needs more of than hardware
-                        # acceleration would. 900s gives that extra margin
-                        # instead of failing at exactly the point the
-                        # previous 600s budget was already found wanting.
-                        WAIT_SECS=300
-                        POLL_ITERS=60
+                        # Both budgets scale with ACCEL_MODE for the same
+                        # reason: forcing "-accel off" above trades speed for
+                        # reliability, and a cold software-emulated boot
+                        # genuinely takes longer than a working
+                        # hardware-accelerated one. History of this budget:
+                        # 120s -> 300s (2026-08-09, to stop an earlier gate
+                        # from aborting before the patient loop got a chance
+                        # to run) -> 600s -> 900s single WAIT_SECS applied to
+                        # BOTH the registration wait and the boot_completed
+                        # poll in sequence (2026-08-10, after a run recorded
+                        # "Boot completed in 223507 ms" internally while adbd
+                        # still stayed "device offline" past that point —
+                        # confirming the guest itself wasn't the bottleneck,
+                        # adbd's late-boot work was, likely worsened by
+                        # contention with the box's own background load — see
+                        # "Acquire Shared-Box Lock" above). Split into two
+                        # independent 600s budgets now that registration
+                        # (device present + past "offline") and boot_completed
+                        # (guest userspace actually finished booting) are two
+                        # separate polling loops below — each gets its own
+                        # share instead of the old single WAIT_SECS applying
+                        # to both in sequence, which would have silently let
+                        # the worst case (stuck at every stage) run up to 2x
+                        # as long as the number in this log's error messages.
+                        REGISTER_WAIT_SECS=300
+                        REGISTER_POLL_ITERS=60
+                        BOOT_WAIT_SECS=300
+                        BOOT_POLL_ITERS=60
                         if [ "$ACCEL_MODE" = "off" ]; then
-                            WAIT_SECS=900
-                            POLL_ITERS=180
+                            REGISTER_WAIT_SECS=600
+                            REGISTER_POLL_ITERS=120
+                            BOOT_WAIT_SECS=600
+                            BOOT_POLL_ITERS=120
                         fi
-                        if ! timeout $WAIT_SECS "$ANDROID_SDK_ROOT/platform-tools/adb" wait-for-device; then
-                            echo "ERROR: emulator did not come up within ${WAIT_SECS}s — it may have crashed. Check emulator.log below."
+                        # ROOT CAUSE (2026-08-12 build): this used to be a single
+                        # blind `timeout 900 adb wait-for-device` call — and
+                        # that build's log shows it blocking for the FULL
+                        # 900s with zero recovery attempts, because the
+                        # `adb reconnect` nudge below only exists in the
+                        # sys.boot_completed poll loop, which a stuck
+                        # wait-for-device call never even reaches. Replaced with
+                        # a single polling loop that gives the same reconnect
+                        # nudge a chance to help during THIS phase too — a
+                        # device stuck "offline" (registered, not yet
+                        # authorized) is exactly the case `adb reconnect` can
+                        # sometimes clear without restarting the emulator.
+                        REGISTERED=0
+                        for i in $(seq 1 $REGISTER_POLL_ITERS); do
+                            if "$ANDROID_SDK_ROOT/platform-tools/adb" devices | grep -qE "^${ANDROID_SERIAL}[[:space:]]+device$"; then
+                                REGISTERED=1
+                                break
+                            fi
+                            if ! pgrep -f "emulator.*-avd $ANDROID_AVD_NAME" > /dev/null 2>&1; then
+                                echo "ERROR: emulator process for $ANDROID_AVD_NAME is no longer running (crashed?) at attempt $i/$REGISTER_POLL_ITERS while waiting for it to register — stopping early instead of waiting out the full timeout. Check emulator.log below."
+                                cat emulator.log 2>/dev/null || true
+                                exit 1
+                            fi
+                            if [ $((i % 5)) -eq 0 ]; then
+                                if "$ANDROID_SDK_ROOT/platform-tools/adb" devices | grep -q "^${ANDROID_SERIAL}[[:space:]]*offline"; then
+                                    echo "Device registered but offline at attempt $i/$REGISTER_POLL_ITERS (still waiting to register) — trying adb reconnect..."
+                                    "$ANDROID_SDK_ROOT/platform-tools/adb" reconnect 2>/dev/null || true
+                                fi
+                            fi
+                            sleep 5
+                        done
+                        if [ "$REGISTERED" != "1" ]; then
+                            echo "ERROR: emulator did not register within ${REGISTER_WAIT_SECS}s — it may have crashed, or adbd never came online. Check the host diagnostics above and emulator.log below."
+                            "$ANDROID_SDK_ROOT/platform-tools/adb" devices || true
                             cat emulator.log 2>/dev/null || true
                             exit 1
                         fi
                         BOOTED=0
-                        for i in $(seq 1 $POLL_ITERS); do
+                        for i in $(seq 1 $BOOT_POLL_ITERS); do
                             boot_completed=$("$ANDROID_SDK_ROOT/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')
                             if [ "$boot_completed" = "1" ]; then
                                 echo "Emulator booted"
@@ -848,13 +930,13 @@ pipeline {
                             # Cheap early-exit for a DIFFERENT failure mode than
                             # "stuck offline": if the qemu process itself has
                             # died (crashed, OOM-killed, etc.) there is no point
-                            # burning the rest of the ${WAIT_SECS}s budget
+                            # burning the rest of the ${BOOT_WAIT_SECS}s budget
                             # polling a device that will never come back. This
                             # is intentionally separate from the "offline"
                             # nudge below — a dead process can't be reconnected,
                             # only a still-running-but-stuck one can.
                             if ! pgrep -f "emulator.*-avd $ANDROID_AVD_NAME" > /dev/null 2>&1; then
-                                echo "ERROR: emulator process for $ANDROID_AVD_NAME is no longer running (crashed?) at attempt $i/$POLL_ITERS — stopping early instead of waiting out the full timeout. Check emulator.log below."
+                                echo "ERROR: emulator process for $ANDROID_AVD_NAME is no longer running (crashed?) at attempt $i/$BOOT_POLL_ITERS — stopping early instead of waiting out the full timeout. Check emulator.log below."
                                 cat emulator.log 2>/dev/null || true
                                 exit 1
                             fi
@@ -876,18 +958,18 @@ pipeline {
                             fi
                             sleep 5
                         done
-                        # adb wait-for-device above only requires the device to be
-                        # REGISTERED (it can still be "offline", exactly what this
-                        # box has shown under degraded/no-KVM boots) — it does not
+                        # The registration loop above only requires the device to
+                        # reach adb's "device" state (not "offline") — it does not
                         # guarantee sys.boot_completed ever reaches "1". Without
-                        # this check, a device that stays offline for the full
-                        # 300s here fell through silently into starting Appium and
-                        # running mvn test against a half-booted device, producing
-                        # confusing Appium/test failures instead of the same clear
-                        # infra-timeout diagnosis the wait-for-device gate above
+                        # this check, a device that flips to "device" but whose
+                        # guest userspace never finishes booting fell through
+                        # silently into starting Appium and running mvn test
+                        # against a half-booted device, producing confusing
+                        # Appium/test failures instead of the same clear
+                        # infra-timeout diagnosis the registration gate above
                         # already gives.
                         if [ "$BOOTED" != "1" ]; then
-                            echo "ERROR: emulator registered but never reached sys.boot_completed=1 within ${WAIT_SECS}s — likely still 'offline' (see adb devices below). Check emulator.log."
+                            echo "ERROR: emulator registered but never reached sys.boot_completed=1 within ${BOOT_WAIT_SECS}s. Check emulator.log."
                             "$ANDROID_SDK_ROOT/platform-tools/adb" devices || true
                             cat emulator.log 2>/dev/null || true
                             exit 1
@@ -943,6 +1025,7 @@ pipeline {
                               -Dallure.results.directory=target/allure-results/mobile \\
                               -Djacoco.destFile=target/jacoco-artifacts/mobile.exec \\
                               -Dsurefire.reportsDirectory=target/surefire-reports/mobile \\
+                              -Dself-healing.report.path=target/self-healing/mobile-healing-report.json \\
                               -Dmaven.test.failure.ignore=true
                         """,
                                 returnStatus: true
@@ -1050,6 +1133,7 @@ pipeline {
                                       -Dhuman.pause.enabled=false \\
                                       -Dallure.results.directory=target/allure-results/${resultDir} \\
                                       -Dsurefire.reportsDirectory=target/surefire-reports/${resultDir} \\
+                                      -Dself-healing.report.path=target/self-healing/${resultDir}-healing-report.json \\
                                       -Dmaven.test.failure.ignore=true
                                 """,
                                     returnStatus: true

@@ -53,7 +53,8 @@ class TestImpactAnalyzerIntegrationTest {
 
     private void compileAll() {
         TiaTestFixtures.compile(repo.resolve("src/main/java"), repo.resolve("target/classes"));
-        TiaTestFixtures.compile(repo.resolve("src/test/java"), repo.resolve("target/test-classes"));
+        TiaTestFixtures.compile(repo.resolve("src/test/java"), repo.resolve("target/test-classes"),
+            List.of(repo.resolve("target/classes")));
     }
 
     private ImpactResult analyze(String base) throws IOException, InterruptedException {

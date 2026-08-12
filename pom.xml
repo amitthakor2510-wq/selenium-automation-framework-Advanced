@@ -581,6 +581,26 @@
             <artifactId>aspectjweaver</artifactId>
             <version>${aspectj.version}</version>
           </dependency>
+          <!-- Force the TestNG provider explicitly. The junit-jupiter dependency
+               above (added so the mutation/pitest profile has JUnit 5 unit tests
+               to target) also sits on the default test classpath, and without a
+               pinned provider here Surefire's auto-detection silently prefers the
+               JUnit Platform provider whenever both frameworks are present. That
+               made every plain `mvn test`/`mvn verify` run ONLY the JUnit 5 data-
+               reader unit tests and silently drop the suiteXmlFiles-configured
+               TestNG suite entirely (0 browser tests executed, no failure or
+               warning beyond the browser suite just not appearing) — which in
+               turn is why no target/allure-results were ever written and the
+               allure-maven report execution failed with "Directory
+               .../allure-results not found". Declaring surefire-testng here
+               makes provider selection deterministic: TestNG + suiteXmlFiles
+               always runs by default, and the JUnit 5 unit tests stay opt-in via
+               `mvn verify -Pmutation` as originally intended. -->
+          <dependency>
+            <groupId>org.apache.maven.surefire</groupId>
+            <artifactId>surefire-testng</artifactId>
+            <version>3.2.5</version>
+          </dependency>
         </dependencies>
       </plugin>
 

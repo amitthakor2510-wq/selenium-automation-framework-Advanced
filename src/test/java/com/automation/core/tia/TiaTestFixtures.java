@@ -35,6 +35,20 @@ final class TiaTestFixtures {
 
     /** Compiles every {@code .java} file under {@code sourceRoot} into {@code outputDir}. */
     static void compile(Path sourceRoot, Path outputDir) {
+        compile(sourceRoot, outputDir, List.of());
+    }
+
+    /**
+     * Compiles every {@code .java} file under {@code sourceRoot} into {@code outputDir}, with
+     * {@code extraClasspath} appended after {@code outputDir} on the compiler's {@code -cp}.
+     * Needed when {@code sourceRoot} is a test-source tree whose fixtures import classes from an
+     * already-compiled main-source tree (e.g. {@code compileAll()} compiling {@code
+     * src/test/java} after {@code src/main/java} in {@link TestImpactAnalyzerIntegrationTest}) —
+     * without this, javac can't resolve those imports even though the referenced {@code .class}
+     * files already exist on disk, because {@code outputDir} alone only puts the test tree's own
+     * output on the classpath.
+     */
+    static void compile(Path sourceRoot, Path outputDir, List<Path> extraClasspath) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IllegalStateException("No system Java compiler available — tests must run on a JDK, not a JRE.");
@@ -45,11 +59,16 @@ final class TiaTestFixtures {
             try (var walk = Files.walk(sourceRoot)) {
                 walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> sources.add(p.toString()));
             }
+            List<String> classpath = new ArrayList<>();
+            classpath.add(outputDir.toString());
+            for (Path extra : extraClasspath) {
+                classpath.add(extra.toString());
+            }
             List<String> args = new ArrayList<>();
             args.add("-d");
             args.add(outputDir.toString());
             args.add("-cp");
-            args.add(outputDir.toString());
+            args.add(String.join(java.io.File.pathSeparator, classpath));
             args.addAll(sources);
             int result = compiler.run(null, null, null, args.toArray(new String[0]));
             if (result != 0) {
