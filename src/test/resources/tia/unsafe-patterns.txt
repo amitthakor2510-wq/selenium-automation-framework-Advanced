@@ -1,0 +1,33 @@
+# Test Impact Analysis — unsafe change patterns.
+#
+# Any changed file matching one of these globs (matched against the
+# repo-relative path, forward slashes always, `**` = any depth, `*` = one
+# path segment) forces TIA to fall back to a full-suite run instead of a
+# possibly-incomplete impacted-tests list. See
+# com.automation.core.tia.UnsafeChangeRules and TEST_IMPACT_ANALYSIS.md for
+# the full rationale.
+#
+# This file is optional — if it's missing or empty, UnsafeChangeRules.defaults()
+# is used instead (same list as below). Edit this file instead of the code
+# to add a project-specific pattern without recompiling.
+#
+# Blank lines and lines starting with # are ignored.
+
+pom.xml
+checkstyle.xml
+owasp-suppressions.xml
+Dockerfile
+docker-compose.yml
+Jenkinsfile
+.gitlab-ci.yml
+testng-suites/**
+Scripts/**
+.github/workflows/**
+
+# Config that applies to every site at once — a per-site config/objectrepository
+# file change is handled precisely instead, via SiteMapper's site inference.
+src/test/resources/config/global.properties
+src/test/resources/config/_TEMPLATE.properties.example
+src/test/resources/logging.properties
+src/test/resources/log4j2.xml
+src/test/resources/allure.properties

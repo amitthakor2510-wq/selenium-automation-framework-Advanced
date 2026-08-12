@@ -150,6 +150,112 @@ jobs:
           mvn -B checkstyle:check@checkstyle-check
 
   # ================================================================
+  # STAGE 1c - Test Impact Analysis (informational, PRs only)
+  # ================================================================
+  # Deliberately does NOT replace or gate the full `test`/`mobile-test`
+  # matrix below — those stay the real safety net every push/PR still runs
+  # in full. This job answers a narrower, faster question up front: "of
+  # everything in this PR, which test classes does
+  # com.automation.core.tia.TestImpactAnalyzer think are actually affected,
+  # and by how much could a filtered run have saved". Posted to the job
+  # summary and uploaded as an artifact so a reviewer/author can see it
+  # without waiting on the full matrix, and a team that later wants to
+  # actually gate on this can swap `Scripts/test-impact-analysis.sh --run`
+  # into (or alongside) the `test` job's own steps — see
+  # TEST_IMPACT_ANALYSIS.md for that migration path.
+  test-impact-analysis:
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Full history (not the default shallow clone) — TIA diffs against
+          # the PR's base branch, which a shallow checkout wouldn't have.
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile (main + test sources)
+        run: mvn -B -q compile test-compile
+
+      - name: Run Test Impact Analysis
+        run: |
+          echo "======= Test Impact Analysis: origin/${{ github.base_ref }}...HEAD ======="
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          mvn -B -q exec:java@tia -Ptia \
+            -Dtia.base="origin/${{ github.base_ref }}" \
+            -Dtia.head="${{ github.event.pull_request.head.sha }}"
+          cat target/tia/impact-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload TIA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-impact-analysis
+          path: target/tia/
+          retention-days: 14
+
+  # ================================================================
+  # STAGE 1d - Coverage map (nightly / manual only — not on every PR)
+  # ================================================================
+  # Refreshes target/tia/coverage-map.txt: for each site, runs that site's
+  # regression suite SERIALLY with JaCoCo's JMX agent enabled
+  # (Scripts/build-coverage-map.sh — see that script and
+  # JacocoPerTestCoverageListener's javadoc for why serial execution is
+  # required for this to produce trustworthy data, and why that makes it
+  # unsuitable to run on every PR the way test-impact-analysis above is).
+  # TestImpactAnalyzer picks this file up automatically if present (see
+  # CoverageMap) — it only ever WIDENS the impacted-tests set versus the
+  # bytecode graph alone, catching reflection/dynamic-dispatch dependencies
+  # the graph can't see, so a map that's up to a day stale is still safe to
+  # use; see CoverageMap's own javadoc on why. TEST_IMPACT_ANALYSIS.md →
+  # "Coverage-based fallback" has the full design.
+  coverage-map:
+    needs: build
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [demoqa, saucedemo]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Build coverage map for ${{ matrix.site }}
+        env:
+          HEADLESS: 'true'
+        run: ./Scripts/build-coverage-map.sh "${{ matrix.site }}"
+
+      - name: Upload per-site coverage map
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-map-${{ matrix.site }}
+          path: |
+            target/tia/coverage-map.txt
+            target/jacoco-per-test/UNRELIABLE.marker
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ================================================================
   # STAGE 2 - Test (one matrix job per site x browser, running in
   # parallel — including Safari, see matrix.os below)
   # ================================================================

@@ -703,16 +703,85 @@ pipeline {
                         # rendering, no host GL/X11 involvement at all) sidesteps
                         # that dependency entirely instead of just papering over
                         # a missing library.
+                        # Snapshot serials already registered with adb BEFORE we
+                        # launch, so we can tell which NEW one is actually ours.
+                        # ROOT CAUSE (this build, 2026-08-11): the post-cleanup
+                        # step ended up reconnecting BOTH "emulator-5556" and
+                        # "emulator-5554" — the exact signature the "Acquire
+                        # Shared-Box Lock" stage's own top-of-file history
+                        # documents for a port-5554 collision (see that stage's
+                        # comment: "the loser's emulator silently shifts to
+                        # 5556"). That lock only serializes builds that go
+                        # through THIS Jenkinsfile — it can't stop a completely
+                        # separate process on this shared box (a GitLab CI
+                        # mobile job, a manual local run, an orphaned process
+                        # from a controller restart) from also holding port
+                        # 5554. When that happens, our own "-port 5554" request
+                        # below silently falls back to 5556, but every adb call
+                        # in this script was still hardcoded to ANDROID_SERIAL=
+                        # emulator-5554 — so wait-for-device wound up waiting
+                        # the full budget on a device that was never actually
+                        # ours, while our real emulator sat fully booted and
+                        # idle on 5556 the whole time. Detecting the real serial
+                        # after launch (instead of assuming 5554) makes this
+                        # self-correcting regardless of what else is on the box.
+                        PRE_LAUNCH_SERIALS_FILE="$(mktemp)"
+                        "$ANDROID_SDK_ROOT/platform-tools/adb" devices | awk '/^emulator-/{print $1}' > "$PRE_LAUNCH_SERIALS_FILE"
+
                         "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -accel "$ACCEL_MODE" -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu off -camera-back none > emulator.log 2>&1 &
 
+                        echo "Detecting which serial our emulator actually bound to..."
+                        DETECTED_SERIAL=""
+                        for i in $(seq 1 30); do
+                            # -v -F -x -f (all POSIX): lines from the current
+                            # `adb devices` output that are NOT already in the
+                            # pre-launch snapshot file — i.e. genuinely new
+                            # since we launched. Deliberately avoids `comm`
+                            # with <(...) process substitution, which is a
+                            # bash-only construct that would break under the
+                            # dash /bin/sh Jenkins' `sh` step runs by default
+                            # on Ubuntu agents.
+                            NEW_SERIAL=$("$ANDROID_SDK_ROOT/platform-tools/adb" devices \\
+                                | awk '/^emulator-/{print $1}' \\
+                                | grep -vFxf "$PRE_LAUNCH_SERIALS_FILE" \\
+                                | head -1)
+                            if [ -n "$NEW_SERIAL" ]; then
+                                DETECTED_SERIAL="$NEW_SERIAL"
+                                break
+                            fi
+                            if ! pgrep -f "emulator.*-avd $ANDROID_AVD_NAME" > /dev/null 2>&1; then
+                                echo "ERROR: emulator process for $ANDROID_AVD_NAME died before registering with adb. Check emulator.log below."
+                                cat emulator.log 2>/dev/null || true
+                                exit 1
+                            fi
+                            sleep 2
+                        done
+                        rm -f "$PRE_LAUNCH_SERIALS_FILE"
+
+                        if [ -z "$DETECTED_SERIAL" ]; then
+                            echo "WARNING: could not detect a new emulator-* serial after launch — falling back to the default $ANDROID_SERIAL. If port 5554 was actually taken by something else, this run will likely time out waiting on the wrong device."
+                        else
+                            if [ "$DETECTED_SERIAL" != "$ANDROID_SERIAL" ]; then
+                                echo "NOTE: emulator bound to $DETECTED_SERIAL, not the expected emulator-5554 (port 5554 was likely already taken by another process on this shared box) — using the actual serial for the rest of this stage."
+                            fi
+                            export ANDROID_SERIAL="$DETECTED_SERIAL"
+                        fi
+                        # Persisted so the later, separate `sh` step running
+                        # `mvn ... -Dmobile.device.name=$ANDROID_SERIAL` (a NEW
+                        # shell process — the export above doesn't reach it)
+                        # and post{}'s own adb cleanup step can both target the
+                        # real device instead of re-hardcoding emulator-5554.
+                        echo "$ANDROID_SERIAL" > "$WORKSPACE/.mobile-device-serial"
+
                         echo "Waiting for emulator to boot..."
-                        # ANDROID_SERIAL=emulator-5554 (exported above) scopes
-                        # every adb call below to just this stage's own AVD,
-                        # even though Amit's persistent Genymotion device
-                        # (127.0.0.1:6562) is also connected to this same adb
-                        # server — without it, adb refuses any command with
-                        # "error: more than one device/emulator" the moment
-                        # both devices are registered.
+                        # ANDROID_SERIAL (exported above, now pointing at
+                        # whichever serial the emulator actually registered
+                        # under) scopes every adb call below to just this
+                        # stage's own AVD, even though Amit's persistent
+                        # Genymotion device (127.0.0.1:6562) is also connected
+                        # to this same adb server — without it, adb refuses any
+                        # command with "error: more than one device/emulator"
+                        # the moment both devices are registered.
                         #
                         # 300s (not 120s): this agent's own emulator.log shows
                         # KVM running degraded here — "host doesn't support
@@ -845,6 +914,20 @@ pipeline {
                         cp src/test/resources/config/mobile.properties.example \\
                            src/test/resources/config/mobile.properties
                     '''
+
+                        // The big sh '''...''' block above runs as its own shell
+                        // process — a plain `export ANDROID_SERIAL=...` inside it
+                        // doesn't carry over to the SEPARATE `sh(script: "mvn ...")`
+                        // step below, so re-read the serial it detected and wrote
+                        // to .mobile-device-serial, and reassign Jenkins' own
+                        // env.ANDROID_SERIAL (which DOES apply to every later step
+                        // in this run, unlike a shell-level export) so the mvn
+                        // invocation's -Dmobile.device.name=$ANDROID_SERIAL below
+                        // targets whichever serial the emulator actually bound to.
+                        env.ANDROID_SERIAL = sh(
+                                script: 'cat "$WORKSPACE/.mobile-device-serial" 2>/dev/null || echo emulator-5554',
+                                returnStdout: true
+                        ).trim()
 
                         sh 'mkdir -p target/jacoco-artifacts'
                         def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
@@ -1217,12 +1300,17 @@ pipeline {
                                     # This post block runs outside the Mobile
                                     # Test stage's own `environment {}`, so
                                     # ANDROID_SERIAL isn't set here
-                                    # automatically — export it so this
-                                    # reconnect targets only the CI emulator
-                                    # and doesn't touch (or error out
-                                    # against) the separately-connected
-                                    # Genymotion device.
-                                    ANDROID_SERIAL=emulator-5554 "$ADB_BIN" reconnect offline 2>/dev/null || true
+                                    # automatically. Prefer the serial the
+                                    # stage actually detected and persisted
+                                    # (see .mobile-device-serial in the
+                                    # Mobile Test stage) over hardcoding
+                                    # emulator-5554 — a hardcoded value here
+                                    # would silently do nothing useful on a
+                                    # run where the emulator fell back to a
+                                    # different port, which is exactly the
+                                    # scenario this cleanup exists to catch.
+                                    SERIAL=$(cat "${WORKSPACE}/.mobile-device-serial" 2>/dev/null || echo emulator-5554)
+                                    ANDROID_SERIAL="$SERIAL" "$ADB_BIN" reconnect offline 2>/dev/null || true
                                 fi
                             '''
                     }

@@ -67,9 +67,58 @@
          same shared path so a plain `mvn test` (local dev, no -D override)
          behaves exactly as before; Jenkins overrides it per-branch below
          with -Dsurefire.reportsDirectory=target/surefire-reports/<key>,
-         the same pattern already used for allure.results.directory and
-         jacoco.destFile just above. -->
+         the same pattern already used for jacoco.destFile just above (this
+         file's own <allure.results.directory> property, defined further
+         down and forwarded via systemPropertyVariables below, is that
+         pattern's actual Allure counterpart). -->
     <surefire.reportsDirectory>${project.build.directory}/surefire-reports</surefire.reportsDirectory>
+
+    <!-- Allure results directory — mirrors src/test/resources/allure.properties'
+         allure.results.directory=target/allure-results default. MUST also be
+         forwarded via surefire's systemPropertyVariables below (same reason
+         retry.count/grid.enabled/site/browser all are, see those comments):
+         this property alone only reaches Maven's own JVM. Before this was
+         added, github-ci.yml's Safari leg's
+         -Dallure.results.directory=target/allure-results/<site>-safari
+         override on the `mvn test` command line was silently a no-op inside
+         the forked surefire JVM — AllureLifecycle there only ever saw
+         allure.properties' hardcoded target/allure-results, identical for
+         every site/browser leg, never the per-leg subfolder the CI comment
+         and this property's own name implied was already wired up. -->
+    <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+
+    <!-- Self-healing report path — same missing-forwarding bug as
+         allure.results.directory above, and with a more visible symptom:
+         every github-ci.yml `mvn test` step passes
+         -Dself-healing.report.path=target/self-healing/<site>[-<browser>]-healing-report.json
+         on the outer command line, but with no matching
+         systemPropertyVariables entry the forked JVM never saw it —
+         SelfHealingReportWriter fell back to its own default,
+         target/self-healing/healing-report.json, on every single run
+         regardless of site/browser. compute_self_healing_summary.py globs
+         target/self-healing/*-healing-report.json (see that script's own
+         comment) specifically expecting a "<site>-" prefix; the bare
+         default filename has none, so it silently matched nothing —
+         the job summary's "Self-healed locators this run" always read 0
+         even on a run where locators genuinely drifted and were healed.
+         Left empty by default (matches SelfHealingReportWriter's own
+         fallback) so a plain local `mvn test` behaves exactly as before;
+         CI's per-leg -D override is what actually varies this. -->
+    <self-healing.report.path></self-healing.report.path>
+
+    <!-- JaCoCo JMX agent option — see the <jmx> element on the
+         jacoco-prepare-agent execution below for why this defaults off. -->
+    <jacoco.jmx>false</jacoco.jmx>
+
+    <!-- Coverage-map capture mode — forwarded to the forked JVM below the
+         same way jacoco.jmx is forwarded to the agent. When true,
+         AlterSuiteForCoverageMapListener (auto-registered via
+         META-INF/services/org.testng.ITestNGListener, so no listener config
+         needed here) forces the running suite to parallel="none" and
+         attaches JacocoPerTestCoverageListener. Only meaningful when
+         jacoco.jmx is also true — see
+         Scripts/build-coverage-map.sh, which sets both together. -->
+    <coverage.map.enabled>false</coverage.map.enabled>
 
 
     <!-- Allure + AspectJ versions -->
@@ -224,6 +273,30 @@
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
       <version>${log4j.version}</version>
+    </dependency>
+
+    <!-- org.jacoco.core — used only by com.automation.core.coverage.CoverageExecReader,
+         which parses the .exec files JacocoPerTestCoverageListener dumps via
+         JMX into structured "which classes did this test touch" data. This
+         is the one deliberate exception to com.automation.core.tia's own
+         zero-new-dependency rule (see that package's own javadoc) — and it's
+         scoped narrowly on purpose: only CoverageExecReader imports
+         org.jacoco.*; TestImpactAnalyzer and everything else in the tia
+         package only ever reads the plain-text target/tia/coverage-map.txt
+         CoverageExecReader/CoverageMapBuilder produce from it, so the tia
+         package's own classes stay exactly as dependency-free as before.
+         Compile-scope, not test-scope: CoverageExecReader is ordinary
+         src/main/java code (its own CLI, CoverageMapBuilder, is what's
+         opt-in — see TEST_IMPACT_ANALYSIS.md "Coverage-based fallback" —
+         not the class itself). No transitive dependencies of its own, and
+         already implicitly present on this build's plugin classpath via
+         jacoco-maven-plugin above — this just makes it usable from this
+         project's own code too, at the same version already proven to work
+         via that plugin. -->
+    <dependency>
+      <groupId>org.jacoco</groupId>
+      <artifactId>org.jacoco.core</artifactId>
+      <version>0.8.12</version>
     </dependency>
 
     <!-- TestNG -->
@@ -431,6 +504,24 @@
             <headless>${headless}</headless>
             <human.pause.enabled>${human.pause.enabled}</human.pause.enabled>
             <retry.count>${retry.count}</retry.count>
+            <!-- Allure results dir — see the <allure.results.directory> property
+                 comment above; without this the Safari leg's per-site-and-browser
+                 -Dallure.results.directory override never reached the forked JVM
+                 that actually runs AllureLifecycle. -->
+            <allure.results.directory>${allure.results.directory}</allure.results.directory>
+            <!-- Self-healing report path — see the <self-healing.report.path>
+                 property comment above. Left blank by default is fine: an
+                 empty system property is treated as absent by ConfigReader
+                 (see its get(key, default) — falls through to properties/
+                 default on a blank value, not just null), so this only takes
+                 effect when CI or a developer actually passes -D to override it. -->
+            <self-healing.report.path>${self-healing.report.path}</self-healing.report.path>
+            <!-- See the <coverage.map.enabled> property comment above —
+                 same missing-forwarding footgun as allure.results.directory
+                 and self-healing.report.path, avoided here from the start:
+                 AlterSuiteForCoverageMapListener reads this system property
+                 from inside the forked JVM, so it has to actually be there. -->
+            <coverage.map.enabled>${coverage.map.enabled}</coverage.map.enabled>
             <!-- Selenium Grid / Docker — see the grid.enabled/grid.url comment
                  in <properties> above for why these must be listed explicitly. -->
             <grid.enabled>${grid.enabled}</grid.enabled>
@@ -537,6 +628,21 @@
             </goals>
             <configuration>
               <propertyName>jacocoArgLine</propertyName>
+              <!-- Off by default (preserves today's behavior/argLine exactly).
+                   Flip on with -Djacoco.jmx=true only for a coverage-map
+                   capture run (see com.automation.core.coverage and
+                   TEST_IMPACT_ANALYSIS.md "Coverage-based fallback") — it
+                   registers a JMX MBean (org.jacoco:type=Runtime) that
+                   JacocoPerTestCoverageListener resets/dumps around each
+                   test class to build a "which test executed which class"
+                   map. Left off normally both because it's pure overhead
+                   nobody needs for an ordinary run, and because JaCoCo's own
+                   issue tracker documents a real conflict between this MBean
+                   registration and a Log4j JUL bridge on the classpath
+                   (jacoco/jacoco#531) — no reason to carry that risk on
+                   every single `mvn test` when only one narrow, opt-in use
+                   case needs it. -->
+              <jmx>${jacoco.jmx}</jmx>
             </configuration>
           </execution>
           <execution>
@@ -856,6 +962,114 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <!-- Test Impact Analysis — deliberately a profile, not a plugin under
+         <build><plugins>, so `mvn test` everywhere else in this project (CI
+         included) is completely unaffected by its presence, same pattern as
+         "perf"/"security"/"mutation" above. exec-maven-plugin's exec:java
+         goal runs com.automation.core.tia.TiaCli directly against the
+         already-compiled target/classes + target/test-classes (see that
+         class's own javadoc for the full argument list) — no extra runtime
+         dependency: the com.automation.core.tia package is written against
+         nothing but the JDK itself (java.io/nio/util only) specifically so
+         this profile never needs its own dependency resolution.
+
+         Typical usage:
+           mvn -q compile test-compile
+           mvn -q exec:java@tia -Ptia -Dtia.base=origin/main
+           # then, per Scripts/test-impact-analysis.sh:
+           mvn test -Dsite=demoqa -DsuiteXmlFile=target/tia/testng-impacted-demoqa.xml ...
+
+         See TEST_IMPACT_ANALYSIS.md at the repo root for the full design,
+         the safety rules that fall back to a full run, and CI wiring. -->
+    <profile>
+      <id>tia</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>tia</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.tia.TiaCli</mainClass>
+              <classpathScope>test</classpathScope>
+              <arguments>
+                <argument>--repo-root</argument>
+                <argument>${project.basedir}</argument>
+                <argument>--base</argument>
+                <argument>${tia.base}</argument>
+                <argument>--head</argument>
+                <argument>${tia.head}</argument>
+                <argument>--output-dir</argument>
+                <argument>${tia.outputDir}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <!-- Overridable via -Dtia.base=... (required) / -Dtia.head=... (optional —
+             blank means "diff base against the current working tree", see TiaCli).
+             TiaCli treats an empty head argument as not given, so leaving this blank
+             by default is safe for the common local-dev invocation that only passes
+             -Dtia.base. -->
+        <tia.base></tia.base>
+        <tia.head></tia.head>
+        <tia.outputDir>${project.build.directory}/tia</tia.outputDir>
+      </properties>
+    </profile>
+
+    <!-- Coverage-map capture — see com.automation.core.coverage.CoverageMapBuilder's javadoc
+         and TEST_IMPACT_ANALYSIS.md ("Coverage-based fallback") for the full design. Same
+         "profile, not a plugin under <build><plugins>" pattern as every other opt-in profile
+         above: `mvn test` everywhere else is completely unaffected. This profile only turns
+         CoverageMapBuilder into an `mvn exec:java@coverage-map` goal — it does NOT itself run
+         tests or set jacoco.jmx/coverage.map.enabled; that's Scripts/build-coverage-map.sh's
+         job (it runs `mvn test` with those flags first, THEN activates this profile to build
+         the map from what that produced). Kept as two separate steps rather than one combined
+         profile because the capture run (a real `mvn test` invocation) and the analysis step
+         (a fast, offline file-parsing pass) have nothing to do with each other from Maven's
+         perspective — no reason to force them into the same lifecycle. -->
+    <profile>
+      <id>coverage-map</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>coverage-map</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.coverage.CoverageMapBuilder</mainClass>
+              <classpathScope>test</classpathScope>
+              <arguments>
+                <argument>${coverageMap.execDir}</argument>
+                <argument>${coverageMap.outputFile}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <coverageMap.execDir>${project.build.directory}/jacoco-per-test</coverageMap.execDir>
+        <coverageMap.outputFile>${project.build.directory}/tia/coverage-map.txt</coverageMap.outputFile>
+      </properties>
     </profile>
   </profiles>
 </project>
