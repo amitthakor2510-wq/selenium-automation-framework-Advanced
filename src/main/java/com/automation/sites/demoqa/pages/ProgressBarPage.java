@@ -3,6 +3,7 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
+import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
@@ -33,16 +34,34 @@ public class ProgressBarPage extends BasePage {
     /**
      * Starts the progress bar, waits until it reaches
      * 100% then stops it.
+     * <p>
+     * BUG FIX: the bar's aria-valuenow attribute is updated by a React
+     * re-render on every tick, and WebDriverWait's default ignored-exception
+     * list only covers NotFoundException (NoSuchElementException) — NOT
+     * StaleElementReferenceException. If a re-render happens to swap the
+     * element out between this lambda's findElement() and getAttribute()
+     * calls (a real, if narrow, race — the same class of race every other
+     * polling loop in this codebase explicitly guards against, e.g.
+     * ProfilePage/WebTablesPage), the exception would propagate straight
+     * out of wait.until() and fail the whole test instead of just being
+     * retried on the next 500ms poll. Swallowing it here and returning
+     * false (i.e. "not done yet, keep polling") is the correct, safe
+     * response — it's exactly what the code already does for a
+     * genuinely-missing element via the ignored NotFoundException.
      */
     public void waitForCompletion() {
         HumanActions.click(driver, startStopButton);
 
         // Wait up to 15 seconds for progress to reach 100%
-        wait.until(d ->
-            d.findElement(progressBar)
-                .getAttribute("aria-valuenow")
-                .equals("100")
-        );
+        wait.until(d -> {
+            try {
+                return d.findElement(progressBar)
+                    .getAttribute("aria-valuenow")
+                    .equals("100");
+            } catch (StaleElementReferenceException e) {
+                return false;
+            }
+        });
     }
 
     public String getProgressValue() {
@@ -68,6 +87,14 @@ public class ProgressBarPage extends BasePage {
      * because that method sleeps 400-1200ms before clicking (human-like delay).
      * During that sleep the bar keeps running and overshoots the target,
      * causing the assertion to fail. Direct click fires instantly.
+     * <p>
+     * BUG FIX: unlike waitForCompletion() above, this hand-rolled polling
+     * loop had no protection at all against a StaleElementReferenceException
+     * from the same React re-render race — a single unlucky poll would throw
+     * straight out of this method and fail the whole test instead of just
+     * being retried on the next 100ms iteration, exactly the gap just fixed
+     * in waitForCompletion(). Wrapped the read in the same try/catch so one
+     * stale read is simply skipped rather than aborting the whole poll.
      */
     public void startAndStopAtValue(int targetPercent) {
         // Start the bar (human-like click is fine here)
@@ -76,13 +103,23 @@ public class ProgressBarPage extends BasePage {
         // Poll every 100ms until value reaches target
         long deadline = System.currentTimeMillis() + 15000;
         while (System.currentTimeMillis() < deadline) {
-            String current = driver.findElement(progressBar)
-                .getAttribute("aria-valuenow");
-            int currentValue = Integer.parseInt(current);
+            int currentValue;
+            try {
+                String current = driver.findElement(progressBar)
+                    .getAttribute("aria-valuenow");
+                currentValue = Integer.parseInt(current);
+            } catch (StaleElementReferenceException e) {
+                HumanActions.pause();
+                continue;
+            }
 
             if (currentValue >= targetPercent) {
                 // Fire stop immediately — no human pause delay here
-                driver.findElement(startStopButton).click();
+                try {
+                    driver.findElement(startStopButton).click();
+                } catch (StaleElementReferenceException e) {
+                    driver.findElement(startStopButton).click();
+                }
                 break;
             }
 

@@ -103,15 +103,23 @@ public class BaseTest implements DriverProvider {
         // itself failed — is what actually closes that gap.
         try {
             if (getDriver() != null) {
+                // ROOT CAUSE FIX: quit() intermittently throws "Timed out
+                // waiting for driver server to stop" under load (confirmed
+                // by both the local and Jenkins regression runs) — that
+                // exception used to just be logged and swallowed here, which
+                // left the real chromedriver + browser process (and its own
+                // renderer/GPU children) running for the rest of the JVM's
+                // life. Enough of those pile up over a long run to exhaust
+                // the box's memory/file descriptors, which is what was
+                // actually causing the cascade of totally unrelated later
+                // tests to fail with UnreachableBrowserException — not a
+                // real app/test bug. DriverFactory.quitDriver() does the
+                // identical quit() on the happy path, but forcibly kills the
+                // leftover process tree on failure instead of just logging
+                // it. See DriverFactory.CURRENT_DRIVER_SERVICE's comment for
+                // the full history.
                 try {
-                    getDriver().quit();
-                } catch (Exception e) {
-                    // Previously swallowed silently — that hid real quit()
-                    // failures (e.g. attaching to an already-running browser
-                    // instance) that left the window open with no error shown.
-                    // Log it so a failed teardown is visible instead of silent.
-                    org.slf4j.LoggerFactory.getLogger(BaseTest.class)
-                        .warn("[BaseTest] driver.quit() failed: " + e.getMessage());
+                    DriverFactory.quitDriver(getDriver());
                 } finally {
                     driver.remove(); // Important for memory cleanup
                 }

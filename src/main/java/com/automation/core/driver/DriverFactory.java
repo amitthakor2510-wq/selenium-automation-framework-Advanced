@@ -18,6 +18,7 @@ import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.remote.service.DriverService;
 import org.openqa.selenium.safari.SafariDriver;
 import org.openqa.selenium.safari.SafariDriverService;
 import org.openqa.selenium.safari.SafariOptions;
@@ -507,6 +508,11 @@ public final class DriverFactory {
         return createWithPortConflictRetry("chrome", attempt -> {
             ChromeOptions options = buildChromeOptions(headless, tempProfile);
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
+            // Tracked so quitDriver()/forceKillOrphanedDriverProcess() can
+            // force this specific service's process down if quit() later
+            // proves unreliable — see CURRENT_DRIVER_SERVICE's class-level
+            // comment for why this matters.
+            CURRENT_DRIVER_SERVICE.set(service);
             return new ChromeDriver(service, options);
         });
     }
@@ -544,6 +550,7 @@ public final class DriverFactory {
             ChromeOptions options = buildChromeOptions(headless, tempProfile);
             options.setBinary(braveBinary);
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
+            CURRENT_DRIVER_SERVICE.set(service);
             return new ChromeDriver(service, options);
         });
     }
@@ -981,6 +988,7 @@ public final class DriverFactory {
             EdgeDriverService service = new EdgeDriverService.Builder()
                 .usingPort(candidatePort(attempt))
                 .build();
+            CURRENT_DRIVER_SERVICE.set(service);
             return new EdgeDriver(service, options);
         });
     }
@@ -1032,6 +1040,7 @@ public final class DriverFactory {
             SafariDriverService service = new SafariDriverService.Builder()
                 .usingPort(candidatePort(attempt))
                 .build();
+            CURRENT_DRIVER_SERVICE.set(service);
             return new SafariDriver(service, options);
         });
     }
@@ -1049,6 +1058,118 @@ public final class DriverFactory {
     private static final List<File> TEMP_PROFILE_DIRS =
         Collections.synchronizedList(new ArrayList<>());
     private static volatile boolean cleanupHookRegistered = false;
+
+    // ── Orphaned browser/driver-process cleanup ─────────────────────────────────
+    //
+    // ROOT CAUSE (confirmed against both the local and Jenkins regression
+    // runs): a sizeable, growing fraction of test failures in a long run were
+    // NOT genuine test/app bugs at all — they were UnreachableBrowserException
+    // / "Error communicating with the remote browser. It may have died." /
+    // "HTTP/1.1 header parser received no bytes", hitting completely
+    // unrelated test classes later in the same run, in a widening cascade.
+    // The trigger every time was a PRECEDING "[BaseTest] driver.quit() failed:
+    // Timed out waiting for driver server to stop." warning: Selenium's own
+    // DriverService.stop() has an internal timeout waiting for the
+    // chromedriver process (and the real browser process it launched) to
+    // actually exit, and throws instead of blocking forever once that
+    // timeout is hit — but BaseTest.tearDown() only logged that exception,
+    // it never did anything about the process the exception says didn't
+    // stop. That left a real chromedriver + Chrome process (plus its own
+    // renderer/GPU child processes) running and holding memory for the rest
+    // of the JVM's lifetime, once per occurrence. On a run with 100+ tests
+    // this accumulates: each leaked instance is 100-300MB+, and once enough
+    // of them pile up the box runs out of memory/file descriptors, so even
+    // a BRAND-NEW, otherwise-healthy Chrome session for the next test can
+    // get OOM-killed or fail to complete its own HTTP handshake with
+    // chromedriver mid-test — exactly the symptom seen cascading across
+    // dozens of unrelated tests in both logs. This tracks enough state per
+    // thread (the DriverService that owns the process, plus the browser's
+    // own OS PID via the `goog:processID` capability every Chromium-based
+    // driver reports) to forcibly kill the whole process tree the moment
+    // quit() proves it didn't shut down cleanly, instead of leaving it to
+    // linger and slowly starve the rest of the run.
+    private static final ThreadLocal<DriverService> CURRENT_DRIVER_SERVICE = new ThreadLocal<>();
+
+    /**
+     * Central replacement for calling {@code driver.quit()} directly.
+     * Behaves identically to a normal quit() on the (overwhelmingly common)
+     * happy path, but on failure — instead of just letting the exception
+     * propagate for the caller to log and move on from, as
+     * {@link com.automation.sites.core.BaseTest#tearDown()} used to do —
+     * forcibly kills the underlying chromedriver/browser process tree so it
+     * cannot linger and consume memory for the remainder of the run. See the
+     * class-level comment on {@link #CURRENT_DRIVER_SERVICE} for the full
+     * root-cause history. Safe to call with a null/already-quit driver.
+     */
+    public static void quitDriver(WebDriver driver) {
+        if (driver == null) {
+            return;
+        }
+        try {
+            driver.quit();
+        } catch (Exception e) {
+            logger.warn("[DriverFactory] driver.quit() did not shut down cleanly (" + e.getMessage()
+                + ") — force-killing the underlying browser/driver process tree so it doesn't linger"
+                + " and starve later tests of memory.");
+            forceKillOrphanedDriverProcess(driver);
+        } finally {
+            CURRENT_DRIVER_SERVICE.remove();
+        }
+    }
+
+    /**
+     * Kills the browser process (and every child process it spawned —
+     * renderer, GPU, utility processes, etc.) plus the chromedriver/
+     * geckodriver/msedgedriver/safaridriver server process itself, using
+     * whatever identifying information is still available for a driver
+     * whose own quit() has already proven unreliable. Best-effort by
+     * design: this runs precisely when the driver is in a broken state, so
+     * every step here tolerates the corresponding lookup or kill failing
+     * silently rather than throwing a second exception on top of the
+     * original quit() failure.
+     */
+    public static void forceKillOrphanedDriverProcess(WebDriver driver) {
+        Long browserPid = extractBrowserProcessId(driver);
+        if (browserPid != null) {
+            ProcessHandle.of(browserPid).ifPresent(ph -> {
+                // Kill descendants (renderer/GPU/utility child processes a
+                // real browser launches under its own main PID) before the
+                // main process itself, so nothing is left holding memory.
+                ph.descendants().forEach(ProcessHandle::destroyForcibly);
+                ph.destroyForcibly();
+            });
+        }
+
+        DriverService service = CURRENT_DRIVER_SERVICE.get();
+        if (service != null) {
+            try {
+                service.close();
+            } catch (Exception ignored) {
+                // The goal here is just making sure the OS process is
+                // actually gone — a second failure trying to shut it down
+                // "cleanly" isn't itself a new problem worth surfacing.
+            }
+        }
+        CURRENT_DRIVER_SERVICE.remove();
+    }
+
+    private static Long extractBrowserProcessId(WebDriver driver) {
+        try {
+            if (driver instanceof RemoteWebDriver) {
+                Object pid = ((RemoteWebDriver) driver).getCapabilities().getCapability("goog:processID");
+                if (pid instanceof Number) {
+                    return ((Number) pid).longValue();
+                }
+            }
+        } catch (Exception e) {
+            // The session is exactly why we're here — capabilities being
+            // unreachable on an already-broken driver is expected, not an
+            // additional failure to report.
+            logger.debug("[DriverFactory] Could not read goog:processID from the broken session: "
+                + e.getMessage());
+        }
+        return null;
+    }
 
     private static synchronized void registerTempProfileCleanup(java.nio.file.Path tempProfile) {
         TEMP_PROFILE_DIRS.add(tempProfile.toFile());

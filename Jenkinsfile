@@ -779,8 +779,34 @@ pipeline {
                         "$ANDROID_SDK_ROOT/emulator/emulator" -avd "$ANDROID_AVD_NAME" -port 5554 -accel "$ACCEL_MODE" -no-window -no-audio -no-boot-anim -no-snapshot-load -gpu off -camera-back none > emulator.log 2>&1 &
 
                         echo "Detecting which serial our emulator actually bound to..."
+                        # BUG FIX (2026-08-12): this loop used to be a flat
+                        # 30 attempts x 2s = 60s budget regardless of
+                        # ACCEL_MODE — but every other wait loop below this one
+                        # (REGISTER_WAIT_SECS / BOOT_WAIT_SECS) was already
+                        # widened to 300s/600s specifically because "-accel off"
+                        # (software emulation) makes the emulator process take
+                        # far longer to even come up and register a transport
+                        # with adb in the first place. A 60s-only budget here
+                        # meant this stage was hitting the exact same
+                        # "gate aborts before the more patient loop gets a
+                        # chance to run" bug already root-caused and fixed for
+                        # the old 120s boot-wait gate (see the history further
+                        # down this file) — just reintroduced one gate earlier,
+                        # for serial detection instead of boot-completion. On a
+                        # software-accel run, 60s routinely wasn't enough for
+                        # the emulator to appear in `adb devices` at all, so
+                        # DETECTED_SERIAL stayed empty and the stage silently
+                        # fell back to the hardcoded default serial — visible
+                        # in the log as "WARNING: could not detect a new
+                        # emulator-* serial after launch". Scaled the same way
+                        # ACCEL_MODE already scales REGISTER_WAIT_SECS/
+                        # BOOT_WAIT_SECS immediately below.
+                        DETECT_POLL_ITERS=30
+                        if [ "$ACCEL_MODE" = "off" ]; then
+                            DETECT_POLL_ITERS=150
+                        fi
                         DETECTED_SERIAL=""
-                        for i in $(seq 1 30); do
+                        for i in $(seq 1 $DETECT_POLL_ITERS); do
                             # -v -F -x -f (all POSIX): lines from the current
                             # `adb devices` output that are NOT already in the
                             # pre-launch snapshot file — i.e. genuinely new
@@ -802,12 +828,15 @@ pipeline {
                                 cat emulator.log 2>/dev/null || true
                                 exit 1
                             fi
+                            if [ $((i % 15)) -eq 0 ]; then
+                                echo "Still waiting for emulator to register a serial (attempt $i/$DETECT_POLL_ITERS)..."
+                            fi
                             sleep 2
                         done
                         rm -f "$PRE_LAUNCH_SERIALS_FILE"
 
                         if [ -z "$DETECTED_SERIAL" ]; then
-                            echo "WARNING: could not detect a new emulator-* serial after launch — falling back to the default $ANDROID_SERIAL. If port 5554 was actually taken by something else, this run will likely time out waiting on the wrong device."
+                            echo "WARNING: could not detect a new emulator-* serial after launch within $((DETECT_POLL_ITERS * 2))s — falling back to the default $ANDROID_SERIAL. If port 5554 was actually taken by something else, this run will likely time out waiting on the wrong device."
                         else
                             if [ "$DETECTED_SERIAL" != "$ANDROID_SERIAL" ]; then
                                 echo "NOTE: emulator bound to $DETECTED_SERIAL, not the expected emulator-5554 (port 5554 was likely already taken by another process on this shared box) — using the actual serial for the rest of this stage."
