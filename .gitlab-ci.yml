@@ -1,3 +1,6 @@
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
 # ================================================================
 # GitLab CI/CD Pipeline - Selenium Automation Framework
 # Allure report published via GitLab Pages
