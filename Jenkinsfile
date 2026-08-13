@@ -60,6 +60,33 @@ pipeline {
                 defaultValue: '11',
                 description: 'OWASP Dependency-Check: fail the Security Scan stage on any dependency with a CVSS score >= this value. 11 = never fails (report-only). 7 is a common "fail on High/Critical" cutoff — see the "security" profile comment in pom.xml.'
         )
+
+        // ReportPortal — see pom.xml's <reportportal.*> properties and
+        // src/test/resources/reportportal.properties for the framework side
+        // of this (agent dependency + ServiceLoader-registered listener,
+        // already a complete no-op unless enabled). Off by default so an
+        // ordinary build is completely unaffected, same as every other
+        // opt-in toggle in this file (RECORD_VIDEO, ALL_BROWSERS, etc.).
+        // The API key itself is never a parameter — see the withCredentials
+        // block in "Run Tests Per Site"/"Mobile Test"/"Nightly Extra
+        // Coverage" below, which only even looks up the Jenkins credential
+        // when this is checked, so a Jenkins instance with no such
+        // credential configured yet doesn't fail builds that leave this off.
+        booleanParam(
+                name: 'REPORTPORTAL_ENABLE',
+                defaultValue: false,
+                description: 'Report live test results to ReportPortal. Requires a Jenkins "Secret text" credential with ID "reportportal-api-key" holding the RP API key (Manage Jenkins > Credentials), plus REPORTPORTAL_ENDPOINT/REPORTPORTAL_PROJECT below.'
+        )
+        string(
+                name: 'REPORTPORTAL_ENDPOINT',
+                defaultValue: '',
+                description: 'ReportPortal server URL, e.g. https://your-rp-instance.example.com. Only used when REPORTPORTAL_ENABLE is checked.'
+        )
+        string(
+                name: 'REPORTPORTAL_PROJECT',
+                defaultValue: '',
+                description: 'ReportPortal project name. Only used when REPORTPORTAL_ENABLE is checked.'
+        )
     }
 
     options {
@@ -480,6 +507,17 @@ pipeline {
                     // virtual display the way they'd collide on a fixed :99.
                     def effectiveHeadless = params.RECORD_VIDEO ? 'false' : params.HEADLESS
                     def mvnRunner = params.RECORD_VIDEO ? 'xvfb-run -a ' : ''
+                    // ReportPortal — see the REPORTPORTAL_ENABLE parameter's
+                    // own comment near the top of this file. rpArgs carries
+                    // everything EXCEPT the API key (that's bound as an env
+                    // var by withCredentials around `parallel branches`
+                    // below, never put on the mvn command line);
+                    // rp.attributes is per-branch (site/browser) so it's
+                    // built inside each branch closure instead, alongside
+                    // the existing per-branch -D flags.
+                    def rpArgs = params.REPORTPORTAL_ENABLE
+                            ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\""
+                            : "-Dreportportal.enable=false"
                     sites.each { site ->
                         browsers.each { browser ->
                             def key = browsers.size() > 1 ? "${site}-${browser}" : site
@@ -501,6 +539,8 @@ pipeline {
                                           -Djacoco.destFile=target/jacoco-artifacts/${key}.exec \\
                                           -Dsurefire.reportsDirectory=target/surefire-reports/${key} \\
                                           -Dself-healing.report.path=target/self-healing/${key}-healing-report.json \\
+                                          ${rpArgs} \\
+                                          -Dreportportal.attributes="site:${site};browser:${browser};suite:${params.SUITE_TYPE};ci:jenkins;build:${env.BUILD_NUMBER}" \\
                                           -Dmaven.test.failure.ignore=true
                                     """,
                                         returnStatus: true
@@ -509,7 +549,20 @@ pipeline {
                             }
                         }
                     }
-                    parallel branches
+                    // withCredentials only even attempts to resolve the
+                    // "reportportal-api-key" Jenkins credential when
+                    // REPORTPORTAL_ENABLE is checked — a Jenkins instance
+                    // that has never configured that credential can still
+                    // run every other build with this parameter left at its
+                    // default (false) without the credential lookup itself
+                    // failing the build.
+                    if (params.REPORTPORTAL_ENABLE) {
+                        withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                            parallel branches
+                        }
+                    } else {
+                        parallel branches
+                    }
 
                     def failedSites = testResults.findAll { k, v -> v != 0 }.keySet()
                     if (failedSites) {
@@ -1117,8 +1170,17 @@ pipeline {
 
                         sh 'mkdir -p target/jacoco-artifacts'
                         def suiteFile = "testng-suites/mobile-${params.SUITE_TYPE}.xml"
-                        int exitCode = sh(
-                                script: """
+                        // ReportPortal — same pattern as "Run Tests Per
+                        // Site" above: rpArgs carries everything except the
+                        // API key, which withCredentials binds as an env
+                        // var around the sh() call itself, only when
+                        // REPORTPORTAL_ENABLE is checked.
+                        def rpArgs = params.REPORTPORTAL_ENABLE
+                                ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\" -Dreportportal.attributes=\"site:mobile;platform:android;suite:${params.SUITE_TYPE};ci:jenkins;build:${env.BUILD_NUMBER}\""
+                                : "-Dreportportal.enable=false"
+                        def runMobileTests = {
+                            sh(
+                                    script: """
                            mvn -B -ntp test \\
                               -Dsite=mobile \\
                               -DsuiteXmlFile=${suiteFile} \\
@@ -1130,10 +1192,20 @@ pipeline {
                               -Djacoco.destFile=target/jacoco-artifacts/mobile.exec \\
                               -Dsurefire.reportsDirectory=target/surefire-reports/mobile \\
                               -Dself-healing.report.path=target/self-healing/mobile-healing-report.json \\
+                              ${rpArgs} \\
                               -Dmaven.test.failure.ignore=true
                         """,
-                                returnStatus: true
-                        )
+                                    returnStatus: true
+                            )
+                        }
+                        int exitCode
+                        if (params.REPORTPORTAL_ENABLE) {
+                            withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                                exitCode = runMobileTests()
+                            }
+                        } else {
+                            exitCode = runMobileTests()
+                        }
 
                         sh '''
                         pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
@@ -1219,14 +1291,24 @@ pipeline {
                     def extraSuites = ['accessibility', 'visual']
                     def extraResultDirs = []
                     def extraFailures = []
+                    // ReportPortal — same pattern as the other two mvn-test
+                    // stages: rpArgs carries everything except the API key,
+                    // which withCredentials binds as an env var around the
+                    // whole loop below (sequential, unlike the parallel
+                    // "Run Tests Per Site" branches, so one binding covers
+                    // both suites), only when REPORTPORTAL_ENABLE is checked.
+                    def rpArgs = params.REPORTPORTAL_ENABLE
+                            ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\""
+                            : "-Dreportportal.enable=false"
 
-                    extraSuites.each { suite ->
-                        def suiteFile = "testng-suites/demoqa-${suite}.xml"
-                        if (fileExists(suiteFile)) {
-                            echo "==== Running nightly demoqa ${suite} suite ===="
-                            def resultDir = "demoqa-${suite}"
-                            int exitCode = sh(
-                                    script: """
+                    def runExtraSuites = {
+                        extraSuites.each { suite ->
+                            def suiteFile = "testng-suites/demoqa-${suite}.xml"
+                            if (fileExists(suiteFile)) {
+                                echo "==== Running nightly demoqa ${suite} suite ===="
+                                def resultDir = "demoqa-${suite}"
+                                int exitCode = sh(
+                                        script: """
                                    mvn -B -ntp test \\
                                       -Dsite=demoqa \\
                                       -DsuiteXmlFile=${suiteFile} \\
@@ -1236,17 +1318,27 @@ pipeline {
                                       -Dallure.results.directory=target/allure-results/${resultDir} \\
                                       -Dsurefire.reportsDirectory=target/surefire-reports/${resultDir} \\
                                       -Dself-healing.report.path=target/self-healing/${resultDir}-healing-report.json \\
+                                      ${rpArgs} \\
+                                      -Dreportportal.attributes="site:demoqa;browser:${params.BROWSER};suite:${suite};ci:jenkins;build:${env.BUILD_NUMBER}" \\
                                       -Dmaven.test.failure.ignore=true
                                 """,
-                                    returnStatus: true
-                            )
-                            extraResultDirs.add(resultDir)
-                            if (exitCode != 0) {
-                                extraFailures.add(suite)
+                                        returnStatus: true
+                                )
+                                extraResultDirs.add(resultDir)
+                                if (exitCode != 0) {
+                                    extraFailures.add(suite)
+                                }
+                            } else {
+                                echo "Skipping ${suite}: ${suiteFile} not found"
                             }
-                        } else {
-                            echo "Skipping ${suite}: ${suiteFile} not found"
                         }
+                    }
+                    if (params.REPORTPORTAL_ENABLE) {
+                        withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                            runExtraSuites()
+                        }
+                    } else {
+                        runExtraSuites()
                     }
 
                     env.NIGHTLY_RESULT_DIRS = extraResultDirs.join(',')

@@ -46,6 +46,9 @@ a nightly OWASP dependency-vulnerability scan, and secret scanning
 | `RECORD_VIDEO` | boolean | false | Record a video per web test, attached to the reports on failure/skip (see docs/reports-and-quality.md#video-recording). Forces `HEADLESS` off and wraps the run with `xvfb-run`. Mobile isn't covered. |
 | `RETRY_COUNT` | integer | 0 | Retries for failed tests — 0 disables for CI speed |
 | `SECURITY_FAIL_CVSS` | number | 11 | OWASP Dependency-Check: fail the nightly Security Scan stage on any dependency with a CVSS score at or above this value. 11 = never fails (report-only); 7 is a common "fail on High/Critical" cutoff |
+| `REPORTPORTAL_ENABLE` | boolean | false | Report live test results to ReportPortal — see 📡 ReportPortal below |
+| `REPORTPORTAL_ENDPOINT` | string | (empty) | ReportPortal server URL. Only used when `REPORTPORTAL_ENABLE` is checked |
+| `REPORTPORTAL_PROJECT` | string | (empty) | ReportPortal project name. Only used when `REPORTPORTAL_ENABLE` is checked |
 
 ### Pipeline stages
 ```text
@@ -127,6 +130,27 @@ Environment="JAVA_OPTS=-Dhudson.model.DirectoryBrowserSupport.CSP="
 sudo systemctl daemon-reload
 sudo systemctl restart jenkins
 ```
+
+### 📡 ReportPortal in Jenkins
+
+Same optional live-reporting agent described under
+[🐙 GitHub Actions Pipeline → 📡 ReportPortal](#-reportportal-optional-real-time-results)
+below — it's a no-op by default regardless of which pipeline runs it.
+To enable it here:
+
+1. `Manage Jenkins → Credentials` → add a **Secret text** credential with
+   ID exactly `reportportal-api-key`, value = your RP API key.
+2. Tick the `REPORTPORTAL_ENABLE` build parameter and fill in
+   `REPORTPORTAL_ENDPOINT` / `REPORTPORTAL_PROJECT`.
+
+`withCredentials([string(credentialsId: 'reportportal-api-key', ...)])`
+only ever looks that credential up when `REPORTPORTAL_ENABLE` is checked —
+a Jenkins instance that hasn't configured it yet can run every other build
+with the parameter left at its default (unchecked) without the lookup
+itself failing anything. All three `mvn test` stages (Run Tests Per Site,
+Mobile Test, Nightly Extra Coverage) report to the same
+`Selenium Automation Framework` launch name, each tagged via
+`rp.attributes` with site/browser/suite/`ci:jenkins`/build number.
 
 ---
 
@@ -239,6 +263,61 @@ The `allure-report` job needs `contents: write` permission and a `gh-pages`
 branch to accumulate history in — first run will simply start fresh history
 if that branch doesn't exist yet.
 
+### 📡 ReportPortal (optional, real-time results)
+
+Allure/Extent above are both post-run, static HTML — ReportPortal is the
+framework's optional **live** reporting destination: results stream in
+test-by-test while the suite is still running, with cross-run history,
+flaky-test analytics, and AI-assisted failure clustering on the RP server
+itself. It's wired into every site (`com.epam.reportportal:agent-java-testng`
+in `pom.xml`, auto-registered via
+`src/test/resources/META-INF/services/org.testng.ITestNGListener` — no
+`@Listeners`/suite-XML changes needed) but is a **complete no-op** —
+no network calls at all — unless explicitly turned on, exactly like the
+`security`/`mutation` Maven profiles elsewhere in this project.
+
+**To enable it in GitHub Actions**, add these repo (or org) secrets under
+*Settings → Secrets and variables → Actions*:
+
+| Secret | Required | Example |
+|---|---|---|
+| `RP_API_KEY` | Yes — its presence is what turns reporting on at all | (from your RP profile page) |
+| `RP_ENDPOINT` | Yes | `https://your-rp-instance.example.com` |
+| `RP_PROJECT` | Yes | `selenium-automation-framework` |
+
+Nothing else to configure — `github-ci.yml` derives
+`REPORTPORTAL_ENABLE` from whether `RP_API_KEY` is set (so forks and
+external PRs, which never have access to this repo's secrets, silently
+report nothing rather than failing) and passes `RP_ENDPOINT`/`RP_PROJECT`
+straight through. `RP_API_KEY` itself is set as a job-level `env:` (an
+ordinary OS environment variable the forked surefire JVM inherits), not a
+`-D` flag, so it's never echoed into a command line or log line.
+
+Every matrix leg (site/browser/mobile/nightly accessibility-visual) reports
+to the **same** launch name, `Selenium Automation Framework` — separate
+`mvn test` processes each create their own launch entry in RP (there's no
+in-flight merge, the same reason Allure needs its own separate
+`allure-report` job to combine results after the fact), but keeping one
+shared launch name is what gives RP's own UI a real history trend across
+runs, per ReportPortal's own recommended usage. Each leg is tagged with
+`rp.attributes` (site, browser/platform, suite type, CI run id) so you can
+still filter/tell them apart within that shared launch history.
+
+**Running locally against your own RP instance:**
+```bash
+export RP_API_KEY=<your-api-key>
+mvn test -Preportportal \
+  -Dreportportal.endpoint=https://your-rp-instance.example.com \
+  -Dreportportal.project=selenium-automation-framework \
+  -Dsite=demoqa -Dbrowser=chrome
+```
+The `reportportal` Maven profile (see `pom.xml`) is pure convenience — it
+just flips `-Dreportportal.enable=true` for you; every `-Dreportportal.*`
+property also works with a plain `mvn test`, no profile required. See
+`src/test/resources/reportportal.properties` for every other tunable
+(async reporting, log batch size, rerun grouping, etc.) and its own comment
+on why `rp.api.key` is env-var-only and never a `-D`/properties-file value.
+
 ---
 
 ## 🦊 GitLab CI/CD Pipeline
@@ -292,6 +371,9 @@ BROWSER             = chrome     (default for jobs that don't matrix over browse
 HEADLESS            = true       (always true on CI)
 RETRY_COUNT         = 0
 SECURITY_FAIL_CVSS  = 11         (OWASP Dependency-Check fail threshold — 11 = report-only)
+REPORTPORTAL_ENABLE   = false    (see 📡 ReportPortal below)
+REPORTPORTAL_ENDPOINT = (empty)
+REPORTPORTAL_PROJECT  = (empty)
 ```
 
 The pipeline runs on every push to any branch, plus merge requests (`only:
@@ -300,6 +382,26 @@ branches, merge_requests` on each job) — not just `main`/`master`.
 > [!NOTE]
 > A superseded pipeline (e.g. a second push to the same MR before the first
 > pipeline finishes) auto-cancels the older one (`workflow.auto_cancel`).
+
+### 📡 ReportPortal in GitLab CI
+
+Same optional live-reporting agent described under
+[🐙 GitHub Actions Pipeline → 📡 ReportPortal](#-reportportal-optional-real-time-results)
+above — a no-op by default here too. To enable it:
+
+1. `Settings → CI/CD → Variables` → add `RP_API_KEY` (mark it **Masked**
+   and **Protected**), `REPORTPORTAL_ENDPOINT`, and `REPORTPORTAL_PROJECT`.
+2. Also set `REPORTPORTAL_ENABLE` to `"true"` there — a project/group
+   CI/CD variable overrides this file's own `variables:` block default of
+   `"false"`.
+
+`RP_API_KEY` doesn't need to be referenced anywhere in `.gitlab-ci.yml` —
+GitLab injects every configured CI/CD variable as a plain environment
+variable into each job automatically, which the forked surefire JVM
+inherits the same way it would from any parent process. All three
+`mvn test` jobs (`test`, `mobile-test`, `accessibility-visual-test`) report
+to the same `Selenium Automation Framework` launch name, each tagged via
+`rp.attributes` with site/browser/suite/`ci:gitlab`/pipeline ID.
 
 ### View report after pipeline
 ```text

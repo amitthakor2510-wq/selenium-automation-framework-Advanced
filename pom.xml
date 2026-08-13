@@ -121,6 +121,27 @@
     <coverage.map.enabled>false</coverage.map.enabled>
 
 
+    <!-- ReportPortal — see reportportal.properties (this file's own static
+         defaults + the load-order comment at its top) and
+         META-INF/services/org.testng.ITestNGListener (where the agent's
+         listener is actually registered) for the full picture. These five
+         properties are the ONLY ReportPortal config that lives in pom.xml;
+         rp.api.key is deliberately absent from both here and
+         systemPropertyVariables below — see reportportal.properties'
+         comment on why that one is env-var-only, never a -D/system
+         property. Left off (reportportal.enable=false) by default for the
+         same reason coverage.map.enabled/jacoco.jmx are: a plain local or
+         CI `mvn test` must behave identically whether or not ReportPortal
+         is configured at all. CI overrides these per-run with
+         -Dreportportal.enable=true (only on legs where the RP_API_KEY
+         secret is actually set) and a per-leg -Dreportportal.attributes=...
+         — see github-ci.yml. -->
+    <reportportal.enable>false</reportportal.enable>
+    <reportportal.endpoint></reportportal.endpoint>
+    <reportportal.project></reportportal.project>
+    <reportportal.launch>Selenium Automation Framework</reportportal.launch>
+    <reportportal.attributes></reportportal.attributes>
+
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
     <aspectj.version>1.9.25</aspectj.version>
@@ -362,6 +383,21 @@
       <artifactId>allure-java-commons</artifactId>
     </dependency>
 
+    <!-- ReportPortal — TestNG agent. Auto-registered as a listener via
+         src/test/resources/META-INF/services/org.testng.ITestNGListener
+         (ServiceLoader), same mechanism as
+         AlterSuiteForCoverageMapListener; no @Listeners/suite-XML entry
+         needed. Runs as a complete no-op unless rp.enable=true — see
+         reportportal.properties and this file's <reportportal.*>
+         properties above. Pinned to the current latest (5.6.5) rather than
+         a range, same pinning discipline as every other dependency here. -->
+    <dependency>
+      <groupId>com.epam.reportportal</groupId>
+      <artifactId>agent-java-testng</artifactId>
+      <version>5.6.5</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Lombok — compile-time only (generates code into .class files,
          never needed at runtime), hence scope=provided. -->
     <dependency>
@@ -539,6 +575,20 @@
                  AlterSuiteForCoverageMapListener reads this system property
                  from inside the forked JVM, so it has to actually be there. -->
             <coverage.map.enabled>${coverage.map.enabled}</coverage.map.enabled>
+            <!-- ReportPortal — see the <reportportal.*> property comment
+                 above for why these five (and only these five; rp.api.key
+                 is intentionally never listed here) are forwarded. Property
+                 names on the left are the rp.* names the agent actually
+                 reads; without this block only Maven's own JVM would ever
+                 see -Dreportportal.enable=true from CI, not the forked
+                 surefire JVM the ReportPortalTestNGListener runs in — same
+                 missing-forwarding footgun documented on allure.results.directory
+                 and self-healing.report.path above. -->
+            <rp.enable>${reportportal.enable}</rp.enable>
+            <rp.endpoint>${reportportal.endpoint}</rp.endpoint>
+            <rp.project>${reportportal.project}</rp.project>
+            <rp.launch>${reportportal.launch}</rp.launch>
+            <rp.attributes>${reportportal.attributes}</rp.attributes>
             <!-- Selenium Grid / Docker — see the grid.enabled/grid.url comment
                  in <properties> above for why these must be listed explicitly. -->
             <grid.enabled>${grid.enabled}</grid.enabled>
@@ -1106,6 +1156,31 @@
       <properties>
         <coverageMap.execDir>${project.build.directory}/jacoco-per-test</coverageMap.execDir>
         <coverageMap.outputFile>${project.build.directory}/tia/coverage-map.txt</coverageMap.outputFile>
+      </properties>
+    </profile>
+
+    <!-- ReportPortal — pure convenience, not required to use ReportPortal
+         at all (every -Dreportportal.* property above already works with
+         plain `mvn test`, no profile needed — this just saves typing
+         -Dreportportal.enable=true every time locally). Deliberately a
+         profile, not a plugin under <build><plugins>, same "opt-in,
+         doesn't touch the default build" pattern as perf/security/mutation
+         above. Only overrides reportportal.enable — endpoint/project still
+         need to be supplied (they're real per-team/per-server values with
+         no sane default to bake in here), and rp.api.key stays exactly
+         where reportportal.properties' own comment says it belongs: the
+         RP_API_KEY environment variable, never a Maven property or -D flag.
+
+         Typical local usage:
+           export RP_API_KEY=<your-api-key>
+           mvn test -Preportportal \
+             -Dreportportal.endpoint=https://your-rp-instance.example.com \
+             -Dreportportal.project=selenium-automation-framework \
+             -Dsite=demoqa -Dbrowser=chrome -->
+    <profile>
+      <id>reportportal</id>
+      <properties>
+        <reportportal.enable>true</reportportal.enable>
       </properties>
     </profile>
   </profiles>

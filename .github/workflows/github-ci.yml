@@ -97,6 +97,19 @@ env:
   RECORD_VIDEO: ${{ (github.event_name == 'workflow_dispatch' && inputs.record_video == true) && 'true' || 'false' }}
   HEADLESS: ${{ ((github.event_name == 'workflow_dispatch' && inputs.record_video == true)) && 'false' || ((github.event_name == 'workflow_dispatch' && inputs.headless == false) && 'false' || 'true') }}
   RETRY_COUNT: ${{ inputs.retry_count || '0' }}
+  # ReportPortal — see pom.xml's <reportportal.*> properties and
+  # reportportal.properties for how these actually reach the test JVM.
+  # Auto-detected from whether the RP_API_KEY repo secret is configured at
+  # all, rather than a hardcoded true/false: a fork or a contributor's PR
+  # branch never has access to this repo's secrets (GitHub redacts them to
+  # empty string on those runs), so this evaluates to 'false' there
+  # automatically — no separate "is this a fork" check needed, and no risk
+  # of a fork's run failing trying to reach a ReportPortal server it has no
+  # credentials for. Endpoint/project are treated as secrets too (not
+  # `vars`) purely so a self-hosted RP server's URL isn't exposed in a
+  # public repo's logs; neither is actually sensitive the way the API key
+  # is.
+  REPORTPORTAL_ENABLE: ${{ secrets.RP_API_KEY != '' && 'true' || 'false' }}
   # No MAVEN_OPTS override for maven.repo.local here — every job below uses
   # `cache: 'maven'` on actions/setup-java@v5, which caches Maven's DEFAULT
   # local repo (~/.m2/repository). A previous version of this workflow
@@ -282,6 +295,17 @@ jobs:
     # "test (demoqa, safari)" / "test (saucedemo, safari)" next to the
     # other browsers) instead of a separately-named job in the run graph.
     runs-on: ${{ matrix.os }}
+    # RP_API_KEY as a job-level env var (not a -D flag on the `mvn test`
+    # command line below) so it's just an ordinary OS environment variable
+    # the forked surefire JVM inherits like any child process — never
+    # visible in a command line, process listing, or build log the way a
+    # -Drp.api.key=... would be. See reportportal.properties' comment on
+    # why this is the only ReportPortal setting handled this way. Empty
+    # string (not unset) on a fork/external-PR run, same as
+    # REPORTPORTAL_ENABLE above — the agent no-ops either way since
+    # reportportal.enable resolves to 'false' on those runs regardless.
+    env:
+      RP_API_KEY: ${{ secrets.RP_API_KEY }}
     strategy:
       fail-fast: false
       # Multi-browser matrix — was previously a single hardcoded ${{
@@ -480,6 +504,10 @@ jobs:
               -Dretry.count=${{ env.RETRY_COUNT }} \
               -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari \
               -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
+              -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
+              -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
+              -Dreportportal.project=${{ secrets.RP_PROJECT }} \
+              -Dreportportal.attributes="site:${{ matrix.site }};browser:safari;suite:${{ env.SUITE_TYPE }};ci:github-actions;run:${{ github.run_id }}" \
               -Dmaven.test.failure.ignore=true
           else
             $MVN_RUNNER mvn -B test \
@@ -491,6 +519,10 @@ jobs:
               -Dhuman.pause.enabled=false \
               -Dretry.count=${{ env.RETRY_COUNT }} \
               -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-healing-report.json \
+              -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
+              -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
+              -Dreportportal.project=${{ secrets.RP_PROJECT }} \
+              -Dreportportal.attributes="site:${{ matrix.site }};browser:${{ matrix.browser }};suite:${{ env.SUITE_TYPE }};ci:github-actions;run:${{ github.run_id }}" \
               -Dmaven.test.failure.ignore=true
           fi
 
@@ -559,6 +591,10 @@ jobs:
   mobile-test:
     needs: build
     runs-on: ubuntu-latest
+    # See the `test` job's identical env block above for why RP_API_KEY is
+    # a job-level env var rather than a -D flag.
+    env:
+      RP_API_KEY: ${{ secrets.RP_API_KEY }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -640,7 +676,7 @@ jobs:
           # the way a normal `run:` step does — it runs only the first line and
           # passes the trailing backslash through as a literal argument, which is
           # why `mvn -B test \` alone used to fail with `Unknown lifecycle phase "\"`.
-          script: mvn -B test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings -Dmobile.device.name=emulator-5554 -Dretry.count=${{ env.RETRY_COUNT }} -Dself-healing.report.path=target/self-healing/mobile-healing-report.json -Dmaven.test.failure.ignore=true
+          script: mvn -B test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-${{ env.SUITE_TYPE }}.xml -Dmobile.app.package=com.android.settings -Dmobile.app.activity=.Settings -Dmobile.device.name=emulator-5554 -Dretry.count=${{ env.RETRY_COUNT }} -Dself-healing.report.path=target/self-healing/mobile-healing-report.json -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} -Dreportportal.project=${{ secrets.RP_PROJECT }} -Dreportportal.attributes="site:mobile;platform:android;suite:${{ env.SUITE_TYPE }};ci:github-actions;run:${{ github.run_id }}" -Dmaven.test.failure.ignore=true
 
       # Same artifact-naming convention as the browser `test` job above
       # (allure-results-<job-identifier> / test-results-<job-identifier>-
@@ -778,6 +814,10 @@ jobs:
     needs: build
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    # See the `test` job's identical env block above for why RP_API_KEY is
+    # a job-level env var rather than a -D flag.
+    env:
+      RP_API_KEY: ${{ secrets.RP_API_KEY }}
     strategy:
       fail-fast: false
       matrix:
@@ -822,6 +862,10 @@ jobs:
             -Dheadless=true \
             -Dallure.results.directory=target/allure-results/demoqa-${{ matrix.suite }} \
             -Dself-healing.report.path=target/self-healing/demoqa-${{ matrix.suite }}-healing-report.json \
+            -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
+            -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
+            -Dreportportal.project=${{ secrets.RP_PROJECT }} \
+            -Dreportportal.attributes="site:demoqa;browser:chrome;suite:${{ matrix.suite }};ci:github-actions;run:${{ github.run_id }}" \
             -Dmaven.test.failure.ignore=true
 
       - name: Upload Allure Results

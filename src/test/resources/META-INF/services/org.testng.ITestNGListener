@@ -1,1 +1,14 @@
 com.automation.sites.listeners.AlterSuiteForCoverageMapListener
+# ReportPortal's own TestNG agent (com.epam.reportportal:agent-java-testng —
+# see pom.xml's dependency block). Registered here, not via @Listeners or a
+# testng-suites/*.xml <listeners> entry, so it covers every suite (web,
+# mobile, API) without having to touch 12+ suite XML files by hand — same
+# reasoning as AlterSuiteForCoverageMapListener above. Safe to leave
+# ServiceLoader-registered on every run: the agent reads rp.enable at
+# startup (see reportportal.properties + pom.xml's reportportal.enable
+# property, forwarded to the forked JVM the same way coverage.map.enabled
+# is) and is a complete no-op — no network calls, nothing written anywhere —
+# whenever that resolves to anything other than "true", which is the
+# default. Only CI legs that explicitly pass -Dreportportal.enable=true
+# (see github-ci.yml) actually report to a ReportPortal server.
+com.epam.reportportal.testng.ReportPortalTestNGListener

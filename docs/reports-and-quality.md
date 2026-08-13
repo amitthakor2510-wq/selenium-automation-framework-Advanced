@@ -8,6 +8,7 @@
 
 ## 📋 Table of Contents
 - [📈 Test Reports](#-test-reports)
+- [📡 ReportPortal (live/real-time reporting)](#-reportportal)
 - [📊 Code Coverage — JaCoCo](#-code-coverage--jacoco)
 - [🧹 Code Quality — Checkstyle](#-code-quality--checkstyle)
 
@@ -181,6 +182,22 @@ isn't wired up, since it has its own native device-recording API that works
 completely differently; a follow-up, not done here. AVI/TSCC isn't a
 browser-playable codec, so both reports offer it as a download link rather
 than an inline `<video>` preview.
+
+---
+
+## 📡 ReportPortal
+
+Everything above (Allure/Extent) is generated **after** `mvn test`
+finishes. ReportPortal is different — it's an optional *live* destination
+(`com.epam.reportportal:agent-java-testng`, auto-registered via
+`META-INF/services/org.testng.ITestNGListener` next to
+`AlterSuiteForCoverageMapListener`) that streams each test's result to an
+RP server while the suite is still running, with cross-run history and
+flaky-test analytics on the server side. It's a complete no-op — no network
+calls — unless `-Dreportportal.enable=true` is passed; see
+[🐙 GitHub Actions Pipeline → 📡 ReportPortal](ci-cd.md#-reportportal-optional-real-time-results)
+for the required secrets and a local usage example, and
+`src/test/resources/reportportal.properties` for the full config reference.
 
 ---
 

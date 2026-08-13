@@ -55,6 +55,30 @@ variables:
   # fails the build (report-only), 7 is a common "fail on High/Critical"
   # cutoff.
   SECURITY_FAIL_CVSS: "11"
+  # ReportPortal — see pom.xml's <reportportal.*> properties and
+  # src/test/resources/reportportal.properties for the framework side
+  # (agent dependency + ServiceLoader-registered listener, already a
+  # complete no-op unless enabled). Off by default, same as RECORD_VIDEO
+  # above — flip REPORTPORTAL_ENABLE to "true" as a project/group CI/CD
+  # variable (Settings > CI/CD > Variables) once RP_API_KEY (see below),
+  # REPORTPORTAL_ENDPOINT, and REPORTPORTAL_PROJECT are also configured
+  # there. Any of these three set as a protected/masked CI/CD variable of
+  # the same name overrides the default here — GitLab applies project
+  # variables on top of this file's `variables:` block, not the other way
+  # round. REPORTPORTAL_ENDPOINT/REPORTPORTAL_PROJECT are left blank here
+  # (not secret, but meaningless without RP_API_KEY too).
+  #
+  # RP_API_KEY itself is deliberately NOT declared here at all — GitLab
+  # CI/CD variables set at project/group level (Settings > CI/CD >
+  # Variables, marked Masked + Protected) are injected as ordinary
+  # environment variables into every job automatically; nothing in this
+  # file needs to reference it explicitly for it to reach the forked
+  # surefire JVM (which inherits the job's env the same way any child
+  # process does), and declaring it here with any value — even blank —
+  # would just create a second, unmasked copy that shows up in job logs.
+  REPORTPORTAL_ENABLE: "false"
+  REPORTPORTAL_ENDPOINT: ""
+  REPORTPORTAL_PROJECT: ""
 
 # A superseded pipeline (e.g. a second push to the same MR before the
 # first pipeline finished) cancels the older one instead of letting both
@@ -239,6 +263,11 @@ test:
       -Dallure.results.directory=target/allure-results/$SITE-$BROWSER
       -Dself-healing.report.path=target/self-healing/$SITE-$BROWSER-healing-report.json
       -Dwdm.cachePath=$WDM_CACHE_PATH
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:$SITE;browser:$BROWSER;suite:$SUITE_TYPE;ci:gitlab;pipeline:$CI_PIPELINE_ID"
       -Dmaven.test.failure.ignore=true
     # Same collision the comment above describes for surefire's
     # testng-results.xml applies to a bare target/jacoco.exec too — every
@@ -500,6 +529,11 @@ mobile-test:
       -Dretry.count=$RETRY_COUNT
       -Dallure.results.directory=target/allure-results/mobile
       -Dself-healing.report.path=target/self-healing/mobile-healing-report.json
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:mobile;platform:android;suite:$SUITE_TYPE;ci:gitlab;pipeline:$CI_PIPELINE_ID"
       -Dmaven.test.failure.ignore=true
     - mkdir -p target/jacoco-artifacts
     - cp target/jacoco.exec target/jacoco-artifacts/mobile.exec
@@ -573,6 +607,11 @@ accessibility-visual-test:
       -Dheadless=$HEADLESS
       -Dallure.results.directory=target/allure-results/demoqa-$EXTRA_SUITE
       -Dwdm.cachePath=$WDM_CACHE_PATH
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:demoqa;browser:$BROWSER;suite:$EXTRA_SUITE;ci:gitlab;pipeline:$CI_PIPELINE_ID"
       -Dmaven.test.failure.ignore=true
   artifacts:
     name: "test-results-$CI_JOB_NAME-$EXTRA_SUITE-$CI_COMMIT_REF_SLUG"
