@@ -1533,8 +1533,16 @@ pipeline {
                     }
 
                     // ── Archive raw artifacts ───────────────────────
+                    // target/self-healing/** was missing here even though every
+                    // stage above writes a site-scoped healing-report.json via
+                    // -Dself-healing.report.path (see the comments near that flag)
+                    // — without it in this pattern, cleanWs() in post{} below wipes
+                    // every one of those files before anyone could ever see them,
+                    // silently defeating SelfHealingReportWriter's whole purpose
+                    // ("a report a developer actually sees"). GitHub Actions already
+                    // archives + aggregates this directory per job; Jenkins never did.
                     archiveArtifacts allowEmptyArchive: true,
-                            artifacts: 'target/report-index.html, target/extent-reports/**, target/logs/**, target/screenshots/**, target/videos/**, target/allure-results/**, target/allure-segmented/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
+                            artifacts: 'target/report-index.html, target/extent-reports/**, target/logs/**, target/screenshots/**, target/videos/**, target/allure-results/**, target/allure-segmented/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**, target/self-healing/**',
                             fingerprint: true
 
                     // ── ADB memory-leak cleanup ─────────────────────

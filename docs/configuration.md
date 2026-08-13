@@ -53,6 +53,23 @@ grid.url=http://localhost:4444/wd/hub           # Selenium Grid hub endpoint (se
 data.tags=                          # comma-separated tag filter, e.g. -Ddata.tags=smoke,regression
                                      # (blank = run every row regardless of its "tags" column)
 data.execute.column=execute         # column DataProvider checks to skip a row (no/false/0/skip = excluded)
+
+# ── Self-Healing Locators (see core/selfhealing/SelfHealingEngine.java) ──
+self-healing.enabled=true                                      # master switch — false falls back to plain fail-on-first-miss
+self-healing.threshold=0.55                                     # min similarity (0.0-1.0) a candidate must reach to be accepted
+self-healing.repository.path=self-healing-data/locator-repository.json  # known-good fingerprints, persisted across runs
+self-healing.report.path=target/self-healing/healing-report.json        # end-of-run summary of every locator that had to be healed
+self-healing.visual.enabled=false                                # opt-in screenshot-hash fallback when DOM scoring alone misses
+self-healing.visual.weight=0.5                                   # 0.0 = visual stage never influences the outcome; 1.0 = DOM score is ignored once visual healing kicks in
+
+# ── API Test Logging (see core/api/ApiClient.java) ────────────────
+api.log.onFailureOnly=true          # true = only print request/response bodies when an assertion fails
+
+# ── Video Recording (see core/utils/VideoRecorder.java) ───────────
+video.enabled=false                 # true = record each test's screen (needs headless=false + a real/virtual display)
+video.fps=10                        # capture rate
+video.keep.on.pass=false            # true = keep a passing test's recording instead of deleting it after the run
+video.output.dir=target/videos      # where raw per-test videos land before being attached to Allure/Extent
 ```
 
 Any key can be overridden at runtime:

@@ -217,6 +217,17 @@ test:
     # file happened to survive the merge. Each site+browser combination
     # gets its own subdirectory instead; see the "report" stage below for
     # how they're combined back together for `allure generate`.
+    # -Dself-healing.report.path=target/self-healing/$SITE-$BROWSER-healing-report.json —
+    # same site+browser scoping as -Dallure.results.directory above, and the
+    # same reasoning as -Dsurefire.reportsDirectory in the Jenkinsfile/GitHub
+    # Actions pipelines (see the surefire.reportsDirectory property comment
+    # in pom.xml): without a scoped path, all 6 matrix instances would write
+    # the same shared target/self-healing/healing-report.json, and on this
+    # runner class (a persistent shell executor reusing one workspace, not a
+    # fresh container per job) concurrent instances can genuinely race on
+    # that file, not just risk an artifact-merge ambiguity. This was
+    # previously not set at all here, so every run silently used the
+    # unscoped default from global.properties.
     - $MVN_RUNNER mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
@@ -226,6 +237,7 @@ test:
       -Dhuman.pause.enabled=false
       -Dretry.count=$RETRY_COUNT
       -Dallure.results.directory=target/allure-results/$SITE-$BROWSER
+      -Dself-healing.report.path=target/self-healing/$SITE-$BROWSER-healing-report.json
       -Dwdm.cachePath=$WDM_CACHE_PATH
       -Dmaven.test.failure.ignore=true
     # Same collision the comment above describes for surefire's
@@ -253,6 +265,7 @@ test:
       - target/surefire-reports/
       - target/jacoco-artifacts/
       - target/videos/
+      - target/self-healing/
     reports:
       # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
       # lands at the same path, so GitLab's artifact merge keeps only one
@@ -486,6 +499,7 @@ mobile-test:
       -Dmobile.device.name=$ANDROID_AVD_NAME
       -Dretry.count=$RETRY_COUNT
       -Dallure.results.directory=target/allure-results/mobile
+      -Dself-healing.report.path=target/self-healing/mobile-healing-report.json
       -Dmaven.test.failure.ignore=true
     - mkdir -p target/jacoco-artifacts
     - cp target/jacoco.exec target/jacoco-artifacts/mobile.exec
@@ -500,6 +514,7 @@ mobile-test:
       - target/screenshots/
       - target/surefire-reports/
       - target/jacoco-artifacts/
+      - target/self-healing/
       - emulator.log
       - appium.log
     reports:
@@ -816,6 +831,23 @@ report:
         grep -o 'passed="[0-9]*"' target/surefire-reports/testng-results.xml || true
         grep -o 'failed="[0-9]*"' target/surefire-reports/testng-results.xml || true
         grep -o 'skipped="[0-9]*"' target/surefire-reports/testng-results.xml || true
+      fi
+    # Mirrors the GitHub Actions pipeline's compute_self_healing_summary.py:
+    # surfaces every target/self-healing/<site>-healing-report.json this run
+    # produced (now downloaded here via `dependencies: [test, mobile-test]`
+    # above, since those jobs archive target/self-healing/ — see the
+    # -Dself-healing.report.path additions in the test/mobile-test jobs).
+    # SelfHealingReportWriter only writes a file when at least one locator
+    # actually healed, so no files here is the common, expected case, not
+    # an error — kept as a plain grep count (not a full JSON aggregation
+    # script) since that's all this stage needs to make the drift visible.
+    - |
+      healed_files=$(find target/self-healing -name '*-healing-report.json' 2>/dev/null)
+      if [ -n "$healed_files" ]; then
+        total_healed=$(cat $healed_files | grep -o '"elementKey"' | wc -l)
+        echo "Self-healing events this run: $total_healed (see target/self-healing/ artifacts for details)"
+      else
+        echo "Self-healing events this run: 0 (no locators drifted)"
       fi
   artifacts:
     name: "allure-report-$CI_COMMIT_REF_SLUG"

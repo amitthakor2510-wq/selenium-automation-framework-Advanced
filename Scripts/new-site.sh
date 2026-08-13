@@ -309,6 +309,31 @@ public class ${DATA_TEST} extends BaseTest {
 EOF
 echo "[✓] Created tests/${DATA_TEST}.java stub"
 
+# =========================================================================
+# 7. Register with SiteRegistry — this is the one step every other
+#    generated file above depends on and none of them can substitute for.
+#    SiteRegistry.validate(site) runs before any test method (from
+#    ConfigReader.init()) and rejects any site not listed in KNOWN_SITES,
+#    by design (see that class's own Javadoc: "add one line to KNOWN_SITES
+#    below" is explicitly step 1 of adding a site) — every file this
+#    script just generated (config properties, object repository, suite
+#    XMLs) would otherwise sit there unused, and the exact `mvn test`
+#    command this script prints below would fail immediately with
+#    "Site '${SITE}' is not registered in SiteRegistry" before ever
+#    reaching a browser. Every site this script scaffolds always gets an
+#    objectrepository/${SITE}.properties (step 5 above), so
+#    requiresObjectRepository is always true here — that matches what's
+#    actually on disk for a script-generated site.
+# =========================================================================
+SITE_REGISTRY="src/main/java/com/automation/core/config/SiteRegistry.java"
+if [[ -f "$SITE_REGISTRY" ]] && grep -q "KNOWN_SITES = Map.of(" "$SITE_REGISTRY"; then
+  sed -i "s/KNOWN_SITES = Map.of(/KNOWN_SITES = Map.of(\n        \"${SITE}\", new SiteDefinition(true),/" "$SITE_REGISTRY"
+  echo "[✓] Registered '${SITE}' in SiteRegistry.KNOWN_SITES (requiresObjectRepository=true)"
+else
+  echo "[✗] Could not find KNOWN_SITES in ${SITE_REGISTRY} — register '${SITE}' there by hand before running any test:"
+  echo "        \"${SITE}\", new SiteDefinition(true),"
+fi
+
 echo ""
 echo "✅ New site '${SITE}' scaffolded across all 3 testing styles. Next steps:"
 echo "   1. Standard:       edit pages/${CLASS}.java + tests/${TEST}.java"
