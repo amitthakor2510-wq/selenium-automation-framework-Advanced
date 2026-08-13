@@ -1074,7 +1074,7 @@ jobs:
 
       # Builds the browser-wise/site-wise/test-type-wise/category-wise Allure
       # reports alongside the combined one generated just above — see
-      # Scripts/generate_segmented_reports.py's own docstring for why a
+      # .github/workflows/scripts/generate_segmented_reports.py's own docstring for why a
       # single merged report isn't enough to tell tests apart at a glance.
       # --skip-combined since simple-elf/allure-report-action already built
       # target/allure-report from the same target/allure-results.
@@ -1083,7 +1083,7 @@ jobs:
       # trend included) — this script's own generic one would just be
       # redundant/conflicting here.
       - name: Generate segmented Allure reports (by browser/site/type/category)
-        run: python3 Scripts/generate_segmented_reports.py --skip-combined --landing-page ""
+        run: python3 .github/workflows/scripts/generate_segmented_reports.py --skip-combined --landing-page ""
 
       - name: Download Extent Reports (all sites)
         uses: actions/download-artifact@v4
@@ -1210,7 +1210,7 @@ jobs:
             echo "| All reports (landing page) | [$BASE_URL/]($BASE_URL/) |"
             echo "| Allure — All Results (Combined) | [$BASE_URL/allure-report/]($BASE_URL/allure-report/) |"
             # Segmented Allure reports (by browser/site-app/test-type/category) —
-            # read from the manifest Scripts/generate_segmented_reports.py wrote,
+            # read from the manifest .github/workflows/scripts/generate_segmented_reports.py wrote,
             # so this list can never drift out of sync with what was actually
             # generated (unlike hand-listing dimensions here). Delegated to a
             # script file rather than an inline heredoc — see that script's
