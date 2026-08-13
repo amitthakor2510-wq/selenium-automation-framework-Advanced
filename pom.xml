@@ -327,6 +327,23 @@
       <version>5.1.2</version>
     </dependency>
 
+    <!-- Monte Screen Recorder — pure-Java screen capture (java.awt.Robot under
+         the hood), used by core/utils/VideoRecorder.java to record a video per
+         test and attach it to Allure/Extent on failure/skip. No native/ffmpeg
+         binary required, but it still needs a real display: under CI it only
+         produces a real (non-blank) recording when the browser is running
+         non-headless against an X display (e.g. via xvfb-run) — see
+         video.enabled in global.properties and the CI pipelines' RECORD_VIDEO
+         toggle for how that's wired up. Could not verify this resolves/builds
+         in this sandbox (no Maven Central access here — only npm/pypi/github
+         domains are allowlisted), same caveat as the axe-core/ashot/pitest
+         additions in earlier sessions. -->
+    <dependency>
+      <groupId>com.github.stephenc.monte</groupId>
+      <artifactId>monte-screen-recorder</artifactId>
+      <version>0.7.7.0</version>
+    </dependency>
+
     <!-- Allure TestNG — auto-captures pass/fail/skip from TestNG lifecycle -->
     <dependency>
       <groupId>io.qameta.allure</groupId>

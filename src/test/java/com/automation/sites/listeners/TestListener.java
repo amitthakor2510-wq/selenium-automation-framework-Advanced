@@ -7,6 +7,7 @@ import com.automation.core.report.ExtentManager;
 import com.automation.core.utils.FailureDiagnostics;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
+import com.automation.core.utils.VideoRecorder;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import io.qameta.allure.Allure;
@@ -19,6 +20,8 @@ import org.testng.ITestListener;
 import org.testng.ITestResult;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -64,6 +67,16 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
     }
 
     private static final ThreadLocal<ExtentTest> test = new ThreadLocal<>();
+
+    // Video recording lifecycle: started in beforeInvocation, stopped in
+    // afterInvocation (both IInvokedMethodListener, so still driver-alive —
+    // same timing reasoning as the screenshot/diagnostics attachments
+    // below). The resulting file is stashed in videoForExtent so the later
+    // ITestListener callbacks (onTestSuccess/Failure/Skipped), which own
+    // the Extent `test` ThreadLocal, can link it into the Extent report too
+    // without VideoRecorder needing to know anything about Extent.
+    private static final ThreadLocal<VideoRecorder> videoRecorder = new ThreadLocal<>();
+    private static final ThreadLocal<File> videoForExtent = new ThreadLocal<>();
 
     // ── Helper: grab driver from test instance ───────────────────────────────
 
@@ -134,10 +147,39 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         MDC.put("test", result.getTestClass().getRealClass().getSimpleName()
             + "#" + result.getMethod().getMethodName());
 
+        String site = ConfigReader.get("site", ConfigReader.getActiveSite());
+        String browser = ConfigReader.get("browser", "chrome");
+
         if (isAllureTestCaseOpen()) {
             tagSeverity(result);
-            Allure.parameter("Site", ConfigReader.get("site", ConfigReader.getActiveSite()));
-            Allure.parameter("Browser", ConfigReader.get("browser", "chrome"));
+            Allure.parameter("Site", site);
+            Allure.parameter("Browser", browser);
+
+            // Real Allure LABELS (not just parameters) for site/browser/category —
+            // Scripts/generate_segmented_reports.py reads these to build the
+            // separate browser-wise/site(app)-wise/category-wise report sets;
+            // "mobile" is deliberately labeled "platform" instead of "browser"
+            // since it isn't one. Test-type (suite) splitting needs no new label
+            // here — allure-testng already emits "parentSuite" from the running
+            // TestNG <suite> automatically, which the same script reuses.
+            Allure.label("site", site);
+            if ("mobile".equals(site)) {
+                Allure.label("platform", "android");
+            } else {
+                Allure.label("browser", browser);
+            }
+            for (String group : result.getMethod().getGroups()) {
+                Allure.label("tag", group);
+            }
+        }
+
+        // Web tests only (BaseTest) — Appium/mobile has its own native
+        // device-recording API and isn't wired up here, see VideoRecorder's
+        // class javadoc and global.properties' video.enabled comment.
+        if (result.getInstance() instanceof com.automation.sites.core.BaseTest) {
+            VideoRecorder recorder = new VideoRecorder();
+            recorder.start(result.getMethod().getMethodName());
+            videoRecorder.set(recorder);
         }
     }
 
@@ -162,6 +204,15 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         WebDriver driver = getDriver(result);
         int retryAttempts = retryAttemptsSoFar(result);
 
+        // Stop the recorder (if one was started) before branching on status,
+        // so every branch below — including the early SUCCESS return — goes
+        // through the same keep-or-discard decision. stop() itself is a
+        // no-op returning null when start() never actually began recording
+        // (video.enabled=false, headless, or a startup error).
+        VideoRecorder recorder = videoRecorder.get();
+        videoRecorder.remove();
+        File video = recorder != null ? recorder.stop() : null;
+
         if (result.getStatus() == ITestResult.SUCCESS) {
             byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
             if (isAllureTestCaseOpen()) {
@@ -180,50 +231,129 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                     Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
                 }
             }
+            keepOrDiscardVideo(video, result, "Pass");
             return;
         }
 
         if (result.getStatus() == ITestResult.FAILURE) {
             if (!isAllureTestCaseOpen()) {
+                keepOrDiscardVideo(video, result, "Failure");
                 return;
             }
             if (retryAttempts > 0) {
                 Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
             }
-            byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
-            if (bytes.length > 0) {
-                Allure.addAttachment(
-                    "Failure Screenshot — " + result.getMethod().getMethodName(),
-                    "image/png",
-                    new ByteArrayInputStream(bytes),
-                    "png"
-                );
-            }
+            attachFailureDiagnostics(result, driver, "Failure");
+            keepOrDiscardVideo(video, result, "Failure");
+            return;
+        }
 
-            String pageSource = FailureDiagnostics.capturePageSource(driver);
-            if (!pageSource.isEmpty()) {
-                Allure.addAttachment(
-                    "Page Source — " + result.getMethod().getMethodName(),
-                    "text/html",
-                    new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
-                    "html"
-                );
+        // BUG FIX: skipped results previously got NO Allure attachments at
+        // all — this branch didn't exist. That mattered far more than it
+        // looks like, because most "skipped" results here aren't a plain
+        // @Test(enabled=false)/dependency-skip: TestNG marks every
+        // RETRIED-BUT-STILL-FAILED intermediate attempt as SKIP, not
+        // FAILURE, whenever RetryAnalyzer.retry() returns true for that
+        // attempt (only the LAST attempt keeps the true FAILURE/SUCCESS
+        // status) — see RetryAnalyzer.getCount()'s own javadoc. So every
+        // test that failed once and then passed/failed on retry was
+        // silently losing the screenshot/page-source/console-log evidence
+        // for every attempt except the final one, which is exactly the
+        // "screenshot doesn't attach on skipped tests" gap. A genuine
+        // SkipException (e.g. BrokenLinksImagesTest's external-CDN
+        // fallback) benefits the same way. Driver may legitimately be null
+        // here (a test skipped before setUp() ever created one, e.g. a
+        // TestNG dependency-on-a-failed-method skip) — the diagnostics
+        // helper below already no-ops cleanly on a null driver, same as
+        // the failure path.
+        if (result.getStatus() == ITestResult.SKIP) {
+            if (!isAllureTestCaseOpen()) {
+                keepOrDiscardVideo(video, result, "Skip");
+                return;
             }
-
-            String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
-            if (!consoleLogs.isEmpty()) {
-                Allure.addAttachment(
-                    "Browser Console Logs — " + result.getMethod().getMethodName(),
-                    "text/plain",
-                    new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
-                    "log"
-                );
+            if (retryAttempts > 0) {
+                Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
             }
+            attachFailureDiagnostics(result, driver, "Skip");
+            keepOrDiscardVideo(video, result, "Skip");
+        }
+    }
 
-            if (driver != null) {
-                Allure.parameter("Failed URL", safeCurrentUrl(driver));
+    /** Shared by the FAILURE and SKIP branches above — same three diagnostics,
+     *  just a different attachment-name prefix so the two are distinguishable
+     *  in the Allure UI. */
+    private void attachFailureDiagnostics(ITestResult result, WebDriver driver, String label) {
+        byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(driver);
+        if (bytes.length > 0) {
+            Allure.addAttachment(
+                label + " Screenshot — " + result.getMethod().getMethodName(),
+                "image/png",
+                new ByteArrayInputStream(bytes),
+                "png"
+            );
+        }
+
+        String pageSource = FailureDiagnostics.capturePageSource(driver);
+        if (!pageSource.isEmpty()) {
+            Allure.addAttachment(
+                "Page Source — " + result.getMethod().getMethodName(),
+                "text/html",
+                new ByteArrayInputStream(pageSource.getBytes(StandardCharsets.UTF_8)),
+                "html"
+            );
+        }
+
+        String consoleLogs = FailureDiagnostics.captureBrowserConsoleLogs(driver);
+        if (!consoleLogs.isEmpty()) {
+            Allure.addAttachment(
+                "Browser Console Logs — " + result.getMethod().getMethodName(),
+                "text/plain",
+                new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
+                "log"
+            );
+        }
+
+        if (driver != null) {
+            Allure.parameter(label + " URL", safeCurrentUrl(driver));
+        }
+    }
+
+    /** Decides whether a just-stopped recording is worth keeping: always for
+     *  Failure/Skip (that's the whole point — video.keep.on.pass only governs
+     *  the Pass case), attaches it to Allure (if a case is open) either way,
+     *  and stashes it in videoForExtent for the ITestListener callback that's
+     *  about to run to link into the Extent report. Discarded files are
+     *  deleted immediately rather than left for a human/CI-cleanup step,
+     *  matching this framework's existing "don't let evidence nobody asked
+     *  for pile up on disk" stance (see DriverFactory's temp profile-dir
+     *  cleanup, VisualRegressionUtils' namespacing, etc.). AVI/TSCC isn't a
+     *  browser-playable codec, so this is offered as a download/attachment,
+     *  not an inline <video> preview, in both Allure and Extent. */
+    private void keepOrDiscardVideo(File video, ITestResult result, String label) {
+        if (video == null || !video.exists()) {
+            videoForExtent.set(null);
+            return;
+        }
+        boolean keep = !"Pass".equals(label) || ConfigReader.getBoolean("video.keep.on.pass", false);
+        if (!keep) {
+            VideoRecorder.discard(video);
+            videoForExtent.set(null);
+            return;
+        }
+        if (isAllureTestCaseOpen()) {
+            try (FileInputStream in = new FileInputStream(video)) {
+                Allure.addAttachment(
+                    label + " Recording — " + result.getMethod().getMethodName(),
+                    "video/avi",
+                    in,
+                    "avi"
+                );
+            } catch (Exception e) {
+                // Never let a video-attachment failure look like the test itself failed
+                // differently than it did — same defensive stance as ScreenshotUtil.
             }
         }
+        videoForExtent.set(video);
     }
 
     private String safeCurrentUrl(WebDriver driver) {
@@ -276,6 +406,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         try {
             if (test.get() != null) {
                 test.get().pass("Test Passed");
+                linkVideoIntoExtent();
             }
             HumanActions.postTestPause();
         } finally {
@@ -285,7 +416,32 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
             // parallel="classes" every OTHER worker thread's ExtentTest entry
             // would otherwise leak for the life of the JVM.
             test.remove();
+            videoForExtent.remove();
         }
+    }
+
+    /** videoForExtent is populated (or explicitly cleared to null) by
+     *  keepOrDiscardVideo() in afterInvocation, which — per this class's
+     *  ordering guarantee — always runs before this callback. Extent can't
+     *  play AVI/TSCC inline, so this is a plain download link, same as the
+     *  Allure side. */
+    private void linkVideoIntoExtent() {
+        File video = videoForExtent.get();
+        if (video == null || test.get() == null) {
+            return;
+        }
+        // Relative, not absolute: an absolute path only resolves on the machine
+        // that ran the test, which breaks the moment the report is archived/
+        // downloaded/opened elsewhere — every other embedded artifact in this
+        // framework's reports (Extent's own screenshots, Allure attachments)
+        // is self-contained/portable for exactly this reason. Video is only
+        // ever recorded for web (BaseTest) tests, whose Extent report always
+        // lives at target/extent-reports/<site>/<browser>/<suite>/index.html
+        // (see ExtentManager.create()) — 4 levels above target/, so the path
+        // back down into target/videos/<file> is fixed at "../../../../".
+        String relativeToTarget = "../../../../videos/" + video.getName();
+        test.get().info("Recording: <a href=\"" + relativeToTarget
+            + "\" target=\"_blank\">" + video.getName() + "</a>");
     }
 
     @Override
@@ -303,26 +459,47 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                         "Failure Screenshot"
                     );
                 }
+                linkVideoIntoExtent();
             }
             HumanActions.postTestPause();
         } finally {
             test.remove();
+            videoForExtent.remove();
         }
     }
 
     @Override
     public void onTestSkipped(ITestResult result) {
         try {
-            // ── Extent: mark skipped + log reason ───────────────────────────────
+            // ── Extent: mark skipped + log reason + embed screenshot ─────────────
+            // BUG FIX: this used to stop at logging the skip reason — no
+            // screenshot was ever attached, even when a live driver existed
+            // (e.g. a retried-but-still-failed intermediate attempt, which
+            // TestNG reports as SKIP rather than FAILURE — see
+            // TestListener.afterTestInvocation()'s comment on the Allure
+            // side of this same fix). Mirrors onTestFailure()'s screenshot
+            // handling exactly; captureScreenshotAsBytes() already no-ops
+            // cleanly if the driver is null (e.g. a dependency-skip that
+            // never reached setUp()).
             if (test.get() != null) {
                 test.get().skip("Test Skipped");
                 if (result.getThrowable() != null) {
                     test.get().skip(result.getThrowable());
                 }
+
+                byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(getDriver(result));
+                if (bytes.length > 0) {
+                    test.get().addScreenCaptureFromBase64String(
+                        "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
+                        "Skip Screenshot"
+                    );
+                }
+                linkVideoIntoExtent();
             }
-            // ── Allure: no screenshot on skip ────────────────────────────────────
+            // ── Allure: handled in afterTestInvocation() (IInvokedMethodListener) ──
         } finally {
             test.remove();
+            videoForExtent.remove();
         }
     }
 

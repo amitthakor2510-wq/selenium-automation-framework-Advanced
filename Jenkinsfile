@@ -43,6 +43,11 @@ pipeline {
                 defaultValue: true,
                 description: 'Run browser headless (recommended for CI)'
         )
+        booleanParam(
+                name: 'RECORD_VIDEO',
+                defaultValue: false,
+                description: 'Record a video per web test and attach it to the reports on failure/skip. Forces HEADLESS off (nothing to record under headless=true) and wraps the run with xvfb-run. Off by default — extra CPU/disk cost, and mobile tests are not covered (Appium has its own native recording API, not wired up here).'
+        )
 
         string(
                 name: 'RETRY_COUNT',
@@ -185,8 +190,29 @@ pipeline {
                 sh '''
                     echo "Killing any orphaned node/adb/qemu/chrome processes from a previous crashed run..."
                     killall -9 node 2>/dev/null || true
-                    killall -9 adb 2>/dev/null || true
                     killall -9 qemu-system-x86_64 2>/dev/null || true
+                    killall -9 adb 2>/dev/null || true
+                    # FIX (2026-08-12 build #107): killing the adb process isn't the
+                    # same as clearing adb's own device table. A dead qemu process's
+                    # transport can be gone, but if the adb server itself gets
+                    # respawned by something else on this shared box (this agent's
+                    # always-on Genymotion connection reconnects the instant a
+                    # server exists) before this build's own Mobile Test stage runs
+                    # — up to ~50 minutes later, after Checkout/Build/Run Tests Per
+                    # Site — any OTHER process that touches port 5554 in that window
+                    # leaves a ghost "offline" entry adb never forgets on its own.
+                    # That ghost entry is what silently defeats Mobile Test's
+                    # pre/post-launch serial-diff detection (it looks like a
+                    # pre-existing device, not a new one). `adb kill-server` +
+                    # `start-server` here, right after the process kill and well
+                    # before any emulator concept exists, guarantees every build
+                    # starts from a genuinely empty device table instead of
+                    # whatever this box's adb server happened to accumulate.
+                    if command -v adb > /dev/null 2>&1; then
+                        adb kill-server 2>/dev/null || true
+                        sleep 1
+                        adb start-server 2>/dev/null || true
+                    fi
                     # The free-port race itself never leaks a process (the
                     # exception fires before ChromeDriver spawns anything), but
                     # a build that gets hard-killed mid-test (agent disconnect,
@@ -393,6 +419,19 @@ pipeline {
             }
             steps {
                 script {
+                    if (params.RECORD_VIDEO) {
+                        sh '''
+                            if ! command -v xvfb-run &> /dev/null; then
+                                if [ "$(id -u)" = "0" ]; then
+                                    apt-get update -qq && apt-get install -y -qq xvfb || true
+                                elif sudo -n true 2>/dev/null; then
+                                    sudo apt-get update -qq && sudo apt-get install -y -qq xvfb || true
+                                else
+                                    echo "WARNING: RECORD_VIDEO=true but xvfb-run is unavailable and this agent has no root/sudo to install it — recordings will be skipped (VideoRecorder no-ops without a display)."
+                                fi
+                            fi
+                        '''
+                    }
                     def sites = env.SITES_TO_RUN.split(',')
                     // Off by default (ALL_BROWSERS=false) so a normal build's
                     // branch count and runtime are unchanged — ticking it
@@ -432,6 +471,15 @@ pipeline {
                     // three are explicitly redirected to a per-branch path
                     // below instead of relying on defaults.
                     def branches = [:]
+                    // RECORD_VIDEO forces headless off (a headless browser has
+                    // nothing on-screen for VideoRecorder's java.awt.Robot to
+                    // grab) and wraps each parallel branch's mvn call in its
+                    // own xvfb-run -a instance — xvfb-run auto-picks a free
+                    // DISPLAY number per invocation, so concurrent branches on
+                    // this shared `agent any` workspace don't collide on one
+                    // virtual display the way they'd collide on a fixed :99.
+                    def effectiveHeadless = params.RECORD_VIDEO ? 'false' : params.HEADLESS
+                    def mvnRunner = params.RECORD_VIDEO ? 'xvfb-run -a ' : ''
                     sites.each { site ->
                         browsers.each { browser ->
                             def key = browsers.size() > 1 ? "${site}-${browser}" : site
@@ -441,11 +489,12 @@ pipeline {
 
                                 int exitCode = sh(
                                         script: """
-                                       mvn -B -ntp test \\
+                                       ${mvnRunner}mvn -B -ntp test \\
                                           -Dsite=${site} \\
                                           -DsuiteXmlFile=${suiteFile} \\
                                           -Dbrowser=${browser} \\
-                                          -Dheadless=${params.HEADLESS} \\
+                                          -Dheadless=${effectiveHeadless} \\
+                                          -Dvideo.enabled=${params.RECORD_VIDEO} \\
                                           -Dhuman.pause.enabled=false \\
                                           -Dretry.count=${params.RETRY_COUNT} \\
                                           -Dallure.results.directory=target/allure-results/${key} \\
@@ -574,13 +623,25 @@ pipeline {
                         sh '''
                         set -e
                         ACCEL_MODE="off"
+                        # FIX (2026-08-12 build #107): the aes-flag requirement below
+                        # contradicted this stage's own CORRECTION comment further
+                        # down, which already established the AES-NI theory was
+                        # disproven — ACCEL_MODE=off hit the identical "boots
+                        # internally, adbd never comes online" signature, so AES-NI
+                        # passthrough was never the actual blocker. Requiring it here
+                        # only forced hosts with genuine, working KVM (/dev/kvm rw +
+                        # vmx/svm, as this one has) onto the slower TCG path, which
+                        # has its own missing-CPU-feature gaps (see the "TCG doesn't
+                        # support requested feature: CPUID.01H:ECX.avx/f16c" lines in
+                        # this build's own emulator.log) and made the offline-adbd
+                        # window worse, not better. Real KVM acceleration only needs
+                        # /dev/kvm access plus vmx or svm — dropped the aes check.
                         if [ -e /dev/kvm ] && [ -r /dev/kvm ] && [ -w /dev/kvm ] \\
-                           && grep -qE '^flags\\s*:.*\\baes\\b' /proc/cpuinfo 2>/dev/null \\
                            && grep -qE '^flags\\s*:.*\\b(vmx|svm)\\b' /proc/cpuinfo 2>/dev/null; then
                             ACCEL_MODE="on"
-                            echo "KVM + required CPU virtualization/AES-NI flags detected — using hardware acceleration."
+                            echo "KVM + required CPU virtualization flags detected — using hardware acceleration."
                         else
-                            echo "WARNING: this agent can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm/aes CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto' — auto has been landing in a half-broken state here where the guest boots internally but adbd never comes online. Software mode is slower and lowers the odds of hitting that same signature, but does NOT eliminate it — see the diagnostics below and the Coverage Gate/wait-for-device timeout, which is widened accordingly."
+                            echo "WARNING: this agent can't offer full hardware acceleration (missing /dev/kvm access, or the host isn't passing through vmx/svm CPU flags to the guest). Forcing '-accel off' (software mode) instead of leaving it on 'auto' — auto has been landing in a half-broken state here where the guest boots internally but adbd never comes online. Software mode is slower and lowers the odds of hitting that same signature, but does NOT eliminate it — see the diagnostics below and the Coverage Gate/wait-for-device timeout, which is widened accordingly."
                         fi
 
                         # Host diagnostics — printed on every Mobile Test run (not
@@ -669,33 +730,47 @@ pipeline {
 
                         pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
                         pkill -9 -f "appium" 2>/dev/null || true
-                        # NOTE: this used to also `adb kill-server` here as a
-                        # "belt-and-braces" measure. ROOT CAUSE (2026-08-07
-                        # build): that's a race, not a fix. adb kill-server
-                        # asks the currently-running server to exit but does
-                        # NOT wait for the port to be released; the very next
-                        # line below launches the emulator, which immediately
-                        # tries to register its transport with adb — and
-                        # "adb wait-for-device" a few lines down then forces a
-                        # brand-new adb server to spawn ("daemon not running;
-                        # starting now at tcp:5037", visible in that build's
-                        # own log) at almost the same instant. Whichever adb
-                        # server the emulator's transport registered with can
-                        # end up being the one that's already exiting, leaving
-                        # the device stuck "offline" for the rest of the
-                        # build (the emulator's own emulator.log shows this:
-                        # "Boot completed in 18501 ms" internally, yet every
-                        # `adb shell` call against it fails with "device
-                        # offline" from that point on) — a known class of adb
-                        # bug when the server restarts while a transport is
-                        # attaching. Just starting (not killing+restarting)
-                        # the server here is enough to clear genuinely stale
-                        # state left by a previous crashed run without
-                        # racing this run's own emulator: adb start-server
-                        # is a no-op if a server is already up, and if there
-                        # isn't one, this establishes it well before the
-                        # emulator launches instead of concurrently with it.
+                        # NOTE (updated 2026-08-12, build #107): this used to just
+                        # `adb start-server` here (no kill), because the 2026-08-07
+                        # build found that calling `adb kill-server` with almost no
+                        # gap before the emulator launches on the very next line
+                        # races the emulator's own transport-registration attempt —
+                        # whichever adb server it registers with can be the one
+                        # that's already exiting, leaving the device stuck "offline"
+                        # for the rest of the build. That race was about the GAP
+                        # being too small, not about kill-server being unsafe on its
+                        # own — build #107 showed that never killing the server lets
+                        # ghost entries from earlier in this same ~50-minute build
+                        # (or another process on this shared box) survive
+                        # untouched, which is exactly what defeated that build's
+                        # serial detection. The kill-server/start-server cycle a few
+                        # lines below now runs with several seconds of sleep before
+                        # the emulator launch, giving the new server time to settle
+                        # first — enough headroom to avoid the original race while
+                        # still guaranteeing a clean device table. Just starting
+                        # (not killing+restarting) the server here is not enough
+                        # on its own — see the FIX note below.
+                        # FIX (2026-08-12 build #107): the pipeline-start Cleanup
+                        # stage's own adb kill-server/start-server cycle only
+                        # guarantees a clean device table at the very beginning of
+                        # the build — Run Tests Per Site runs for ~18 minutes
+                        # between that stage and this one, long enough for another
+                        # process on this shared box to register a fresh ghost
+                        # entry (this build's own failure showed BOTH emulator-5554
+                        # and emulator-5556 offline by the time this stage's wait
+                        # loops gave up). Re-clearing here catches that. Unlike the
+                        # 2026-08-07 build's removed kill-server call (which raced
+                        # this same stage's own emulator launch on the very next
+                        # line), this one runs several seconds before the emulator
+                        # process even starts — the killall/pkill/sleep above and
+                        # the sleep below give the freshly-restarted server time to
+                        # settle before anything tries to register a transport with
+                        # it, so it clears genuinely stale state without racing our
+                        # own emulator's registration the way the old placement did.
+                        "$ANDROID_SDK_ROOT/platform-tools/adb" kill-server 2>/dev/null || true
+                        sleep 2
                         "$ANDROID_SDK_ROOT/platform-tools/adb" start-server 2>/dev/null || true
+                        sleep 1
 
                         # ROOT CAUSE (2026-08-11 build): forcing "-accel off" above
                         # was NOT enough on its own — emulator.log for that run
@@ -1129,19 +1204,17 @@ pipeline {
             }
             steps {
                 script {
-                    // ExtentManager names every report "<site>-index.html" with
-                    // no suite-type distinction. The mv at the end of each loop
-                    // iteration below only guards against accessibility/visual
-                    // overwriting EACH OTHER — it runs too late to save the
-                    // regular regression report: on a cron-triggered build
-                    // (default params = SITE=ALL), the earlier "Run Tests Per
-                    // Site" stage already wrote a real demoqa-index.html, and
-                    // this stage's very first mvn test call (accessibility)
-                    // overwrites it with fresh accessibility-only content
-                    // BEFORE any mv runs — silently destroying that regression
-                    // report on every nightly build. Snapshot it out of the way
-                    // first so it survives under its own name.
-                    sh "mv target/extent-reports/demoqa-index.html target/extent-reports/demoqa-regression-index.html 2>/dev/null || true"
+                    // NOTE (fixed): this comment used to describe a fragile mv-based
+                    // workaround for ExtentManager naming every report flat as
+                    // "<site>-index.html" with no suite-type distinction — that's no
+                    // longer how it works. ExtentManager now nests each report at
+                    // target/extent-reports/<site>/<browser>/<suite>/index.html (see
+                    // ExtentManager.create()), so the regular regression run, and each
+                    // of the accessibility/visual suites below, already land in their
+                    // own distinct subfolder purely from the suite name differing —
+                    // nothing here can overwrite anything else, and the two `mv`
+                    // commands that used to "rescue" the flat file are gone (they'd
+                    // been silently no-oping against a path that no longer exists).
 
                     def extraSuites = ['accessibility', 'visual']
                     def extraResultDirs = []
@@ -1171,16 +1244,6 @@ pipeline {
                             if (exitCode != 0) {
                                 extraFailures.add(suite)
                             }
-                            // ExtentManager names the report "<site>-index.html"
-                            // with no suite-type distinction — since this stage
-                            // runs -Dsite=demoqa for both accessibility and
-                            // visual, and the regular per-site stage above may
-                            // have just run -Dsite=demoqa too (on a
-                            // cron-triggered build with the default SITE=ALL),
-                            // every one of these runs would otherwise overwrite
-                            // the exact same file. Rename it out of the way
-                            // immediately so each suite's report survives.
-                            sh "mv target/extent-reports/demoqa-index.html target/extent-reports/demoqa-${suite}-index.html 2>/dev/null || true"
                         } else {
                             echo "Skipping ${suite}: ${suiteFile} not found"
                         }
@@ -1356,16 +1419,99 @@ pipeline {
                             results: resultDirs
                     ])
 
+                    // ── Segmented Allure reports (by browser/site-app/test-type/category) ──
+                    // Real, separate report.html outputs — not just filter chips
+                    // inside the one combined view the allure() step above
+                    // renders. See Scripts/generate_segmented_reports.py's
+                    // docstring for why. --skip-combined since the allure()
+                    // step above already gives a combined view (via Jenkins'
+                    // own plugin rather than the CLI, but no need to also
+                    // generate a redundant static target/allure-report/).
+                    sh 'python3 Scripts/generate_segmented_reports.py --results-dir target/allure-results --skip-combined || true'
+                    // This also writes target/report-index.html — a single self-
+                    // contained page linking every report this run produced
+                    // (combined + every segment + every nested Extent report),
+                    // with relative links that resolve as long as target/'s own
+                    // structure travels with it. Not wired to its own publishHTML
+                    // here (that would mean serving the ENTIRE target/ tree as one
+                    // reportDir, which is wasteful — HTML Publisher copies
+                    // reportDir's full contents into Jenkins' own storage) — it's
+                    // included in the archiveArtifacts pattern below instead, so
+                    // it's one click away in the build's Artifacts list for anyone
+                    // who'd rather browse the whole set from one page than click
+                    // through the many individual publishHTML links this stage
+                    // creates.
+
                     // ── Extent Report (HTML Publisher) ──────────────
+                    // ExtentManager nests each report at target/extent-reports/
+                    // <site>/<browser-or-mobile>/<suite>/index.html — one
+                    // publishHTML entry per discovered report, named after its
+                    // own site/browser/suite, instead of one generic entry
+                    // pointed at reportFiles: '*.html' (which only matches
+                    // top-level files and can't tell multiple nested reports
+                    // apart — the root cause of "shows in one, can't identify
+                    // which is which").
+                    // KNOWN LIMITATION: Jenkins' HTML Publisher plugin serves
+                    // each reportDir as its own isolated static root — a
+                    // relative link that walks OUTSIDE reportDir (like
+                    // TestListener's video link, "../../../../videos/x.avi")
+                    // won't resolve when viewed through the Jenkins UI, even
+                    // though the same relative link works fine opening the
+                    // archived artifacts locally (where the real target/ tree
+                    // is intact). No clean fix without duplicating video files
+                    // into every report's own directory; not done here.
                     if (fileExists('target/extent-reports')) {
-                        publishHTML(target: [
-                                allowMissing         : true,
-                                alwaysLinkToLastBuild: true,
-                                keepAll              : true,
-                                reportDir            : 'target/extent-reports',
-                                reportFiles          : '*.html',
-                                reportName           : 'Extent Test Report'
-                        ])
+                        def extentIndexes = sh(
+                                script: "find target/extent-reports -name index.html | sort",
+                                returnStdout: true
+                        ).trim()
+                        if (extentIndexes) {
+                            extentIndexes.split('\n').each { fullPath ->
+                                def rel = fullPath.replaceFirst('^target/extent-reports/', '')
+                                def label = rel.replaceFirst('/index.html$', '').replace('/', ' — ')
+                                publishHTML(target: [
+                                        allowMissing         : true,
+                                        alwaysLinkToLastBuild: true,
+                                        keepAll              : true,
+                                        reportDir            : fullPath.replaceFirst('/index.html$', ''),
+                                        reportFiles          : 'index.html',
+                                        reportName           : "Extent — ${label}"
+                                ])
+                            }
+                        }
+                    }
+
+                    // ── Segmented Allure reports (HTML Publisher) ───
+                    // One entry per generated by-browser/by-site/by-type/
+                    // by-category report, read from the manifest the script
+                    // above wrote — same reasoning as the Extent loop just
+                    // above. JsonSlurperClassic (core Groovy, always
+                    // available in a Jenkins pipeline) rather than the
+                    // Pipeline Utility Steps plugin's readJSON step —
+                    // nothing else in this Jenkinsfile depends on that
+                    // plugin, so requiring it just for this one manifest
+                    // read would be a new, easy-to-miss prerequisite for
+                    // report publishing to work at all. JsonSlurperClassic
+                    // (not the plain JsonSlurper) specifically because it
+                    // returns plain HashMap/ArrayList, which survive
+                    // Jenkins' CPS transformation safely — JsonSlurper's
+                    // lazy map implementation is a known source of
+                    // NotSerializableException inside pipeline scripts.
+                    if (fileExists('target/allure-segmented/segments.json')) {
+                        def manifestText = readFile('target/allure-segmented/segments.json')
+                        def manifestJson = new groovy.json.JsonSlurperClassic().parseText(manifestText)
+                        manifestJson.each { seg ->
+                            if (seg.generated) {
+                                publishHTML(target: [
+                                        allowMissing         : true,
+                                        alwaysLinkToLastBuild: true,
+                                        keepAll              : true,
+                                        reportDir            : "target/allure-segmented/${seg.dimension}/${seg.slug}/report",
+                                        reportFiles          : 'index.html',
+                                        reportName           : "Allure — ${seg.dimensionLabel}: ${seg.value}"
+                                ])
+                            }
+                        }
                     }
 
                     // ── Merged JaCoCo Coverage Report (HTML Publisher) ──
@@ -1388,7 +1534,7 @@ pipeline {
 
                     // ── Archive raw artifacts ───────────────────────
                     archiveArtifacts allowEmptyArchive: true,
-                            artifacts: 'target/extent-reports/**, target/logs/**, target/screenshots/**, target/allure-results/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
+                            artifacts: 'target/report-index.html, target/extent-reports/**, target/logs/**, target/screenshots/**, target/videos/**, target/allure-results/**, target/allure-segmented/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**',
                             fingerprint: true
 
                     // ── ADB memory-leak cleanup ─────────────────────

@@ -33,6 +33,10 @@ on:
         description: "Also run Safari (needs a macos-latest runner minute budget — runs automatically on every push, this only controls manual dispatch runs)"
         type: boolean
         default: false
+      record_video:
+        description: "Record a video per web test (implies non-headless + xvfb; off by default — CPU/disk cost, and pointless when headless since there's nothing on-screen to capture)"
+        type: boolean
+        default: false
   # Accessibility (axe-core) and visual-regression (AShot screenshot
   # diffing) are opt-in by nature — both slower and more flake-prone than
   # the regular functional suites, and only exist for demoqa — so they
@@ -85,7 +89,13 @@ env:
   # @BeforeMethod fails. Requiring github.event_name == 'workflow_dispatch'
   # as well means a null inputs.headless on any other trigger can no
   # longer accidentally satisfy this condition.
-  HEADLESS: ${{ (github.event_name == 'workflow_dispatch' && inputs.headless == false) && 'false' || 'true' }}
+  # RECORD_VIDEO forces headless off — a headless browser renders to no
+  # display at all, so there's nothing for VideoRecorder's screen-grab to
+  # capture; recording only makes sense against a real (or Xvfb virtual)
+  # display. This deliberately overrides the HEADLESS input rather than
+  # requiring the person to also flip headless off by hand.
+  RECORD_VIDEO: ${{ (github.event_name == 'workflow_dispatch' && inputs.record_video == true) && 'true' || 'false' }}
+  HEADLESS: ${{ ((github.event_name == 'workflow_dispatch' && inputs.record_video == true)) && 'false' || ((github.event_name == 'workflow_dispatch' && inputs.headless == false) && 'false' || 'true') }}
   RETRY_COUNT: ${{ inputs.retry_count || '0' }}
   # No MAVEN_OPTS override for maven.repo.local here — every job below uses
   # `cache: 'maven'` on actions/setup-java@v5, which caches Maven's DEFAULT
@@ -433,9 +443,23 @@ jobs:
         if: matrix.browser == 'safari'
         run: sudo safaridriver --enable
 
+      # xvfb-run gives VideoRecorder (java.awt.Robot) a real virtual display
+      # to capture — headless Chrome/Firefox/Edge render to nothing at all,
+      # so RECORD_VIDEO forces HEADLESS=false above and needs an actual (or
+      # virtual) display to run non-headless on a display-less runner.
+      # ubuntu-latest only — safari's macos-latest runner has a real
+      # display already and has no headless mode to begin with.
+      - name: Install Xvfb for video recording
+        if: env.RECORD_VIDEO == 'true' && matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+
       - name: Run Tests
         run: |
           echo "======= Running Tests: site=${{ matrix.site }} browser=${{ matrix.browser }} ======="
+          MVN_RUNNER=""
+          if [ "${{ env.RECORD_VIDEO }}" = "true" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            MVN_RUNNER="xvfb-run -a"
+          fi
           if [ "${{ matrix.browser }}" = "safari" ]; then
             # Uses the dedicated *-safari-<suite>.xml suite files
             # (parallel="none") instead of the plain ones the other three
@@ -448,7 +472,7 @@ jobs:
             # leg's results in their own subfolder for the same reason the
             # old dedicated job did: merge-multiple in the allure-report
             # job's download step needs every leg's folder name to differ.
-            mvn -B test \
+            $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
               -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
               -Dbrowser=safari \
@@ -458,11 +482,12 @@ jobs:
               -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
               -Dmaven.test.failure.ignore=true
           else
-            mvn -B test \
+            $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
               -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
               -Dbrowser=${{ matrix.browser }} \
               -Dheadless=${{ env.HEADLESS }} \
+              -Dvideo.enabled=${{ env.RECORD_VIDEO }} \
               -Dhuman.pause.enabled=false \
               -Dretry.count=${{ env.RETRY_COUNT }} \
               -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-healing-report.json \
@@ -503,6 +528,7 @@ jobs:
             target/screenshots/
             target/surefire-reports/
             target/downloads/
+            target/videos/
             target/self-healing/
           retention-days: 7
 
@@ -1046,6 +1072,19 @@ jobs:
           allure_history: allure-history
           keep_reports: 20
 
+      # Builds the browser-wise/site-wise/test-type-wise/category-wise Allure
+      # reports alongside the combined one generated just above — see
+      # Scripts/generate_segmented_reports.py's own docstring for why a
+      # single merged report isn't enough to tell tests apart at a glance.
+      # --skip-combined since simple-elf/allure-report-action already built
+      # target/allure-report from the same target/allure-results.
+      # --landing-page "" since generate_landing_page.py (next job) already
+      # builds a richer landing page for GitHub Pages (self-healing/flaky
+      # trend included) — this script's own generic one would just be
+      # redundant/conflicting here.
+      - name: Generate segmented Allure reports (by browser/site/type/category)
+        run: python3 Scripts/generate_segmented_reports.py --skip-combined --landing-page ""
+
       - name: Download Extent Reports (all sites)
         uses: actions/download-artifact@v4
         with:
@@ -1106,17 +1145,27 @@ jobs:
           else
             echo "::warning::target/extent-reports missing — Extent report will not be updated this run"
           fi
+          if [ -d "target/allure-segmented" ]; then
+            mkdir -p target/gh-pages-publish/allure-segmented
+            cp -r target/allure-segmented/. target/gh-pages-publish/allure-segmented/
+          else
+            echo "::warning::target/allure-segmented missing — segmented (by browser/site/type/category) Allure reports will not be updated this run"
+          fi
+          if [ -d "target/videos" ]; then
+            mkdir -p target/gh-pages-publish/videos
+            cp -r target/videos/. target/gh-pages-publish/videos/
+          fi
 
-      # Extent's ExtentManager writes one file per site (demoqa-index.html,
-      # saucedemo-index.html, mobile-index.html, ...) rather than a single
-      # index.html — so extent-report/ on its own has no default page a
-      # browser would land on. This generates a root landing page at
-      # gh-pages-publish/index.html that links to the Allure report, every
-      # Extent report file actually present this run, the self-healing
-      # summary, and the flaky-test trend — one bookmarkable URL instead
-      # of guessing a path or downloading the artifact zip. Moved from
-      # inline bash/printf to a checked-in script once it needed to render
-      # tables from the JSON the two steps above produce.
+      # ExtentManager nests each report at <site>/<browser-or-mobile>/<suite>/
+      # index.html (not a single flat index.html) — so extent-report/ on its
+      # own has no default page a browser would land on. This generates a
+      # root landing page at gh-pages-publish/index.html that links to the
+      # combined + segmented Allure reports, every nested Extent report file
+      # actually present this run, the self-healing summary, and the
+      # flaky-test trend — one bookmarkable URL instead of guessing a path
+      # or downloading the artifact zip. Moved from inline bash/printf to a
+      # checked-in script once it needed to render tables from the JSON the
+      # steps above produce.
       - name: Generate reports landing page
         run: python3 .github/workflows/scripts/generate_landing_page.py
 
@@ -1152,18 +1201,29 @@ jobs:
           else
             BASE_URL="https://${OWNER}.github.io/${REPO}"
           fi
+          export BASE_URL
           {
             echo "## 📊 Test Reports"
             echo ""
             echo "| Report | Link |"
             echo "|---|---|"
             echo "| All reports (landing page) | [$BASE_URL/]($BASE_URL/) |"
-            echo "| Allure | [$BASE_URL/allure-report/]($BASE_URL/allure-report/) |"
+            echo "| Allure — All Results (Combined) | [$BASE_URL/allure-report/]($BASE_URL/allure-report/) |"
+            # Segmented Allure reports (by browser/site-app/test-type/category) —
+            # read from the manifest Scripts/generate_segmented_reports.py wrote,
+            # so this list can never drift out of sync with what was actually
+            # generated (unlike hand-listing dimensions here). Delegated to a
+            # script file rather than an inline heredoc — see that script's
+            # own docstring for why (YAML block-scalar indentation).
+            python3 .github/workflows/scripts/print_segment_links.py
+            # Extent reports are nested <site>/<browser-or-mobile>/<suite>/index.html
+            # (one physical file per browser/site/test-type combo) — recurse to find
+            # them all instead of a flat glob, which used to silently find none.
             if [ -d "target/gh-pages-publish/extent-report" ]; then
-              for f in target/gh-pages-publish/extent-report/*.html; do
-                [ -e "$f" ] || continue
-                name=$(basename "$f")
-                echo "| Extent — $name | [$BASE_URL/extent-report/$name]($BASE_URL/extent-report/$name) |"
+              find target/gh-pages-publish/extent-report -name "index.html" | sort | while read -r f; do
+                rel="${f#target/gh-pages-publish/extent-report/}"
+                label="${rel%/index.html}"
+                echo "| Extent — $label | [$BASE_URL/extent-report/$rel]($BASE_URL/extent-report/$rel) |"
               done
             fi
             echo ""

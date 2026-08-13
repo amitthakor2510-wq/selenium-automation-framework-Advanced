@@ -18,11 +18,19 @@
 ```text
 target/
 ├── extent-reports/
-│   └── demoqa-report.html         # Custom HTML report — open in Chrome
+│   └── <site>/<browser-or-mobile>/<suite>/index.html   # One physical report per site/browser/test-type — see below
 ├── allure-results/                # Raw Allure results — feed to `allure serve` or CI's Allure step
 │   ├── environment.properties     # Written by AllureEnvironmentWriter → powers the Environment widget
 │   ├── categories.json            # Written by AllureEnvironmentWriter → powers the Categories tab
 │   └── *-result.json              # One per test, written by the allure-testng listener
+├── allure-segmented/              # Written by Scripts/generate_segmented_reports.py
+│   ├── browser/<chrome|firefox|edge>/report/index.html
+│   ├── site/<site>/report/index.html
+│   ├── testType/<suite>/report/index.html
+│   ├── category/<group>/report/index.html
+│   └── segments.json              # Manifest the CI landing pages/job summaries read
+├── videos/
+│   └── TestName_20260813_...avi   # Only when video.enabled=true — see "Video Recording" below
 ├── screenshots/
 │   └── TestName_20260704.png      # Auto-captured on failure (local file copy)
 ├── debug-dumps/
@@ -30,6 +38,44 @@ target/
 └── surefire-reports/
     └── *.xml                      # Raw XML consumed by Jenkins/GitLab
 ```
+
+### Separate reports, not one combined dashboard
+
+A single mixed-together report makes it easy to open the wrong test and not
+notice — "was that the Chrome run or Firefox? demoqa or saucedemo?" So two
+things are true at once here:
+
+1. **Extent already IS separated physically.** `ExtentManager` names each
+   report `target/extent-reports/<site>/<browser-or-mobile>/<suite>/index.html`
+   — a genuinely different file per site/browser/test-type combination, not
+   just a filter inside one file.
+2. **Allure is split after the fact.** Allure's CLI only ever builds one
+   report from one results directory, so `Scripts/generate_segmented_reports.py`
+   runs after `mvn test` and copies each result (+ its screenshots/page-source/
+   console-log/video attachments) into per-dimension results folders, then
+   calls `allure generate` once per folder — producing a real, separate
+   `report/index.html` for every browser, every site/app, every test type
+   (suite), every severity, every category (TestNG group) a test belongs to,
+   and — when any exist — a dedicated "flaky" report for tests that only
+   passed after a retry. Run it locally the same way CI does:
+   ```bash
+   mvn test -Dsite=demoqa
+   python3 Scripts/generate_segmented_reports.py   # writes target/allure-segmented/ + target/report-index.html
+   ```
+   The script also writes `target/report-index.html` — one self-contained
+   page linking every report it just found (combined, every segment, every
+   nested Extent report), with relative links that keep working as long as
+   `target/`'s own layout travels with it (open it directly, or find it in
+   the Jenkins build's archived artifacts).
+
+   All three CI pipelines (Jenkinsfile, github-ci.yml, .gitlab-ci.yml) run
+   this automatically after tests finish and publish each segment as its own
+   link (Jenkins: one `publishHTML` per segment, plus `report-index.html` in
+   the archived artifacts; GitHub Pages: `generate_landing_page.py` groups
+   them under "By Browser" / "By Site / App" / "By Test Type" / "By Category"
+   / "By Severity" / "Flaky"; GitLab: the script writes straight into
+   `public/`, so `public/index.html` — GitLab Pages' own site root, which
+   previously had nothing at it — becomes that same landing page).
 
 ### How a result becomes two reports
 
@@ -52,7 +98,7 @@ flowchart TD
     D1 -- "pass" --> P1["📸 Screenshot"]
     D1 -- "fail" --> F1["📸 Screenshot"]
     F1 --> F2["🩺 Page + browser logs"]
-    D1 -- "skip" --> S1["🚫 Nothing captured"]
+    D1 -- "skip" --> S1["📸 Screenshot + page/console logs<br/>(same as fail)"]
 
     P1 --> ALR[("🗃️ Allure results")]
     F2 --> ALR
@@ -74,8 +120,8 @@ flowchart TD
     class A,B step
     class D1 decision
     class C1,P1 pass
-    class C2,F1,F2 fail
-    class C3,S1 step
+    class C2,F1,F2,S1 fail
+    class C3 step
     class EXT,ALR report
     class ONCE,ENV once
     class UI finish
@@ -83,10 +129,12 @@ flowchart TD
 
 **Reading it, in plain terms:** every test result goes down two paths at once — Extent (a single self-contained HTML file, good for a quick pass/fail skim) and Allure (result files that get rendered into an interactive site). On the very first test of a run, `TestListener` also has `AllureEnvironmentWriter` save two extra files so the eventual report knows what environment it ran in and how to auto-categorize failures. A failing test gets more captured than a passing one — a screenshot plus the full page and browser logs — so most failures can be triaged from the report alone, without re-running the test locally.
 
-### Extent Report — `target/extent-reports/<site>-report.html`
-Open directly in any browser. Shows:
+### Extent Report — `target/extent-reports/<site>/<browser-or-mobile>/<suite>/index.html`
+Open directly in any browser. One physical file per site/browser/test-type
+combination (see "Separate reports" above) — shows:
 - Pass/fail per test with timestamps and duration
-- Failure screenshots embedded inline (base64 — no broken image paths if you zip/move the report)
+- Failure/skip screenshots embedded inline (base64 — no broken image paths if you zip/move the report)
+- A download link to that test's video recording, if `video.enabled=true` was set for the run (see "Video Recording" below)
 - System info panel: browser, site, headless mode, OS, Java version, retry count
 - Summary charts showing overall pass/fail ratio
 
@@ -108,9 +156,31 @@ What you get that Extent doesn't have:
 
 | Outcome | Extent | Allure |
 |---|---|---|
-| ✅ Pass | Pass log | Screenshot |
-| ❌ Fail | Fail log + stack trace + screenshot (inline) | Screenshot + page source (HTML) + browser console logs + Failed URL parameter |
-| ⏭️ Skip | Skip log + reason | *(no attachment)* |
+| ✅ Pass | Pass log | Screenshot (+ video, if `video.keep.on.pass=true`) |
+| ❌ Fail | Fail log + stack trace + screenshot (inline) + video link | Screenshot + page source (HTML) + browser console logs + Failed URL parameter + video |
+| ⏭️ Skip | Skip log + reason + screenshot (inline) + video link | Screenshot + page source (HTML) + browser console logs + Skip URL parameter + video |
+
+### Video Recording
+
+Off by default (`video.enabled=false` in `global.properties`) — a
+`headless=true` browser renders to no display at all, so there's nothing
+for `core/utils/VideoRecorder.java` (a plain `java.awt.Robot` screen grab,
+via the Monte Screen Recorder library — no ffmpeg/native binary needed) to
+capture. Turn it on locally with `-Dvideo.enabled=true -Dheadless=false`,
+or via each CI pipeline's video toggle (Jenkins: `RECORD_VIDEO` build
+parameter; GitHub Actions: `record_video` workflow-dispatch input; GitLab:
+`RECORD_VIDEO` pipeline variable) — all three automatically force
+`headless=false` and wrap the run with `xvfb-run` so there's a real virtual
+display to record against on a CI runner with no physical one.
+
+By default only failing/skipped tests keep their recording
+(`video.keep.on.pass=false` deletes a passing test's video right after the
+run, same report-only-on-failure philosophy as the screenshot/page-source/
+console-log attachments above). Web (`BaseTest`) tests only — Appium/mobile
+isn't wired up, since it has its own native device-recording API that works
+completely differently; a follow-up, not done here. AVI/TSCC isn't a
+browser-playable codec, so both reports offer it as a download link rather
+than an inline `<video>` preview.
 
 ---
 

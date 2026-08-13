@@ -9,48 +9,87 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ExtentManager {
 
-    // Keyed by site instead of a single shared static instance — a single
-    // shared instance meant two sites (or two threads) running in the same
-    // JVM would interleave results into whichever report got created first.
+    // Keyed by site+browser+suite instead of a single shared static instance
+    // — a single shared instance meant two sites (or two threads, or two
+    // suite types in the same JVM) would interleave results into whichever
+    // report got created first.
     private static final ConcurrentHashMap<String, ExtentReports> INSTANCES = new ConcurrentHashMap<>();
+
+    // BUG FIX: the running TestNG suite's own <suite name="..."> (e.g.
+    // "DemoQA Regression Suite", "DemoQA Accessibility Suite") is the one
+    // reliable, always-available signal for "which test type is this" —
+    // available for free from ITestContext, requiring no extra -D flag
+    // anyone has to remember to pass (unlike site/browser, which are real
+    // config values with their own meaning). Previously there was no
+    // suite-type signal here at all: two different suite types run
+    // back-to-back for the same site+browser (e.g. the Nightly Extra
+    // Coverage stage's accessibility/visual runs, or simply running smoke
+    // then regression locally without `mvn clean` in between) silently
+    // overwrote each other's report under the identical filename — the
+    // Jenkinsfile used to paper over this with `mv target/extent-reports/
+    // <site>-index.html target/extent-reports/<site>-<suite>-index.html`
+    // AFTER each run, but that rename target didn't even match this
+    // class's actual (browser-inclusive) filename pattern any more, so it
+    // silently no-op'd. Set once via onStart(ITestContext) — TestListener
+    // is registered per-class via @Listeners, and TestNG creates exactly
+    // one JVM per suite XML in this framework's Maven-driven model (see
+    // the Jenkinsfile's "one mvn test per site/suite" comments), so a
+    // plain static field (not ThreadLocal) is correct here even under
+    // parallel="classes"/"methods" — every thread in this JVM is running
+    // the same single suite.
+    private static volatile String activeSuiteName;
+
+    /** Called from TestListener.onStart(ITestContext) before any test in
+     *  this suite creates its ExtentTest — must run first so create()
+     *  below can read it. */
+    public static void setActiveSuiteName(String suiteName) {
+        activeSuiteName = suiteName;
+    }
+
+    private static String suiteSlug() {
+        String raw = activeSuiteName;
+        if (raw == null || raw.isBlank()) {
+            return "suite";
+        }
+        // "DemoQA Regression Suite" -> "demoqa-regression-suite"; keeps the
+        // slug filesystem/URL-safe and stable regardless of how a suite's
+        // display name is capitalized/spaced in its XML.
+        String slug = raw.toLowerCase(java.util.Locale.ROOT)
+            .replaceAll("[^a-z0-9]+", "-")
+            .replaceAll("(^-+|-+$)", "");
+        return slug.isEmpty() ? "suite" : slug;
+    }
 
     public static synchronized ExtentReports getInstance() {
         ConfigReader.init();
         String site = ConfigReader.getActiveSite();
-        return INSTANCES.computeIfAbsent(site, ExtentManager::create);
+        String browser = ConfigReader.get("browser", "chrome");
+        String key = "mobile".equals(site)
+            ? site + "|" + suiteSlug()
+            : site + "|" + browser + "|" + suiteSlug();
+        return INSTANCES.computeIfAbsent(key, k -> create(site, browser));
     }
 
-    private static ExtentReports create(String site) {
-        // Jenkins runs one "mvn test" per site in a loop without an
-        // intermediate "mvn clean" (see Jenkinsfile "Run Tests Per Site"
-        // stage), so a fixed file name here means each site's run just
-        // overwrites the previous site's report. Name it per site instead;
-        // publishHTML/archiveArtifacts already glob target/extent-reports/*.html.
-        //
-        // Also keyed by browser, not just site: github-ci.yml's `test` job
-        // matrixes every site across 4 browsers (chrome/firefox/edge/safari),
-        // each as its own isolated-runner job that uploads its own
-        // `test-results-<site>-<browser>-<run_id>` artifact. The allure-report
-        // job then downloads every one of those with `merge-multiple: true`
-        // into the SAME target/ directory to build the combined GitHub Pages
-        // site. A site-only filename (e.g. "demoqa-index.html") was identical
-        // across all 4 of that site's browser legs, so download-artifact's
-        // merge silently overwrote 3 of every 4 browsers' Extent reports with
-        // whichever one happened to be merged last — no error, just missing
-        // data, which is why "the Extent report" could look incomplete or
-        // simply not show up for the browser someone was checking. Including
-        // the browser keeps every leg's file distinct all the way through
-        // that merge. mobile has no browser matrix, so it keeps the plain
-        // site-only name.
-        String browser = ConfigReader.get("browser", "chrome");
+    private static ExtentReports create(String site, String browser) {
+        String suiteSlug = suiteSlug();
+        // Nested by site, then browser (or "mobile" for the app), then
+        // suite/test-type — this hierarchy is what makes the report set
+        // separable browser-wise, website/app-wise, and test-type-wise
+        // without anyone needing to remember a -D flag: it falls out of
+        // config that's already there (site/browser) plus the suite name
+        // TestNG already knows. archiveArtifacts/publishHTML in the
+        // Jenkinsfile already glob the whole target/extent-reports tree, so
+        // the deeper nesting needs no CI-side change to keep working; the
+        // Jenkinsfile's separated per-report publishHTML calls (see
+        // Jenkinsfile) rely on exactly this structure to label each report.
         String reportPath = "mobile".equals(site)
-            ? "target/extent-reports/" + site + "-index.html"
-            : "target/extent-reports/" + site + "-" + browser + "-index.html";
+            ? "target/extent-reports/" + site + "/" + suiteSlug + "/index.html"
+            : "target/extent-reports/" + site + "/" + browser + "/" + suiteSlug + "/index.html";
 
         ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
         spark.config().setTheme(Theme.STANDARD);
-        spark.config().setDocumentTitle(site + " - Automation Report");
-        spark.config().setReportName(site + " Regression/Smoke Report");
+        spark.config().setDocumentTitle(site + " (" + browser + ") — " + activeSuiteName);
+        spark.config().setReportName((activeSuiteName != null ? activeSuiteName : site + " Report"));
         spark.config().setTimeStampFormat("MMM dd, yyyy HH:mm:ss");
         // Inlines the report's CSS/JS instead of loading them from a CDN — CI artifacts
         // and downloaded zips get opened on machines with no internet access, and the
@@ -60,7 +99,8 @@ public class ExtentManager {
         ExtentReports extent = new ExtentReports();
         extent.attachReporter(spark);
         extent.setSystemInfo("Site", site);
-        extent.setSystemInfo("Browser", ConfigReader.get("browser", "chrome"));
+        extent.setSystemInfo("Browser", browser);
+        extent.setSystemInfo("Suite", activeSuiteName != null ? activeSuiteName : "(unknown)");
         extent.setSystemInfo("Headless", ConfigReader.get("headless", "false"));
         extent.setSystemInfo("OS", System.getProperty("os.name"));
         extent.setSystemInfo("Java", System.getProperty("java.version"));
@@ -72,5 +112,6 @@ public class ExtentManager {
     public static synchronized void reset() {
         INSTANCES.values().forEach(ExtentReports::flush);
         INSTANCES.clear();
+        activeSuiteName = null;
     }
 }

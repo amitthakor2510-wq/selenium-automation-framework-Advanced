@@ -42,7 +42,8 @@ a nightly OWASP dependency-vulnerability scan, and secret scanning
 | `SITE` | ALL / site name / `mobile` | ALL | Run all sites, one browser site, or just `mobile` |
 | `BROWSER` | chrome / firefox / edge | chrome | Browser to use when `ALL_BROWSERS` is unchecked |
 | `ALL_BROWSERS` | boolean | false | Run every discovered site against chrome, firefox, **and** edge in parallel — ignores `BROWSER` above. Off by default so a normal build's branch count/runtime is unchanged. |
-| `HEADLESS` | true / false | true | Show browser or not (browser sites only) |
+| `HEADLESS` | true / false | true | Show browser or not (browser sites only). Forced to `false` when `RECORD_VIDEO` is checked. |
+| `RECORD_VIDEO` | boolean | false | Record a video per web test, attached to the reports on failure/skip (see docs/reports-and-quality.md#video-recording). Forces `HEADLESS` off and wraps the run with `xvfb-run`. Mobile isn't covered. |
 | `RETRY_COUNT` | integer | 0 | Retries for failed tests — 0 disables for CI speed |
 | `SECURITY_FAIL_CVSS` | number | 11 | OWASP Dependency-Check: fail the nightly Security Scan stage on any dependency with a CVSS score at or above this value. 11 = never fails (report-only); 7 is a common "fail on High/Critical" cutoff |
 

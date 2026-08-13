@@ -34,6 +34,13 @@ variables:
   BROWSER: "chrome"
   HEADLESS: "true"
   RETRY_COUNT: "0"
+  # Off by default — see global.properties' video.enabled comment for why
+  # (blank/pointless under headless=true, and adds CPU/disk cost). Set to
+  # "true" as a pipeline variable (Run Pipeline > Variables, or CI/CD
+  # Settings) to enable; the `test` stage below forces HEADLESS to "false"
+  # and wraps mvn with xvfb-run whenever this is "true", since recording
+  # a headless browser just captures a blank display.
+  RECORD_VIDEO: "false"
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
   # WebDriverManager's default cache lives at $HOME/.wdm — for this image
   # that's /root/.wdm, which sits OUTSIDE $CI_PROJECT_DIR and so can't be
@@ -178,6 +185,26 @@ test:
           echo "Edge: $(microsoft-edge-stable --version)"
           ;;
       esac
+    # RECORD_VIDEO forces headless off (nothing to record under
+    # headless=true) and installs Xvfb so java.awt.Robot has a virtual
+    # display to grab even on a display-less shell-executor host — same
+    # reasoning as the GitHub Actions pipeline's "Install Xvfb for video
+    # recording" step.
+    - |
+      EFFECTIVE_HEADLESS="$HEADLESS"
+      MVN_RUNNER=""
+      if [ "$RECORD_VIDEO" = "true" ]; then
+        EFFECTIVE_HEADLESS="false"
+        if [ "$SUDO" != "__NONE__" ] && ! command -v xvfb-run &> /dev/null; then
+          $SUDO apt-get update -qq
+          $SUDO apt-get install -y -qq xvfb
+        fi
+        if command -v xvfb-run &> /dev/null; then
+          MVN_RUNNER="xvfb-run -a"
+        else
+          echo "WARNING: RECORD_VIDEO=true but xvfb-run is unavailable and couldn't be installed — recordings will be skipped (VideoRecorder no-ops without a display)."
+        fi
+      fi
     # -Dallure.results.directory=target/allure-results/$SITE-$BROWSER —
     # GitLab automatically merges artifacts from every parallel:matrix
     # instance of this job for any downstream job that declares
@@ -190,11 +217,12 @@ test:
     # file happened to survive the merge. Each site+browser combination
     # gets its own subdirectory instead; see the "report" stage below for
     # how they're combined back together for `allure generate`.
-    - mvn -B test
+    - $MVN_RUNNER mvn -B test
       -Dsite=$SITE
       -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
       -Dbrowser=$BROWSER
-      -Dheadless=$HEADLESS
+      -Dheadless=$EFFECTIVE_HEADLESS
+      -Dvideo.enabled=$RECORD_VIDEO
       -Dhuman.pause.enabled=false
       -Dretry.count=$RETRY_COUNT
       -Dallure.results.directory=target/allure-results/$SITE-$BROWSER
@@ -224,6 +252,7 @@ test:
       - target/screenshots/
       - target/surefire-reports/
       - target/jacoco-artifacts/
+      - target/videos/
     reports:
       # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
       # lands at the same path, so GitLab's artifact merge keeps only one
@@ -732,12 +761,53 @@ report:
     # (target/extent-reports/) but never copied into public/ — GitLab
     # Pages only ever serves what's inside public/, so Allure was the
     # only report that actually got a live URL. Mirror it in here too.
+    # Done BEFORE the segmented-reports script below so that script's
+    # landing page can list these at their real, final public/ location
+    # (it only reads target/extent-reports to build links, doesn't copy it).
     - |
       if [ -d "target/extent-reports" ] && [ -n "$(ls -A target/extent-reports 2>/dev/null)" ]; then
         mkdir -p public/extent-report
         cp -r target/extent-reports/. public/extent-report/
       else
         echo "WARNING: target/extent-reports is missing or empty — no Extent report to publish."
+      fi
+    - |
+      if [ -d "target/videos" ] && [ -n "$(ls -A target/videos 2>/dev/null)" ]; then
+        mkdir -p public/videos
+        cp -r target/videos/. public/videos/
+      fi
+    # Browser-wise/site-wise/test-type-wise/category-wise/severity-wise/
+    # flaky reports — see Scripts/generate_segmented_reports.py's
+    # docstring. Reuses the same allure-cli just extracted above (on
+    # PATH) rather than downloading a second copy; --skip-combined since
+    # the `allure generate` line above already built the combined report.
+    # Writes straight into public/ (not target/, then copied) so the
+    # landing page's relative links resolve at their real published
+    # location, and so it can double as public/index.html — GitLab Pages
+    # has never had anything at its own site root before this, only at
+    # specific report sub-paths. This image
+    # (maven:3.9.9-eclipse-temurin-17) doesn't ship python3 by default —
+    # install-if-missing, same guarded pattern the "test" stage already
+    # uses for browsers.
+    - |
+      if ! command -v python3 &> /dev/null; then
+        if [ "$(id -u)" = "0" ]; then
+          apt-get update -qq && apt-get install -y -qq python3
+        elif sudo -n true 2>/dev/null; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3
+        else
+          echo "WARNING: python3 not available and no root/sudo to install it — skipping segmented (by browser/site/type/category) Allure reports this run."
+        fi
+      fi
+    - |
+      if command -v python3 &> /dev/null; then
+        python3 Scripts/generate_segmented_reports.py \
+          --results-dir target/allure-results \
+          --skip-combined \
+          --output-dir public/allure-segmented \
+          --combined-output public/allure-report \
+          --extent-dir public/extent-report \
+          --landing-page public/index.html
       fi
     - echo "======= Test Results Summary ======="
     - |
