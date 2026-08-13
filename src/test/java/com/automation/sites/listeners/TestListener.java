@@ -10,8 +10,12 @@ import com.automation.core.utils.ScreenshotUtil;
 import com.automation.core.utils.VideoRecorder;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
+import com.epam.reportportal.message.ReportPortalMessage;
+import com.epam.reportportal.service.ReportPortal;
 import io.qameta.allure.Allure;
 import org.openqa.selenium.WebDriver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
@@ -53,6 +57,8 @@ import java.util.Arrays;
  * ServiceLoader happened to register things.
  */
 public class TestListener implements ITestListener, IInvokedMethodListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(TestListener.class);
 
     // NOT cached in a static final field on purpose: ExtentManager.reset()
     // (called from onFinish() below) clears ExtentManager's internal
@@ -231,6 +237,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                     Allure.parameter("Retry Attempts", String.valueOf(retryAttempts));
                 }
             }
+            attachToReportPortal("Pass Screenshot — " + result.getMethod().getMethodName(), bytes);
             keepOrDiscardVideo(video, result, "Pass");
             return;
         }
@@ -292,6 +299,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 "png"
             );
         }
+        attachToReportPortal(label + " Screenshot — " + result.getMethod().getMethodName(), bytes);
 
         String pageSource = FailureDiagnostics.capturePageSource(driver);
         if (!pageSource.isEmpty()) {
@@ -353,7 +361,59 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 // differently than it did — same defensive stance as ScreenshotUtil.
             }
         }
+        attachVideoToReportPortal(label + " Recording — " + result.getMethod().getMethodName(), video);
         videoForExtent.set(video);
+    }
+
+    // ── ReportPortal: screenshot/video attachment ────────────────────────────
+    // GAP FIX: this listener already pushed every screenshot/page-source/
+    // console-log/video into Allure and Extent, but never into ReportPortal
+    // at all — the only RP wiring in the whole project was the
+    // ServiceLoader-registered agent (com.epam.reportportal.testng.
+    // ReportPortalTestNGListener, see META-INF/services), which auto-reports
+    // TestNG's own pass/fail/skip lifecycle but does NOT auto-capture
+    // screenshots or files; that requires an explicit ReportPortal.emitLog()
+    // call from test code, which nothing here ever made. So even on a run
+    // with reportportal.enable=true and a real RP_API_KEY, every launch in
+    // ReportPortal showed pass/fail status with zero attached evidence.
+    // ReportPortal.emitLog() itself is the safe no-op guard here — the RP
+    // client checks for an active launch/step context internally and simply
+    // does nothing when one isn't open (reportportal.enable=false, the
+    // default, or a real launch failed to start) — same "cheap to call
+    // unconditionally" shape as Allure's isAllureTestCaseOpen() checks
+    // elsewhere in this class. Still wrapped in try/catch, matching this
+    // class's existing rule (see keepOrDiscardVideo()'s comment): a
+    // reporting-integration failure must never look like the test itself
+    // failed differently than it did.
+    private void attachToReportPortal(String label, byte[] screenshotBytes) {
+        if (screenshotBytes == null || screenshotBytes.length == 0) {
+            return;
+        }
+        try {
+            ReportPortal.emitLog(
+                new ReportPortalMessage(
+                    new java.io.ByteArrayInputStream(screenshotBytes), "image/png", label),
+                "INFO",
+                java.util.Calendar.getInstance().getTime()
+            );
+        } catch (Exception e) {
+            logger.warn("Could not attach screenshot to ReportPortal: " + e.getMessage());
+        }
+    }
+
+    private void attachVideoToReportPortal(String label, File video) {
+        if (video == null || !video.exists()) {
+            return;
+        }
+        try {
+            ReportPortal.emitLog(
+                new ReportPortalMessage(video, "video/avi", label),
+                "INFO",
+                java.util.Calendar.getInstance().getTime()
+            );
+        } catch (Exception e) {
+            logger.warn("Could not attach video to ReportPortal: " + e.getMessage());
+        }
     }
 
     private String safeCurrentUrl(WebDriver driver) {

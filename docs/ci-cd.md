@@ -168,12 +168,14 @@ them back out so they don't get mistaken for a real site.
 
 | Pipeline | Safari support |
 |---|---|
-| GitHub Actions | Runs automatically on every push (`test-safari` job, `macos-latest`), plus on-demand via manual `workflow_dispatch` with `run_safari` checked |
+| GitHub Actions | Folded into the `test` job's own browser matrix (shows as `test (demoqa, safari)` / `test (saucedemo, safari)` in the run graph, `macos-latest`) — runs automatically on every push, plus on-demand via manual `workflow_dispatch` with `run_safari` checked |
 | Jenkins | Not supported — no macOS agent |
 | GitLab CI | Not supported — no macOS runner |
 
-GitHub Actions' `test-safari` job enables `safaridriver`, matrixes over
-site (demoqa, saucedemo), and passes `-Dbrowser=safari` with **no**
+Safari isn't a separate job — it's a fourth `matrix.browser` leg of the
+`test` job, distinguished by `matrix.os: macos-latest` (every other
+browser gets `ubuntu-latest`). That leg enables `safaridriver`, matrixes
+over site (demoqa, saucedemo), and passes `-Dbrowser=safari` with **no**
 `-Dheadless` flag — Safari has no headless mode, and `DriverFactory`
 already warns and continues if one reaches it anyway. Results land
 alongside every other browser's in the same merged Allure/Extent report,
@@ -201,18 +203,15 @@ checkstyle                  → mvn checkstyle:check@checkstyle-check, parallel 
                               mobile-test — a violation fails this job (surfaced on PRs via
                               the pr-comment job below), doesn't block the test matrix
 test                        → matrix job: site (demoqa, saucedemo) x browser (chrome,
-                              firefox, edge) = 6 parallel instances on every push/PR/
-                              schedule run, or just the one browser picked via
-                              workflow_dispatch. Installs the matching browser if missing,
-                              runs the suite headless, uploads Allure results + Extent/
-                              screenshots/surefire + (chrome leg only) jacoco.exec as
-                              artifacts
-test-safari                  → runs automatically on every push (also runnable on-demand
-                              via manual workflow_dispatch with run_safari checked — see
-                              🧭 Safari above), macos-latest runner — matrix over site
-                              (demoqa, saucedemo), enables safaridriver, runs the dedicated
-                              <site>-safari-<suite>.xml suite, uploads results under a
-                              <site>-safari results directory
+                              firefox, edge, + safari on push) = 8 parallel instances on
+                              a push run (6 on PR/schedule, which exclude safari), or just
+                              the one browser picked via workflow_dispatch (plus safari too
+                              if run_safari is checked). Installs the matching browser if
+                              missing, runs the suite headless (except the safari leg,
+                              which has no headless mode and runs on its own macos-latest
+                              runner — see 🧭 Safari above), uploads Allure results +
+                              Extent/screenshots/surefire + (chrome leg only) jacoco.exec
+                              as artifacts
 mobile-test                 → separate job: enables KVM, installs Appium + uiautomator2,
                               starts Appium, boots an Android emulator via
                               reactivecircus/android-emulator-runner, and runs the mobile
@@ -251,8 +250,9 @@ allure-report                → downloads this run's Allure results (all sites 
 | `run_safari` | boolean | false |
 
 > [!TIP]
-> `test-safari` already runs on every push automatically — see
-> [🧭 Safari](#-safari). The `run_safari` input only matters for a manual
+> Safari (as a `test` job matrix leg) already runs on every push
+> automatically — see [🧭 Safari](#-safari). The `run_safari` input only
+> matters for a manual
 > `workflow_dispatch` run (e.g. re-running Safari alone against a specific
 > branch without pushing).
 

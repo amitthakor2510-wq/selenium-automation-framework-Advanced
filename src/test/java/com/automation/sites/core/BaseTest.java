@@ -4,10 +4,12 @@ import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.core.report.AllureEnvironmentWriter;
+import com.automation.core.report.ExtentManager;
 import com.automation.core.utils.HumanActions;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.MDC;
+import org.testng.ITestContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
@@ -47,7 +49,7 @@ public class BaseTest implements DriverProvider {
     protected static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp(Method testMethod) {
+    public void setUp(Method testMethod, ITestContext context) {
         // Tags every SLF4J log line this thread emits from here on —
         // including DriverFactory.createDriver() below — with the test
         // that's about to run, via the same "ClassName#methodName" MDC key
@@ -79,6 +81,34 @@ public class BaseTest implements DriverProvider {
         // it from here instead; writeOnce()'s internal guard keeps this
         // cheap even though it now runs before every test method.
         AllureEnvironmentWriter.writeOnce();
+
+        // BUG FIX: same root cause as the AllureEnvironmentWriter fix just
+        // above, for a completely different symptom. ExtentManager's own
+        // javadoc says setActiveSuiteName() is "Set once via
+        // TestListener.onStart(ITestContext)" — but per this method's
+        // comment above, that <test>-level callback never actually fires
+        // for a listener registered via class-level @Listeners. There was
+        // no compile error and no runtime warning: setActiveSuiteName()
+        // was simply never called, ever, so ExtentManager's activeSuiteName
+        // field stayed null for the life of every JVM. That collapsed
+        // suiteSlug() to the same literal fallback ("suite") regardless of
+        // whether smoke/regression/accessibility/visual was actually
+        // running, which in turn collapsed ExtentManager's per-suite
+        // INSTANCES map key and reportPath down to one shared bucket per
+        // site+browser. Concretely: run two different suite types
+        // back-to-back against the same site+browser without `mvn clean`
+        // in between (exactly the "Nightly Extra Coverage" pattern
+        // ExtentManager's own class comment describes) and the second
+        // suite's Extent report silently overwrote the first's at the
+        // identical file path — every screenshot/pass/fail entry from the
+        // first suite's run vanished from the report with no error, which
+        // is indistinguishable from "screenshots don't show up for tests
+        // that actually ran". Calling it here, from @BeforeMethod (which,
+        // like AllureEnvironmentWriter.writeOnce() above, always runs
+        // regardless of listener-discovery timing), actually wires the
+        // suite name through before the first ExtentTest of the suite is
+        // created.
+        ExtentManager.setActiveSuiteName(context.getSuite().getName());
 
         // Only reset if the site actually changed (multi-site runs).
         // For single-site runs (the normal case) ConfigReader stays loaded.

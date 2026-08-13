@@ -30,18 +30,24 @@ public class ExtentManager {
     // <site>-index.html target/extent-reports/<site>-<suite>-index.html`
     // AFTER each run, but that rename target didn't even match this
     // class's actual (browser-inclusive) filename pattern any more, so it
-    // silently no-op'd. Set once via onStart(ITestContext) — TestListener
-    // is registered per-class via @Listeners, and TestNG creates exactly
-    // one JVM per suite XML in this framework's Maven-driven model (see
-    // the Jenkinsfile's "one mvn test per site/suite" comments), so a
-    // plain static field (not ThreadLocal) is correct here even under
-    // parallel="classes"/"methods" — every thread in this JVM is running
-    // the same single suite.
+    // silently no-op'd. Set once per test, from BaseTest.setUp()/
+    // MobileBaseTest.setUp() (NOT from TestListener.onStart(ITestContext)
+    // — that <test>-level callback never fires for a listener registered
+    // via class-level @Listeners, the same dead-code trap documented on
+    // BaseTest.setUp()'s AllureEnvironmentWriter.writeOnce() call; this
+    // class used to rely on onStart() the same way and silently never got
+    // set at all). TestNG creates exactly one JVM per suite XML in this
+    // framework's Maven-driven model (see the Jenkinsfile's "one mvn test
+    // per site/suite" comments), so a plain static field (not ThreadLocal)
+    // is correct here even under parallel="classes"/"methods" — every
+    // thread in this JVM is running the same single suite.
     private static volatile String activeSuiteName;
 
-    /** Called from TestListener.onStart(ITestContext) before any test in
-     *  this suite creates its ExtentTest — must run first so create()
-     *  below can read it. */
+    /** Called from BaseTest.setUp()/MobileBaseTest.setUp() (NOT
+     *  TestListener.onStart(ITestContext) — see the field comment above
+     *  for why that never fires) before any test in this suite creates its
+     *  ExtentTest — must run first so create() below can read it. Cheap
+     *  to call on every test (plain field assignment), so no guard needed. */
     public static void setActiveSuiteName(String suiteName) {
         activeSuiteName = suiteName;
     }

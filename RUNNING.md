@@ -37,6 +37,7 @@ For narrative "why" explanations, see the linked deep-dive docs — this file is
   [`.mvn/wrapper/maven-wrapper.properties`](.mvn/wrapper/maven-wrapper.properties)
   for the pinned version.
 - Chrome/Firefox/Edge installed locally **or** Docker (see below) — you don't need both
+- Safari — macOS only, not covered by the Docker path. One-time `sudo safaridriver --enable`, then see the dedicated example below
 - Docker + Compose plugin — `docker compose version` (only for the Docker path)
 - Node.js + `npm install -g appium` — only for the mobile path
 
@@ -56,6 +57,12 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dtest
 
 # Different browser
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dbrowser=firefox
+
+# Safari (macOS only) — MUST use the dedicated *-safari-*.xml suite file, not
+# the plain one above: Safari allows only one WebDriver session on a machine
+# at a time, so these suites are parallel="none". Run `sudo safaridriver
+# --enable` once first. No -Dheadless — Safari has no headless mode.
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-safari-regression.xml -Dbrowser=safari
 
 # Headless — no visible browser window
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dheadless=true
@@ -229,6 +236,7 @@ Three pipelines are included and runnable as-is — Jenkins, GitHub Actions, Git
 | Fastest local sanity check | `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml` |
 | Full local regression | `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml` |
 | One test class | `mvn test -Dtest=ButtonsTest` |
+| Safari (macOS only) | `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-safari-regression.xml -Dbrowser=safari` |
 | No local browser install | `docker compose up -d selenium-hub chrome firefox edge && docker compose run --rm tests` |
 | Watch tests live in Docker | `docker compose run --rm -e HEADLESS=false tests` then open `localhost:7900` |
 | Keyword-driven | `mvn test -Dtest=KeywordDrivenTextBoxTest` |

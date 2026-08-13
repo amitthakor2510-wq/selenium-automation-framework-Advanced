@@ -138,7 +138,7 @@ mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-safari-regressi
 > [!CAUTION]
 > Downloaded files land in the signed-in user's real `~/Downloads` — there's no per-session download-directory isolation the way `DriverFactory.getDownloadPath()` gives Chrome/Brave/Edge, so `UploadDownloadTest`-style assertions on a specific download path aren't portable to Safari as-is.
 
-**CI:** Safari is opt-in and runs on a separate macOS agent/runner in all three pipelines — see [🧭 Safari](ci-cd.md#-safari) in the CI/CD guide.
+**CI:** Safari is opt-in and runs on a separate macOS agent/runner in the GitHub Actions pipeline only — Jenkins and GitLab CI don't run it (no macOS agent/runner registered in either) — see [🧭 Safari](ci-cd.md#-safari) in the CI/CD guide.
 
 <div align="center">
 

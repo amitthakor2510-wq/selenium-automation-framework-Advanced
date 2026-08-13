@@ -3,9 +3,11 @@ package com.automation.mobile.core;
 import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
+import com.automation.core.report.ExtentManager;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.MDC;
+import org.testng.ITestContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
@@ -40,7 +42,7 @@ public class MobileBaseTest implements DriverProvider {
     protected static final ThreadLocal<RemoteWebDriver> driver = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp(Method testMethod) {
+    public void setUp(Method testMethod, ITestContext context) {
         // Same reasoning as BaseTest.setUp(Method): tags AppiumDriverFactory's
         // driver-creation logging below with the upcoming test's name via
         // TestNG's @BeforeMethod(Method) injection, closing the same
@@ -55,6 +57,15 @@ public class MobileBaseTest implements DriverProvider {
         // empty without this redundant call. writeOnce()'s internal guard
         // keeps this cheap even though it now runs before every test method.
         AllureEnvironmentWriter.writeOnce();
+
+        // BUG FIX: same dead-listener root cause, same fix, as
+        // BaseTest.setUp()'s identical block — see that comment for the
+        // full explanation. ExtentManager.setActiveSuiteName() was never
+        // called anywhere in the codebase (mobile or web), so every
+        // mobile-smoke/mobile-regression Extent report also collapsed onto
+        // the same "suite"-slugged file, silently overwriting each other's
+        // screenshots across back-to-back runs in one JVM.
+        ExtentManager.setActiveSuiteName(context.getSuite().getName());
 
         String currentSite = ConfigReader.getActiveSite();
         String requestedSite = System.getProperty("site", "mobile");
