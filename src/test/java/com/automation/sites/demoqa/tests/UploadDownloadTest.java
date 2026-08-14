@@ -7,6 +7,7 @@ import com.automation.core.driver.DriverFactory;
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.UploadDownloadPage;
 import org.testng.Assert;
+import org.testng.ITestContext;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -26,8 +27,8 @@ public class UploadDownloadTest extends BaseTest {
 
     @Override
     @BeforeMethod(alwaysRun = true)
-    public void setUp(Method testMethod) {
-        super.setUp(testMethod);
+    public void setUp(Method testMethod, ITestContext context) {
+        super.setUp(testMethod, context);
         prepareFiles();
     }
 

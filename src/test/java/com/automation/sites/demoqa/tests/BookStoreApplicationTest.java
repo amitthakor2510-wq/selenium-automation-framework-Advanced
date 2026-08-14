@@ -12,6 +12,8 @@ import com.automation.sites.demoqa.pages.RegistrationPage;
 import org.testng.Assert;
 import org.testng.annotations.*;
 
+import org.testng.ITestContext;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -113,7 +115,7 @@ public class BookStoreApplicationTest extends BaseTest {
     // Suppress per-method driver creation — this class owns the session
     @Override
     @BeforeMethod(alwaysRun = true)
-    public void setUp(java.lang.reflect.Method testMethod) { /* intentionally blank */ }
+    public void setUp(java.lang.reflect.Method testMethod, ITestContext context) { /* intentionally blank */ }
 
     @Override
     @AfterMethod(alwaysRun = true)

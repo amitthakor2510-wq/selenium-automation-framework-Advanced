@@ -137,8 +137,17 @@
          secret is actually set) and a per-leg -Dreportportal.attributes=...
          — see github-ci.yml. -->
     <reportportal.enable>false</reportportal.enable>
-    <reportportal.endpoint></reportportal.endpoint>
-    <reportportal.project></reportportal.project>
+    <!-- Local dev defaults — this local instance's actual project key is
+         "superadmin_personal" (its auto-created personal project), not the
+         repo/display name; confirmed via GET /api/v1/project/{key} returning
+         404 until this was corrected. CI still overrides both per-run via
+         -Dreportportal.endpoint=.../-Dreportportal.project=... sourced from
+         each pipeline's own secret/variable (see github-ci.yml/.gitlab-ci.yml/
+         Jenkinsfile), so this default only matters for local `mvn test
+         -Preportportal ...` runs, letting RP_API_KEY (env-var-only, see
+         reportportal.properties) be the only thing still supplied by hand. -->
+    <reportportal.endpoint>http://localhost:8888</reportportal.endpoint>
+    <reportportal.project>superadmin_personal</reportportal.project>
     <reportportal.launch>Selenium Automation Framework</reportportal.launch>
     <reportportal.attributes></reportportal.attributes>
 
@@ -429,11 +438,22 @@
       <version>5.9</version>
     </dependency>
 
-    <!-- JSON -->
+    <!-- JSON — pinned as a DIRECT dependency (used by JsonDataFileReader and
+         LocatorRepository in src/main), which is exactly why this version
+         matters: Maven always lets a direct dependency win over a transitive
+         one, no matter how deep. agent-java-testng:5.6.5 pulls in ReportPortal's
+         client-java, whose Retrofit/Jackson converter requires jackson-databind
+         2.21.1+ — the old 2.17.1 pin here was silently overriding that and
+         breaking ReportPortalTestNGListener's construction (client init fails
+         inside the constructor, surfacing as TestNG's opaque "could not be
+         instantiated" ServiceLoader error, with no cause in the dumpstream).
+         Bumped well above 2.21.1 for headroom; Jackson 2.x keeps strong
+         backward source compatibility, so this shouldn't affect existing
+         ObjectMapper usage in this project. -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.17.1</version>
+      <version>2.22.1</version>
     </dependency>
 
     <!-- YAML (DDT data files) -->

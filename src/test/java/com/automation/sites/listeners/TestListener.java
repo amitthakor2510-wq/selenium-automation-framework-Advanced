@@ -12,6 +12,7 @@ import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.epam.reportportal.message.ReportPortalMessage;
 import com.epam.reportportal.service.ReportPortal;
+import com.epam.reportportal.utils.files.ByteSource;
 import io.qameta.allure.Allure;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
@@ -390,9 +391,12 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
             return;
         }
         try {
+            // client-java 5.x's ReportPortalMessage takes the agent's own
+            // ByteSource type (com.epam.reportportal.utils.files.ByteSource),
+            // not a raw InputStream — ByteSource.wrap() is the byte[] factory.
             ReportPortal.emitLog(
                 new ReportPortalMessage(
-                    new java.io.ByteArrayInputStream(screenshotBytes), "image/png", label),
+                    ByteSource.wrap(screenshotBytes), "image/png", label),
                 "INFO",
                 java.util.Calendar.getInstance().getTime()
             );
@@ -406,8 +410,13 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
             return;
         }
         try {
+            // Same ByteSource requirement as the screenshot path above —
+            // read the file into memory and wrap it rather than depending on
+            // the agent's internal com.epam.reportportal.utils.files.Utils
+            // helper, which isn't part of the documented public API.
+            byte[] videoBytes = java.nio.file.Files.readAllBytes(video.toPath());
             ReportPortal.emitLog(
-                new ReportPortalMessage(video, "video/avi", label),
+                new ReportPortalMessage(ByteSource.wrap(videoBytes), "video/avi", label),
                 "INFO",
                 java.util.Calendar.getInstance().getTime()
             );

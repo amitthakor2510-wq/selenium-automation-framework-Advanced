@@ -71,6 +71,16 @@ self-healing-data/
 cmdline-tools.zip
 # emulator.log / appium.log already caught by the *.log rule above.
 
+### ReportPortal client-java launch synchronization files ###
+# Created at the project root (not under target/) by the ReportPortal
+# TestNG agent itself whenever reportportal.enable=true and the run's
+# parallel forks/threads need to coordinate onto one shared Launch ID —
+# reportportal.sync holds that ID, reportportal.lock is the file lock used
+# while handing it off. Purely a runtime byproduct of a live RP run, never
+# meant to be committed.
+reportportal.lock
+reportportal.sync
+
 ### Allure CLI / report output generated OUTSIDE target/ ###
 # Jenkins' Allure plugin writes its generated report to <workspace>/allure-report
 # (not target/allure-report — see Jenkinsfile's `allure([...])` post step), and
