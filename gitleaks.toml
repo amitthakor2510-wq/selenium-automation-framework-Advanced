@@ -1,0 +1,15 @@
+title = "gitleaks config — selenium-automation-framework"
+
+# Extend the default gitleaks ruleset rather than replacing it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret test fixtures for demoqa's public Book Store demo"
+regexes = [
+  '''Password123!@''',
+]
+paths = [
+  '''src/test/java/com/automation/sites/demoqa/tests/BookStoreApplicationTest\.java''',
+  '''src/test/java/com/automation/sites/demoqa/tests/BookStoreApiTest\.java''',
+]

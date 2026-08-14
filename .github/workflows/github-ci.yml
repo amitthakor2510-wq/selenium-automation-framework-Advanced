@@ -109,7 +109,12 @@ env:
   # `vars`) purely so a self-hosted RP server's URL isn't exposed in a
   # public repo's logs; neither is actually sensitive the way the API key
   # is.
-  REPORTPORTAL_ENABLE: ${{ secrets.RP_API_KEY != '' && 'true' || 'false' }}
+  # Requires RP_ENDPOINT to also be set, not just RP_API_KEY — an API key
+  # alone with no endpoint previously fell back to the ReportPortal client's
+  # own default (localhost:8888), which a GitHub-hosted runner can never
+  # reach, silently failing every job. See RP_PROJECT too if you also want
+  # to require that before enabling.
+  REPORTPORTAL_ENABLE: ${{ secrets.RP_API_KEY != '' && secrets.RP_ENDPOINT != '' && 'true' || 'false' }}
   # No MAVEN_OPTS override for maven.repo.local here — every job below uses
   # `cache: 'maven'` on actions/setup-java@v5, which caches Maven's DEFAULT
   # local repo (~/.m2/repository). A previous version of this workflow

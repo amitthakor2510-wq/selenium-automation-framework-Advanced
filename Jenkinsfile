@@ -1514,12 +1514,12 @@ pipeline {
                     // ── Segmented Allure reports (by browser/site-app/test-type/category) ──
                     // Real, separate report.html outputs — not just filter chips
                     // inside the one combined view the allure() step above
-                    // renders. See Scripts/generate_segmented_reports.py's
+                    // renders. See .github/workflows/scripts/generate_segmented_reports.py's
                     // docstring for why. --skip-combined since the allure()
                     // step above already gives a combined view (via Jenkins'
                     // own plugin rather than the CLI, but no need to also
                     // generate a redundant static target/allure-report/).
-                    sh 'python3 Scripts/generate_segmented_reports.py --results-dir target/allure-results --skip-combined || true'
+                    sh 'python3 .github/workflows/scripts/generate_segmented_reports.py --results-dir target/allure-results --skip-combined || true'
                     // This also writes target/report-index.html — a single self-
                     // contained page linking every report this run produced
                     // (combined + every segment + every nested Extent report),
