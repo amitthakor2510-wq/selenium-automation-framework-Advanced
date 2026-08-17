@@ -11,10 +11,10 @@
   {
     "dimension": "browser",
     "dimensionLabel": "By Browser",
-    "value": "chrome",
-    "slug": "chrome",
-    "count": 142,
-    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
+    "value": "edge",
+    "slug": "edge",
+    "count": 139,
+    "reportPath": "target/allure-segmented/browser/edge/report/index.html",
     "generated": false
   },
   {
@@ -29,19 +29,28 @@
   {
     "dimension": "category",
     "dimensionLabel": "By Category",
-    "value": "data-driven",
-    "slug": "data-driven",
-    "count": 45,
-    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
+    "value": "regression",
+    "slug": "regression",
+    "count": 419,
+    "reportPath": "target/allure-segmented/category/regression/report/index.html",
     "generated": false
   },
   {
     "dimension": "category",
     "dimensionLabel": "By Category",
-    "value": "regression",
-    "slug": "regression",
-    "count": 419,
-    "reportPath": "target/allure-segmented/category/regression/report/index.html",
+    "value": "keyboard-driven",
+    "slug": "keyboard-driven",
+    "count": 6,
+    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyword-driven",
+    "slug": "keyword-driven",
+    "count": 15,
+    "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
     "generated": false
   },
   {
@@ -54,21 +63,21 @@
     "generated": false
   },
   {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "edge",
-    "slug": "edge",
-    "count": 139,
-    "reportPath": "target/allure-segmented/browser/edge/report/index.html",
-    "generated": false
-  },
-  {
     "dimension": "site",
     "dimensionLabel": "By Site / App",
     "value": "demoqa",
     "slug": "demoqa",
     "count": 363,
     "reportPath": "target/allure-segmented/site/demoqa/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "DemoQA Regression Suite",
+    "slug": "demoqa-regression-suite",
+    "count": 360,
+    "reportPath": "target/allure-segmented/testType/demoqa-regression-suite/report/index.html",
     "generated": false
   },
   {
@@ -81,12 +90,21 @@
     "generated": false
   },
   {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "DemoQA Regression Suite",
-    "slug": "demoqa-regression-suite",
-    "count": 360,
-    "reportPath": "target/allure-segmented/testType/demoqa-regression-suite/report/index.html",
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "chrome",
+    "slug": "chrome",
+    "count": 142,
+    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "data-driven",
+    "slug": "data-driven",
+    "count": 45,
+    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
     "generated": false
   },
   {
@@ -110,64 +128,10 @@
   {
     "dimension": "category",
     "dimensionLabel": "By Category",
-    "value": "keyword-driven",
-    "slug": "keyword-driven",
-    "count": 15,
-    "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
     "value": "api",
     "slug": "api",
     "count": 27,
     "reportPath": "target/allure-segmented/category/api/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "keyboard-driven",
-    "slug": "keyboard-driven",
-    "count": 6,
-    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "site",
-    "dimensionLabel": "By Site / App",
-    "value": "mobile",
-    "slug": "mobile",
-    "count": 2,
-    "reportPath": "target/allure-segmented/site/mobile/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "android",
-    "slug": "android",
-    "count": 2,
-    "reportPath": "target/allure-segmented/browser/android/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "Mobile Regression Suite",
-    "slug": "mobile-regression-suite",
-    "count": 2,
-    "reportPath": "target/allure-segmented/testType/mobile-regression-suite/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "mobile",
-    "slug": "mobile",
-    "count": 2,
-    "reportPath": "target/allure-segmented/category/mobile/report/index.html",
     "generated": false
   },
   {
@@ -204,6 +168,42 @@
     "slug": "uncategorized",
     "count": 3,
     "reportPath": "target/allure-segmented/category/uncategorized/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "mobile",
+    "slug": "mobile",
+    "count": 2,
+    "reportPath": "target/allure-segmented/site/mobile/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "android",
+    "slug": "android",
+    "count": 2,
+    "reportPath": "target/allure-segmented/browser/android/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "Mobile Regression Suite",
+    "slug": "mobile-regression-suite",
+    "count": 2,
+    "reportPath": "target/allure-segmented/testType/mobile-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "mobile",
+    "slug": "mobile",
+    "count": 2,
+    "reportPath": "target/allure-segmented/category/mobile/report/index.html",
     "generated": false
   },
   {
