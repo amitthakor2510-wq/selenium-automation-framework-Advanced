@@ -356,12 +356,40 @@ mobile-test:
   # holding the emulator port and 4723 hostage and breaking every
   # subsequent run. Clear any stragglers before starting, and clean up
   # after regardless of how this job ends.
+  #
+  # ROOT CAUSE FIX (real failure: "error: more than one device/emulator"
+  # right at `adb wait-for-device`, before this run's own emulator had even
+  # finished booting): `pkill -f "emulator.*-avd $ANDROID_AVD_NAME"` alone
+  # only ever matches the short-lived `emulator` launcher process. On
+  # Linux, once that launcher has actually started the AVD it hands off to
+  # (execs into) a `qemu-system-x86_64` process — a DIFFERENT process
+  # name/argv that the "emulator.*-avd" pattern no longer matches at all.
+  # So a prior run that didn't get a clean after_script (a cancelled job, a
+  # runner-host restart mid-run, resource_group only stops a NEW job from
+  # overlapping — it does nothing for a leftover process from a run that's
+  # already dead) leaves that qemu-system-x86_64 process running
+  # indefinitely, invisible to this pkill. The next run's before_script
+  # then "succeeds" at killing nothing, launches its own emulator, and the
+  # freshly-started adb server immediately sees BOTH the stale qemu process
+  # and the new one — any un-scoped `adb` call (wait-for-device included)
+  # then fails outright with "more than one device/emulator" instead of
+  # picking one. This is the identical process-naming gotcha the Jenkins
+  # pipeline's Mobile Test stage already killall's qemu-system-x86_64 for
+  # (see Jenkinsfile's "Killing any orphaned node/adb/qemu/chrome
+  # processes..." step) — that hardening was never ported over here.
+  # Matching it now: kill the real long-running process by name first (-9,
+  # not a bare pkill — the Jenkinsfile fix notes a hung emulator can
+  # outlive a plain SIGTERM), THEN the launcher-process pattern as a
+  # secondary safety net for a run that's still mid-launch.
   before_script:
-    - pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
-    - pkill -f "appium" 2>/dev/null || true
+    - killall -9 qemu-system-x86_64 2>/dev/null || true
+    - sleep 1
+    - pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+    - pkill -9 -f "appium" 2>/dev/null || true
   after_script:
-    - pkill -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
-    - pkill -f "appium" 2>/dev/null || true
+    - killall -9 qemu-system-x86_64 2>/dev/null || true
+    - pkill -9 -f "emulator.*-avd $ANDROID_AVD_NAME" 2>/dev/null || true
+    - pkill -9 -f "appium" 2>/dev/null || true
   script:
     - echo "======= Running Mobile Tests ======="
     # mobile.properties is deliberately gitignored (real local device

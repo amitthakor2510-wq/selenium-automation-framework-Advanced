@@ -270,7 +270,15 @@ jobs:
       - name: Build coverage map for ${{ matrix.site }}
         env:
           HEADLESS: 'true'
-        run: ./Scripts/build-coverage-map.sh "${{ matrix.site }}"
+        # BUG FIX (2026-08-17): invoking this as `./Scripts/build-coverage-map.sh`
+        # failed both site legs with "Permission denied" (exit 126) — the
+        # script's executable bit isn't set in the checked-out tree (a very
+        # common casualty of zip/unzip or some git checkout/clone
+        # configurations, which don't always preserve file mode bits).
+        # `bash Scripts/...` runs the file's contents directly regardless of
+        # its executable bit, so this doesn't depend on that bit being set
+        # correctly in whatever tree checks this out.
+        run: bash Scripts/build-coverage-map.sh "${{ matrix.site }}"
 
       - name: Upload per-site coverage map
         if: always()
@@ -284,11 +292,72 @@ jobs:
           retention-days: 30
 
   # ================================================================
+  # STAGE 1.5 - Compute the test matrix as real JSON data
+  # ================================================================
+  # BUG FIX (2026-08-17): `test` below used to cross-join a static
+  # `site: [demoqa, saucedemo]` with a *dynamically-computed*
+  # `browser: ${{ fromJSON(...) }}` list, then layer `os` on top via
+  # `include:` entries that only specified `browser` + `os` (no `site`).
+  # That pattern merged fine for chrome/firefox/edge (site names showed
+  # up correctly, e.g. "test (demoqa, chrome)") but safari specifically
+  # came back as a single stray job with `site` completely unset —
+  # `mvn test -Dsite= -DsuiteXmlFile=testng-suites/-safari-regression.xml`
+  # failed immediately with "Suite file .../-safari-regression.xml is not
+  # a valid file". GitHub's include-matching rules for a dynamically
+  # generated matrix key evidently don't behave symmetrically across
+  # every value in that key's list. Rather than chase GitHub's exact
+  # internal quirk, this job builds the complete, unambiguous list of
+  # {site, browser, os} objects as plain JSON up front — no
+  # cross-product, no partial-key include matching, nothing left for
+  # GitHub to mis-merge. `test` below just consumes it via
+  # `fromJSON(needs.matrix-setup.outputs.matrix)`.
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
+    steps:
+      - name: Build test matrix JSON
+        id: build
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_BROWSER: ${{ inputs.browser }}
+          RUN_SAFARI: ${{ inputs.run_safari }}
+        # Every line of the embedded python script below is indented to
+        # match this step's own YAML block-scalar base indentation
+        # (10 spaces) — a zero-indented python block nested in here
+        # previously broke the YAML parser itself (lines starting at
+        # column 0 read as less-indented than the block's own base
+        # indentation, which silently ends the `run: |` block scalar
+        # early and corrupts the rest of the workflow file). Python
+        # itself doesn't care about this uniform extra indentation — it
+        # only tracks indentation *changes* between lines, and every
+        # line here shares the same 10-space base, so the if/elif/else
+        # body's one extra indent level below is still the only
+        # indentation Python actually sees.
+        run: |
+          python3 -c "
+          import json, os
+          sites = ['demoqa', 'saucedemo']
+          event = os.environ.get('EVENT_NAME', '')
+          dispatch_browser = os.environ.get('DISPATCH_BROWSER', '') or 'chrome'
+          run_safari = os.environ.get('RUN_SAFARI', '') == 'true'
+          if event == 'workflow_dispatch':
+              browsers = [dispatch_browser] + (['safari'] if run_safari else [])
+          elif event == 'push':
+              browsers = ['chrome', 'firefox', 'edge', 'safari']
+          else:
+              browsers = ['chrome', 'firefox', 'edge']
+          os_for_browser = {'safari': 'macos-latest'}
+          combos = [{'site': s, 'browser': b, 'os': os_for_browser.get(b, 'ubuntu-latest')} for s in sites for b in browsers]
+          print('matrix=' + json.dumps({'include': combos}))
+          " >> "$GITHUB_OUTPUT"
+
+  # ================================================================
   # STAGE 2 - Test (one matrix job per site x browser, running in
   # parallel — including Safari, see matrix.os below)
   # ================================================================
   test:
-    needs: build
+    needs: [ build, matrix-setup ]
     # runs-on is now driven by matrix.os instead of being hardcoded to
     # ubuntu-latest. Safari has no Linux build at all (safaridriver ships
     # inside macOS itself) — it used to be its own separate `test-safari`
@@ -319,61 +388,12 @@ jobs:
       # resolves differently under Marionette or Chromium-Edge's CDP
       # implementation) had no way to surface on a normal push/PR; someone
       # had to remember to manually dispatch with browser=firefox first.
-      # `include` cross-joins every site with every browser (4 browsers x
-      # 2 sites = 8 jobs, including safari) rather than a flat
-      # matrix.browser list, which would otherwise still need matrix.site
-      # cross-joined automatically — same result, `include` just makes the
-      # resulting parallel job count explicit and easy to reason about at
-      # a glance, and lets safari carry its own `os: macos-latest` (every
-      # other browser gets `os: ubuntu-latest`) alongside it. On a manual
-      # workflow_dispatch run where the browser input is set, only that
-      # one browser runs (matches the existing single-browser dispatch
-      # behavior instead of always fanning out to all four regardless of
-      # what was asked for) — safari only joins that single-browser list
-      # when the run_safari input is also ticked, since it costs several
-      # times the per-minute rate of the ubuntu-latest legs.
-      matrix:
-        site: [ demoqa, saucedemo ]
-        # Safari is folded directly into the generated browser list instead
-        # of being filtered out afterwards with a job-level `if:` — GitHub
-        # Actions does NOT expose the `matrix` context to a job-level `if:`
-        # condition (it's only available in `runs-on`, `steps.if`, etc.), so
-        # the previous `if: matrix.browser != 'safari' || ...` below failed
-        # workflow validation outright ("Unrecognized named-value: 'matrix'"
-        # at Line 218) and the whole pipeline couldn't even start. Baking
-        # the same push/dispatch+run_safari condition into which JSON array
-        # gets generated keeps the identical intent — safari only shows up
-        # as a matrix combination when it should run at all, so there's
-        # nothing left to filter with a job-level `if:`.
-        #   - push                        -> chrome, firefox, edge, safari
-        #   - pull_request / schedule     -> chrome, firefox, edge (no safari)
-        #   - workflow_dispatch           -> just the selected browser, plus
-        #                                    safari too if run_safari is
-        #                                    ticked (the dispatch `browser`
-        #                                    input's own options list is
-        #                                    chrome/firefox/edge only, so it
-        #                                    can never BE safari itself —
-        #                                    run_safari is the only way to
-        #                                    add it on a manual run)
-        browser: ${{ fromJSON(github.event_name == 'workflow_dispatch' && ((inputs.run_safari == true && format('["{0}","safari"]', inputs.browser)) || format('["{0}"]', inputs.browser)) || (github.event_name == 'push' && '["chrome","firefox","edge","safari"]') || '["chrome","firefox","edge"]') }}
-        # `include` here isn't adding a new combination — every browser
-        # value already exists from the site x browser cross product
-        # above. It matches by shared key (browser) and layers `os` on top
-        # of every combination with that browser, regardless of site — so
-        # this doesn't need its own `site:` entries. Safari's `os:
-        # macos-latest` is what actually runs it on a different runner
-        # than the other three; it's simply absent from every combination
-        # above (and this `include` list has nothing to match) whenever the
-        # browser array above didn't generate a "safari" entry.
-        include:
-          - browser: chrome
-            os: ubuntu-latest
-          - browser: firefox
-            os: ubuntu-latest
-          - browser: edge
-            os: ubuntu-latest
-          - browser: safari
-            os: macos-latest
+      # The full {site, browser, os} combination list is computed as real
+      # JSON by matrix-setup above (see that job's comment for why) and
+      # consumed here as-is — every entry is already a fully-specified
+      # triple, so there's no cross-product or include-merging left for
+      # GitHub to get ambiguous about.
+      matrix: ${{ fromJSON(needs.matrix-setup.outputs.matrix) }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

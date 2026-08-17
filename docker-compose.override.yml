@@ -1,0 +1,57 @@
+# docker-compose.override.yml
+#
+# WHY THIS FILE EXISTS: this shared box already runs a standing, admin-
+# provisioned Selenium Grid (java -jar /opt/selenium/selenium-server.jar,
+# UID 1200) bound to host port 4444 — confirmed via `lsof -i :4444` and
+# `ps -fp <pid>`. It's a long-lived service with active sessions, not a
+# leftover process, so it should not be killed or reused for this repo's
+# own docker-compose-based Grid.
+#
+# This override remaps ONLY the host-side published port for selenium-hub.
+# It does not touch the container's internal port (still 4444), so
+# service-to-service traffic inside the Docker network — e.g.
+# GRID_URL=http://selenium-hub:4444/wd/hub used by the chrome/firefox/edge
+# nodes and by the `tests` service — is completely unaffected. Only the
+# *host* URL changes: browse to http://localhost:4445/ui instead of
+# http://localhost:4444/ui when watching the grid locally on this box.
+#
+# docker compose automatically merges this file with docker-compose.yml
+# when present in the same directory — no extra flags needed, just run
+# `docker compose up -d` as usual.
+#
+# UPDATE: the standing Grid on this box holds the full standard Selenium
+# Grid port range, not just 4444 — 4442 (event bus publish) and 4443
+# (event bus subscribe) are also published by the `selenium/hub` image
+# alongside 4444 (router/API), and this box's standing service occupies
+# all three. Remapping only 4444 surfaced the same conflict on 4442/4443
+# on the next `docker compose up`, so all three are remapped here to a
+# contiguous 4452/4453/4454 block that's clear of both the standing
+# Grid's 4442-4444 and anything else already probed on this box.
+#
+# Internal container-to-container traffic is unaffected either way —
+# nodes reach the hub via the Docker network's service name and the
+# container's *internal* ports (still 4442/4443/4444), never through
+# these host-side mappings. Only the host-facing URLs change: the grid
+# UI moves to http://localhost:4454/ui instead of :4444/ui.
+#
+# This file is intentionally NOT meant to be relied on by other boxes/CI
+# runners that don't have a competing service on these ports — keep it
+# local to this machine (e.g. gitignored) rather than committing it,
+# since other developers' machines likely don't have this conflict.
+
+# FIX: Compose merges list-type fields (ports, volumes, etc.) across
+# files by APPENDING, not replacing, by default. Without the !reset tag
+# below, this override's ports list was being added ALONGSIDE the base
+# file's original "4442:4442"/"4443:4443"/"4444:4444" entries rather than
+# replacing them — so Docker still tried to bind the original (conflicting)
+# ports even with this file correctly loaded and merged. The !reset tag
+# (Compose Specification's merge-and-override syntax) discards the base
+# file's value for this field first, so only the remapped ports below
+# actually get applied.
+
+services:
+  selenium-hub:
+    ports: !reset
+      - "4452:4442"
+      - "4453:4443"
+      - "4454:4444"

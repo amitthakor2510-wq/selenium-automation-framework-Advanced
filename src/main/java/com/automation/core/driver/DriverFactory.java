@@ -462,9 +462,35 @@ public final class DriverFactory {
         // instead of a bind failure, so it gets the same retry-with-jitter
         // treatment rather than being treated as a distinct, non-retryable
         // failure mode.
+        //
+        // ROOT CAUSE FIX (found reviewing a "Chrome instance exited" build
+        // log): this method used to ALSO match plain
+        // "could not start a new session" — but that string is not a
+        // symptom of anything in particular, it's Selenium's own generic
+        // SessionNotCreatedException wrapper text
+        // ("Could not start a new session. Response code %s. Message:
+        // %s"), present verbatim on the OUTER exception of every single
+        // Chrome/Edge/Brave launch failure regardless of cause. Since
+        // isPortAllocationRace() checks e.getMessage() at the top of the
+        // cause chain first, that one clause alone made this method return
+        // true for 100% of SessionNotCreatedExceptions — a bad
+        // --start-maximized launch on a display-less runner, a corrupted
+        // profile dir, a chromedriver/Chrome version mismatch, an OOM
+        // kill — every one of them got misdiagnosed as a "port allocation
+        // race", burned the full 12-attempt/jitter budget for nothing
+        // (~10s+ wasted per failing test, no less flaky for it), and then
+        // surfaced createWithPortConflictRetry's port-specific error
+        // message and "lower the parallel thread-count" advice, which is
+        // actively misleading for a failure that was never about ports or
+        // concurrency at all. Removed; "chrome not reachable" and "driver
+        // server process died prematurely" are the only patterns that were
+        // ever actually confirmed (via isolated single-cause testing) to
+        // correlate with the free-port TOCTOU race, so those are the only
+        // ones left here. A genuinely non-retryable launch failure now
+        // propagates on the FIRST attempt with its real message intact,
+        // instead of being disguised as a port race for 12 attempts.
         return lower.contains("driver server process died prematurely")
-            || lower.contains("chrome not reachable")
-            || lower.contains("could not start a new session");
+            || lower.contains("chrome not reachable");
     }
 
     // ── Chrome ────────────────────────────────────────────────────────────────
