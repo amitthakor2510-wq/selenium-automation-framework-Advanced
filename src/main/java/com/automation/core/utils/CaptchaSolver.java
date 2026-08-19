@@ -24,7 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -403,7 +405,10 @@ public class CaptchaSolver {
      * convention so width()/height() need no +1 correction.
      */
     private static final class Segment {
-        final int x0, y0, x1, y1;
+        final int x0;
+        final int y0;
+        final int x1;
+        final int y1;
 
         Segment(int x0, int y0, int x1, int y1) {
             this.x0 = x0;
@@ -987,7 +992,9 @@ public class CaptchaSolver {
             int w = processed.getWidth();
             int h = processed.getHeight();
             int sliceWidth = w / length;
-            if (sliceWidth <= 0) return null;
+            if (sliceWidth <= 0) {
+                return null;
+            }
 
             StringBuilder text = new StringBuilder();
             List<Double> confidences = new ArrayList<>();
@@ -1042,12 +1049,18 @@ public class CaptchaSolver {
 
         List<CharGuess> candidates = new ArrayList<>();
         CharGuess full = ocrSingleChar(upscaled, textCaptchaCharset);
-        if (full != null) candidates.add(full);
+        if (full != null) {
+            candidates.add(full);
+        }
         CharGuess digitOnly = ocrSingleChar(upscaled, "0123456789");
-        if (digitOnly != null) candidates.add(digitOnly);
+        if (digitOnly != null) {
+            candidates.add(digitOnly);
+        }
         CharGuess letterOnly = ocrSingleChar(upscaled,
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-        if (letterOnly != null) candidates.add(letterOnly);
+        if (letterOnly != null) {
+            candidates.add(letterOnly);
+        }
 
         if (candidates.isEmpty()) {
             return null;
@@ -1161,7 +1174,10 @@ public class CaptchaSolver {
                     visited[x][y] = true;
                     continue;
                 }
-                int minX = x, maxX = x, minY = y, maxY = y;
+                int minX = x;
+                int maxX = x;
+                int minY = y;
+                int maxY = y;
                 visited[x][y] = true;
                 stack.push(new int[]{x, y});
                 while (!stack.isEmpty()) {
@@ -2166,8 +2182,12 @@ public class CaptchaSolver {
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
                 int v = gray.getRGB(x, y) & 0xFF;
-                if (v < min) min = v;
-                if (v > max) max = v;
+                if (v < min) {
+                    min = v;
+                }
+                if (v > max) {
+                    max = v;
+                }
             }
         }
         if (max <= min) {
@@ -2277,15 +2297,21 @@ public class CaptchaSolver {
         for (int y = 0; y < h; y++) {
             int count = 0;
             for (int x = 0; x < w; x++) {
-                if (isInk(img, x, y)) count++;
+                if (isInk(img, x, y)) {
+                    count++;
+                }
             }
             rowInk[y] = count;
         }
         double mean = 0;
-        for (int v : rowInk) mean += v;
+        for (int v : rowInk) {
+            mean += v;
+        }
         mean /= h;
         double variance = 0;
-        for (int v : rowInk) variance += (v - mean) * (v - mean);
+        for (int v : rowInk) {
+            variance += (v - mean) * (v - mean);
+        }
         return variance / h;
     }
 
@@ -2365,7 +2391,9 @@ public class CaptchaSolver {
 
         int total = w * h;
         double sumAll = 0;
-        for (int i = 0; i < 256; i++) sumAll += i * (long) histogram[i];
+        for (int i = 0; i < 256; i++) {
+            sumAll += i * (long) histogram[i];
+        }
 
         double sumBackground = 0;
         int weightBackground = 0;
@@ -2374,10 +2402,14 @@ public class CaptchaSolver {
 
         for (int t = 0; t < 256; t++) {
             weightBackground += histogram[t];
-            if (weightBackground == 0) continue;
+            if (weightBackground == 0) {
+                continue;
+            }
 
             int weightForeground = total - weightBackground;
-            if (weightForeground == 0) break;
+            if (weightForeground == 0) {
+                break;
+            }
 
             sumBackground += t * (long) histogram[t];
 
@@ -2411,7 +2443,9 @@ public class CaptchaSolver {
      * symbols added via captcha.text.charset survive cleaning too.
      */
     private String cleanOCRText(String raw) {
-        if (raw == null) return "";
+        if (raw == null) {
+            return "";
+        }
         StringBuilder cleaned = new StringBuilder();
         for (char c : raw.trim().toCharArray()) {
             if (textCaptchaCharset.indexOf(c) >= 0) {

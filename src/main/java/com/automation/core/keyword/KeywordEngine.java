@@ -76,7 +76,10 @@ public class KeywordEngine {
 
     private void execute(KeywordStep step) {
         switch (step.getKeyword()) {
-            case NAVIGATE -> { navigate(step.getTestData()); autoHandleCaptcha(); }
+            case NAVIGATE -> {
+                navigate(step.getTestData());
+                autoHandleCaptcha();
+            }
             case CLICK -> HumanActions.click(driver, locator(step));
             case TYPE -> HumanActions.type(driver, locator(step), step.getTestData());
             case SET_TEXT -> setText(locator(step), step.getTestData());
