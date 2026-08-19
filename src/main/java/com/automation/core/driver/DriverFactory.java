@@ -93,8 +93,14 @@ public final class DriverFactory {
     private static FirefoxOptions buildFirefoxRemoteOptions(boolean headless) {
         FirefoxOptions ffOptions = new FirefoxOptions();
         ffOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+        // ROOT CAUSE FIX (noVNC :7901 showing nothing): same reasoning as
+        // buildChromeOptions()'s forRemote branch — selenium/node-firefox
+        // already runs its own Xvfb + noVNC, and "-headless" here would
+        // render nothing into it. Ignore the flag for Grid sessions.
         if (headless) {
-            ffOptions.addArguments("-headless");
+            logger.warn("[DriverFactory] headless=true was requested for a Grid (remote) firefox "
+                + "session — ignoring it and launching a normal windowed session instead, so the "
+                + "node's noVNC viewer (:7901) actually shows the browser.");
         }
         return ffOptions;
     }
@@ -108,8 +114,14 @@ public final class DriverFactory {
     private static EdgeOptions buildEdgeRemoteOptions(boolean headless) {
         EdgeOptions edgeOptions = new EdgeOptions();
         edgeOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+        // ROOT CAUSE FIX (noVNC :7902 showing nothing): same reasoning as
+        // buildChromeOptions()'s forRemote branch — selenium/node-edge
+        // already runs its own Xvfb + noVNC, and --headless=new here would
+        // render nothing into it. Ignore the flag for Grid sessions.
         if (headless) {
-            edgeOptions.addArguments("--headless=new");
+            logger.warn("[DriverFactory] headless=true was requested for a Grid (remote) edge "
+                + "session — ignoring it and launching a normal windowed session instead, so the "
+                + "node's noVNC viewer (:7902) actually shows the browser.");
         }
         return edgeOptions;
     }
@@ -161,7 +173,26 @@ public final class DriverFactory {
                 // --user-data-dir pointing at a path on THIS host would be
                 // meaningless (and simply wouldn't exist) inside the Grid
                 // node's own container filesystem.
-                return buildChromeOptions(headless, null);
+                //
+                // ROOT CAUSE FIX (noVNC on :7900 showing nothing even
+                // though the session is live): the selenium/node-chrome
+                // image already runs its own internal Xvfb + x11vnc +
+                // noVNC — that virtual display IS the "headless" story for
+                // a Grid node; it's how a real, on-screen Chrome window
+                // ends up watchable from the host despite the container
+                // having no physical display. Forwarding this JVM's own
+                // --headless=new flag into the REMOTE session (like the
+                // local one) makes Chrome render nothing at all inside
+                // that Xvfb display — noVNC then has a genuinely blank
+                // screen to stream, not a broken connection. So
+                // buildChromeOptions() is told forRemote=true here and
+                // silently drops the --headless arg for Grid sessions —
+                // same "headless doesn't make sense for this transport"
+                // reasoning buildSafariRemoteOptions() already applies,
+                // just logged instead of silent since Chrome (unlike
+                // Safari) genuinely supports headless, so a passed-but-
+                // ignored true is worth surfacing.
+                return buildChromeOptions(headless, null, true);
             }
         });
 
@@ -173,7 +204,7 @@ public final class DriverFactory {
 
             @Override
             public Capabilities buildRemoteOptions(boolean headless) {
-                return buildChromeOptions(headless, null);
+                return buildChromeOptions(headless, null, true);
             }
         });
 
@@ -224,11 +255,43 @@ public final class DriverFactory {
                 + ". Supported: " + PROVIDERS.keySet());
         }
 
-        if (ConfigReader.getBoolean("grid.enabled", false)) {
-            return createRemoteDriver(browser, provider, headless);
-        }
+        WebDriver driver = ConfigReader.getBoolean("grid.enabled", false)
+            ? createRemoteDriver(browser, provider, headless)
+            : provider.createLocalDriver(headless);
 
-        return provider.createLocalDriver(headless);
+        applyPageLoadTimeout(driver);
+        return driver;
+    }
+
+    // BUG FIX: no driver-level pageLoadTimeout was ever set anywhere in this
+    // class. pageLoadStrategy is EAGER (see buildChromeOptions()'s comment),
+    // so driver.get() normally returns quickly once the DOM is parsed — but
+    // EAGER only changes *when* Selenium considers the navigation "done", it
+    // doesn't remove the underlying wait entirely, and a genuinely pathological
+    // page (a script that blocks parsing, a hung request the browser is still
+    // waiting on) can still leave driver.get() blocked on Selenium's own
+    // internal default (300s) with nothing in this framework able to
+    // interrupt it — surfacing as a whole test run looking "stuck" on the
+    // second/third site of a suite with no useful error, since the hang
+    // happens inside the driver.get() call itself, before any of our own
+    // WebDriverWait-based element waits (which DO have a bounded, catchable
+    // timeout) ever get a chance to run. Deliberately a separate config key
+    // from KeywordEngine.WAIT_FOR_PAGE_LOAD's pageLoad.timeout (that one
+    // polls document.readyState in JS *after* driver.get() already returned
+    // control under EAGER — a different, later check) — this one is the
+    // driver-level hard ceiling on driver.get() itself, so it defaults wider
+    // (2x timeout.long) rather than sharing the same value. Once this fires,
+    // driver.get() throws org.openqa.selenium.TimeoutException, which
+    // NAVIGATE's normal step-failure handling in KeywordEngine.run() already
+    // converts into an ordinary (non-hanging) test failure instead of an
+    // indefinite hang.
+    private static void applyPageLoadTimeout(WebDriver driver) {
+        int seconds = ConfigReader.getInt("driver.pageLoad.timeout", ConfigReader.getInt("timeout.long", 15) * 2);
+        try {
+            driver.manage().timeouts().pageLoadTimeout(java.time.Duration.ofSeconds(seconds));
+        } catch (Exception e) {
+            logger.warn("[DriverFactory] Could not set pageLoadTimeout (non-fatal): {}", e.getMessage());
+        }
     }
 
     private static WebDriver createRemoteDriver(String browser, BrowserProvider provider, boolean headless) {
@@ -532,7 +595,7 @@ public final class DriverFactory {
         // candidatePort() instead of left at 0 for Selenium to race on —
         // see createWithPortConflictRetry() / candidatePort().
         return createWithPortConflictRetry("chrome", attempt -> {
-            ChromeOptions options = buildChromeOptions(headless, tempProfile);
+            ChromeOptions options = buildChromeOptions(headless, tempProfile, false);
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
             // Tracked so quitDriver()/forceKillOrphanedDriverProcess() can
             // force this specific service's process down if quit() later
@@ -573,7 +636,7 @@ public final class DriverFactory {
         java.nio.file.Path tempProfile = createIsolatedTempProfile();
 
         return createWithPortConflictRetry("brave", attempt -> {
-            ChromeOptions options = buildChromeOptions(headless, tempProfile);
+            ChromeOptions options = buildChromeOptions(headless, tempProfile, false);
             options.setBinary(braveBinary);
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
             CURRENT_DRIVER_SERVICE.set(service);
@@ -742,7 +805,8 @@ public final class DriverFactory {
     }
 
     /** Shared ChromeOptions used by both Chrome and Brave */
-    private static ChromeOptions buildChromeOptions(boolean headless, java.nio.file.Path tempProfile) {
+    private static ChromeOptions buildChromeOptions(boolean headless, java.nio.file.Path tempProfile,
+                                                    boolean forRemote) {
         ChromeOptions options = new ChromeOptions();
 
         // ROOT CAUSE FIX (browser window staying open after quit()):
@@ -798,7 +862,24 @@ public final class DriverFactory {
         prefs.put("safebrowsing.enabled", true);
         options.setExperimentalOption("prefs", prefs);
 
-        if (headless) {
+        if (forRemote) {
+            // See the ROOT CAUSE FIX comment on buildRemoteOptions() in the
+            // "chrome" provider above: the Grid node container already
+            // provides its own virtual display + noVNC (:7900) for this
+            // exact purpose. Forcing --headless=new here would render
+            // nothing into that display, leaving noVNC streaming a blank
+            // screen even though the session is genuinely live. A
+            // maximized window inside the node's Xvfb is what noVNC is
+            // actually built to show.
+            options.addArguments("--start-maximized");
+            if (headless) {
+                logger.warn("[DriverFactory] headless=true was requested for a Grid (remote) session — "
+                    + "ignoring it and launching a normal windowed session instead, so the node's "
+                    + "noVNC viewer (:7900) actually shows the browser. Headless mode has no effect "
+                    + "on Grid nodes anyway: they run their own Xvfb regardless, so this flag is only "
+                    + "meaningful for local (non-Grid) runs.");
+            }
+        } else if (headless) {
             options.addArguments("--headless=new");
             options.addArguments("--window-size=1920,1080");
         } else {

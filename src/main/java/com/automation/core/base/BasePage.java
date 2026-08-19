@@ -2,6 +2,7 @@ package com.automation.core.base;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.selfhealing.SelfHealingEngine;
+import com.automation.core.utils.CaptchaSolver;
 import com.automation.core.utils.DebugDumpUtils;
 import com.automation.core.utils.ElementUtils;
 import org.openqa.selenium.By;
@@ -10,14 +11,24 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
 public abstract class BasePage {
 
+    private static final Logger logger = LoggerFactory.getLogger(BasePage.class);
+
     protected final WebDriver driver;
     protected final WebDriverWait wait;
     protected final JavascriptExecutor js;
+
+    // Lazily created — the vast majority of page loads have no CAPTCHA at
+    // all, and CaptchaSolver's constructor does tessdata resolution that no
+    // other page object should have to pay for. Only instantiated the first
+    // time detectCaptchaImage() actually finds something to solve.
+    private CaptchaSolver captchaSolver;
 
     protected BasePage(WebDriver driver) {
         this.driver = driver;
@@ -30,6 +41,11 @@ public abstract class BasePage {
      * Navigates to a path relative to the site's base URL.
      * e.g. navigateTo("/webtables") → driver.get("https://demoqa.com/webtables")
      * e.g. navigateTo("")           → driver.get("https://demoqa.com")
+     *
+     * Every Page Object — every existing one and every one added later,
+     * since all of them extend BasePage and call this method to navigate —
+     * automatically gets a post-navigation CAPTCHA auto-detect/solve pass
+     * for free; see handleCaptchaIfPresent().
      */
     protected void navigateTo(String path) {
         // Strip a trailing slash from the configured base URL so a config
@@ -44,6 +60,46 @@ public abstract class BasePage {
         } else {
             driver.get(baseUrl + (path.startsWith("/") ? path : "/" + path));
         }
+        handleCaptchaIfPresent();
+    }
+
+    /**
+     * Automatic CAPTCHA handling for plain Page-Object-Model tests (the
+     * "old" style, as opposed to keyword-driven data rows which use the
+     * explicit SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA/SOLVE_CAPTCHA_WITH_AI
+     * keywords — see KeywordEngine). Called automatically after every
+     * navigateTo(); also safe to call directly from a page object right
+     * after an in-page action that might reveal a CAPTCHA without a full
+     * navigation (e.g. a failed-login retry that renders one).
+     *
+     * No-ops instantly on the common case (no CAPTCHA on the page) and
+     * never throws — see CaptchaSolver.autoSolveIfPresent() for exactly
+     * what it detects and when it backs off instead of guessing.
+     *
+     * Disable globally with captcha.autoDetect.enabled=false in
+     * config/global.properties (or -Dcaptcha.autoDetect.enabled=false) if
+     * a particular suite needs to opt out.
+     */
+    protected void handleCaptchaIfPresent() {
+        if (!ConfigReader.getBoolean("captcha.autoDetect.enabled", true)) {
+            return;
+        }
+        try {
+            if (CaptchaSolver.detectCaptchaImage(driver).isPresent()) {
+                captchaSolver().autoSolveIfPresent(driver);
+            }
+        } catch (Exception e) {
+            // A CAPTCHA-detection hiccup (e.g. mid-navigation DOM churn)
+            // must never fail an unrelated test — log and move on.
+            logger.warn("[BasePage] Auto CAPTCHA detection/solve failed (non-fatal): {}", e.getMessage());
+        }
+    }
+
+    private CaptchaSolver captchaSolver() {
+        if (captchaSolver == null) {
+            captchaSolver = new CaptchaSolver();
+        }
+        return captchaSolver;
     }
 
     // ── Shared helpers ─────────────────────────────────────────────────────────

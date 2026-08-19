@@ -32,6 +32,29 @@ public enum Keyword {
     SWITCH_TO_DEFAULT_CONTENT,
     ACCEPT_ALERT,
     DISMISS_ALERT,
+    // Waits for document.readyState == 'complete' (a real page-load signal,
+    // not a fixed sleep). testData = optional override timeout in seconds,
+    // defaults to config key pageLoad.timeout (falls back to timeout.long).
+    // Never fails the test on its own — logs a warning and continues if the
+    // page still hasn't settled after the wait, since a slow/SPA page is a
+    // reason to proceed carefully, not a reason to abort the whole test.
+    // Use after NAVIGATE and after any CLICK that opens a dynamically
+    // rendered modal/sub-module (e.g. IndiaAI's login popup) before
+    // interacting with anything inside it.
+    WAIT_FOR_PAGE_LOAD,
+    // locator = captcha image, testData = ObjectRepository key of the input
+    // field to type the answer into (see KeywordEngine.captchaInputField)
+    SOLVE_TEXT_CAPTCHA,        // OCR-based text CAPTCHA — HARD FAILS if the image locator never resolves (deterministic mode, see docs/CAPTCHA_SOLVER.md Mode 2)
+    SOLVE_MATH_CAPTCHA,        // Mathematical equation CAPTCHA
+    SOLVE_CAPTCHA_WITH_AI,    // AI Vision fallback (GPT-4o/Claude) — currently falls back to OCR, see CaptchaSolver.solveWithAI
+    // Same locator/testData convention as SOLVE_TEXT_CAPTCHA, but forgiving:
+    // waits up to captcha.wait.seconds (default timeout.long) for the image
+    // to appear, and if it never does — CAPTCHA didn't render this run, a
+    // slow/flaky page, etc. — logs and moves on to the next step instead of
+    // failing the test. Use this instead of SOLVE_TEXT_CAPTCHA whenever a
+    // CAPTCHA is only sometimes present/slow to render (e.g. IndiaAI's login
+    // sub-module) and the script shouldn't hard-fail because of that.
+    SOLVE_TEXT_CAPTCHA_IF_PRESENT,
     SCREENSHOT;             // testData = label used in the saved filename (optional)
 
     public static Keyword from(String raw) {

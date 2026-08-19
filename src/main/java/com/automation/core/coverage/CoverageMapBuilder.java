@@ -44,8 +44,11 @@ public final class CoverageMapBuilder {
 
     public static void build(Path execDir, Path outputFile) throws IOException {
         if (!Files.isDirectory(execDir)) {
-            System.out.println("[coverage-map] " + execDir + " does not exist — nothing to build. "
-                + "Did the capture run (Scripts/build-coverage-map.sh) run first?");
+            System.out.println("[coverage-map] " + execDir.toAbsolutePath() + " does not exist — nothing "
+                + "to build. Did the capture run (Scripts/build-coverage-map.sh) run first? Check that "
+                + "run's console output for \"[coverage-capture]\" lines — JacocoPerTestCoverageListener "
+                + "now logs whether the JMX MBean was found and how many .exec files it wrote, which "
+                + "pinpoints whether capture ran at all versus ran but wrote somewhere unexpected.");
             return;
         }
         if (Files.exists(execDir.resolve(UNRELIABLE_MARKER))) {
@@ -67,7 +70,8 @@ public final class CoverageMapBuilder {
             execFiles = walk.filter(p -> p.toString().endsWith(".exec")).sorted().toList();
         }
         if (execFiles.isEmpty()) {
-            System.out.println("[coverage-map] No .exec files found under " + execDir + " — nothing to build.");
+            System.out.println("[coverage-map] No .exec files found under " + execDir.toAbsolutePath()
+                + " — nothing to build.");
             return;
         }
 

@@ -446,6 +446,26 @@ pipeline {
             }
             steps {
                 script {
+                    // CaptchaSolver (Tess4J) needs the native tesseract-ocr binary +
+                    // trained data on the agent itself, same as the Dockerfile
+                    // installs for the containerized path — but this bare-metal
+                    // Jenkins host runs mvn directly, not through that Dockerfile,
+                    // so without this step every SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA
+                    // keyword AND every BasePage/KeywordEngine auto-detect pass fails
+                    // fast with "Could not locate a tessdata directory" the first
+                    // time any page/screen actually has a CAPTCHA on it.
+                    sh '''
+                        if ! command -v tesseract &> /dev/null; then
+                            if [ "$(id -u)" = "0" ]; then
+                                apt-get update -qq && apt-get install -y -qq tesseract-ocr tesseract-ocr-eng || true
+                            elif sudo -n true 2>/dev/null; then
+                                sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng || true
+                            else
+                                echo "WARNING: tesseract-ocr is not installed and this agent has no root/sudo to install it — CaptchaSolver will fail fast (ConfigException) the first time any test hits a CAPTCHA. One-time fix: sudo apt-get install -y tesseract-ocr tesseract-ocr-eng"
+                            fi
+                        fi
+                        command -v tesseract &> /dev/null && echo "tesseract: $(tesseract --version 2>&1 | head -1)" || true
+                    '''
                     if (params.RECORD_VIDEO) {
                         sh '''
                             if ! command -v xvfb-run &> /dev/null; then

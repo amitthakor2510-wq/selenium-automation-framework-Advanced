@@ -27,6 +27,15 @@ WORKDIR /workspace
 COPY --from=build /workspace /workspace
 COPY --from=build /root/.m2 /root/.m2
 
+# CaptchaSolver (Tess4J) needs the native tesseract-ocr binary + trained
+# language data on the image itself — Tess4J is a JNI wrapper, it doesn't
+# bundle Tesseract. Without this, every SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA
+# step fails inside the container even once the Java-side datapath bug is
+# fixed, since there's simply no tesseract install for it to find.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 # SECURITY: run as a dedicated non-root user rather than the image's
 # default root. Nothing in this image needs root (no OS packages are
 # installed at runtime, browsers live in the separate selenium/node-*
@@ -45,6 +54,40 @@ RUN groupadd --gid 1000 automation \
     && chown -R automation:automation /workspace \
     && mv /root/.m2 /home/automation/.m2 \
     && chown -R automation:automation /home/automation/.m2
+
+# ROOT CAUSE FIX ("could not create parent directories" writing
+# target/classes/... on `docker compose run --rm tests`, even though the
+# compile itself has no real error): docker-compose.yml bind-mounts several
+# HOST directories onto subpaths of /workspace/target (allure-results,
+# extent-reports, surefire-reports, debug-dumps, screenshots) plus
+# /workspace/self-healing-data. target/ is excluded by .dockerignore, so it
+# doesn't exist anywhere in this image — on a fresh checkout, none of those
+# host-side directories exist yet either. When `docker compose run` first
+# sets up those bind mounts, the container runtime (running as root, before
+# the USER automation directive below ever takes effect for this specific
+# mechanism) auto-creates the missing mount-point directories INSIDE THE
+# CONTAINER, including the /workspace/target parent itself — as root:root,
+# mode 0755. USER automation (uid 1000) then has no write permission on
+# that root-owned target/ to create target/classes/... (a sibling, non-
+# mounted path Maven needs), even though it owns everything else under
+# /workspace. Pre-creating target/ AND the exact bind-mount subdirectories
+# here — before the chown -R above runs — means they already exist as
+# real, automation-owned directories in the image itself, so the bind
+# mounts attach to (and, for the still-missing host source dirs on a fresh
+# checkout, inherit into) an already-correctly-owned tree instead of
+# triggering root auto-creation. NOTE: this doesn't guarantee every host's
+# corresponding ./target/<subdir> paths are writable by uid 1000 too (that
+# depends on what already exists on the HOST side) — if a permission error
+# still surfaces specifically inside one of the mounted report
+# subdirectories (not target/classes, which this fully fixes), run on the
+# host once: `mkdir -p target/{allure-results,extent-reports,surefire-reports,debug-dumps,screenshots} self-healing-data && chmod -R a+rwX target self-healing-data`
+RUN mkdir -p /workspace/target/allure-results \
+        /workspace/target/extent-reports \
+        /workspace/target/surefire-reports \
+        /workspace/target/debug-dumps \
+        /workspace/target/screenshots \
+        /workspace/self-healing-data \
+    && chown -R automation:automation /workspace/target /workspace/self-healing-data
 
 USER automation
 # useradd --create-home already set /home/automation as this user's home

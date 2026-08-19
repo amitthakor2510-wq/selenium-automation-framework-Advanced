@@ -26,7 +26,7 @@ separate "object repository" properties file, not in the test or the script.
 
 | Class | Role |
 |---|---|
-| `Keyword` | Enum of supported actions (NAVIGATE, CLICK, TYPE, SET_TEXT, CLEAR, SELECT_BY_TEXT/VALUE, HOVER, SCROLL_TO, WAIT_SECONDS, PRESS_KEY, VERIFY_*, SWITCH_TO_FRAME/DEFAULT_CONTENT, ACCEPT/DISMISS_ALERT, SCREENSHOT) |
+| `Keyword` | Enum of supported actions (NAVIGATE, CLICK, TYPE, SET_TEXT, CLEAR, SELECT_BY_TEXT/VALUE, HOVER, SCROLL_TO, WAIT_SECONDS, PRESS_KEY, VERIFY_*, SWITCH_TO_FRAME/DEFAULT_CONTENT, ACCEPT/DISMISS_ALERT, SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA/SOLVE_CAPTCHA_WITH_AI — see [🧩 CAPTCHA Solver](docs/CAPTCHA_SOLVER.md), SCREENSHOT) |
 | `KeywordStep` | One script row: `testCase, stepNo, keyword, locatorKey, testData, expected, description` |
 | `ObjectRepository` | Loads `type:value` locators from a `.properties` file, e.g. `saucedemo.login.username=id:user-name` |
 | `KeywordReader` | Reads a script file and groups rows into ordered `List<KeywordStep>` per `testCase` |

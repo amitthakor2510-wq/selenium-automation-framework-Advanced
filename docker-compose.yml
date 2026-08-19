@@ -103,6 +103,17 @@ services:
     environment:
       - SITE=demoqa
       - BROWSER=chrome
+      # NOTE: HEADLESS is left true here on purpose for unattended/CI-style
+      # `docker compose run --rm tests` runs — it no longer matters for
+      # what you see on :7900/7901/7902 either way. DriverFactory now
+      # ignores this flag for Grid (remote) sessions and always launches
+      # a normal windowed browser inside the node's own Xvfb, because
+      # that virtual display + noVNC is what selenium/node-* images use
+      # to be watchable live — a browser-level --headless=new would just
+      # render nothing into it. So: this flag now only affects LOCAL
+      # (non-Grid) runs; to actually watch a Grid run, open
+      # http://localhost:7900 (chrome / firefox:7901 / edge:7902,
+      # password "secret") regardless of what HEADLESS is set to here.
       - HEADLESS=true
       - GRID_ENABLED=true
       - GRID_URL=http://selenium-hub:4444/wd/hub

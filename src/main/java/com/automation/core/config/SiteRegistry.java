@@ -40,7 +40,11 @@ public final class SiteRegistry {
     private static final Map<String, SiteDefinition> KNOWN_SITES = Map.of(
         "demoqa", new SiteDefinition(true),
         "saucedemo", new SiteDefinition(true),
-        "mobile", new SiteDefinition(false)
+        "mobile", new SiteDefinition(false),
+        // Entirely keyword-driven (login + forgot-password) — every
+        // scenario is a CSV row resolved against objectrepository/
+        // indiaai.properties, so this one does need the repo file.
+        "indiaai", new SiteDefinition(true)
     );
 
     private SiteRegistry() {

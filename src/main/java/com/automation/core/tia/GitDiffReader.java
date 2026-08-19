@@ -94,6 +94,36 @@ public final class GitDiffReader {
             .directory(repoRoot.toFile())
             .start();
         List<String> lines = new ArrayList<>();
+        // BUG FIX: this used to fully drain stdout (blocking read loop until
+        // EOF) BEFORE touching stderr at all. That's a classic ProcessBuilder
+        // deadlock: if git ever writes enough to stderr to fill the OS pipe
+        // buffer while it's still also writing stdout (a CRLF warning, an
+        // ambiguous-ref notice, a rename-detection note on a big/noisy diff —
+        // exactly the kind of diff test-impact-analysis and coverage-map run
+        // this against), the child blocks trying to write to a full, unread
+        // stderr pipe, while THIS thread is simultaneously blocked reading
+        // stdout waiting for output the child can now never produce. Nothing
+        // breaks the deadlock except the 60s waitFor timeout below force-
+        // killing the process — which then reports a misleading "timed out"
+        // error that hides the real cause entirely. Fixed by draining stderr
+        // on its own thread concurrently with this thread draining stdout, so
+        // neither pipe can ever back up regardless of how much either stream
+        // writes.
+        StringBuilder stderrBuf = new StringBuilder();
+        Thread stderrDrain = new Thread(() -> {
+            try (BufferedReader errReader =
+                     new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                String errLine;
+                while ((errLine = errReader.readLine()) != null) {
+                    stderrBuf.append(errLine).append('\n');
+                }
+            } catch (IOException ignored) {
+                // Best-effort — a failure draining stderr shouldn't mask the
+                // real stdout result/exit code handled below.
+            }
+        }, "git-diff-stderr-drain");
+        stderrDrain.setDaemon(true);
+        stderrDrain.start();
         try (BufferedReader reader =
                  new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -101,12 +131,13 @@ public final class GitDiffReader {
                 lines.add(line);
             }
         }
-        String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
         boolean finished = process.waitFor(60, TimeUnit.SECONDS);
         if (!finished) {
             process.destroyForcibly();
             throw new IOException("git command timed out after 60s: " + cmd);
         }
+        stderrDrain.join(5000);
+        String stderr = stderrBuf.toString();
         if (process.exitValue() != 0) {
             throw new IOException("git command failed (exit " + process.exitValue() + "): " + cmd
                 + (stderr.isBlank() ? "" : "\n" + stderr));

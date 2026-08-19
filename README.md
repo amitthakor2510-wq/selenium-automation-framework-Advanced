@@ -97,6 +97,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 |---|---|
 | 📐 [Architecture & Design](docs/architecture.md) | How a test runs, core files, page-object pattern, key Selenium concepts |
 | 🧪 [Testing Guide](docs/testing-guide.md) | Retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression |
+| 🧩 [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md) | Automatic + keyword-driven CAPTCHA solving, setup (local/Docker/CI), how it's wired into every test style |
 | ⚙️ [Configuration & Environments](docs/configuration.md) | `global.properties`, Dockerized Selenium Grid |
 | 📈 [Reports & Code Quality](docs/reports-and-quality.md) | Test reports, JaCoCo coverage, Checkstyle |
 | 🔄 [CI/CD Pipelines](docs/ci-cd.md) | Jenkins, GitHub Actions, GitLab CI |

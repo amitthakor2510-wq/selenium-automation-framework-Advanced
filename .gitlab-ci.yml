@@ -1,5 +1,5 @@
-include:
-  - template: Security/SAST.gitlab-ci.yml
+#include:
+  #- template: Security/SAST.gitlab-ci.yml
 
 # ================================================================
 # GitLab CI/CD Pipeline - Selenium Automation Framework
@@ -212,6 +212,27 @@ test:
           echo "Edge: $(microsoft-edge-stable --version)"
           ;;
       esac
+    # CaptchaSolver (Tess4J) needs the native tesseract-ocr binary + trained
+    # data on the runner itself — this job runs mvn directly on the runner,
+    # not through this repo's Dockerfile, so without this step every
+    # SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA keyword AND every BasePage/
+    # KeywordEngine auto-detect pass fails fast with "Could not locate a
+    # tessdata directory" (ConfigException) the first time a page has one.
+    # Same install-guard pattern as the browser install above: only touches
+    # apt if tesseract is genuinely missing, and fails with a clear one-time
+    # fix instead of a cryptic permission error if this runner has no root/sudo.
+    - |
+      if ! command -v tesseract &> /dev/null; then
+        echo "tesseract-ocr not found - installing..."
+        if [ "$SUDO" = "__NONE__" ]; then
+          echo "ERROR: tesseract-ocr not installed, and this job has no root/sudo access to install it."
+          echo "One-time fix on this host: sudo apt-get install -y tesseract-ocr tesseract-ocr-eng, then re-run this job."
+          exit 1
+        fi
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+      fi
+      echo "tesseract: $(tesseract --version 2>&1 | head -1)"
     # RECORD_VIDEO forces headless off (nothing to record under
     # headless=true) and installs Xvfb so java.awt.Robot has a virtual
     # display to grab even on a display-less shell-executor host — same

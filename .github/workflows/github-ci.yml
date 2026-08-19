@@ -502,6 +502,25 @@ jobs:
         if: env.RECORD_VIDEO == 'true' && matrix.os == 'ubuntu-latest'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
 
+      # CaptchaSolver (Tess4J) needs the native tesseract-ocr binary + trained
+      # data on the runner — this job runs mvn directly on the runner image,
+      # not through this repo's Dockerfile, so without this step every
+      # SOLVE_TEXT_CAPTCHA/SOLVE_MATH_CAPTCHA keyword AND every BasePage/
+      # KeywordEngine auto-detect pass fails fast with "Could not locate a
+      # tessdata directory" (ConfigException) the first time a page has one.
+      - name: Setup Tesseract OCR (CaptchaSolver)
+        run: |
+          echo "======= Setting Up Tesseract OCR ======="
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            command -v tesseract &> /dev/null || brew install tesseract
+          else
+            if ! command -v tesseract &> /dev/null; then
+              sudo apt-get update -qq
+              sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+            fi
+          fi
+          tesseract --version 2>&1 | head -1
+
       - name: Run Tests
         run: |
           echo "======= Running Tests: site=${{ matrix.site }} browser=${{ matrix.browser }} ======="

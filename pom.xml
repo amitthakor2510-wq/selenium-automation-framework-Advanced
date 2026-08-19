@@ -270,6 +270,13 @@
       <version>4.21.0</version>
     </dependency>
 
+    <!-- Tess4J - Tesseract for Java -->
+    <dependency>
+      <groupId>net.sourceforge.tess4j</groupId>
+      <artifactId>tess4j</artifactId>
+      <version>5.12.0</version>
+    </dependency>
+
     <!-- Logging — this project's own code (every class in com.automation),
          plus WebDriverManager, logs through the SLF4J API
          (org.slf4j.Logger / LoggerFactory.getLogger(...)) — SLF4J is just
@@ -667,6 +674,20 @@
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
             <version>${aspectj.version}</version>
+          </dependency>
+
+          <!-- Apache Commons IO (for file handling) -->
+          <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
+          </dependency>
+
+          <!-- Selenium -->
+          <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.25.0</version>
           </dependency>
           <!-- Force the TestNG provider explicitly. The junit-jupiter dependency
                above (added so the mutation/pitest profile has JUnit 5 unit tests

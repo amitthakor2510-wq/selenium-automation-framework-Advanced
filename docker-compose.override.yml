@@ -51,7 +51,7 @@
 
 services:
   selenium-hub:
-    ports: !reset
+    ports: !override
       - "4452:4442"
       - "4453:4443"
       - "4454:4444"

@@ -32,6 +32,8 @@ timeout.long=15          # seconds to wait for elements with known delays
 # ── File Upload/Download ──────────────────────────────────────────
 download.folder.path=target/downloads       # where downloaded files land
 upload.file.path=target/test-upload.txt     # file used by upload tests — must exist
+download.wait.seconds=10                    # how long UploadDownloadPage.clickDownloadAndVerify() polls
+                                             # for a downloaded file before giving up (raise on slow CI/large files)
 
 # ── Retry ──────────────────────────────────────────────────────────
 retry.count=2             # automatic re-runs of a failed test (see Retry & Resilience)
@@ -61,6 +63,21 @@ self-healing.repository.path=self-healing-data/locator-repository.json  # known-
 self-healing.report.path=target/self-healing/healing-report.json        # end-of-run summary of every locator that had to be healed
 self-healing.visual.enabled=false                                # opt-in screenshot-hash fallback when DOM scoring alone misses
 self-healing.visual.weight=0.5                                   # 0.0 = visual stage never influences the outcome; 1.0 = DOM score is ignored once visual healing kicks in
+
+# ── CAPTCHA / Page Load (see core/utils/CaptchaSolver.java, core/keyword/KeywordEngine.java) ──
+captcha.autoDetect.enabled=true     # master switch for Mode 1 (automatic) CAPTCHA detect/solve — see docs/CAPTCHA_SOLVER.md
+captcha.wait.seconds=               # blank = falls back to timeout.long; how long the SOLVE_TEXT_CAPTCHA_IF_PRESENT
+                                     # keyword waits for a CAPTCHA image to appear before treating this run as
+                                     # "no CAPTCHA" and continuing without failing the test
+captcha.segmentation.caseHeightRatio=0.78  # height ratio below which a shape-symmetric letter (C/O/S/U/V/W/X/Z)
+                                            # is corrected to lower-case — see docs/CAPTCHA_SOLVER.md. The full set
+                                            # of captcha.segmentation.* keys lives in global.properties.
+captcha.expected.length=0           # blank/0 = disabled; static fallback CAPTCHA length used only when the
+                                     # answer field has no HTML maxlength attribute — the field's own maxlength
+                                     # is read automatically per-call and takes priority. See docs/CAPTCHA_SOLVER.md.
+pageLoad.timeout=                   # blank = falls back to timeout.long; how long the WAIT_FOR_PAGE_LOAD keyword
+                                     # waits for document.readyState == 'complete' before logging a warning and
+                                     # continuing anyway (never fails the test on its own)
 
 # ── API Test Logging (see core/api/ApiClient.java) ────────────────
 api.log.onFailureOnly=true          # true = only print request/response bodies when an assertion fails

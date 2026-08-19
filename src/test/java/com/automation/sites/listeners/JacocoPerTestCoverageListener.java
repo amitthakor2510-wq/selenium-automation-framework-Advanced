@@ -1,7 +1,9 @@
 package com.automation.sites.listeners;
 
 import org.testng.IClassListener;
+import org.testng.ISuiteListener;
 import org.testng.ITestClass;
+import org.testng.ISuite;
 
 import javax.management.MBeanServer;
 import javax.management.MBeanServerInvocationHandler;
@@ -43,13 +45,21 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code parallel="none"} whenever this listener is active — the detection here is a backstop in
  * case something else re-parallelizes it, not the primary defense.
  */
-public class JacocoPerTestCoverageListener implements IClassListener {
+public class JacocoPerTestCoverageListener implements IClassListener, ISuiteListener {
 
     private static final Path OUTPUT_DIR = Path.of("target", "jacoco-per-test");
     private static final Object LOCK = new Object();
     private static final AtomicInteger ACTIVE_CLASS_COUNT = new AtomicInteger(0);
     private static final AtomicBoolean UNRELIABLE = new AtomicBoolean(false);
     private static final AtomicBoolean MBEAN_UNAVAILABLE_LOGGED = new AtomicBoolean(false);
+    private static final AtomicBoolean MBEAN_AVAILABLE_LOGGED = new AtomicBoolean(false);
+    // DIAGNOSTIC: this listener was previously silent on success, which made
+    // it impossible to tell "capture worked, nothing to report" apart from
+    // "capture silently no-op'd" from CI console output alone — see the
+    // coverage-map pipeline investigation this counter/summary was added
+    // for. Kept intentionally lightweight (no behavior change on the happy
+    // path besides these prints) so it's safe to leave in permanently.
+    private static final AtomicInteger FILES_WRITTEN = new AtomicInteger(0);
 
     private volatile JacocoRuntimeMXBean runtime;
 
@@ -105,6 +115,34 @@ public class JacocoPerTestCoverageListener implements IClassListener {
         Files.createDirectories(OUTPUT_DIR);
         Path target = OUTPUT_DIR.resolve(testClassFqcn + ".exec");
         Files.write(target, data, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        int count = FILES_WRITTEN.incrementAndGet();
+        System.out.println("[coverage-capture] Wrote " + target.toAbsolutePath()
+            + " (" + data.length + " bytes) — " + count + " file(s) written so far this run.");
+    }
+
+    /**
+     * Prints a final, unambiguous summary once the suite finishes — so a CI
+     * log always shows definitively whether capture worked (non-zero count,
+     * with the resolved absolute output directory) or not (zero, with the
+     * reason: MBean never found, or every class hit the concurrent-suite
+     * UNRELIABLE guard), instead of relying on the complete absence of any
+     * per-class message to mean "everything was fine."
+     */
+    @Override
+    public void onFinish(ISuite suite) {
+        int count = FILES_WRITTEN.get();
+        System.out.println("[coverage-capture] Suite \"" + suite.getName() + "\" finished — "
+            + count + " per-class .exec file(s) written to " + OUTPUT_DIR.toAbsolutePath()
+            + (UNRELIABLE.get() ? " (run marked UNRELIABLE — see reason above; no map will be built from these)"
+                : count == 0 ? " (no files written — check for an earlier \"MBean not found\" message above; "
+                    + "capture was likely never active for this run)"
+                : ""));
+    }
+
+    @Override
+    public void onStart(ISuite suite) {
+        // No setup needed before the suite starts — reset()/dump() happen
+        // per-class in onBeforeClass/onAfterClass. Required by ISuiteListener.
     }
 
     private void markUnreliable(String reason) {
@@ -135,6 +173,10 @@ public class JacocoPerTestCoverageListener implements IClassListener {
             }
             current = MBeanServerInvocationHandler.newProxyInstance(mbs, name, JacocoRuntimeMXBean.class, false);
             runtime = current;
+            if (MBEAN_AVAILABLE_LOGGED.compareAndSet(false, true)) {
+                System.out.println("[coverage-capture] org.jacoco:type=Runtime MBean found — "
+                    + "per-test coverage capture is active for this run.");
+            }
             return current;
         } catch (Exception e) {
             logMBeanUnavailableOnce();
