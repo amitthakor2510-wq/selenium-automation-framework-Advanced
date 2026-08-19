@@ -11,10 +11,10 @@
   {
     "dimension": "browser",
     "dimensionLabel": "By Browser",
-    "value": "edge",
-    "slug": "edge",
+    "value": "firefox",
+    "slug": "firefox",
     "count": 139,
-    "reportPath": "target/allure-segmented/browser/edge/report/index.html",
+    "reportPath": "target/allure-segmented/browser/firefox/report/index.html",
     "generated": false
   },
   {
@@ -40,8 +40,134 @@
     "dimensionLabel": "By Severity",
     "value": "normal",
     "slug": "normal",
-    "count": 302,
+    "count": 301,
     "reportPath": "target/allure-segmented/severity/normal/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "edge",
+    "slug": "edge",
+    "count": 139,
+    "reportPath": "target/allure-segmented/browser/edge/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "smoke",
+    "slug": "smoke",
+    "count": 127,
+    "reportPath": "target/allure-segmented/category/smoke/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "severity",
+    "dimensionLabel": "By Severity",
+    "value": "critical",
+    "slug": "critical",
+    "count": 124,
+    "reportPath": "target/allure-segmented/severity/critical/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "chrome",
+    "slug": "chrome",
+    "count": 142,
+    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "api",
+    "slug": "api",
+    "count": 27,
+    "reportPath": "target/allure-segmented/category/api/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "saucedemo",
+    "slug": "saucedemo",
+    "count": 57,
+    "reportPath": "target/allure-segmented/site/saucedemo/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "SauceDemo Regression Suite",
+    "slug": "saucedemo-regression-suite",
+    "count": 60,
+    "reportPath": "target/allure-segmented/testType/saucedemo-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "data-driven",
+    "slug": "data-driven",
+    "count": 45,
+    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyword-driven",
+    "slug": "keyword-driven",
+    "count": 15,
+    "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "safari-unsupported",
+    "slug": "safari-unsupported",
+    "count": 3,
+    "reportPath": "target/allure-segmented/category/safari-unsupported/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "unknown-site",
+    "slug": "unknown-site",
+    "count": 3,
+    "reportPath": "target/allure-segmented/site/unknown-site/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "unknown-browser",
+    "slug": "unknown-browser",
+    "count": 3,
+    "reportPath": "target/allure-segmented/browser/unknown-browser/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "uncategorized",
+    "slug": "uncategorized",
+    "count": 3,
+    "reportPath": "target/allure-segmented/category/uncategorized/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyboard-driven",
+    "slug": "keyboard-driven",
+    "count": 6,
+    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
     "generated": false
   },
   {
@@ -74,136 +200,10 @@
   {
     "dimension": "category",
     "dimensionLabel": "By Category",
-    "value": "smoke",
-    "slug": "smoke",
-    "count": 127,
-    "reportPath": "target/allure-segmented/category/smoke/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
     "value": "mobile",
     "slug": "mobile",
     "count": 2,
     "reportPath": "target/allure-segmented/category/mobile/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "severity",
-    "dimensionLabel": "By Severity",
-    "value": "critical",
-    "slug": "critical",
-    "count": 124,
-    "reportPath": "target/allure-segmented/severity/critical/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "chrome",
-    "slug": "chrome",
-    "count": 142,
-    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "site",
-    "dimensionLabel": "By Site / App",
-    "value": "saucedemo",
-    "slug": "saucedemo",
-    "count": 57,
-    "reportPath": "target/allure-segmented/site/saucedemo/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "SauceDemo Regression Suite",
-    "slug": "saucedemo-regression-suite",
-    "count": 61,
-    "reportPath": "target/allure-segmented/testType/saucedemo-regression-suite/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "data-driven",
-    "slug": "data-driven",
-    "count": 45,
-    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "firefox",
-    "slug": "firefox",
-    "count": 139,
-    "reportPath": "target/allure-segmented/browser/firefox/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "site",
-    "dimensionLabel": "By Site / App",
-    "value": "unknown-site",
-    "slug": "unknown-site",
-    "count": 4,
-    "reportPath": "target/allure-segmented/site/unknown-site/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "unknown-browser",
-    "slug": "unknown-browser",
-    "count": 4,
-    "reportPath": "target/allure-segmented/browser/unknown-browser/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "uncategorized",
-    "slug": "uncategorized",
-    "count": 4,
-    "reportPath": "target/allure-segmented/category/uncategorized/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "api",
-    "slug": "api",
-    "count": 27,
-    "reportPath": "target/allure-segmented/category/api/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "keyword-driven",
-    "slug": "keyword-driven",
-    "count": 15,
-    "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "keyboard-driven",
-    "slug": "keyboard-driven",
-    "count": 6,
-    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "safari-unsupported",
-    "slug": "safari-unsupported",
-    "count": 3,
-    "reportPath": "target/allure-segmented/category/safari-unsupported/report/index.html",
     "generated": false
   },
   {

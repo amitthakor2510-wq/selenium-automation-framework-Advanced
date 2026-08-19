@@ -1,0 +1,24 @@
+Accessibility scan — Check Box page
+URL: https://demoqa.com/checkbox
+Violations: 5 | Passes: 46 | Incomplete: 1
+
+- [serious] aria-command-name — ARIA commands must have an accessible name
+  Affected nodes: 1
+  More info: https://dequeuniversity.com/rules/axe/4.9/aria-command-name?application=axeAPI
+
+- [serious] frame-title — Frames must have an accessible name
+  Affected nodes: 1
+  More info: https://dequeuniversity.com/rules/axe/4.9/frame-title?application=axeAPI
+
+- [critical] image-alt — Images must have alternate text
+  Affected nodes: 1
+  More info: https://dequeuniversity.com/rules/axe/4.9/image-alt?application=axeAPI
+
+- [serious] link-name — Links must have discernible text
+  Affected nodes: 4
+  More info: https://dequeuniversity.com/rules/axe/4.9/link-name?application=axeAPI
+
+- [moderate] region — All page content should be contained by landmarks
+  Affected nodes: 24
+  More info: https://dequeuniversity.com/rules/axe/4.9/region?application=axeAPI
+
