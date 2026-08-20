@@ -35,7 +35,7 @@
 <a href="#"><span class="badge badge-primary">SauceDemo Regression Suite</span></a>
 </li>
 <li class="m-r-10">
-<a href="#"><span class="badge badge-primary">Aug 20, 2026 03:03:46</span></a>
+<a href="#"><span class="badge badge-primary">Aug 20, 2026 09:34:37</span></a>
 </li>
 </ul>
 </div>
@@ -45,6 +45,11 @@
 <li class="nav-item dropdown" onclick="toggleView('test-view')">
 <a id="nav-test" class="dropdown-toggle" href="#">
 <span class="ico"><i class="fa fa-list"></i></span>
+</a>
+</li>
+<li class="nav-item dropdown" onclick="toggleView('exception-view')">
+<a id="nav-exception" class="dropdown-toggle" href="#">
+<span class="ico"><i class="fa fa-bug"></i></span>
 </a>
 </li>
 <li class="nav-item dropdown" onclick="toggleView('category-view')">
@@ -82,6 +87,7 @@
 <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-exclamation-circle"></i></a>
 <ul id="status-toggle" class="dropdown-menu dropdown-md p-v-0">
 <a class="dropdown-item" status="pass" href="#"><span>Pass</span><span class="status success"></span></a>
+<a class="dropdown-item" status="skip" href="#"><span>Skip</span><span class="status warning"></span></a>
 <div class="dropdown-divider"></div>
 <a status="clear" class="dropdown-item" href="#"><span>Clear</span><span class="pull-right"><i class="fa fa-close"></i></span></a>
 </ul>
@@ -95,7 +101,7 @@
 <li class="dropdown">
 <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="fa fa-tag"></i></a>
 <ul id="tag-toggle" class="dropdown-menu dropdown-md p-v-0">
-<a class="dropdown-item" href="#">keyboard-driven</a><a class="dropdown-item" href="#">regression</a><a class="dropdown-item" href="#">keyword-driven</a><a class="dropdown-item" href="#">data-driven</a><a class="dropdown-item" href="#">smoke</a>
+<a class="dropdown-item" href="#">keyboard-driven</a><a class="dropdown-item" href="#">regression</a><a class="dropdown-item" href="#">smoke</a><a class="dropdown-item" href="#">keyword-driven</a><a class="dropdown-item" href="#">data-driven</a>
 </ul>
 </li>
 <li class="dropdown">
@@ -107,25 +113,25 @@
 </ul>
 </div>    <div class="test-list-wrapper scrollable">
       <ul class="test-list-item">
-        <li class="test-item"  status="pass" test-id="1"
+        <li class="test-item"  status="skip" test-id="1"
           author="saucedemo"
           tag="regression smoke"
           device="edge">
           <div class="test-detail">
             <p class="name">verifyLogin</p>
             <p class="text-sm">
-              <span>3:03:47 AM</span> / <span>00:00:01:687</span>
-              <span class="badge pass-bg log float-right">Pass</span>
+              <span>9:34:38 AM</span> / <span>00:01:30:187</span>
+              <span class="badge skip-bg log float-right">Skip</span>
             </p>
           </div>
           <div class="test-contents d-none">
 <div class="detail-head">
 <div class="p-v-10">
 <div class="info">
-<h5 class="test-status text-pass">verifyLogin</h5>
-<span class='badge badge-success'>08.20.2026 3:03:47 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:49 AM</span>
-<span class='badge badge-default'>00:00:01:687</span>
+<h5 class="test-status text-skip">verifyLogin</h5>
+<span class='badge badge-success'>08.20.2026 9:34:38 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:08 AM</span>
+<span class='badge badge-default'>00:01:30:187</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=1</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -142,10 +148,76 @@
   <thead><tr><th class="status-col">Status</th><th class="timestamp-col">Timestamp</th><th class="details-col">Details</th></tr></thead>
   <tbody>
       <tr class="event-row">
-        <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:49 AM</td>
+        <td><span class="badge log skip-bg">Skip</span></td>
+        <td>9:36:08 AM</td>
         <td>
-          Test Passed
+          Test Skipped
+        </td>
+      </tr>
+      <tr class="event-row">
+        <td><span class="badge log skip-bg">Skip</span></td>
+        <td>9:36:08 AM</td>
+        <td>
+          <textarea readonly class="code-block">org.openqa.selenium.TimeoutException: timeout: Timed out receiving message from renderer: 30.000
+  (Session info: MicrosoftEdge=151.0.4129.86)
+Build info: version: '4.21.0', revision: '79ed462ef4'
+System info: os.name: 'Linux', os.arch: 'amd64', os.version: '6.17.0-1022-azure', java.version: '17.0.20'
+Driver info: org.openqa.selenium.edge.EdgeDriver
+Command: [9f2963f60079290f31a06899946551cc, get {url=https://www.saucedemo.com}]
+Capabilities {acceptInsecureCerts: false, browserName: MicrosoftEdge, browserVersion: 151.0.4129.86, fedcm:accounts: true, goog:processID: 2914, ms:edgeOptions: {debuggerAddress: localhost:41651}, msedge: {msedgedriverVersion: 151.0.4129.93 (4a822b1bb7a8..., userDataDir: /tmp/selenium-profile-13856...}, networkConnectionEnabled: false, pageLoadStrategy: eager, platformName: linux, proxy: Proxy(), se:cdp: ws://localhost:41651/devtoo..., se:cdpVersion: 151.0.4129.86, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 9f2963f60079290f31a06899946551cc
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:500)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:481)
+	at org.openqa.selenium.remote.ErrorCodec.decode(ErrorCodec.java:167)
+	at org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec.decode(W3CHttpResponseCodec.java:138)
+	at org.openqa.selenium.remote.codec.w3c.W3CHttpResponseCodec.decode(W3CHttpResponseCodec.java:50)
+	at org.openqa.selenium.remote.HttpCommandExecutor.execute(HttpCommandExecutor.java:190)
+	at org.openqa.selenium.remote.service.DriverCommandExecutor.invokeExecute(DriverCommandExecutor.java:216)
+	at org.openqa.selenium.remote.service.DriverCommandExecutor.execute(DriverCommandExecutor.java:174)
+	at org.openqa.selenium.remote.RemoteWebDriver.execute(RemoteWebDriver.java:518)
+	at org.openqa.selenium.remote.RemoteWebDriver.get(RemoteWebDriver.java:300)
+	at com.automation.sites.core.BaseTest.setUp(BaseTest.java:122)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:139)
+	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethodConsideringTimeout(MethodInvocationHelper.java:69)
+	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurationMethod(ConfigInvoker.java:393)
+	at org.testng.internal.invokers.ConfigInvoker.invokeConfigurations(ConfigInvoker.java:326)
+	at org.testng.internal.invokers.TestInvoker.runConfigMethods(TestInvoker.java:810)
+	at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:578)
+	at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:228)
+	at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+	at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:961)
+	at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:201)
+	at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:148)
+	at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:128)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.testng.TestRunner.privateRun(TestRunner.java:819)
+	at org.testng.TestRunner.run(TestRunner.java:619)
+	at org.testng.SuiteRunner.runTest(SuiteRunner.java:443)
+	at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:437)
+	at org.testng.SuiteRunner.privateRun(SuiteRunner.java:397)
+	at org.testng.SuiteRunner.run(SuiteRunner.java:336)
+	at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+	at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+	at org.testng.TestNG.runSuitesSequentially(TestNG.java:1301)
+	at org.testng.TestNG.runSuitesLocally(TestNG.java:1228)
+	at org.testng.TestNG.runSuites(TestNG.java:1134)
+	at org.testng.TestNG.run(TestNG.java:1101)
+	at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+	at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+	at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+</textarea>
+          
         </td>
       </tr>
   </tbody>
@@ -160,7 +232,7 @@
           <div class="test-detail">
             <p class="name">keyboardOnlyLogin</p>
             <p class="text-sm">
-              <span>3:03:50 AM</span> / <span>00:00:01:246</span>
+              <span>9:36:40 AM</span> / <span>00:00:05:432</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -169,9 +241,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">keyboardOnlyLogin</h5>
-<span class='badge badge-success'>08.20.2026 3:03:50 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:51 AM</span>
-<span class='badge badge-default'>00:00:01:246</span>
+<span class='badge badge-success'>08.20.2026 9:36:40 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:45 AM</span>
+<span class='badge badge-default'>00:00:05:432</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=2</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -190,7 +262,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:51 AM</td>
+        <td>9:36:45 AM</td>
         <td>
           Test Passed
         </td>
@@ -207,7 +279,7 @@
           <div class="test-detail">
             <p class="name">lockedOutLoginShowsError</p>
             <p class="text-sm">
-              <span>3:03:52 AM</span> / <span>00:00:00:994</span>
+              <span>9:36:46 AM</span> / <span>00:00:01:281</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -216,9 +288,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">lockedOutLoginShowsError</h5>
-<span class='badge badge-success'>08.20.2026 3:03:52 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:53 AM</span>
-<span class='badge badge-default'>00:00:00:994</span>
+<span class='badge badge-success'>08.20.2026 9:36:46 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:47 AM</span>
+<span class='badge badge-default'>00:00:01:281</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=3</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -236,7 +308,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:53 AM</td>
+        <td>9:36:47 AM</td>
         <td>
           Test Passed
         </td>
@@ -253,7 +325,7 @@
           <div class="test-detail">
             <p class="name">validLogin</p>
             <p class="text-sm">
-              <span>3:03:54 AM</span> / <span>00:00:00:937</span>
+              <span>9:36:48 AM</span> / <span>00:00:00:973</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -262,9 +334,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">validLogin</h5>
-<span class='badge badge-success'>08.20.2026 3:03:54 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:55 AM</span>
-<span class='badge badge-default'>00:00:00:937</span>
+<span class='badge badge-success'>08.20.2026 9:36:48 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:49 AM</span>
+<span class='badge badge-default'>00:00:00:973</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=4</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -282,7 +354,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:55 AM</td>
+        <td>9:36:49 AM</td>
         <td>
           Test Passed
         </td>
@@ -299,7 +371,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:03:56 AM</span> / <span>00:00:00:936</span>
+              <span>9:36:50 AM</span> / <span>00:00:00:913</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -308,9 +380,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.20.2026 3:03:56 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:57 AM</span>
-<span class='badge badge-default'>00:00:00:936</span>
+<span class='badge badge-success'>08.20.2026 9:36:50 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:51 AM</span>
+<span class='badge badge-default'>00:00:00:913</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=5</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -328,7 +400,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:57 AM</td>
+        <td>9:36:51 AM</td>
         <td>
           Test Passed
         </td>
@@ -345,7 +417,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:03:57 AM</span> / <span>00:00:00:755</span>
+              <span>9:36:52 AM</span> / <span>00:00:00:737</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -354,9 +426,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.20.2026 3:03:57 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:03:58 AM</span>
-<span class='badge badge-default'>00:00:00:755</span>
+<span class='badge badge-success'>08.20.2026 9:36:52 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:53 AM</span>
+<span class='badge badge-default'>00:00:00:737</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=6</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -374,7 +446,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:03:58 AM</td>
+        <td>9:36:53 AM</td>
         <td>
           Test Passed
         </td>
@@ -391,7 +463,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromCsv</p>
             <p class="text-sm">
-              <span>3:03:59 AM</span> / <span>00:00:00:753</span>
+              <span>9:36:53 AM</span> / <span>00:00:00:732</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -400,9 +472,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromCsv</h5>
-<span class='badge badge-success'>08.20.2026 3:03:59 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:00 AM</span>
-<span class='badge badge-default'>00:00:00:753</span>
+<span class='badge badge-success'>08.20.2026 9:36:53 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:54 AM</span>
+<span class='badge badge-default'>00:00:00:732</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=7</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -420,7 +492,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:00 AM</td>
+        <td>9:36:54 AM</td>
         <td>
           Test Passed
         </td>
@@ -437,7 +509,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:04:02 AM</span> / <span>00:00:00:888</span>
+              <span>9:36:56 AM</span> / <span>00:00:00:862</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -446,9 +518,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.20.2026 3:04:02 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:03 AM</span>
-<span class='badge badge-default'>00:00:00:888</span>
+<span class='badge badge-success'>08.20.2026 9:36:56 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:57 AM</span>
+<span class='badge badge-default'>00:00:00:862</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=8</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -466,7 +538,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:03 AM</td>
+        <td>9:36:57 AM</td>
         <td>
           Test Passed
         </td>
@@ -483,7 +555,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:04:04 AM</span> / <span>00:00:00:764</span>
+              <span>9:36:58 AM</span> / <span>00:00:00:737</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -492,9 +564,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.20.2026 3:04:04 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:05 AM</span>
-<span class='badge badge-default'>00:00:00:764</span>
+<span class='badge badge-success'>08.20.2026 9:36:58 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:36:59 AM</span>
+<span class='badge badge-default'>00:00:00:737</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=9</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -512,7 +584,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:05 AM</td>
+        <td>9:36:59 AM</td>
         <td>
           Test Passed
         </td>
@@ -529,7 +601,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromExcel</p>
             <p class="text-sm">
-              <span>3:04:05 AM</span> / <span>00:00:00:788</span>
+              <span>9:36:59 AM</span> / <span>00:00:00:743</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -538,9 +610,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromExcel</h5>
-<span class='badge badge-success'>08.20.2026 3:04:05 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:06 AM</span>
-<span class='badge badge-default'>00:00:00:788</span>
+<span class='badge badge-success'>08.20.2026 9:36:59 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:00 AM</span>
+<span class='badge badge-default'>00:00:00:743</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=10</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -558,7 +630,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:06 AM</td>
+        <td>9:37:00 AM</td>
         <td>
           Test Passed
         </td>
@@ -575,7 +647,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:04:07 AM</span> / <span>00:00:00:865</span>
+              <span>9:37:01 AM</span> / <span>00:00:00:853</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -584,9 +656,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.20.2026 3:04:07 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:08 AM</span>
-<span class='badge badge-default'>00:00:00:865</span>
+<span class='badge badge-success'>08.20.2026 9:37:01 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:02 AM</span>
+<span class='badge badge-default'>00:00:00:853</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=11</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -604,7 +676,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:08 AM</td>
+        <td>9:37:02 AM</td>
         <td>
           Test Passed
         </td>
@@ -621,7 +693,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:04:09 AM</span> / <span>00:00:00:760</span>
+              <span>9:37:03 AM</span> / <span>00:00:00:746</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -630,9 +702,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.20.2026 3:04:09 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:10 AM</span>
-<span class='badge badge-default'>00:00:00:760</span>
+<span class='badge badge-success'>08.20.2026 9:37:03 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:04 AM</span>
+<span class='badge badge-default'>00:00:00:746</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=12</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -650,7 +722,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:10 AM</td>
+        <td>9:37:04 AM</td>
         <td>
           Test Passed
         </td>
@@ -667,7 +739,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromJson</p>
             <p class="text-sm">
-              <span>3:04:11 AM</span> / <span>00:00:00:742</span>
+              <span>9:37:05 AM</span> / <span>00:00:00:743</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -676,9 +748,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromJson</h5>
-<span class='badge badge-success'>08.20.2026 3:04:11 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:12 AM</span>
-<span class='badge badge-default'>00:00:00:742</span>
+<span class='badge badge-success'>08.20.2026 9:37:05 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:05 AM</span>
+<span class='badge badge-default'>00:00:00:743</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=13</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -696,7 +768,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:12 AM</td>
+        <td>9:37:05 AM</td>
         <td>
           Test Passed
         </td>
@@ -713,7 +785,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:04:13 AM</span> / <span>00:00:00:859</span>
+              <span>9:37:06 AM</span> / <span>00:00:00:796</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -722,9 +794,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.20.2026 3:04:13 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:14 AM</span>
-<span class='badge badge-default'>00:00:00:859</span>
+<span class='badge badge-success'>08.20.2026 9:37:06 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:07 AM</span>
+<span class='badge badge-default'>00:00:00:796</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=14</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -742,7 +814,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:14 AM</td>
+        <td>9:37:07 AM</td>
         <td>
           Test Passed
         </td>
@@ -759,7 +831,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:04:15 AM</span> / <span>00:00:00:771</span>
+              <span>9:37:08 AM</span> / <span>00:00:00:747</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -768,9 +840,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.20.2026 3:04:15 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:15 AM</span>
-<span class='badge badge-default'>00:00:00:771</span>
+<span class='badge badge-success'>08.20.2026 9:37:08 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:09 AM</span>
+<span class='badge badge-default'>00:00:00:747</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=15</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -788,7 +860,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:15 AM</td>
+        <td>9:37:09 AM</td>
         <td>
           Test Passed
         </td>
@@ -805,7 +877,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromYaml</p>
             <p class="text-sm">
-              <span>3:04:16 AM</span> / <span>00:00:00:744</span>
+              <span>9:37:10 AM</span> / <span>00:00:00:748</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -814,9 +886,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromYaml</h5>
-<span class='badge badge-success'>08.20.2026 3:04:16 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:17 AM</span>
-<span class='badge badge-default'>00:00:00:744</span>
+<span class='badge badge-success'>08.20.2026 9:37:10 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:11 AM</span>
+<span class='badge badge-default'>00:00:00:748</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=16</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -834,7 +906,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:17 AM</td>
+        <td>9:37:11 AM</td>
         <td>
           Test Passed
         </td>
@@ -851,7 +923,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:04:18 AM</span> / <span>00:00:00:854</span>
+              <span>9:37:12 AM</span> / <span>00:00:00:827</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -860,9 +932,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.20.2026 3:04:18 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:19 AM</span>
-<span class='badge badge-default'>00:00:00:854</span>
+<span class='badge badge-success'>08.20.2026 9:37:12 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:12 AM</span>
+<span class='badge badge-default'>00:00:00:827</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=17</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -880,7 +952,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:19 AM</td>
+        <td>9:37:12 AM</td>
         <td>
           Test Passed
         </td>
@@ -897,7 +969,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:04:20 AM</span> / <span>00:00:00:751</span>
+              <span>9:37:13 AM</span> / <span>00:00:00:713</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -906,9 +978,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.20.2026 3:04:20 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:20 AM</span>
-<span class='badge badge-default'>00:00:00:751</span>
+<span class='badge badge-success'>08.20.2026 9:37:13 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:14 AM</span>
+<span class='badge badge-default'>00:00:00:713</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=18</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -926,7 +998,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:20 AM</td>
+        <td>9:37:14 AM</td>
         <td>
           Test Passed
         </td>
@@ -943,7 +1015,7 @@
           <div class="test-detail">
             <p class="name">verifyLoginFromZip</p>
             <p class="text-sm">
-              <span>3:04:21 AM</span> / <span>00:00:00:729</span>
+              <span>9:37:15 AM</span> / <span>00:00:00:692</span>
               <span class="badge pass-bg log float-right">Pass</span>
             </p>
           </div>
@@ -952,9 +1024,9 @@
 <div class="p-v-10">
 <div class="info">
 <h5 class="test-status text-pass">verifyLoginFromZip</h5>
-<span class='badge badge-success'>08.20.2026 3:04:21 AM</span>
-<span class='badge badge-danger'>08.20.2026 3:04:22 AM</span>
-<span class='badge badge-default'>00:00:00:729</span>
+<span class='badge badge-success'>08.20.2026 9:37:15 AM</span>
+<span class='badge badge-danger'>08.20.2026 9:37:16 AM</span>
+<span class='badge badge-default'>00:00:00:692</span>
 &middot; <span class='uri-anchor badge badge-default'>#test-id=19</span>
 <span title='Skip to the next failed step' class='badge badge-danger pointer float-right ne ml-1'><i class="fa fa-fast-forward"></i></span>
 <span title='Collapse all nodes' class='badge badge-default pointer float-right ct ml-1'><i class="fa fa-compress"></i></span>
@@ -972,7 +1044,7 @@
   <tbody>
       <tr class="event-row">
         <td><span class="badge log pass-bg">Pass</span></td>
-        <td>3:04:22 AM</td>
+        <td>9:37:16 AM</td>
         <td>
           Test Passed
         </td>
@@ -991,7 +1063,56 @@
 </div>
 <div class="test-content-detail"><div class="detail-body"></div></div>
 </div></div>
-<div class="test-wrapper row view category-view attributes-view">
+<div class="test-wrapper row view exception-view attributes-view">
+<div class="test-list">
+<div class="test-list-tools">
+<ul class="tools pull-left"><li><a href=""><span class="font-size-14">Exception</span></a></li></ul>
+<ul class="tools text-right"><li><a href="#"><span class="badge badge-primary">1</span></a></li></ul>
+</div>
+<div class="test-list-wrapper scrollable">
+<ul class="test-list-item">
+<li class="test-item">
+<div class="test-detail">
+<span class="meta">
+<span class='badge log badge-skip'>1</span>
+</span>
+<p class="name">org.openqa.selenium.TimeoutException</p>
+<p class="duration text-sm">1 tests</p>
+</div>
+<div class="test-contents d-none">
+<div class="info">
+<h4>org.openqa.selenium.TimeoutException</h4>
+<span status="skip" class='badge log badge-skip'>1 skipped</span>
+</div>
+<table class='table table-sm mt-4'>
+<thead>
+<tr>
+<th class="status-col">Status</th>
+<th class="timestamp-col">Timestamp</th>
+<th>TestName</th>
+</tr>
+</thead>
+<tbody>
+<tr class="tag-test-status" status="skip">
+<td><span class="badge log skip-bg">Skip</span></td>
+<td>09:34:38 AM</td>
+<td>
+<a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="test-content scrollable">
+<div class="test-content-detail">
+<div class="detail-body"></div>
+</div>
+</div>
+</div><div class="test-wrapper row view category-view attributes-view">
 <div class="test-list">
 <div class="test-list-tools">
 <ul class="tools pull-left"><li><a href=""><span class="font-size-14">Category</span></a></li></ul>
@@ -1023,7 +1144,7 @@
 <tbody>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:50 AM</td>
+<td>09:36:40 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>keyboardOnlyLogin</a>
 </td>
@@ -1035,7 +1156,8 @@
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log pass-bg'>19</span>
+<span class='badge log pass-bg'>18</span>
+<span class='badge log badge-skip'>1</span>
 </span>
 <p class="name">regression</p>
 <p class="duration text-sm">19 tests</p>
@@ -1043,7 +1165,8 @@
 <div class="test-contents d-none">
 <div class="info">
 <h4>regression</h4>
-<span status="pass" class='badge log pass-bg'>19 passed</span>
+<span status="pass" class='badge log pass-bg'>18 passed</span>
+<span status="skip" class='badge log badge-skip'>1 skipped</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1054,137 +1177,170 @@
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:47 AM</td>
+<tr class="tag-test-status" status="skip">
+<td><span class="badge log skip-bg">Skip</span></td>
+<td>09:34:38 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:50 AM</td>
+<td>09:36:40 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>keyboardOnlyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:52 AM</td>
+<td>09:36:46 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>lockedOutLoginShowsError</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:54 AM</td>
+<td>09:36:48 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>validLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:56 AM</td>
+<td>09:36:50 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:57 AM</td>
+<td>09:36:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:59 AM</td>
+<td>09:36:53 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:02 AM</td>
+<td>09:36:56 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:04 AM</td>
+<td>09:36:58 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:05 AM</td>
+<td>09:36:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:07 AM</td>
+<td>09:37:01 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:09 AM</td>
+<td>09:37:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:11 AM</td>
+<td>09:37:05 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:13 AM</td>
+<td>09:37:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:15 AM</td>
+<td>09:37:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:16 AM</td>
+<td>09:37:10 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:18 AM</td>
+<td>09:37:12 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:20 AM</td>
+<td>09:37:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:21 AM</td>
+<td>09:37:15 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</li>
+<li class="test-item">
+<div class="test-detail">
+<span class="meta">
+<span class='badge log badge-skip'>1</span>
+</span>
+<p class="name">smoke</p>
+<p class="duration text-sm">1 tests</p>
+</div>
+<div class="test-contents d-none">
+<div class="info">
+<h4>smoke</h4>
+<span status="skip" class='badge log badge-skip'>1 skipped</span>
+</div>
+<table class='table table-sm mt-4'>
+<thead>
+<tr>
+<th class="status-col">Status</th>
+<th class="timestamp-col">Timestamp</th>
+<th>TestName</th>
+</tr>
+</thead>
+<tbody>
+<tr class="tag-test-status" status="skip">
+<td><span class="badge log skip-bg">Skip</span></td>
+<td>09:34:38 AM</td>
+<td>
+<a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
 </td>
 </tr>
 </tbody>
@@ -1215,21 +1371,21 @@
 <tbody>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:50 AM</td>
+<td>09:36:40 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>keyboardOnlyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:52 AM</td>
+<td>09:36:46 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>lockedOutLoginShowsError</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:54 AM</td>
+<td>09:36:48 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>validLogin</a>
 </td>
@@ -1262,140 +1418,107 @@
 <tbody>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:56 AM</td>
+<td>09:36:50 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:57 AM</td>
+<td>09:36:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:59 AM</td>
+<td>09:36:53 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:02 AM</td>
+<td>09:36:56 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:04 AM</td>
+<td>09:36:58 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:05 AM</td>
+<td>09:36:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:07 AM</td>
+<td>09:37:01 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:09 AM</td>
+<td>09:37:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:11 AM</td>
+<td>09:37:05 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:13 AM</td>
+<td>09:37:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:15 AM</td>
+<td>09:37:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:16 AM</td>
+<td>09:37:10 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:18 AM</td>
+<td>09:37:12 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:20 AM</td>
+<td>09:37:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:21 AM</td>
+<td>09:37:15 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-<li class="test-item">
-<div class="test-detail">
-<span class="meta">
-<span class='badge log pass-bg'>1</span>
-</span>
-<p class="name">smoke</p>
-<p class="duration text-sm">1 tests</p>
-</div>
-<div class="test-contents d-none">
-<div class="info">
-<h4>smoke</h4>
-<span status="pass" class='badge log pass-bg'>1 passed</span>
-</div>
-<table class='table table-sm mt-4'>
-<thead>
-<tr>
-<th class="status-col">Status</th>
-<th class="timestamp-col">Timestamp</th>
-<th>TestName</th>
-</tr>
-</thead>
-<tbody>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:47 AM</td>
-<td>
-<a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
 </td>
 </tr>
 </tbody>
@@ -1421,7 +1544,8 @@
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log pass-bg'>19</span>
+<span class='badge log pass-bg'>18</span>
+<span class='badge log badge-skip'>1</span>
 </span>
 <p class="name">edge</p>
 <p class="duration text-sm">19 tests</p>
@@ -1429,7 +1553,8 @@
 <div class="test-contents d-none">
 <div class="info">
 <h4>edge</h4>
-<span status="pass" class='badge log pass-bg'>19 passed</span>
+<span status="pass" class='badge log pass-bg'>18 passed</span>
+<span status="skip" class='badge log badge-skip'>1 skipped</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1440,135 +1565,135 @@
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:47 AM</td>
+<tr class="tag-test-status" status="skip">
+<td><span class="badge log skip-bg">Skip</span></td>
+<td>09:34:38 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:50 AM</td>
+<td>09:36:40 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>keyboardOnlyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:52 AM</td>
+<td>09:36:46 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>lockedOutLoginShowsError</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:54 AM</td>
+<td>09:36:48 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>validLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:56 AM</td>
+<td>09:36:50 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:57 AM</td>
+<td>09:36:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:59 AM</td>
+<td>09:36:53 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:02 AM</td>
+<td>09:36:56 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:04 AM</td>
+<td>09:36:58 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:05 AM</td>
+<td>09:36:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:07 AM</td>
+<td>09:37:01 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:09 AM</td>
+<td>09:37:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:11 AM</td>
+<td>09:37:05 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:13 AM</td>
+<td>09:37:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:15 AM</td>
+<td>09:37:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:16 AM</td>
+<td>09:37:10 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:18 AM</td>
+<td>09:37:12 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:20 AM</td>
+<td>09:37:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:21 AM</td>
+<td>09:37:15 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
 </td>
@@ -1596,7 +1721,8 @@
 <li class="test-item">
 <div class="test-detail">
 <span class="meta">
-<span class='badge log pass-bg'>19</span>
+<span class='badge log pass-bg'>18</span>
+<span class='badge log badge-skip'>1</span>
 </span>
 <p class="name">saucedemo</p>
 <p class="duration text-sm">19 tests</p>
@@ -1604,7 +1730,8 @@
 <div class="test-contents d-none">
 <div class="info">
 <h4>saucedemo</h4>
-<span status="pass" class='badge log pass-bg'>19 passed</span>
+<span status="pass" class='badge log pass-bg'>18 passed</span>
+<span status="skip" class='badge log badge-skip'>1 skipped</span>
 </div>
 <table class='table table-sm mt-4'>
 <thead>
@@ -1615,135 +1742,135 @@
 </tr>
 </thead>
 <tbody>
-<tr class="tag-test-status" status="pass">
-<td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:47 AM</td>
+<tr class="tag-test-status" status="skip">
+<td><span class="badge log skip-bg">Skip</span></td>
+<td>09:34:38 AM</td>
 <td>
 <a href="#" class="linked" test-id='1' id='1'>verifyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:50 AM</td>
+<td>09:36:40 AM</td>
 <td>
 <a href="#" class="linked" test-id='2' id='2'>keyboardOnlyLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:52 AM</td>
+<td>09:36:46 AM</td>
 <td>
 <a href="#" class="linked" test-id='3' id='3'>lockedOutLoginShowsError</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:54 AM</td>
+<td>09:36:48 AM</td>
 <td>
 <a href="#" class="linked" test-id='4' id='4'>validLogin</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:56 AM</td>
+<td>09:36:50 AM</td>
 <td>
 <a href="#" class="linked" test-id='5' id='5'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:57 AM</td>
+<td>09:36:52 AM</td>
 <td>
 <a href="#" class="linked" test-id='6' id='6'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:03:59 AM</td>
+<td>09:36:53 AM</td>
 <td>
 <a href="#" class="linked" test-id='7' id='7'>verifyLoginFromCsv</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:02 AM</td>
+<td>09:36:56 AM</td>
 <td>
 <a href="#" class="linked" test-id='8' id='8'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:04 AM</td>
+<td>09:36:58 AM</td>
 <td>
 <a href="#" class="linked" test-id='9' id='9'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:05 AM</td>
+<td>09:36:59 AM</td>
 <td>
 <a href="#" class="linked" test-id='10' id='10'>verifyLoginFromExcel</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:07 AM</td>
+<td>09:37:01 AM</td>
 <td>
 <a href="#" class="linked" test-id='11' id='11'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:09 AM</td>
+<td>09:37:03 AM</td>
 <td>
 <a href="#" class="linked" test-id='12' id='12'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:11 AM</td>
+<td>09:37:05 AM</td>
 <td>
 <a href="#" class="linked" test-id='13' id='13'>verifyLoginFromJson</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:13 AM</td>
+<td>09:37:06 AM</td>
 <td>
 <a href="#" class="linked" test-id='14' id='14'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:15 AM</td>
+<td>09:37:08 AM</td>
 <td>
 <a href="#" class="linked" test-id='15' id='15'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:16 AM</td>
+<td>09:37:10 AM</td>
 <td>
 <a href="#" class="linked" test-id='16' id='16'>verifyLoginFromYaml</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:18 AM</td>
+<td>09:37:12 AM</td>
 <td>
 <a href="#" class="linked" test-id='17' id='17'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:20 AM</td>
+<td>09:37:13 AM</td>
 <td>
 <a href="#" class="linked" test-id='18' id='18'>verifyLoginFromZip</a>
 </td>
 </tr>
 <tr class="tag-test-status" status="pass">
 <td><span class="badge log pass-bg">Pass</span></td>
-<td>03:04:21 AM</td>
+<td>09:37:15 AM</td>
 <td>
 <a href="#" class="linked" test-id='19' id='19'>verifyLoginFromZip</a>
 </td>
@@ -1765,19 +1892,19 @@
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0">Started</p>
-<h3>Aug 20, 2026 03:03:46</h3>
+<h3>Aug 20, 2026 09:34:37</h3>
 </div></div>
 </div>
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0">Ended</p>
-<h3>Aug 20, 2026 03:04:23</h3>
+<h3>Aug 20, 2026 09:37:16</h3>
 </div></div>
 </div>
 <div class="col-md-3">
 <div class="card"><div class="card-body">
 <p class="m-b-0 text-pass">Tests Passed</p>
-<h3>19</h3>
+<h3>18</h3>
 </div></div>
 </div>
 <div class="col-md-3">
@@ -1799,13 +1926,13 @@
 </div>
 </div>
 <div class="card-footer">
-<div><small data-tooltip='100%'>
-<b>19</b> tests passed
+<div><small data-tooltip='94%'>
+<b>18</b> tests passed
 </small>
 </div>
 <div>
 <small data-tooltip='0%'><b>0</b> tests failed,
-<b>0</b> skipped, <b data-tooltip='0%'>0</b> others
+<b>1</b> skipped, <b data-tooltip='0%'>0</b> others
 </small>
 </div>
 </div>
@@ -1822,10 +1949,10 @@
 </div>
 </div>
 <div class="card-footer">
-<div><small data-tooltip='100%'><b>19</b> events passed</small></div>
+<div><small data-tooltip='90%'><b>18</b> events passed</small></div>
 <div>
 <small data-tooltip='0%'><b>0</b> events failed,
-<b data-tooltip='%'>0</b> others
+<b data-tooltip='%'>2</b> others
 </small>
 </div>
 </div>
@@ -1841,7 +1968,7 @@
 </div></div>
 <script>
 var timeline = {
-"verifyLogin":1.687,"keyboardOnlyLogin":1.246,"lockedOutLoginShowsError":0.994,"validLogin":0.937,"verifyLoginFromCsv":0.936,"verifyLoginFromCsv":0.755,"verifyLoginFromCsv":0.753,"verifyLoginFromExcel":0.888,"verifyLoginFromExcel":0.764,"verifyLoginFromExcel":0.788,"verifyLoginFromJson":0.865,"verifyLoginFromJson":0.76,"verifyLoginFromJson":0.742,"verifyLoginFromYaml":0.859,"verifyLoginFromYaml":0.771,"verifyLoginFromYaml":0.744,"verifyLoginFromZip":0.854,"verifyLoginFromZip":0.751,"verifyLoginFromZip":0.729
+"verifyLogin":90.187,"keyboardOnlyLogin":5.432,"lockedOutLoginShowsError":1.281,"validLogin":0.973,"verifyLoginFromCsv":0.913,"verifyLoginFromCsv":0.737,"verifyLoginFromCsv":0.732,"verifyLoginFromExcel":0.862,"verifyLoginFromExcel":0.737,"verifyLoginFromExcel":0.743,"verifyLoginFromJson":0.853,"verifyLoginFromJson":0.746,"verifyLoginFromJson":0.743,"verifyLoginFromYaml":0.796,"verifyLoginFromYaml":0.747,"verifyLoginFromYaml":0.748,"verifyLoginFromZip":0.827,"verifyLoginFromZip":0.713,"verifyLoginFromZip":0.692
 };
 </script>
 <div class="row">
@@ -1853,11 +1980,11 @@ var timeline = {
 <tbody>
 <tr>
 <td>saucedemo</td>
-<td>19</td>
+<td>18</td>
 <td>0</td>
+<td>1</td>
 <td>0</td>
-<td>0</td>
-<td>100%</td>
+<td>94.737%</td>
 </tr>
 </tbody>
 </table></div>
@@ -1878,11 +2005,19 @@ var timeline = {
 </tr>
 <tr>
 <td>regression</td>
-<td>19</td>
+<td>18</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>94.737%</td>
+</tr>
+<tr>
+<td>smoke</td>
 <td>0</td>
 <td>0</td>
+<td>1</td>
 <td>0</td>
-<td>100%</td>
+<td>0%</td>
 </tr>
 <tr>
 <td>keyword-driven</td>
@@ -1900,14 +2035,6 @@ var timeline = {
 <td>0</td>
 <td>100%</td>
 </tr>
-<tr>
-<td>smoke</td>
-<td>1</td>
-<td>0</td>
-<td>0</td>
-<td>0</td>
-<td>100%</td>
-</tr>
 </tbody>
 </table></div>
 </div>
@@ -1920,11 +2047,11 @@ var timeline = {
 <tbody>
 <tr>
 <td>edge</td>
-<td>19</td>
+<td>18</td>
 <td>0</td>
+<td>1</td>
 <td>0</td>
-<td>0</td>
-<td>100%</td>
+<td>94.737%</td>
 </tr>
 </tbody>
 </table></div>
@@ -1973,10 +2100,10 @@ var timeline = {
 <script>
 var statusGroup = {
 parentCount: 5,
-passParent: 19,
+passParent: 18,
 failParent: 0,
 warningParent: 0,
-skipParent: 0,
+skipParent: 1,
 childCount: 5,
 passChild: 0,
 failChild: 0,
@@ -1990,10 +2117,10 @@ warningGrandChild: 0,
 skipGrandChild: 0,
 infoGrandChild: 0,
 eventsCount: 5,
-passEvents: 19,
+passEvents: 18,
 failEvents: 0,
 warningEvents: 0,
-skipEvents: 0,
+skipEvents: 2,
 infoEvents: 0
 };
 </script>        </div>
