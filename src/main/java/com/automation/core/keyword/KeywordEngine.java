@@ -315,7 +315,7 @@ public class KeywordEngine {
      * answer input), but waits up to captcha.wait.seconds (falls back to
      * timeout.long) for the image to actually appear, and simply logs +
      * moves on instead of failing the test if it never does. Use this for
-     * CAPTCHAs that render conditionally/slowly (e.g. IndiaAI's login
+     * CAPTCHAs that render conditionally/slowly (e.g. SAHMAT's login
      * sub-module) where a missing CAPTCHA on a given run is expected, not a
      * broken test. Clicks the input field first (best-effort, matching the
      * "click the field, then let the solver fill it" flow) before handing

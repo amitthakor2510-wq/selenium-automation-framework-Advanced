@@ -411,6 +411,18 @@ pipeline {
                     // the whole "Run Tests Per Site" stage.
                     allSites = allSites.findAll { !it.endsWith('-safari') }
 
+                    // Respect the master on/off switch in
+                    // pipeline-config.properties (repo root) — the same file
+                    // GitHub Actions' matrix-setup job and SiteRegistry.validate()
+                    // read via Scripts/enabled-sites.sh. A site with
+                    // site.<name>.enabled=false there drops out of
+                    // SITES_TO_RUN/RUN_MOBILE below, with no Jenkinsfile edit
+                    // needed — disable it in one file and every pipeline (and
+                    // local `mvn test -Dsite=...`) agrees.
+                    allSites = allSites.findAll { site ->
+                        sh(script: "bash Scripts/enabled-sites.sh --check ${site}", returnStatus: true) == 0
+                    }
+
                     // "mobile" is excluded here and run as its own dedicated
                     // stage below instead. Unlike every other discovered site,
                     // it doesn't use the browser DriverFactory (-Dbrowser/
@@ -1290,8 +1302,17 @@ pipeline {
             // place they run, and only on the nightly cron trigger, not on
             // every manually-triggered or commit-triggered build.
             when {
-                expression {
-                    currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                allOf {
+                    expression {
+                        currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                    }
+                    // Both suites only exist for demoqa (see comment above) —
+                    // gated on pipeline-config.properties' site.demoqa.enabled
+                    // the same way the regular per-site loop is, so disabling
+                    // demoqa there skips this stage too.
+                    expression {
+                        sh(script: 'bash Scripts/enabled-sites.sh --check demoqa', returnStatus: true) == 0
+                    }
                 }
             }
             steps {

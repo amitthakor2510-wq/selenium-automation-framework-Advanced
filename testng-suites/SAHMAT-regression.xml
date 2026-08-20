@@ -1,0 +1,35 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- PARALLEL EXECUTION: classes (not methods) + thread-count=2, matching
+     demoqa-regression.xml's reasoning. Only one class exists in this
+     package today (LoginAndForgotPasswordKeywordTest, driven entirely by
+     SAHMAT_login_forgot_password_keywords.csv), so thread-count has no
+     effect yet — set for consistency and so a future class added to
+     com.automation.sites.sahmat.tests picks up safe concurrency with no
+     suite-file edit needed.
+     Run locally with:
+       mvn test -Dsite=SAHMAT -DsuiteXmlFile=testng-suites/SAHMAT-regression.xml
+     Or, to run every browser one by one on this machine:
+       Scripts/run-SAHMAT-all-browsers.sh regression -->
+<suite name="SAHMAT Regression Suite" parallel="classes" thread-count="2">
+
+  <!-- RetryListener is an IAnnotationTransformer — must be registered here
+       (or via ServiceLoader), not via @Listeners on a test class, or it
+       silently never fires. See BaseTest.java for the full explanation. -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="SAHMAT Regression Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="regression"/>
+      </run>
+    </groups>
+
+    <packages>
+      <package name="com.automation.sites.sahmat.tests"/>
+    </packages>
+
+  </test>
+
+</suite>

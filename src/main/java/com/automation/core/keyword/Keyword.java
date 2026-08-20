@@ -39,7 +39,7 @@ public enum Keyword {
     // page still hasn't settled after the wait, since a slow/SPA page is a
     // reason to proceed carefully, not a reason to abort the whole test.
     // Use after NAVIGATE and after any CLICK that opens a dynamically
-    // rendered modal/sub-module (e.g. IndiaAI's login popup) before
+    // rendered modal/sub-module (e.g. SAHMAT's login popup) before
     // interacting with anything inside it.
     WAIT_FOR_PAGE_LOAD,
     // locator = captcha image, testData = ObjectRepository key of the input
@@ -52,7 +52,7 @@ public enum Keyword {
     // to appear, and if it never does — CAPTCHA didn't render this run, a
     // slow/flaky page, etc. — logs and moves on to the next step instead of
     // failing the test. Use this instead of SOLVE_TEXT_CAPTCHA whenever a
-    // CAPTCHA is only sometimes present/slow to render (e.g. IndiaAI's login
+    // CAPTCHA is only sometimes present/slow to render (e.g. SAHMAT's login
     // sub-module) and the script shouldn't hard-fail because of that.
     SOLVE_TEXT_CAPTCHA_IF_PRESENT,
     SCREENSHOT;             // testData = label used in the saved filename (optional)

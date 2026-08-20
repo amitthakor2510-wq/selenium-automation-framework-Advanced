@@ -27,6 +27,19 @@ if [[ -z "$SITE" || -z "$URL" ]]; then
   exit 1
 fi
 
+# SITE becomes a Java package segment (com.automation.sites.${SITE}.*)
+# and feeds a ${SITE^} class name (${CLASS} below) — both are illegal
+# with anything other than lowercase letters/digits/underscore, and a
+# leading digit breaks the class name specifically. Catching this here
+# gives one clear message instead of a confusing javac syntax error
+# three files deep once compile is attempted.
+if [[ ! "$SITE" =~ ^[a-z][a-z0-9_]*$ ]]; then
+  echo "[✗] '${SITE}' isn't a valid site name — it becomes a Java package/class"
+  echo "    name, so it must be lowercase letters, digits, and underscores only,"
+  echo "    starting with a letter (e.g. 'indianrail', 'flight_track')."
+  exit 1
+fi
+
 # Guard against overwriting an existing site by accident — every generator
 # below uses `>` (clobber), so a re-run against an already-scaffolded site
 # would silently wipe out any real work added since. Fail fast instead.
@@ -334,8 +347,58 @@ else
   echo "        \"${SITE}\", new SiteDefinition(true),"
 fi
 
+# =========================================================================
+# 8. Register with pipeline-config.properties — the master on/off switch
+#    read by Scripts/enabled-sites.sh (GitHub Actions' matrix-setup,
+#    Jenkins' "Discover Site Projects", GitLab CI's
+#    generate-pipeline-config) and by SiteRegistry.validate() for local
+#    runs. Without a line here, isEnabled("${SITE}") returns false and
+#    validate() rejects the site everywhere (fail-closed default), even
+#    though KNOWN_SITES above now recognizes it. New sites start enabled
+#    so the exact `mvn test` command this script prints below works
+#    immediately.
+# =========================================================================
+PIPELINE_CONFIG="pipeline-config.properties"
+if [[ -f "$PIPELINE_CONFIG" ]] && grep -q "^site\.${SITE}\.enabled=" "$PIPELINE_CONFIG"; then
+  echo "[i] '${SITE}' already has a line in ${PIPELINE_CONFIG} — left as-is."
+elif [[ -f "$PIPELINE_CONFIG" ]]; then
+  echo "site.${SITE}.enabled=true" >> "$PIPELINE_CONFIG"
+  echo "[✓] Registered '${SITE}' in ${PIPELINE_CONFIG} (enabled=true)"
+else
+  echo "[✗] ${PIPELINE_CONFIG} not found at repo root — add this line by hand once it exists:"
+  echo "        site.${SITE}.enabled=true"
+fi
+
+# GitLab CI only: its parallel:matrix values must be static (rules are
+# evaluated before any script runs, so unlike GitHub Actions/Jenkins it
+# can't discover sites from a file) — so this script edits .gitlab-ci.yml
+# itself, via the two AUTO-GENERATED-SITE-* markers on the `test` job,
+# rather than leaving that edit for a human to remember.
+GITLAB_CI=".gitlab-ci.yml"
+if [[ -f "$GITLAB_CI" ]] && grep -q "AUTO-GENERATED-SITE-LIST" "$GITLAB_CI"; then
+  if grep -qE "SITE: \[ [^]]*\b${SITE}\b" "$GITLAB_CI"; then
+    echo "[i] '${SITE}' already in .gitlab-ci.yml's SITE: [ ... ] list — left as-is."
+  else
+    UPPER_SITE=$(echo "$SITE" | tr '[:lower:]-' '[:upper:]_')
+    # Append the site into "SITE: [ demoqa, saucedemo, ... ]" — matches
+    # regardless of how many sites are already listed, so this stays
+    # correct no matter how many times new-site.sh has run before.
+    sed -i -E "s/(SITE: \[ [^]]*)\]/\1, ${SITE} ]/" "$GITLAB_CI"
+    # Insert a matching rules: gate right after the START marker so a
+    # disabled site is skipped the same way demoqa/saucedemo already are.
+    sed -i "/# AUTO-GENERATED-SITE-RULES-START/a\\    - if: '\$SITE == \"${SITE}\" \&\& \$SITE_${UPPER_SITE}_ENABLED == \"false\"'\\n      when: never" "$GITLAB_CI"
+    echo "[✓] Added '${SITE}' to .gitlab-ci.yml's test job (SITE list + rules: gate)"
+  fi
+else
+  echo "[✗] Could not find the AUTO-GENERATED-SITE-LIST marker in ${GITLAB_CI} —"
+  echo "    add '${SITE}' to its test job's SITE: [ ... ] list by hand, plus a"
+  echo "    matching rules: gate (copy the demoqa/saucedemo pattern there)."
+fi
+
 echo ""
-echo "✅ New site '${SITE}' scaffolded across all 3 testing styles. Next steps:"
+echo "✅ New site '${SITE}' scaffolded across all 3 testing styles, and wired into"
+echo "   every pipeline (GitHub Actions, Jenkins, GitLab CI) and local runs — no"
+echo "   CI/CD file needs manual editing. Just write real code from here:"
 echo "   1. Standard:       edit pages/${CLASS}.java + tests/${TEST}.java"
 echo "   2. Keyword-driven: edit objectrepository/${SITE}.properties + testdata/keyword/${SITE}_home_keywords.csv"
 echo "   3. File-driven:    edit testdata/${SITE}_home.csv (or swap for .json/.yaml/.xlsx)"

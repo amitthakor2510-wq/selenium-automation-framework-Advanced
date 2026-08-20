@@ -17,6 +17,7 @@
 - [🚫 What It Can't Solve](#-what-it-cant-solve)
 - [🔡 OCR Accuracy Pipeline (letter/digit confusion)](#-ocr-accuracy-pipeline-letterdigit-confusion)
 - [🔧 Configuration Reference](#-configuration-reference)
+- [🤖 AI Vision provider setup](#-ai-vision-provider-setup)
 - [🧪 Verifying It's Actually Working](#-verifying-its-actually-working)
 - [🩹 Troubleshooting](#-troubleshooting)
 - [📐 Design Notes / Extending It](#-design-notes--extending-it)
@@ -171,13 +172,13 @@ Four keywords, all already handled by `KeywordEngine.execute()`:
 | Keyword | What it does |
 |---|---|
 | `SOLVE_TEXT_CAPTCHA` | OCR reads an alphanumeric image CAPTCHA and types the result. **Hard-fails the test** if the image locator never resolves — use when a CAPTCHA is guaranteed to be present and you want a broken locator to fail loudly. |
-| `SOLVE_TEXT_CAPTCHA_IF_PRESENT` | Same row shape as `SOLVE_TEXT_CAPTCHA` (waits up to `captcha.wait.seconds`, default `timeout.long`, for the image to appear), but if it never renders — conditional CAPTCHAs, slow/flaky pages — it logs and **moves on to the next step instead of failing the test**. Clicks the input field before handing off to the solver. Use this whenever a CAPTCHA is only sometimes shown (e.g. IndiaAI's login sub-module). |
+| `SOLVE_TEXT_CAPTCHA_IF_PRESENT` | Same row shape as `SOLVE_TEXT_CAPTCHA` (waits up to `captcha.wait.seconds`, default `timeout.long`, for the image to appear), but if it never renders — conditional CAPTCHAs, slow/flaky pages — it logs and **moves on to the next step instead of failing the test**. Clicks the input field before handing off to the solver. Use this whenever a CAPTCHA is only sometimes shown (e.g. SAHMAT's login sub-module). |
 | `SOLVE_MATH_CAPTCHA` | OCR reads a math-expression image (`3 + 5 = ?`) and types the evaluated answer |
 | `SOLVE_CAPTCHA_WITH_AI` | Reserved for a Vision-API-based solver; currently falls back to OCR (see [Design Notes](#-design-notes--extending-it)) |
 
 **Convention:** `locatorKey` points at the CAPTCHA image (same as every other keyword), and `testData` holds the ObjectRepository key of the input field to type the answer into — because `KeywordStep` only carries one locator slot, but solving a CAPTCHA needs two elements. This convention is shared by `SOLVE_TEXT_CAPTCHA_IF_PRESENT` too.
 
-A related keyword, `WAIT_FOR_PAGE_LOAD`, is worth pairing with either CAPTCHA keyword on slow-loading or SPA-style pages — it waits for `document.readyState == 'complete'` (real signal, not a fixed sleep) instead of racing a CAPTCHA/element check against a page that's still rendering. It never fails the test on its own; see [Configuration Reference](#-configuration-reference) for `pageLoad.timeout`. Example, matching IndiaAI's login flow (the login form is a dynamically-rendered sub-module, not a fresh page load):
+A related keyword, `WAIT_FOR_PAGE_LOAD`, is worth pairing with either CAPTCHA keyword on slow-loading or SPA-style pages — it waits for `document.readyState == 'complete'` (real signal, not a fixed sleep) instead of racing a CAPTCHA/element check against a page that's still rendering. It never fails the test on its own; see [Configuration Reference](#-configuration-reference) for `pageLoad.timeout`. Example, matching SAHMAT's login flow (the login form is a dynamically-rendered sub-module, not a fresh page load):
 
 ```
 TC01,1,NAVIGATE,,,,Go to the homepage
@@ -271,12 +272,68 @@ All in `src/test/resources/config/global.properties` (or override with `-D` / a 
 | `captcha.segmentation.confidenceFloor` | `35.0` | Minimum Tesseract confidence (0-100) a single isolated character needs before the segmented result is trusted at all. |
 | `captcha.preprocessing.deskew.enabled` | `true` | Straightens a CAPTCHA strip rendered at a slight angle before OCR/segmentation. |
 | `captcha.preprocessing.lineRemoval.enabled` | `true` | Erases long, thin decorative strike-through/underline lines that don't already touch a character stroke. |
+| `captcha.ai.enabled` | `false` | Master switch — when `true`, `SOLVE_TEXT_CAPTCHA`/`SOLVE_TEXT_CAPTCHA_IF_PRESENT` try AI Vision first and fall back to OCR only if the API call itself fails. `SOLVE_CAPTCHA_WITH_AI` always uses AI Vision regardless of this flag. |
+| `captcha.ai.provider` | `anthropic` | `anthropic` or `ollama` — see [AI Vision provider setup](#-ai-vision-provider-setup) below. |
+| `captcha.ai.endpoint` | provider default | Anthropic: `https://api.anthropic.com/v1/messages`. Ollama: `http://localhost:11434/api/generate`. Override for a remote/non-default-port Ollama host. |
+| `captcha.ai.apiKey` | falls back to `ANTHROPIC_API_KEY` env var | Required for `provider=anthropic`. Not required for `provider=ollama` — if set anyway, sent as an `Authorization: Bearer` header (useful behind an authenticated reverse proxy). |
+| `captcha.ai.model` | *(unset — required)* | A vision-capable model you have access to. Anthropic: a current Claude model. Ollama: a vision-capable local model tag, e.g. `llava`. |
+| `captcha.image.load.timeout` | `10` | Seconds to wait for the CAPTCHA `<img>` itself to finish loading (`img.complete && naturalWidth > 0`) before screenshotting/solving it. Separate from `pageLoad.timeout`/`WAIT_FOR_PAGE_LOAD`, which only checks `document.readyState` and can report "complete" well before an async-rendered CAPTCHA image has actually loaded — screenshotting too early captures a broken-image placeholder (icon + alt text) instead of the real CAPTCHA, which then gets OCR'd/vision-read as garbage that isn't a solving-accuracy problem at all. |
 
 Environment variable (not a `config/*.properties` key):
 
 | Variable | Meaning |
 |---|---|
 | `TESSDATA_PREFIX` | Standard Tesseract env var; used as a fallback if `tesseract.datapath` isn't set |
+
+---
+
+## 🤖 AI Vision provider setup
+
+### Anthropic (default)
+
+```properties
+captcha.ai.enabled=true
+captcha.ai.provider=anthropic
+captcha.ai.apiKey=          # or set ANTHROPIC_API_KEY instead
+captcha.ai.model=claude-...  # a current vision-capable Claude model
+```
+
+### Ollama (local or remote, e.g. `llava`)
+
+`CaptchaSolver` talks to Ollama's `/api/generate` directly — a different
+request/response shape than Anthropic's, handled natively, not just a
+different URL. No API key needed.
+
+```properties
+captcha.ai.enabled=true
+captcha.ai.provider=ollama
+captcha.ai.endpoint=http://192.168.2.17:11434/api/generate   # your Ollama host:port
+captcha.ai.model=llava
+```
+
+Checklist if it's not picking up an answer:
+
+1. **Confirm the property names above exactly.** `captcha.ai.endpoint`,
+   not `captcha.api.url` — a value under any other key is silently
+   ignored by `ConfigReader`, and the solver falls back to the Anthropic
+   default endpoint with no key configured, which fails closed (then OCR
+   fallback kicks in, so you'd see plausible-but-wrong OCR answers rather
+   than an obvious error).
+2. **Confirm `captcha.ai.provider=ollama` is actually set.** Pointing
+   `captcha.ai.endpoint` at an Ollama URL while `captcha.ai.provider` is
+   still (implicitly) `anthropic` sends an Anthropic-shaped request body
+   (`x-api-key` header, `content` block array) to an endpoint that doesn't
+   understand it — Ollama will reject it, not silently adapt.
+3. **`curl` the endpoint from the machine actually running the tests**
+   (not just the Ollama host itself) — `curl http://<host>:11434/api/tags`
+   should list your model. If the test machine is remote, the Ollama host
+   needs `OLLAMA_HOST=0.0.0.0` (systemd override) and its firewall must
+   allow the port; `curl`-ing `/` alone only proves Ollama is running
+   locally on its own box, not that it's reachable from elsewhere.
+4. Watch the log line on failure — `resolveWithVisionApi()` logs the raw
+   HTTP status/body on a non-200 response and retries 429/5xx up to 3
+   times before falling back to OCR, so a bad model name, wrong port, or
+   unreachable host shows up there.
 
 ---
 
@@ -311,6 +368,7 @@ If step 3 doesn't produce output, work through [Troubleshooting](#-troubleshooti
 | `solveTextCaptcha` runs but the answer is wrong / garbled | OCR accuracy on a distorted/noisy real-world CAPTCHA image | First check the logs for whether the segmented (per-character) or whole-string path answered — see [OCR Accuracy Pipeline](#-ocr-accuracy-pipeline-letterdigit-confusion). Tune `captcha.segmentation.minChars`/`maxChars` to the site's actual CAPTCHA length, adjust `minComponentAreaRatio`/`confidenceFloor` for that font's noise level, or (for a genuinely adversarial CAPTCHA) treat it the same as reCAPTCHA — not something OCR alone should be expected to beat reliably |
 | One specific character is consistently misread as its look-alike (`0`/`O`, `5`/`S`, `8`/`B`, etc.) | Segmentation's shape tiebreaker doesn't have a rule for that specific pair/font, or whole-string OCR is being used instead of segmentation for that image | Confirm segmentation is actually running for that CAPTCHA (`captcha.segmentation.enabled=true`, and the component count needs to fall within `minChars`/`maxChars`); enable `captcha.ai.enabled=true` for that site as the more robust option if the font is unusually distorted |
 | `SOLVE_CAPTCHA_WITH_AI` behaves identically to `SOLVE_TEXT_CAPTCHA` | Expected — it's a documented fallback stub. No Vision API key is wired in by default. | See [Design Notes](#-design-notes--extending-it) to wire a real Vision API |
+| Answer contains real page text (e.g. literally the word "Captcha", a label, or other UI copy) rather than CAPTCHA-looking characters | The `<img>` was screenshotted before it actually finished loading — the browser was still showing its broken-image placeholder (icon + alt text) at capture time, and that alt text is what got OCR'd/vision-read. `document.readyState=='complete'`/`WAIT_FOR_PAGE_LOAD` passing does NOT guarantee an async-rendered CAPTCHA image has loaded yet. | Nothing to configure by default — `screenshotElementWithMargin()` now waits for `img.complete && naturalWidth > 0` before capturing and throws a clear error instead of silently capturing a broken image. If it's still happening, raise `captcha.image.load.timeout` (default `10`s) for a CAPTCHA that's just slow to render, or check the network/CDN if it never loads at all. |
 | A CAPTCHA-image `<img>` element is found, but nothing gets typed anywhere | No element within the built-in `input[id/name/placeholder/aria-label *= "captcha"]` patterns exists nearby | Mode 1 logs a warning and stops rather than guessing at the wrong field; switch to Mode 2 for that page and name the exact input key |
 | CAPTCHA-solving somehow affects an unrelated test's timing/flakiness | Every `navigateTo(...)` now runs a few extra `findElements()` calls | This is a handful of cheap, local DOM queries, not network calls — if it's genuinely a measurable slowdown for a specific suite, disable via `captcha.autoDetect.enabled=false` for that run |
 

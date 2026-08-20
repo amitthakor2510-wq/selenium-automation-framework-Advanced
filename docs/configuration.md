@@ -75,6 +75,16 @@ captcha.segmentation.caseHeightRatio=0.78  # height ratio below which a shape-sy
 captcha.expected.length=0           # blank/0 = disabled; static fallback CAPTCHA length used only when the
                                      # answer field has no HTML maxlength attribute — the field's own maxlength
                                      # is read automatically per-call and takes priority. See docs/CAPTCHA_SOLVER.md.
+captcha.ai.enabled=false            # true = SOLVE_TEXT_CAPTCHA(_IF_PRESENT) try AI Vision first, fall back to OCR
+captcha.ai.provider=anthropic       # "anthropic" (default) or "ollama" — see docs/CAPTCHA_SOLVER.md
+captcha.ai.endpoint=                # blank = provider default (Anthropic Messages API, or http://localhost:11434/api/generate for ollama)
+captcha.ai.apiKey=                  # required for anthropic (or set ANTHROPIC_API_KEY); not required for ollama
+captcha.ai.model=                   # required — e.g. a current Claude model, or "llava" for ollama
+captcha.image.load.timeout=10       # seconds to wait for the CAPTCHA <img> itself to finish loading
+                                     # (img.complete && naturalWidth>0) before screenshotting/solving it —
+                                     # separate from pageLoad.timeout/WAIT_FOR_PAGE_LOAD, which only checks
+                                     # document.readyState and can pass well before an async-rendered
+                                     # CAPTCHA image has actually loaded. See docs/CAPTCHA_SOLVER.md.
 pageLoad.timeout=                   # blank = falls back to timeout.long; how long the WAIT_FOR_PAGE_LOAD keyword
                                      # waits for document.readyState == 'complete' before logging a warning and
                                      # continuing anyway (never fails the test on its own)

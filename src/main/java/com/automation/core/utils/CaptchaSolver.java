@@ -137,10 +137,22 @@ public class CaptchaSolver {
     // fixed glyph library, which is why this is the real fix rather than
     // further threshold/denoise tuning.
     private final boolean aiEnabled = ConfigReader.getBoolean("captcha.ai.enabled", false);
+    // captcha.ai.provider: "anthropic" (default, unchanged behavior) or
+    // "ollama" — a local/remote Ollama server running a vision-capable model
+    // (e.g. llava). Ollama's /api/generate has a completely different
+    // request/response JSON shape than Anthropic's Messages API (images go
+    // in a flat base64 "images" array, not a content-block "source" object;
+    // the answer comes back as a top-level "response" string, not a
+    // "content" block array) and needs no API key — so this is a real
+    // branch below, not just a different endpoint URL plugged into the same
+    // Anthropic-shaped request.
+    private final String aiProvider = ConfigReader.get("captcha.ai.provider", "anthropic").trim().toLowerCase();
+    private final boolean isOllama = "ollama".equals(aiProvider);
     private final String aiApiKey = ConfigReader.get("captcha.ai.apiKey",
         System.getenv().getOrDefault("ANTHROPIC_API_KEY", ""));
     private final String aiModel = ConfigReader.get("captcha.ai.model", "");
-    private final String aiEndpoint = ConfigReader.get("captcha.ai.endpoint", "https://api.anthropic.com/v1/messages");
+    private final String aiEndpoint = ConfigReader.get("captcha.ai.endpoint",
+        isOllama ? "http://localhost:11434/api/generate" : "https://api.anthropic.com/v1/messages");
 
     // -----------------------------------------------------------------------
     // Per-character segmentation config (OCR-mode accuracy — see
@@ -161,6 +173,16 @@ public class CaptchaSolver {
     // uses per-call. Kept for sites where the CAPTCHA answer field doesn't
     // set maxlength but has a known fixed length anyway.
     private final int expectedLength = ConfigReader.getInt("captcha.expected.length", 0);
+    // How long to wait for the CAPTCHA <img> itself to actually finish
+    // loading (img.complete && naturalWidth > 0) before screenshotting it.
+    // Separate from WAIT_FOR_PAGE_LOAD's document.readyState check — an SPA
+    // can report readyState=='complete' (or time out waiting for it) well
+    // before an async-rendered CAPTCHA image has actually finished
+    // downloading, and screenshotting/solving a still-broken <img> produces
+    // garbage that isn't a CAPTCHA-reading-accuracy problem at all (it's
+    // whatever the browser renders for a broken image — an icon plus its
+    // alt text, on Chrome).
+    private final int captchaImageLoadTimeoutSeconds = ConfigReader.getInt("captcha.image.load.timeout", 10);
 
     /**
      * Live per-call expected CAPTCHA length: the answer input field's own
@@ -260,6 +282,102 @@ public class CaptchaSolver {
     // sits above that band with margin rather than right on the boundary.
     private final double caseHeightRatioThreshold = getDoubleConfig("captcha.segmentation.caseHeightRatio", 0.78);
 
+    // Some CAPTCHA templates draw a decorative box/rule border around the
+    // whole image. A thin rectangular outline is hollow (low ink-fill
+    // ratio) but its bounding box spans almost the entire image — the
+    // opposite signature of a real character, which is compact but mostly
+    // solid. Left alone, findConnectedComponents() picks the border up as
+    // one giant "component" that still passes the broad segMinChars/
+    // segMaxChars range check, so segmentedIdentify() tries to OCR the
+    // border rectangle itself as a glyph and corrupts the whole read.
+    // removeBorderFrameComponents() drops any component whose bounding box
+    // covers at least borderFrameMinDimRatio of BOTH image dimensions and
+    // whose fill density is at or below borderFrameMaxDensity. Real glyphs
+    // are always denser than this even in a thin font, and a genuinely
+    // full-bleed dense character (unusual, but possible in a very short/
+    // large-font CAPTCHA) is protected by the density check.
+    //
+    // minDimRatio's two axes are NOT symmetric in practice — measured
+    // directly against real india.ai CAPTCHA screenshots (text_captcha_
+    // 20260820_111822.png / _111842.png), the border's own width ratio was
+    // ~0.91 but its height ratio only ~0.74 (the screenshot margin around
+    // the CAPTCHA sits between the border and the image edge more on the
+    // vertical axis than the horizontal one). The original 0.85 default
+    // assumed both axes would look similar and missed this border
+    // entirely — hRatio 0.74 < 0.85 — letting it through unremoved even
+    // with this whole pass enabled. 0.65 is calibrated with margin under
+    // that measured 0.74. maxDensity likewise needed headroom: the SAME
+    // border template measured 0.057 density in one of those two real
+    // screenshots but 0.151 in the other (a slightly heavier-rendered
+    // outline, still the same decorative frame) — the original 0.15
+    // default sat just below that second value and missed it too. 0.22
+    // keeps comfortable margin above both measured values while staying
+    // well under every real character's measured density in the same
+    // images (0.45-0.72).
+    private final boolean borderFrameRemovalEnabled =
+        ConfigReader.getBoolean("captcha.segmentation.borderFrame.removalEnabled", true);
+    private final double borderFrameMinDimRatio =
+        getDoubleConfig("captcha.segmentation.borderFrame.minDimRatio", 0.65);
+    private final double borderFrameMaxDensity =
+        getDoubleConfig("captcha.segmentation.borderFrame.maxDensity", 0.22);
+
+    // Some fonts/generators render adjacent characters touching or
+    // overlapping by a pixel or two, so findConnectedComponents() merges
+    // them into a single connected component instead of two — and on a
+    // tightly-kerned CAPTCHA font, THREE OR MORE characters can fuse into
+    // one blob this way, not just two. A per-column ink-count profile
+    // across such a component still shows a real valley (a local dip in
+    // ink) at each true boundary between glyphs — splitTouchingCharacters()
+    // looks for that valley in any component that's suspiciously wide
+    // relative to one real character's width in this image, and splits
+    // there, then re-checks EACH resulting half the same way (so a 4-glyph
+    // blob gets split down to 4, not left as two still-merged pairs after
+    // a single one-shot split). A candidate split is only taken if the
+    // valley's ink count is no more than touchingCharValleyMaxRatio of the
+    // component's own peak column in that same width-check window — a
+    // shallow dip (e.g. the waist of a single "m"/"w") is left alone
+    // rather than risk shredding one wide character into garbage
+    // fragments, and that same per-attempt confidence check is what keeps
+    // the recursion from over-splitting a genuinely wide single glyph.
+    private final boolean touchingCharSplitEnabled =
+        ConfigReader.getBoolean("captcha.segmentation.touchingChars.splitEnabled", true);
+    private final double touchingCharWidthRatio =
+        getDoubleConfig("captcha.segmentation.touchingChars.widthRatio", 1.6);
+    private final double touchingCharValleyMaxRatio =
+        getDoubleConfig("captcha.segmentation.touchingChars.valleyMaxRatio", 0.35);
+
+    // The three thresholds above are tuned to be conservative by default —
+    // safe against shredding one wide glyph into garbage on a "normal" font.
+    // But some fonts (heavily stylized/cursive CAPTCHA generators, e.g. the
+    // real india.ai samples with a flourished "g") fuse characters tightly
+    // enough, or with a shallow-enough valley, that the conservative pass
+    // under-splits: it correctly avoids splitting where it isn't sure, but
+    // "isn't sure" here means "the boundary was harder to find", not "there
+    // is no boundary". Rather than hand-tune per-site overrides for every
+    // such font (fragile — a config value picked to fit one CAPTCHA sample
+    // can just as easily be wrong for the next one from the same site), when
+    // knownExpectedLength is available we know for certain we're one or more
+    // characters short and can afford to retry with progressively relaxed
+    // thresholds — see splitTouchingCharactersAdaptive() — stopping the
+    // moment the exact expected count is reached rather than relaxing
+    // further than necessary.
+    private final boolean touchingCharAdaptiveRelaxEnabled =
+        ConfigReader.getBoolean("captcha.segmentation.touchingChars.adaptiveRelax.enabled", true);
+    private final int touchingCharMaxRelaxSteps =
+        ConfigReader.getInt("captcha.segmentation.touchingChars.adaptiveRelax.maxSteps", 3);
+    private final double touchingCharWidthRatioStep =
+        getDoubleConfig("captcha.segmentation.touchingChars.adaptiveRelax.widthRatioStep", 0.15);
+    private final double touchingCharValleyMaxRatioStep =
+        getDoubleConfig("captcha.segmentation.touchingChars.adaptiveRelax.valleyMaxRatioStep", 0.10);
+    private final double touchingCharMinHalfRatioStep =
+        getDoubleConfig("captcha.segmentation.touchingChars.adaptiveRelax.minHalfRatioStep", 0.05);
+    // Floors so relaxation can't run away into accepting noise as a split:
+    // even at the most relaxed step, a "half" narrower than 22% of a real
+    // character's width, or a valley deeper than 65% of the peak column,
+    // isn't a plausible glyph boundary on any font this framework targets.
+    private static final double MIN_SPLIT_HALF_RATIO_FLOOR = 0.22;
+    private static final double VALLEY_MAX_RATIO_CEILING = 0.65;
+
     // -----------------------------------------------------------------------
     // Additional preprocessing toggles (see preprocessImage()). Both default
     // on — they're pure image-processing passes that no-op harmlessly on a
@@ -269,6 +387,67 @@ public class CaptchaSolver {
     // -----------------------------------------------------------------------
     private final boolean deskewEnabled = ConfigReader.getBoolean("captcha.preprocessing.deskew.enabled", true);
     private final boolean lineRemovalEnabled = ConfigReader.getBoolean("captcha.preprocessing.lineRemoval.enabled", true);
+
+    // captcha.preprocessing.lineThroughText.enabled (default true) — see
+    // removeDiagonalLineThroughText() javadoc. Complements lineRemovalEnabled
+    // above: that pass only catches a decorative line where it DOESN'T touch
+    // any character stroke (so it survives as its own separate connected
+    // component); a line drawn straight across the middle of the text —
+    // which is the far more damaging, far more common strike-through style —
+    // merges into the same connected component as every character it
+    // crosses and is invisible to a component-shape check. This pass fits a
+    // straight line directly to the pixel data instead and erases only the
+    // thin band of pixels that actually lie on it, regardless of what
+    // they're touching.
+    private final boolean lineThroughTextRemovalEnabled =
+        ConfigReader.getBoolean("captcha.preprocessing.lineThroughText.enabled", true);
+    private final double lineThroughTextMinWidthRatio =
+        getDoubleConfig("captcha.preprocessing.lineThroughText.minWidthRatio", 0.55);
+    private final int lineThroughTextMaxThicknessPx =
+        ConfigReader.getInt("captcha.preprocessing.lineThroughText.maxThicknessPx", 5);
+
+    // captcha.preprocessing.chromaFilter.enabled (default true) — runs BEFORE
+    // grayscale conversion, on the still-in-color screenshot. Fixes a gap the
+    // two line-removal passes above can't: they both operate on the already-
+    // grayscale/binarized image, but some CAPTCHA generators (SAHMAT's
+    // observed here) render the real text in a saturated color — RGB(0,102,204)
+    // blue on this site — while the decorative noise line AND the CAPTCHA's
+    // own border box use a neutral gray — RGB(80,80,80) here. Standard
+    // grayscale luminance (0.299R+0.587G+0.114B) collapses those to nearly
+    // identical brightness (the blue -> ~83, the gray -> 80, a 3-point gap),
+    // so Otsu thresholding — and everything downstream of it, including both
+    // line-removal passes — cannot tell the noise line's pixels apart from
+    // the text's own. That's what let a curved noise line survive into the
+    // binarized image and get read as a fake extra character, producing a
+    // wrong-length ensemble result the segmentation pipeline then rejected as
+    // untrustworthy (see resolveViaOcr()), falling all the way back to whole-
+    // string OCR misreading a real "n343g" as "mag".
+    //
+    // Fix: classify every pixel by CHROMA (max channel - min channel) instead
+    // of brightness. A neutral pixel (this site's gray line/border, or plain
+    // black text on any other site) has chroma near 0 no matter how dark it
+    // is; colored text has a real, large chroma gap from both the neutral
+    // background and the neutral noise. Any pixel below chromaFilterThreshold
+    // is forced to pure white here — erasing the line and border in a single
+    // pass, independent of the line's shape, angle, or curve (a strict
+    // improvement over the straight-line-only Hough fit above). Pixels at or
+    // above the threshold are left untouched, so the rest of the pipeline
+    // (grayscale, contrast stretch, median filter, Otsu) still runs exactly
+    // as before on them.
+    //
+    // Safety net: only applied when the image actually contains a plausible
+    // amount of chromatic ink (captcha.preprocessing.chromaFilter.minInkPixels,
+    // counted on the already-2x-upscaled image). A genuinely black/gray-text
+    // CAPTCHA would otherwise have every pixel erased by this filter — in
+    // that case isolateChromaticInk() returns the image completely unchanged
+    // and the grayscale/Otsu pipeline behaves exactly as it did before this
+    // was added, so this can never regress a plain black-text CAPTCHA.
+    private final boolean chromaFilterEnabled =
+        ConfigReader.getBoolean("captcha.preprocessing.chromaFilter.enabled", true);
+    private final int chromaFilterThreshold =
+        ConfigReader.getInt("captcha.preprocessing.chromaFilter.threshold", 40);
+    private final int chromaFilterMinInkPixels =
+        ConfigReader.getInt("captcha.preprocessing.chromaFilter.minInkPixels", 30);
 
     // Character pairs that classical OCR (and even a hasty human glance)
     // confuses most often, used as a lightweight geometric tiebreaker in
@@ -409,12 +588,29 @@ public class CaptchaSolver {
         final int y0;
         final int x1;
         final int y1;
+        // Actual foreground/ink pixel count within this component, as counted
+        // by the flood fill in findConnectedComponents() — NOT the same as
+        // area(), which is just the bounding box's width*height. The two
+        // constructors below reflect that distinction: a real connected
+        // component (findConnectedComponents()) knows its true ink count and
+        // uses the 5-arg constructor; a synthetic segment built from a grid
+        // column or a merge of two known components (segmentByGrid(),
+        // mergeFragments()) doesn't have a meaningful separate count, so the
+        // 4-arg convenience constructor treats it as fully solid
+        // (pixelCount == area(), i.e. density() == 1.0) so it's never
+        // mistaken for a hollow border frame by removeBorderFrameComponents().
+        final int pixelCount;
 
         Segment(int x0, int y0, int x1, int y1) {
+            this(x0, y0, x1, y1, (x1 - x0) * (y1 - y0));
+        }
+
+        Segment(int x0, int y0, int x1, int y1, int pixelCount) {
             this.x0 = x0;
             this.y0 = y0;
             this.x1 = x1;
             this.y1 = y1;
+            this.pixelCount = pixelCount;
         }
 
         int width() {
@@ -427,6 +623,12 @@ public class CaptchaSolver {
 
         int area() {
             return width() * height();
+        }
+
+        /** Fraction of this component's bounding box that's actually ink (1.0 = fully solid). */
+        double density() {
+            int a = area();
+            return a == 0 ? 0.0 : (double) pixelCount / a;
         }
     }
 
@@ -846,8 +1048,23 @@ public class CaptchaSolver {
         }
         try {
             List<Segment> raw = findConnectedComponents(processed);
-            List<Segment> denoised = filterNoiseComponents(raw);
-            List<Segment> merged = mergeFragments(denoised);
+            List<Segment> noBorder = removeBorderFrameComponents(raw, processed.getWidth(), processed.getHeight());
+            List<Segment> denoised = filterNoiseComponents(noBorder);
+            // mergeFragments() runs BEFORE splitTouchingCharacters(), not
+            // after: a glyph that's been broken into pieces (a dot
+            // separated from its stem, a stroke split by denoising) needs
+            // to be whole again before deciding whether ITS resulting
+            // width represents one character or several touching ones —
+            // splitting first would let same-glyph fragments masquerade as
+            // separate "characters" and get counted/processed as if they
+            // already were.
+            List<Segment> wholeGlyphs = mergeFragments(denoised);
+            // Adaptive: only ever relaxes past the conservative default
+            // thresholds when knownExpectedLength proves we're short by a
+            // known amount — see splitTouchingCharactersAdaptive() javadoc.
+            // With no known length it behaves identically to the old
+            // single-pass splitTouchingCharacters() call.
+            List<Segment> merged = splitTouchingCharactersAdaptive(wholeGlyphs, processed, knownExpectedLength);
             merged.sort(Comparator.comparingInt(s -> s.x0));
 
             // If we know the CAPTCHA's exact length (see resolveExpectedLength()
@@ -1178,10 +1395,12 @@ public class CaptchaSolver {
                 int maxX = x;
                 int minY = y;
                 int maxY = y;
+                int pixelCount = 0;
                 visited[x][y] = true;
                 stack.push(new int[]{x, y});
                 while (!stack.isEmpty()) {
                     int[] p = stack.pop();
+                    pixelCount++;
                     minX = Math.min(minX, p[0]);
                     maxX = Math.max(maxX, p[0]);
                     minY = Math.min(minY, p[1]);
@@ -1195,7 +1414,7 @@ public class CaptchaSolver {
                         }
                     }
                 }
-                components.add(new Segment(minX, minY, maxX + 1, maxY + 1));
+                components.add(new Segment(minX, minY, maxX + 1, maxY + 1, pixelCount));
             }
         }
         return components;
@@ -1204,6 +1423,299 @@ public class CaptchaSolver {
     /** True if this pixel is "ink" (foreground/character stroke) in the binarized black-on-white image. */
     private boolean isInk(BufferedImage binary, int x, int y) {
         return (binary.getRGB(x, y) & 0xFF) < 128;
+    }
+
+    /**
+     * Drops any component that's almost certainly a decorative box/rule
+     * border baked into the CAPTCHA template rather than a character — see
+     * borderFrameRemovalEnabled/borderFrameMinDimRatio/borderFrameMaxDensity
+     * javadoc above. Must run BEFORE filterNoiseComponents(), for two
+     * reasons: (1) the border's huge bounding-box area would otherwise be
+     * included as a "substantial" component there and skew the median area
+     * that noise-filtering is based on, and (2) filterNoiseComponents()
+     * only drops components that are too SMALL — a border frame is the
+     * opposite problem (too big, too hollow) and would sail through that
+     * check untouched.
+     */
+    private List<Segment> removeBorderFrameComponents(List<Segment> comps, int imgWidth, int imgHeight) {
+        if (!borderFrameRemovalEnabled || comps.isEmpty()) {
+            return comps;
+        }
+        List<Segment> filtered = new ArrayList<>();
+        for (Segment s : comps) {
+            boolean spansImage = s.width() >= imgWidth * borderFrameMinDimRatio
+                && s.height() >= imgHeight * borderFrameMinDimRatio;
+            boolean hollow = s.density() <= borderFrameMaxDensity;
+            if (spansImage && hollow) {
+                log.debug("Segmentation: dropping a {}x{} component (fill density {}) as a decorative "
+                        + "border frame, not a character.",
+                    s.width(), s.height(), String.format("%.3f", s.density()));
+                continue;
+            }
+            filtered.add(s);
+        }
+        return filtered.isEmpty() ? comps : filtered;
+    }
+
+    /**
+     * Splits components that are almost certainly TWO OR MORE touching/
+     * overlapping characters merged into one connected component — see
+     * touchingCharSplitEnabled/touchingCharWidthRatio/touchingCharValleyMaxRatio
+     * javadoc above. Runs after filterNoiseComponents() (so noise specks
+     * don't distort the single-character width estimate) and before
+     * mergeFragments() (which handles the opposite problem — one glyph
+     * accidentally broken into multiple components — and operates fine on
+     * whatever this pass produces).
+     *
+     * Each component that qualifies is split, and BOTH halves are then
+     * re-checked the same way (a work queue, not a single pass) — a font
+     * that fuses two characters together can just as easily fuse three or
+     * four, and a one-shot split would leave a 4-glyph blob as two
+     * still-merged pairs instead of four real characters.
+     */
+    private List<Segment> splitTouchingCharacters(List<Segment> comps, BufferedImage binary, int knownExpectedLength) {
+        return splitTouchingCharacters(comps, binary, knownExpectedLength,
+            touchingCharWidthRatio, touchingCharValleyMaxRatio, MIN_SPLIT_HALF_RATIO);
+    }
+
+    /**
+     * Same as above but with the three split thresholds passed explicitly,
+     * so splitTouchingCharactersAdaptive() can re-run this against the same
+     * starting components with progressively relaxed values without
+     * touching the configured defaults (which other CAPTCHAs/sites still
+     * rely on as-is).
+     */
+    private List<Segment> splitTouchingCharacters(List<Segment> comps, BufferedImage binary, int knownExpectedLength,
+                                                  double widthRatio, double valleyMaxRatio, double minHalfRatio) {
+        if (!touchingCharSplitEnabled || comps.isEmpty()) {
+            return comps;
+        }
+        double referenceWidth = estimateSingleCharWidth(comps, knownExpectedLength);
+        if (referenceWidth <= 0) {
+            return comps;
+        }
+
+        Deque<Segment> pending = new ArrayDeque<>(comps);
+        List<Segment> result = new ArrayList<>();
+        // Safety cap, not an expected case: each successful split strictly
+        // narrows its two halves versus the parent, so the queue naturally
+        // drains as pieces fall under the width threshold. This just
+        // guards against an unforeseen pathological image looping forever.
+        int guard = 0;
+        while (!pending.isEmpty() && guard++ < 64) {
+            Segment s = pending.poll();
+            if (s.width() < referenceWidth * widthRatio) {
+                result.add(s);
+                continue;
+            }
+            List<Segment> split = trySplitByColumnValley(s, binary, referenceWidth, valleyMaxRatio, minHalfRatio);
+            if (split.size() == 1) {
+                result.add(s);
+            } else {
+                pending.addAll(split);
+            }
+        }
+        result.sort(Comparator.comparingInt(x -> x.x0));
+        return result;
+    }
+
+    /**
+     * Retries splitTouchingCharacters() with progressively relaxed
+     * thresholds when we KNOW (via knownExpectedLength) that the
+     * conservative default pass came up short — see the adaptiveRelax
+     * field javadoc above for why this is safe to do only in that specific
+     * case. Each step starts fresh from the original wholeGlyphs rather
+     * than compounding onto the previous (under-split) result, so a step's
+     * outcome only ever depends on its own thresholds, not on whichever
+     * splits the previous, stricter step happened to find.
+     *
+     * Stops as soon as a step produces exactly knownExpectedLength
+     * segments. If every step is exhausted without hitting that count,
+     * returns whichever attempt got closest (ties broken toward the LAST
+     * — most relaxed — attempt, since more segments found is itself
+     * evidence a real boundary was recovered) and lets the existing
+     * grid-segmentation fallback in segmentedIdentify() take over from
+     * there, exactly as it already does for the strict-only case.
+     */
+    private List<Segment> splitTouchingCharactersAdaptive(List<Segment> wholeGlyphs, BufferedImage binary,
+                                                          int knownExpectedLength) {
+        List<Segment> strict = splitTouchingCharacters(wholeGlyphs, binary, knownExpectedLength);
+        if (knownExpectedLength <= 0 || !touchingCharAdaptiveRelaxEnabled || strict.size() >= knownExpectedLength) {
+            // Nothing to relax toward (no known target), relaxation is
+            // turned off, or we're already at/over the target — relaxing
+            // further would only risk over-splitting a genuine glyph.
+            return strict;
+        }
+
+        List<Segment> best = strict;
+        for (int step = 1; step <= touchingCharMaxRelaxSteps && best.size() != knownExpectedLength; step++) {
+            double widthRatio = Math.max(1.0, touchingCharWidthRatio - (touchingCharWidthRatioStep * step));
+            double valleyMaxRatio = Math.min(VALLEY_MAX_RATIO_CEILING,
+                touchingCharValleyMaxRatio + (touchingCharValleyMaxRatioStep * step));
+            double minHalfRatio = Math.max(MIN_SPLIT_HALF_RATIO_FLOOR,
+                MIN_SPLIT_HALF_RATIO - (touchingCharMinHalfRatioStep * step));
+
+            List<Segment> relaxed = splitTouchingCharacters(wholeGlyphs, binary, knownExpectedLength,
+                widthRatio, valleyMaxRatio, minHalfRatio);
+            log.debug("Segmentation: strict pass gave {} segment(s) (need {}) — relax step {}/{} "
+                    + "(widthRatio={}, valleyMaxRatio={}, minHalfRatio={}) gave {}.",
+                strict.size(), knownExpectedLength, step, touchingCharMaxRelaxSteps,
+                String.format("%.2f", widthRatio), String.format("%.2f", valleyMaxRatio),
+                String.format("%.2f", minHalfRatio), relaxed.size());
+
+            if (Math.abs(relaxed.size() - knownExpectedLength) <= Math.abs(best.size() - knownExpectedLength)) {
+                best = relaxed;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Estimates the width of ONE character in this specific image — the
+     * reference used to decide whether a component is actually two-or-more
+     * merged characters. Prefers the CAPTCHA's known expected length (see
+     * resolveExpectedLength()) when available: total horizontal ink span
+     * (leftmost component's x0 to rightmost component's x1) divided by the
+     * expected character count. That's far more reliable than a median of
+     * the CURRENT component widths when several — or, as with a real
+     * india.ai CAPTCHA image ("2fbd3" fusing into just 2 raw components
+     * instead of 5), most — characters are already touching: a same-list
+     * median in that situation is itself dominated by the already-merged,
+     * too-wide components (or, with only 1-2 components total, has no
+     * "normal-width" value to find at all), which is exactly the case this
+     * method exists to handle. Falls back to the median component width
+     * when the expected length isn't known (0).
+     */
+    private double estimateSingleCharWidth(List<Segment> comps, int knownExpectedLength) {
+        if (knownExpectedLength > 0) {
+            int minX = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE;
+            for (Segment s : comps) {
+                minX = Math.min(minX, s.x0);
+                maxX = Math.max(maxX, s.x1);
+            }
+            double perChar = (double) (maxX - minX) / knownExpectedLength;
+            if (perChar > 0) {
+                return perChar;
+            }
+        }
+        List<Integer> widths = new ArrayList<>();
+        for (Segment s : comps) {
+            widths.add(s.width());
+        }
+        Collections.sort(widths);
+        return widths.get(widths.size() / 2);
+    }
+
+    /**
+     * Looks for a column-ink-count valley in the middle band of one wide
+     * component and, if one is found, splits the component there into two.
+     * The search is restricted to the middle band (excluding the outer 1/6
+     * of the width on each side) so a naturally thin serif or stroke-end
+     * near a character's own edge is never mistaken for a boundary between
+     * two different characters. Falls back to returning the component
+     * unsplit — rather than guessing — whenever the deepest dip found isn't
+     * convincingly low relative to the component's own peak ink column, or
+     * either resulting half would be too narrow to plausibly be a real
+     * character in this specific CAPTCHA (below referenceSingleCharWidth *
+     * MIN_SPLIT_HALF_RATIO, not a fixed pixel count — a font whose real
+     * glyphs only run ~10px wide needs a much lower floor than one whose
+     * glyphs run ~30px, and a fixed floor can't tell the difference).
+     * Called from splitTouchingCharacters(), which re-queues each returned
+     * half to be checked again — so this only ever needs to find ONE valley
+     * per call, not the full set for a component fusing 3+ characters.
+     */
+    private List<Segment> trySplitByColumnValley(Segment s, BufferedImage binary, double referenceSingleCharWidth,
+                                                 double valleyMaxRatio, double minHalfRatio) {
+        int w = s.width();
+        int[] colCounts = new int[w];
+        int maxCount = 0;
+        for (int dx = 0; dx < w; dx++) {
+            int x = s.x0 + dx;
+            int count = 0;
+            for (int y = s.y0; y < s.y1; y++) {
+                if (isInk(binary, x, y)) {
+                    count++;
+                }
+            }
+            colCounts[dx] = count;
+            maxCount = Math.max(maxCount, count);
+        }
+        if (maxCount == 0) {
+            return List.of(s);
+        }
+
+        int margin = Math.max(2, w / 6);
+        double valleyThreshold = maxCount * valleyMaxRatio;
+
+        // Among every column in the search window that's plausibly a glyph
+        // boundary (ink count under valleyThreshold — same bar as before),
+        // pick the one that leaves BOTH resulting halves closest to one
+        // real character's width, instead of simply the single darkest
+        // column. A font that fuses characters with a connecting arm or
+        // ligature (confirmed on a real SAHMAT "rd" pair) produces a WIDE,
+        // gradually-changing low-ink plateau rather than one sharp dip —
+        // the true boundary can sit anywhere across it, and always taking
+        // the plateau's first (leftmost) column, as an earlier version of
+        // this method did, can land INSIDE one glyph's own connecting
+        // stroke rather than at the real boundary: observed to slice a
+        // real "r" down to a bare stem (unrecognizable — the arm stayed
+        // attached to the neighboring "d" instead) even though the ink-
+        // count check itself was satisfied. Scoring every plausible column
+        // by how width-balanced the resulting split is corrects this
+        // without assuming a fixed direction (favor-left vs favor-right)
+        // that would only happen to hold for this one font/pair.
+        int bestDx = -1;
+        double bestScore = Double.MAX_VALUE;
+        for (int dx = margin; dx < w - margin; dx++) {
+            if (colCounts[dx] > valleyThreshold) {
+                continue;
+            }
+            double leftWidth = dx;
+            double rightWidth = w - dx;
+            double score = Math.abs(leftWidth - referenceSingleCharWidth) + Math.abs(rightWidth - referenceSingleCharWidth);
+            if (score < bestScore) {
+                bestScore = score;
+                bestDx = dx;
+            }
+        }
+        if (bestDx < 0) {
+            return List.of(s);
+        }
+
+        int splitX = s.x0 + bestDx;
+        Segment left = rebuildSegmentFromBinary(s.x0, s.y0, splitX, s.y1, binary);
+        Segment right = rebuildSegmentFromBinary(splitX, s.y0, s.x1, s.y1, binary);
+        double minHalfWidth = referenceSingleCharWidth * minHalfRatio;
+        if (left.width() < minHalfWidth || right.width() < minHalfWidth) {
+            return List.of(s);
+        }
+        log.debug("Segmentation: splitting a {}px-wide component at column offset {} "
+                + "(width-balanced against reference {}px, ink count {} vs peak {}) — likely two touching characters.",
+            w, bestDx, String.format("%.1f", referenceSingleCharWidth), colCounts[bestDx], maxCount);
+        return List.of(left, right);
+    }
+
+    // A candidate split is rejected if either resulting half would be
+    // narrower than this fraction of one real character's estimated width
+    // in this image — guards against a shallow/spurious valley (e.g. inside
+    // the bowl of a single "n") producing a sliver-plus-remainder instead
+    // of two real characters. 0.4 is deliberately lenient rather than ~0.5
+    // (a true half-and-half split) since two touching characters rarely
+    // split perfectly evenly in practice.
+    private static final double MIN_SPLIT_HALF_RATIO = 0.4;
+
+    /** Rebuilds a Segment for a sub-region of the original image, with a real (not assumed-solid) pixel count. */
+    private Segment rebuildSegmentFromBinary(int x0, int y0, int x1, int y1, BufferedImage binary) {
+        int pixelCount = 0;
+        for (int x = x0; x < x1; x++) {
+            for (int y = y0; y < y1; y++) {
+                if (isInk(binary, x, y)) {
+                    pixelCount++;
+                }
+            }
+        }
+        return new Segment(x0, y0, x1, y1, pixelCount);
     }
 
     /**
@@ -1285,7 +1797,8 @@ public class CaptchaSolver {
                     if (tinyFragment || strongOverlap) {
                         Segment combined = new Segment(
                             Math.min(a.x0, b.x0), Math.min(a.y0, b.y0),
-                            Math.max(a.x1, b.x1), Math.max(a.y1, b.y1));
+                            Math.max(a.x1, b.x1), Math.max(a.y1, b.y1),
+                            a.pixelCount + b.pixelCount);
                         merged.remove(j);
                         merged.remove(i);
                         merged.add(i, combined);
@@ -1299,22 +1812,59 @@ public class CaptchaSolver {
         return merged;
     }
 
-    /** Crops one component out of the full image with a white padding margin, ready for per-character OCR. */
+    /**
+     * Crops one component out of the full image with a white padding margin,
+     * ready for per-character OCR.
+     *
+     * The padding margin is always BLANK — added around the crop, never read
+     * from the source image. An earlier version read the padding pixels
+     * directly from src (i.e. expanded the source-read rectangle to
+     * [seg.x0-padding, seg.x1+padding] and copied that whole region), which
+     * is only safe when a component sits in genuine, generous whitespace.
+     * Two common cases break that assumption and were silently corrupting
+     * OCR input:
+     *   1. A segment produced by splitTouchingCharacters() sits, by
+     *      definition, directly against real ink on at least one side (the
+     *      sibling half it was split from, and/or the neighbor it was
+     *      touching) — there is often less than `padding` pixels of real
+     *      gap there at all.
+     *   2. Even naturally-separate, un-split components can be more tightly
+     *      kerned than `padding` on some fonts/sites (observed: 3px real
+     *      gap between two components on a `padding=6` config) — the old
+     *      code would still reach 3px into the neighbor's own ink.
+     * Either way, the OLD crop pulled a stray fragment of the ADJACENT
+     * character's stroke into this character's crop — confirmed against a
+     * real SAHMAT CAPTCHA ("axrdr"): the isolated "x" crop picked up a
+     * sliver of the next character's ("r") stem on its right edge purely
+     * from the padding reaching past x1 into where "r" begins, which was
+     * enough to make Tesseract read the corrupted glyph as "D" instead of
+     * "x" — a plausible OCR error given the added stroke, but nothing to do
+     * with the OCR engine or the segmentation boundary itself being wrong.
+     *
+     * Fix: read ONLY the segment's own tight bounding box from src (that
+     * box already comes from real measured ink extents — see
+     * findConnectedComponents()/rebuildSegmentFromBinary()), then place it
+     * inside a larger all-white canvas. The padding border is therefore
+     * guaranteed blank regardless of how close a real neighbor's ink is.
+     */
     private BufferedImage cropWithPadding(BufferedImage src, Segment seg, int padding) {
         int w = src.getWidth();
         int h = src.getHeight();
-        int x0 = Math.max(0, seg.x0 - padding);
-        int y0 = Math.max(0, seg.y0 - padding);
-        int x1 = Math.min(w, seg.x1 + padding);
-        int y1 = Math.min(h, seg.y1 + padding);
-        int cw = Math.max(1, x1 - x0);
-        int ch = Math.max(1, y1 - y0);
+        int sx0 = Math.max(0, seg.x0);
+        int sy0 = Math.max(0, seg.y0);
+        int sx1 = Math.min(w, seg.x1);
+        int sy1 = Math.min(h, seg.y1);
+        int segW = Math.max(1, sx1 - sx0);
+        int segH = Math.max(1, sy1 - sy0);
+
+        int cw = segW + 2 * padding;
+        int ch = segH + 2 * padding;
 
         BufferedImage out = new BufferedImage(cw, ch, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D g = out.createGraphics();
         g.setColor(Color.WHITE);
         g.fillRect(0, 0, cw, ch);
-        g.drawImage(src, 0, 0, cw, ch, x0, y0, x1, y1, null);
+        g.drawImage(src, padding, padding, padding + segW, padding + segH, sx0, sy0, sx1, sy1, null);
         g.dispose();
         return out;
     }
@@ -1644,10 +2194,11 @@ public class CaptchaSolver {
      * this ALWAYS uses AI (ignores captcha.ai.enabled) — use this keyword
      * explicitly when you want AI regardless of the global toggle.
      *
-     * Requires captcha.ai.apiKey (or the ANTHROPIC_API_KEY env var) and
-     * captcha.ai.model to be configured; falls back to OCR (never hard-fails
-     * the test) if the API call fails for any reason — missing/invalid key,
-     * network error, unexpected response shape, etc.
+     * Requires captcha.ai.model to be configured, plus captcha.ai.apiKey (or
+     * the ANTHROPIC_API_KEY env var) unless captcha.ai.provider=ollama, which
+     * needs no key; falls back to OCR (never hard-fails the test) if the API
+     * call fails for any reason — missing/invalid key, network error,
+     * unexpected response shape, etc.
      *
      * @return solved text
      */
@@ -1756,63 +2307,105 @@ public class CaptchaSolver {
      *                        attempt.
      *
      * Uses the Anthropic Messages API (api.anthropic.com/v1/messages) with
-     * an image content block, by default — captcha.ai.endpoint/model/apiKey
-     * are all overridable via config if you want to point this at a
-     * different vision-capable provider's OpenAI-compatible endpoint
-     * instead (adjust the request/response shape below if so; this method
-     * assumes Anthropic's request/response JSON shape as written).
+     * an image content block by default. Set captcha.ai.provider=ollama to
+     * instead call a local/remote Ollama server's /api/generate endpoint
+     * (e.g. a self-hosted llava model) — that provider is natively
+     * supported below with its own request/response shape and needs no API
+     * key. captcha.ai.endpoint/model/apiKey remain overridable via config
+     * for either provider.
      */
     private String resolveWithVisionApi(File captchaFile, int expectedLength, String previousAttempt) throws Exception {
-        if (aiApiKey == null || aiApiKey.isBlank()) {
+        // Ollama serves models locally/on a LAN box with no auth by default,
+        // so it's the one provider that legitimately has no API key at all —
+        // don't hard-fail on a blank aiApiKey for it.
+        if (!isOllama && (aiApiKey == null || aiApiKey.isBlank())) {
             throw new ConfigException("[CaptchaSolver] AI Vision solve requested but no API key configured. "
                 + "Set captcha.ai.apiKey (or the ANTHROPIC_API_KEY environment variable).");
         }
         if (aiModel == null || aiModel.isBlank()) {
             throw new ConfigException("[CaptchaSolver] AI Vision solve requested but captcha.ai.model is not "
                 + "set. Configure it to a vision-capable model you have access to (e.g. a current Claude "
-                + "or GPT-4o-class model) via captcha.ai.model.");
+                + "or GPT-4o-class model, or a local Ollama model like llava) via captcha.ai.model.");
         }
 
         String base64Image = encodeImageToBase64(captchaFile);
         String mediaType = captchaFile.getName().toLowerCase().endsWith(".jpg")
             || captchaFile.getName().toLowerCase().endsWith(".jpeg") ? "image/jpeg" : "image/png";
+        String promptText = buildVisionPrompt(expectedLength, previousAttempt);
 
-        ObjectNode imageSource = objectMapper.createObjectNode();
-        imageSource.put("type", "base64");
-        imageSource.put("media_type", mediaType);
-        imageSource.put("data", base64Image);
+        // Visible at the default INFO log level (not DEBUG) — this is the
+        // line to grep for to confirm which provider/model/endpoint a given
+        // solve actually went to, e.g. to tell "it silently fell back to
+        // OCR" apart from "it called Ollama and got a wrong answer".
+        log.info("🤖 Vision API call: provider={}, model={}, endpoint={}, image={}{}",
+            aiProvider, aiModel, aiEndpoint, captchaFile.getAbsolutePath(),
+            previousAttempt != null ? " (retry, previous=[" + previousAttempt + "])" : "");
 
-        ObjectNode imageBlock = objectMapper.createObjectNode();
-        imageBlock.put("type", "image");
-        imageBlock.set("source", imageSource);
+        ObjectNode requestBody;
+        if (isOllama) {
+            // Ollama's /api/generate: flat request, image(s) as a bare
+            // base64 array (no data-URI prefix, no per-image media type),
+            // "stream": false so the whole answer comes back as one JSON
+            // object instead of newline-delimited partial-token chunks.
+            requestBody = objectMapper.createObjectNode();
+            requestBody.put("model", aiModel);
+            requestBody.put("prompt", promptText);
+            ArrayNode images = objectMapper.createArrayNode();
+            images.add(base64Image);
+            requestBody.set("images", images);
+            requestBody.put("stream", false);
+            ObjectNode options = objectMapper.createObjectNode();
+            options.put("temperature", 0);
+            requestBody.set("options", options);
+        } else {
+            ObjectNode imageSource = objectMapper.createObjectNode();
+            imageSource.put("type", "base64");
+            imageSource.put("media_type", mediaType);
+            imageSource.put("data", base64Image);
 
-        ObjectNode textBlock = objectMapper.createObjectNode();
-        textBlock.put("type", "text");
-        textBlock.put("text", buildVisionPrompt(expectedLength, previousAttempt));
+            ObjectNode imageBlock = objectMapper.createObjectNode();
+            imageBlock.put("type", "image");
+            imageBlock.set("source", imageSource);
 
-        ArrayNode content = objectMapper.createArrayNode();
-        content.add(imageBlock);
-        content.add(textBlock);
+            ObjectNode textBlock = objectMapper.createObjectNode();
+            textBlock.put("type", "text");
+            textBlock.put("text", promptText);
 
-        ObjectNode message = objectMapper.createObjectNode();
-        message.put("role", "user");
-        message.set("content", content);
+            ArrayNode content = objectMapper.createArrayNode();
+            content.add(imageBlock);
+            content.add(textBlock);
 
-        ArrayNode messages = objectMapper.createArrayNode();
-        messages.add(message);
+            ObjectNode message = objectMapper.createObjectNode();
+            message.put("role", "user");
+            message.set("content", content);
 
-        ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", aiModel);
-        requestBody.put("max_tokens", 32);
-        requestBody.put("temperature", 0);
-        requestBody.set("messages", messages);
+            ArrayNode messages = objectMapper.createArrayNode();
+            messages.add(message);
 
-        HttpRequest request = HttpRequest.newBuilder()
+            requestBody = objectMapper.createObjectNode();
+            requestBody.put("model", aiModel);
+            requestBody.put("max_tokens", 32);
+            requestBody.put("temperature", 0);
+            requestBody.set("messages", messages);
+        }
+
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
             .uri(URI.create(aiEndpoint))
             .timeout(Duration.ofSeconds(30))
-            .header("Content-Type", "application/json")
-            .header("x-api-key", aiApiKey)
-            .header("anthropic-version", "2023-06-01")
+            .header("Content-Type", "application/json");
+        if (isOllama) {
+            // Most local Ollama setups need no auth at all; if a key IS
+            // configured anyway (e.g. an nginx reverse proxy in front of a
+            // remote box adding its own auth), send it as a bearer token
+            // rather than silently dropping it.
+            if (aiApiKey != null && !aiApiKey.isBlank()) {
+                requestBuilder.header("Authorization", "Bearer " + aiApiKey);
+            }
+        } else {
+            requestBuilder.header("x-api-key", aiApiKey);
+            requestBuilder.header("anthropic-version", "2023-06-01");
+        }
+        HttpRequest request = requestBuilder
             .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
             .build();
 
@@ -1862,18 +2455,35 @@ public class CaptchaSolver {
         }
 
         JsonNode root = objectMapper.readTree(response.body());
-        JsonNode contentArray = root.get("content");
-        if (contentArray == null || !contentArray.isArray() || contentArray.isEmpty()) {
-            throw new IOException("Vision API response had no content block: " + response.body());
-        }
-
         StringBuilder rawAnswer = new StringBuilder();
-        for (JsonNode block : contentArray) {
-            JsonNode textNode = block.get("text");
-            if (textNode != null) {
-                rawAnswer.append(textNode.asText());
+        if (isOllama) {
+            // {"model":"llava", "response":"ABC123", "done":true, ...}
+            JsonNode responseNode = root.get("response");
+            if (responseNode == null || responseNode.asText().isBlank()) {
+                JsonNode errorNode = root.get("error");
+                String detail = errorNode != null ? errorNode.asText() : response.body();
+                throw new IOException("Ollama Vision response had no usable \"response\" field: " + detail);
+            }
+            rawAnswer.append(responseNode.asText());
+        } else {
+            JsonNode contentArray = root.get("content");
+            if (contentArray == null || !contentArray.isArray() || contentArray.isEmpty()) {
+                throw new IOException("Vision API response had no content block: " + response.body());
+            }
+            for (JsonNode block : contentArray) {
+                JsonNode textNode = block.get("text");
+                if (textNode != null) {
+                    rawAnswer.append(textNode.asText());
+                }
             }
         }
+
+        // Log the model's raw, uncleaned reply at INFO — this is what the
+        // model literally said before cleanOCRText() strips stray
+        // whitespace/punctuation, useful for telling "the model misread the
+        // image" apart from "the model read it right but cleaning mangled
+        // it" when an answer comes back wrong.
+        log.info("🤖 Vision API raw reply ({}): [{}]", aiProvider, rawAnswer);
 
         // Still route through cleanOCRText()'s charset filter — strips any
         // stray whitespace/punctuation the model might add despite the
@@ -2030,7 +2640,71 @@ public class CaptchaSolver {
      * here fails, rather than letting a CAPTCHA solve attempt blow up on
      * what is ultimately a nice-to-have accuracy improvement.
      */
+    /**
+     * Polls the CAPTCHA &lt;img&gt; itself (via img.complete/naturalWidth,
+     * same pattern BrokenLinksImagesPage already uses for the identical
+     * problem on a different page) until it has actually finished loading,
+     * up to captchaImageLoadTimeoutSeconds. presenceOfElementLocated /
+     * visibilityOfElementLocated upstream only confirm the &lt;img&gt; tag
+     * exists and is visible in the DOM — neither says anything about
+     * whether the browser has finished downloading/decoding the image
+     * itself, so screenshotting right after those checks is a race: it
+     * passes when the CDN/network happens to be fast and quietly captures
+     * a broken-image icon (plus its alt text, which is exactly how "solved"
+     * answers like "lesCaptcha" happen — that's the alt text "Captcha"
+     * getting OCR'd/vision-read, not a real solving-accuracy problem) when
+     * it isn't. Throws rather than returning a boolean so the caller can't
+     * accidentally proceed to screenshot/solve a known-broken image.
+     */
+    private void waitForCaptchaImageLoaded(WebDriver driver, WebElement imgElement) throws IOException {
+        long deadline = System.currentTimeMillis()
+            + java.time.Duration.ofSeconds(captchaImageLoadTimeoutSeconds).toMillis();
+        Long lastNaturalWidth = null;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                Object result = ((JavascriptExecutor) driver).executeScript(
+                    "var img = arguments[0];"
+                        + "if (img.complete) { return img.naturalWidth; }"
+                        + "return null;",
+                    imgElement);
+                if (result != null) {
+                    long width = (result instanceof Number) ? ((Number) result).longValue() : 0L;
+                    if (width > 0) {
+                        return;
+                    }
+                    // .complete==true with naturalWidth==0 means the browser
+                    // is DONE trying (successfully or not) — a real broken
+                    // image, not "still loading". No point burning the rest
+                    // of the timeout polling something that's already
+                    // final; fail fast with a clear message instead.
+                    lastNaturalWidth = width;
+                    break;
+                }
+            } catch (StaleElementReferenceException staleEx) {
+                throw new IOException("[CaptchaSolver] CAPTCHA image element went stale while waiting for it "
+                    + "to load — the page likely re-rendered the CAPTCHA out from under this call. "
+                    + "Re-locate the element and retry.", staleEx);
+            } catch (Exception jsEx) {
+                log.debug("Could not poll CAPTCHA image load state ({}) — retrying", jsEx.getMessage());
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IOException("[CaptchaSolver] Interrupted while waiting for the CAPTCHA image to load");
+            }
+        }
+        throw new IOException("[CaptchaSolver] CAPTCHA image never finished loading within "
+            + captchaImageLoadTimeoutSeconds + "s (naturalWidth stayed "
+            + (lastNaturalWidth != null ? lastNaturalWidth : "unresolved") + ") — screenshotting/solving it now "
+            + "would just read a broken-image placeholder (icon + alt text), not an actual CAPTCHA. This "
+            + "usually means the page's own JS renders the CAPTCHA image asynchronously, later than "
+            + "document.readyState=='complete' — increase captcha.image.load.timeout if the CAPTCHA is just "
+            + "slow to render, or check the page/network if it never loads at all.");
+    }
+
     private File screenshotElementWithMargin(WebDriver driver, WebElement element, String prefix) throws IOException {
+        waitForCaptchaImageLoaded(driver, element);
         try {
             Rectangle rect = element.getRect();
 
@@ -2076,7 +2750,10 @@ public class CaptchaSolver {
             File dest = new File(dir, prefix + "_" + timestamp + ".png");
             ImageIO.write(cropped, "png", dest);
 
-            log.debug("CAPTCHA screenshot (with {}px margin, {}x device pixel ratio) saved to: {}",
+            // INFO, not DEBUG — this is the exact image file that gets sent
+            // to OCR/the Vision API; open it directly to see what the model
+            // actually saw when checking a wrong answer.
+            log.info("📸 CAPTCHA screenshot (with {}px margin, {}x device pixel ratio) saved to: {}",
                 screenshotMarginPx, devicePixelRatio, dest.getAbsolutePath());
             return dest;
         } catch (Exception e) {
@@ -2103,10 +2780,20 @@ public class CaptchaSolver {
         g2d.drawImage(original, 0, 0, newW, newH, null);
         g2d.dispose();
 
+        // 1b. Strip neutral-gray/black decorative noise (strike line, border
+        //     box) from the still-in-color image by chroma, BEFORE grayscale
+        //     conversion below throws that color information away for good.
+        //     See the chromaFilterEnabled field javadoc for why this exists
+        //     and why it's safe to run unconditionally (no-ops on a plain
+        //     black-text CAPTCHA). Must run before step 2, not after — this
+        //     is the whole point: grayscale luminance is exactly what made
+        //     this site's blue text and gray noise indistinguishable.
+        BufferedImage chromaFiltered = chromaFilterEnabled ? isolateChromaticInk(scaled) : scaled;
+
         // 2. Convert to grayscale
         BufferedImage gray = new BufferedImage(newW, newH, BufferedImage.TYPE_BYTE_GRAY);
         Graphics2D gGray = gray.createGraphics();
-        gGray.drawImage(scaled, 0, 0, null);
+        gGray.drawImage(chromaFiltered, 0, 0, null);
         gGray.dispose();
 
         // 2b. Stretch contrast to the full 0-255 range before anything else.
@@ -2145,14 +2832,27 @@ public class CaptchaSolver {
             }
         }
 
-        // 5. Erase long, thin decorative strike-through/underline lines some
+        // 5. Erase a decorative strike-through line that runs straight
+        //    across the text itself, crossing through character strokes
+        //    rather than just the gaps between them. This is the case
+        //    removeLongThinLines() below (component-shape based) cannot
+        //    catch — see its own javadoc's "Honest limitation" — because
+        //    once the line merges into a character's connected component,
+        //    the merged blob is no longer thin/line-shaped as a whole.
+        //    removeDiagonalLineThroughText() instead fits a straight line
+        //    directly to the pixel data (a lightweight Hough transform)
+        //    and erases only the pixels that actually lie on it.
+        BufferedImage strikeFree = lineThroughTextRemovalEnabled
+            ? removeDiagonalLineThroughText(binarized) : binarized;
+
+        // 5b. Erase long, thin decorative strike-through/underline lines some
         //    CAPTCHA generators draw across (or near) the text specifically
         //    to defeat OCR. These are detected as their own connected
         //    component (only when they don't actually touch a character
-        //    stroke, which is the case they'd be most likely to survive as
-        //    a separate component from anyway — see removeLongThinLines()
-        //    javadoc for the honest limitation here).
-        BufferedImage lineFree = lineRemovalEnabled ? removeLongThinLines(binarized) : binarized;
+        //    stroke — the case above already handles the case where they
+        //    do — see removeLongThinLines() javadoc for the rest of its
+        //    honest limitation).
+        BufferedImage lineFree = lineRemovalEnabled ? removeLongThinLines(strikeFree) : strikeFree;
 
         // 6. Correct rotation/skew. A CAPTCHA strip that's rendered at a
         //    slight angle (a common distortion) makes every downstream
@@ -2165,6 +2865,70 @@ public class CaptchaSolver {
         BufferedImage deskewed = deskewEnabled ? deskew(lineFree) : lineFree;
 
         return deskewed;
+    }
+
+    /**
+     * See the chromaFilterEnabled field javadoc for the full rationale.
+     * Classifies every pixel of the still-in-color, already-2x-upscaled
+     * screenshot by chroma (max(R,G,B) - min(R,G,B)) rather than brightness:
+     * any pixel below chromaFilterThreshold — a neutral gray/black/white
+     * pixel, which covers this site's noise line, its border box, and the
+     * plain white background all at once — is forced to pure white. Pixels
+     * at or above the threshold (real colored ink) are left completely
+     * unchanged, so grayscale conversion and everything downstream of it
+     * still sees the text's own original anti-aliasing.
+     *
+     * Returns the image UNCHANGED (not partially filtered) if fewer than
+     * chromaFilterMinInkPixels pixels clear the threshold — a plain black-
+     * or gray-text CAPTCHA has essentially zero chromatic pixels by this
+     * definition, and applying the filter anyway would erase the text
+     * itself along with the noise. This check is what makes the filter
+     * strictly additive: it only ever activates for CAPTCHAs that actually
+     * have colored text to isolate.
+     */
+    private BufferedImage isolateChromaticInk(BufferedImage scaledColor) {
+        int w = scaledColor.getWidth();
+        int h = scaledColor.getHeight();
+
+        int inkPixelCount = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rgb = scaledColor.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                int chroma = Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
+                if (chroma >= chromaFilterThreshold) {
+                    inkPixelCount++;
+                }
+            }
+        }
+        if (inkPixelCount < chromaFilterMinInkPixels) {
+            log.debug("Chroma filter: only {} chromatic pixel(s) found (below floor of {}) — "
+                    + "treating this CAPTCHA as plain black/gray text and skipping the filter.",
+                inkPixelCount, chromaFilterMinInkPixels);
+            return scaledColor;
+        }
+
+        BufferedImage out = deepCopy(scaledColor);
+        int erased = 0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rgb = out.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                int chroma = Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
+                if (chroma < chromaFilterThreshold) {
+                    out.setRGB(x, y, 0xFFFFFF);
+                    erased++;
+                }
+            }
+        }
+        log.debug("Chroma filter: {} chromatic ink pixel(s) kept, {} neutral pixel(s) erased "
+                + "(line/border/background) before grayscale conversion.",
+            inkPixelCount, erased);
+        return out;
     }
 
     /**
@@ -2258,6 +3022,157 @@ public class CaptchaSolver {
                 img.setRGB(x, y, 0xFFFFFF);
             }
         }
+    }
+
+    /**
+     * Detects and erases a single straight decorative line drawn across —
+     * and through — the CAPTCHA text: the "strike-through" style some
+     * generators use specifically because it survives per-character
+     * segmentation as merged ink rather than a separate, easily-dropped
+     * connected component (see removeLongThinLines()'s own javadoc for that
+     * honest limitation, which this method exists to cover).
+     *
+     * Approach: a lightweight Hough transform restricted to nearly-full-
+     * width lines. Every foreground (ink) pixel votes, for a range of
+     * candidate angles, into a (angle, perpendicular-offset) accumulator
+     * bucketed to ~1px resolution. A genuine decorative line — long,
+     * straight, and much thinner than a character stroke — produces one
+     * accumulator cell with a vote count far higher than anything a
+     * curved/irregular character outline can produce at the same
+     * resolution, so the strongest candidate is checked against two
+     * conditions before anything is erased:
+     *   1. the voting pixels' x-range must span most of the image width
+     *      (captcha.preprocessing.lineThroughText.minWidthRatio, default
+     *      0.55) — a short run of collinear pixels inside one character
+     *      (e.g. the crossbar of a "7" or the stem of a "l") can otherwise
+     *      register a strong local peak too, but never spans the whole
+     *      strip;
+     *   2. the peak's own perpendicular thickness (how many adjacent
+     *      offset buckets also carry a large fraction of the peak's votes)
+     *      must stay within
+     *      captcha.preprocessing.lineThroughText.maxThicknessPx (default
+     *      5, at this method's already-2x-upscaled-image scale) — a real
+     *      stroke run this long would also be many pixels thick, not a
+     *      hairline.
+     * If both hold, every ink pixel within maxThicknessPx/2 of the fitted
+     * line is erased (set to background) — including the handful of
+     * character pixels that happen to sit exactly on the line. That's an
+     * acceptable trade: Tesseract tolerates a thin gap in a stroke far
+     * better than a stray diagonal line running through the whole glyph.
+     *
+     * A CAPTCHA with no such line simply produces no peak that clears both
+     * conditions, so this is a no-op on the common case.
+     */
+    private BufferedImage removeDiagonalLineThroughText(BufferedImage binary) {
+        int w = binary.getWidth();
+        int h = binary.getHeight();
+
+        List<int[]> inkPixels = new ArrayList<>();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if ((binary.getRGB(x, y) & 0xFF) == 0) {
+                    inkPixels.add(new int[]{x, y});
+                }
+            }
+        }
+        if (inkPixels.isEmpty()) {
+            return binary;
+        }
+
+        double bestScore = -1;
+        double bestAngleRad = 0;
+        int bestRhoBin = 0;
+
+        // Candidate angles: a decorative strike line is typically a shallow
+        // diagonal — scan a broad-but-bounded range either side of
+        // horizontal (near-vertical lines would barely cross more than one
+        // character and aren't the pattern this targets).
+        for (double angleDeg = -60; angleDeg <= 60; angleDeg += 1.0) {
+            double rad = Math.toRadians(angleDeg);
+            double cosT = Math.cos(rad);
+            double sinT = Math.sin(rad);
+
+            Map<Integer, List<int[]>> byRho = new java.util.HashMap<>();
+            for (int[] p : inkPixels) {
+                int rhoBin = (int) Math.round(p[0] * cosT + p[1] * sinT);
+                byRho.computeIfAbsent(rhoBin, k -> new ArrayList<>()).add(p);
+            }
+
+            for (Map.Entry<Integer, List<int[]>> e : byRho.entrySet()) {
+                List<int[]> pts = e.getValue();
+                if (pts.size() < 2) {
+                    continue;
+                }
+                int minX = Integer.MAX_VALUE;
+                int maxX = Integer.MIN_VALUE;
+                for (int[] p : pts) {
+                    minX = Math.min(minX, p[0]);
+                    maxX = Math.max(maxX, p[0]);
+                }
+                double xSpanRatio = (maxX - minX) / (double) w;
+                if (xSpanRatio < lineThroughTextMinWidthRatio) {
+                    continue;
+                }
+                double score = pts.size() * xSpanRatio;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestAngleRad = rad;
+                    bestRhoBin = e.getKey();
+                }
+            }
+        }
+
+        if (bestScore < 0) {
+            // No candidate line spanned enough of the image width at any
+            // angle — nothing to erase.
+            return binary;
+        }
+
+        // Measure the winning (angle, rho) peak's perpendicular thickness by
+        // checking how many adjacent rho bins also carry a substantial
+        // share of the peak's own vote count.
+        double cosT = Math.cos(bestAngleRad);
+        double sinT = Math.sin(bestAngleRad);
+        Map<Integer, Integer> rhoCounts = new java.util.HashMap<>();
+        for (int[] p : inkPixels) {
+            int rhoBin = (int) Math.round(p[0] * cosT + p[1] * sinT);
+            rhoCounts.merge(rhoBin, 1, Integer::sum);
+        }
+        int peakCount = rhoCounts.getOrDefault(bestRhoBin, 0);
+        int thickness = 1;
+        for (int offset = 1; offset <= lineThroughTextMaxThicknessPx; offset++) {
+            int lo = rhoCounts.getOrDefault(bestRhoBin - offset, 0);
+            int hi = rhoCounts.getOrDefault(bestRhoBin + offset, 0);
+            if (lo > peakCount * 0.3 || hi > peakCount * 0.3) {
+                thickness = offset + 1;
+            }
+        }
+        if (thickness > lineThroughTextMaxThicknessPx) {
+            // Too thick to be a hairline decorative line — more likely a
+            // dense run of character ink that happened to align at this
+            // angle (e.g. several stems in a row). Leave the image
+            // untouched rather than risk gutting real characters.
+            return binary;
+        }
+
+        log.debug("Line-through-text removal: erasing a ~{}deg line (thickness {}px, {} votes) "
+                + "crossing the CAPTCHA text.",
+            Math.round(Math.toDegrees(bestAngleRad)), thickness, peakCount);
+
+        BufferedImage out = deepCopy(binary);
+        double band = thickness / 2.0 + 0.5;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if ((out.getRGB(x, y) & 0xFF) != 0) {
+                    continue;
+                }
+                double rho = x * cosT + y * sinT;
+                if (Math.abs(rho - bestRhoBin) <= band) {
+                    out.setRGB(x, y, 0xFFFFFF);
+                }
+            }
+        }
+        return out;
     }
 
     /**

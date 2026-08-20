@@ -1,5 +1,5 @@
 #include:
-  #- template: Security/SAST.gitlab-ci.yml
+#- template: Security/SAST.gitlab-ci.yml
 
 # ================================================================
 # GitLab CI/CD Pipeline - Selenium Automation Framework
@@ -19,6 +19,7 @@
 image: maven:3.9.9-eclipse-temurin-17
 
 stages:
+  - config
   - build
   - test
   - report
@@ -101,6 +102,37 @@ cache:
     - .android-sdk/
 
 # ================================================================
+# STAGE 0 - Read the master site on/off switch
+# ================================================================
+# pipeline-config.properties (repo root) is the SAME file GitHub
+# Actions' matrix-setup job and Jenkins' "Discover Site Projects" stage
+# read via Scripts/enabled-sites.sh, and the same file
+# SiteRegistry.validate() enforces for local `mvn test` runs. Disabling
+# a site there is the only edit needed anywhere — this job just makes
+# that decision visible to the jobs below via a dotenv artifact, since
+# GitLab's `parallel: matrix:`/`rules:` are evaluated before any script
+# runs and can't read an arbitrary file directly.
+#
+# SITE_<NAME>_ENABLED is emitted per registered site (SiteRegistry.
+# KNOWN_SITES); a job's `rules:` below reads the one it cares about.
+# Any job with `needs: ["generate-pipeline-config"]` gets these
+# variables available in its own `rules:`, not just its `script:`.
+generate-pipeline-config:
+  stage: config
+  interruptible: true
+  script:
+    - echo "======= Reading pipeline-config.properties ======="
+    - bash Scripts/enabled-sites.sh --dotenv | tee site-flags.env
+  artifacts:
+    reports:
+      dotenv: site-flags.env
+    expire_in: 1 hour
+  only:
+    - branches
+    - merge_requests
+    - schedules
+
+# ================================================================
 # STAGE 1 - Build
 # ================================================================
 build:
@@ -136,6 +168,27 @@ checkstyle:
 test:
   stage: test
   interruptible: true
+  # Needs the dotenv artifact from generate-pipeline-config so
+  # SITE_DEMOQA_ENABLED/SITE_SAUCEDEMO_ENABLED are available to the
+  # `rules:` below. GitLab's `parallel: matrix:` values themselves must
+  # stay static/hardcoded here (rules are evaluated before any script
+  # runs, so unlike GitHub Actions' fromJSON(needs.*.outputs.*) or
+  # Jenkins' shell-based discovery, this list can't be generated from
+  # pipeline-config.properties directly) — but whether each generated
+  # instance actually executes is fully config-driven below.
+  needs: [ "generate-pipeline-config" ]
+  rules:
+    - if: '$SITE == "demoqa" && $SITE_DEMOQA_ENABLED == "false"'
+      when: never
+    - if: '$SITE == "saucedemo" && $SITE_SAUCEDEMO_ENABLED == "false"'
+      when: never
+    - if: '$SITE == "SAHMAT" && $SITE_SAHMAT_ENABLED == "false"'
+      when: never
+    # Replaces the old `only: [branches, merge_requests]` — rules: and
+    # only:/except: can't coexist on the same job, so that condition
+    # moves here instead of being dropped.
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+      when: on_success
   parallel:
     matrix:
       # Every site that has a <site>-<suite>.xml under testng-suites/ runs
@@ -144,9 +197,19 @@ test:
       # via a hardcoded SITE/BROWSER variable, so neither "saucedemo" nor
       # firefox/edge had any CI coverage despite the framework fully
       # supporting them (the GitHub Actions pipeline already covers all
-      # six site x browser combinations). 2 sites x 3 browsers = 6 parallel
-      # job instances.
-      - SITE: [ demoqa, saucedemo ]
+      # six site x browser combinations). "SAHMAT" (testng-suites/
+      # SAHMAT-{smoke,regression}.xml) was added the same way once those
+      # suite files existed — GitLab's `parallel: matrix:` values can't be
+      # generated from pipeline-config.properties the way GitHub Actions'
+      # matrix-setup job or Jenkins' shell-based discovery can (see the
+      # comment on `needs:`/`rules:` above), so a new site always needs
+      # one line added here; whether each instance actually executes stays
+      # fully config-driven via the `rules:` block above. 3 sites x 3
+      # browsers = 9 parallel job instances (before pipeline-config.properties
+      # filtering above — a disabled site's 3 instances are skipped via
+      # `rules:`, not removed from this list, so re-enabling it needs no
+      # edit here).
+      - SITE: [ demoqa, saucedemo, SAHMAT ]
         BROWSER: [ chrome, firefox, edge ]
   script:
     - 'echo "======= Running Tests: site=$SITE browser=$BROWSER ======="'
@@ -326,9 +389,6 @@ test:
       # not a combined total. The individual per-class XML files (and the
       # Allure report, which IS fully merged) are unaffected.
       junit: target/surefire-reports/*.xml
-  only:
-    - branches
-    - merge_requests
 
 # ================================================================
 # STAGE 2b - Mobile Test (Android emulator + Appium)
@@ -341,6 +401,14 @@ test:
 mobile-test:
   stage: test
   interruptible: true
+  needs: [ "generate-pipeline-config" ]
+  rules:
+    - if: '$SITE_MOBILE_ENABLED == "false"'
+      when: never
+    # Replaces the old `only: [branches, merge_requests]` — see the
+    # matching comment on the `test` job above for why this moved here.
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+      when: on_success
   # Emulator-boot flakiness on a shared runner (no /dev/kvm, resource
   # contention, etc. — see the WARNING/exit 1 further down) is
   # infrastructure flake, not a real functional regression, same as the
@@ -605,9 +673,6 @@ mobile-test:
       - appium.log
     reports:
       junit: target/surefire-reports/*.xml
-  only:
-    - branches
-    - merge_requests
 
 # ================================================================
 # STAGE 2c - Nightly Accessibility + Visual-Regression (demoqa only)
@@ -622,7 +687,10 @@ mobile-test:
 accessibility-visual-test:
   stage: test
   interruptible: true
+  needs: [ "generate-pipeline-config" ]
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SITE_DEMOQA_ENABLED == "false"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   parallel:
     matrix:

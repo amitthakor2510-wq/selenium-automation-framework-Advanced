@@ -70,6 +70,15 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dhead
 # saucedemo instead of demoqa
 mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml
 
+# SAHMAT instead of demoqa
+mvn test -Dsite=SAHMAT -DsuiteXmlFile=testng-suites/SAHMAT-smoke.xml
+
+# SAHMAT — every browser (chrome, firefox, edge), ONE AT A TIME on this
+# machine, each with its own scoped Allure/Extent/self-healing output plus
+# a combined Allure report merged from all three at the end
+Scripts/run-SAHMAT-all-browsers.sh regression
+Scripts/run-SAHMAT-all-browsers.sh smoke
+
 # Slow mode — watch every action clearly
 mvn test -Dhuman.pause.min=2000 -Dhuman.pause.max=3000 -Dtest=ButtonsTest
 
@@ -245,6 +254,7 @@ Three pipelines are included and runnable as-is — Jenkins, GitHub Actions, Git
 | Visual regression | `mvn test -DsuiteXmlFile=testng-suites/demoqa-visual.xml` |
 | Performance smoke | `mvn verify -Pperf` |
 | Mobile | `mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml` |
+| SAHMAT — all browsers, one by one, locally | `Scripts/run-SAHMAT-all-browsers.sh regression` |
 | Open Allure report | `allure serve target/allure-results` |
 | Coverage report | `mvn test` then open `target/site/jacoco/index.html` |
 | Style/quality gate | `mvn verify` |

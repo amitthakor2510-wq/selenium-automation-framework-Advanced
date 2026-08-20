@@ -1,4 +1,4 @@
-package com.automation.sites.indiaai.tests;
+package com.automation.sites.sahmat.tests;
 
 import com.automation.core.keyword.KeywordReader;
 import com.automation.sites.core.KeywordTestBase;
@@ -7,15 +7,15 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
- * Every IndiaAI Login + Forgot Password scenario, driven entirely by
- * {@code src/test/resources/testdata/keyword/indiaai_login_forgot_password_keywords.csv}
+ * Every SAHMAT Login + Forgot Password scenario, driven entirely by
+ * {@code src/test/resources/testdata/keyword/SAHMAT_login_forgot_password_keywords.csv}
  * and resolved against locators in
- * {@code src/test/resources/objectrepository/indiaai.properties}.
+ * {@code src/test/resources/objectrepository/SAHMAT.properties}.
  *
  * This class is written ONCE and should never need editing again for
  * ordinary changes:
  *   - New scenario?            Add a new testCase block to the CSV.
- *   - Site markup/ids changed? Edit indiaai.properties (and/or let
+ *   - Site markup/ids changed? Edit SAHMAT.properties (and/or let
  *                               SelfHealingEngine heal it automatically -
  *                               every CLICK/TYPE/etc. keyword already
  *                               routes through it, see KeywordEngine).
@@ -29,21 +29,21 @@ import org.testng.annotations.Test;
  * KeywordDrivenLoginTest, which hand-lists one @Test per testCase; this
  * class intentionally does not, so it truly never needs a code change).
  */
-@Feature("IndiaAI Authentication - Keyword Driven")
+@Feature("SAHMAT Authentication - Keyword Driven")
 public class LoginAndForgotPasswordKeywordTest extends KeywordTestBase {
 
-    private static final String OBJECT_REPO = "objectrepository/indiaai.properties";
-    private static final String SCRIPT = "src/test/resources/testdata/keyword/indiaai_login_forgot_password_keywords.csv";
+    private static final String OBJECT_REPO = "objectrepository/SAHMAT.properties";
+    private static final String SCRIPT = "src/test/resources/testdata/keyword/SAHMAT_login_forgot_password_keywords.csv";
 
-    @DataProvider(name = "indiaaiScenarios")
+    @DataProvider(name = "SAHMATScenarios")
     public Object[][] scenarios() {
         return KeywordReader.readAll(SCRIPT).keySet().stream()
             .map(testCase -> new Object[]{testCase})
             .toArray(Object[][]::new);
     }
 
-    @Test(groups = {"smoke", "regression", "keyword-driven"}, dataProvider = "indiaaiScenarios",
-        description = "IndiaAI Login/Forgot-Password - runs every scenario defined in the keyword CSV")
+    @Test(groups = {"smoke", "regression", "keyword-driven"}, dataProvider = "SAHMATScenarios",
+        description = "SAHMAT Login/Forgot-Password - runs every scenario defined in the keyword CSV")
     public void runScenario(String testCase) {
         runKeywordTestCase(OBJECT_REPO, SCRIPT, testCase);
     }

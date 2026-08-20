@@ -246,13 +246,20 @@ jobs:
   # use; see CoverageMap's own javadoc on why. TEST_IMPACT_ANALYSIS.md →
   # "Coverage-based fallback" has the full design.
   coverage-map:
-    needs: build
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: [ build, matrix-setup ]
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && needs.matrix-setup.outputs.sites != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Was a hardcoded `[demoqa, saucedemo]` — now the same enabled-site
+      # list matrix-setup computed from pipeline-config.properties, so a
+      # disabled site drops out of the coverage map the same way it
+      # drops out of the `test` matrix below, with nothing to keep in
+      # sync by hand.
       matrix:
-        site: [demoqa, saucedemo]
+        site: ${{ fromJSON(needs.matrix-setup.outputs.sites) }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -315,13 +322,51 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.build.outputs.matrix }}
+      # Plain JSON array of enabled non-mobile sites, e.g. ["demoqa"] —
+      # consumed by coverage-map's own matrix below so it never drifts
+      # from what `test` actually runs.
+      sites: ${{ steps.enabled.outputs.sites }}
+      # Single-site booleans for jobs that are hardcoded to one site
+      # (accessibility-visual-test only ever runs demoqa) or that cover
+      # a whole toolchain rather than a browser site (mobile-test).
+      # These read from pipeline-config.properties too, so disabling
+      # "demoqa" or "mobile" there skips these jobs the same way it
+      # skips their entry in the `test` matrix.
+      demoqa-enabled: ${{ steps.enabled.outputs.demoqa }}
+      mobile-enabled: ${{ steps.enabled.outputs.mobile }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # The master site on/off switch — pipeline-config.properties at the
+      # repo root — is read ONCE here via Scripts/enabled-sites.sh (the
+      # same script Jenkins and GitLab CI call), and every downstream
+      # decision in this workflow (which sites get a `test` matrix entry,
+      # whether coverage-map/mobile-test/accessibility-visual-test run at
+      # all) is derived from this single step's outputs. Disabling a site
+      # means editing pipeline-config.properties only — never this file.
+      - name: Read enabled sites from pipeline-config.properties
+        id: enabled
+        run: |
+          echo "sites=$(bash Scripts/enabled-sites.sh --browser-only --json)" >> "$GITHUB_OUTPUT"
+          if bash Scripts/enabled-sites.sh --check demoqa; then
+            echo "demoqa=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "demoqa=false" >> "$GITHUB_OUTPUT"
+          fi
+          if bash Scripts/enabled-sites.sh --check mobile; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build test matrix JSON
         id: build
         env:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_BROWSER: ${{ inputs.browser }}
           RUN_SAFARI: ${{ inputs.run_safari }}
+          ENABLED_SITES: ${{ steps.enabled.outputs.sites }}
         # Every line of the embedded python script below is indented to
         # match this step's own YAML block-scalar base indentation
         # (10 spaces) — a zero-indented python block nested in here
@@ -337,7 +382,7 @@ jobs:
         run: |
           python3 -c "
           import json, os
-          sites = ['demoqa', 'saucedemo']
+          sites = json.loads(os.environ.get('ENABLED_SITES', '[]'))
           event = os.environ.get('EVENT_NAME', '')
           dispatch_browser = os.environ.get('DISPATCH_BROWSER', '') or 'chrome'
           run_safari = os.environ.get('RUN_SAFARI', '') == 'true'
@@ -358,6 +403,12 @@ jobs:
   # ================================================================
   test:
     needs: [ build, matrix-setup ]
+    # Guards against every site being disabled in pipeline-config.properties
+    # at once — an empty `matrix.include: []` is a GitHub Actions error
+    # ("matrix must define at least one vector"), not just zero jobs, so
+    # this has to be an explicit `if:` rather than relying on the empty
+    # matrix to no-op on its own.
+    if: needs.matrix-setup.outputs.sites != '[]'
     # runs-on is now driven by matrix.os instead of being hardcoded to
     # ubuntu-latest. Safari has no Linux build at all (safaridriver ships
     # inside macOS itself) — it used to be its own separate `test-safari`
@@ -633,7 +684,12 @@ jobs:
   # skip the browser setup for nothing or fail immediately trying to
   # install Chrome for a job that will never use it.
   mobile-test:
-    needs: build
+    needs: [ build, matrix-setup ]
+    # Reads site.mobile.enabled from pipeline-config.properties (via
+    # matrix-setup's "Read enabled sites" step) — disabling "mobile"
+    # there skips the whole emulator/Appium toolchain here, same as any
+    # other site.
+    if: needs.matrix-setup.outputs.mobile-enabled == 'true'
     runs-on: ubuntu-latest
     # See the `test` job's identical env block above for why RP_API_KEY is
     # a job-level env var rather than a -D flag.
@@ -855,8 +911,12 @@ jobs:
   # run, gated on the scheduled trigger so a manual workflow_dispatch or
   # a normal push/PR never picks it up.
   accessibility-visual-test:
-    needs: build
-    if: github.event_name == 'schedule'
+    needs: [ build, matrix-setup ]
+    # Both suites only ever run against demoqa (see the suite-selection
+    # comment above), so this job is gated on site.demoqa.enabled in
+    # pipeline-config.properties in addition to the existing nightly-only
+    # schedule gate.
+    if: github.event_name == 'schedule' && needs.matrix-setup.outputs.demoqa-enabled == 'true'
     runs-on: ubuntu-latest
     # See the `test` job's identical env block above for why RP_API_KEY is
     # a job-level env var rather than a -D flag.
