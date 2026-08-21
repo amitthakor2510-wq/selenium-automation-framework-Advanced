@@ -4,53 +4,8 @@
     "dimensionLabel": "By Site / App",
     "value": "demoqa",
     "slug": "demoqa",
-    "count": 480,
+    "count": 363,
     "reportPath": "target/allure-segmented/site/demoqa/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "chrome",
-    "slug": "chrome",
-    "count": 152,
-    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "DemoQA Regression Suite",
-    "slug": "demoqa-regression-suite",
-    "count": 360,
-    "reportPath": "target/allure-segmented/testType/demoqa-regression-suite/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "regression",
-    "slug": "regression",
-    "count": 610,
-    "reportPath": "target/allure-segmented/category/regression/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "severity",
-    "dimensionLabel": "By Severity",
-    "value": "normal",
-    "slug": "normal",
-    "count": 398,
-    "reportPath": "target/allure-segmented/severity/normal/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "site",
-    "dimensionLabel": "By Site / App",
-    "value": "saucedemo",
-    "slug": "saucedemo",
-    "count": 76,
-    "reportPath": "target/allure-segmented/site/saucedemo/report/index.html",
     "generated": false
   },
   {
@@ -65,19 +20,19 @@
   {
     "dimension": "testType",
     "dimensionLabel": "By Test Type",
-    "value": "SauceDemo Regression Suite",
-    "slug": "saucedemo-regression-suite",
-    "count": 61,
-    "reportPath": "target/allure-segmented/testType/saucedemo-regression-suite/report/index.html",
+    "value": "DemoQA Regression Suite",
+    "slug": "demoqa-regression-suite",
+    "count": 361,
+    "reportPath": "target/allure-segmented/testType/demoqa-regression-suite/report/index.html",
     "generated": false
   },
   {
     "dimension": "category",
     "dimensionLabel": "By Category",
-    "value": "data-driven",
-    "slug": "data-driven",
-    "count": 60,
-    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
+    "value": "regression",
+    "slug": "regression",
+    "count": 458,
+    "reportPath": "target/allure-segmented/category/regression/report/index.html",
     "generated": false
   },
   {
@@ -85,7 +40,7 @@
     "dimensionLabel": "By Category",
     "value": "smoke",
     "slug": "smoke",
-    "count": 221,
+    "count": 166,
     "reportPath": "target/allure-segmented/category/smoke/report/index.html",
     "generated": false
   },
@@ -94,7 +49,7 @@
     "dimensionLabel": "By Severity",
     "value": "critical",
     "slug": "critical",
-    "count": 217,
+    "count": 163,
     "reportPath": "target/allure-segmented/severity/critical/report/index.html",
     "generated": false
   },
@@ -108,11 +63,38 @@
     "generated": false
   },
   {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "api",
+    "slug": "api",
+    "count": 27,
+    "reportPath": "target/allure-segmented/category/api/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "severity",
+    "dimensionLabel": "By Severity",
+    "value": "normal",
+    "slug": "normal",
+    "count": 303,
+    "reportPath": "target/allure-segmented/severity/normal/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "chrome",
+    "slug": "chrome",
+    "count": 155,
+    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
+    "generated": false
+  },
+  {
     "dimension": "site",
     "dimensionLabel": "By Site / App",
     "value": "SAHMAT",
     "slug": "sahmat",
-    "count": 52,
+    "count": 39,
     "reportPath": "target/allure-segmented/site/sahmat/report/index.html",
     "generated": false
   },
@@ -121,7 +103,7 @@
     "dimensionLabel": "By Test Type",
     "value": "SAHMAT Regression Suite",
     "slug": "sahmat-regression-suite",
-    "count": 39,
+    "count": 40,
     "reportPath": "target/allure-segmented/testType/sahmat-regression-suite/report/index.html",
     "generated": false
   },
@@ -130,35 +112,8 @@
     "dimensionLabel": "By Category",
     "value": "keyword-driven",
     "slug": "keyword-driven",
-    "count": 72,
+    "count": 54,
     "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "api",
-    "slug": "api",
-    "count": 36,
-    "reportPath": "target/allure-segmented/category/api/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "safari-unsupported",
-    "slug": "safari-unsupported",
-    "count": 4,
-    "reportPath": "target/allure-segmented/category/safari-unsupported/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "category",
-    "dimensionLabel": "By Category",
-    "value": "keyboard-driven",
-    "slug": "keyboard-driven",
-    "count": 8,
-    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
     "generated": false
   },
   {
@@ -186,6 +141,51 @@
     "slug": "uncategorized",
     "count": 5,
     "reportPath": "target/allure-segmented/category/uncategorized/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "saucedemo",
+    "slug": "saucedemo",
+    "count": 57,
+    "reportPath": "target/allure-segmented/site/saucedemo/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "SauceDemo Regression Suite",
+    "slug": "saucedemo-regression-suite",
+    "count": 60,
+    "reportPath": "target/allure-segmented/testType/saucedemo-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "safari-unsupported",
+    "slug": "safari-unsupported",
+    "count": 3,
+    "reportPath": "target/allure-segmented/category/safari-unsupported/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "data-driven",
+    "slug": "data-driven",
+    "count": 45,
+    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyboard-driven",
+    "slug": "keyboard-driven",
+    "count": 6,
+    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
     "generated": false
   },
   {
@@ -225,39 +225,39 @@
     "generated": false
   },
   {
-    "dimension": "browser",
-    "dimensionLabel": "By Browser",
-    "value": "safari",
-    "slug": "safari",
-    "count": 152,
-    "reportPath": "target/allure-segmented/browser/safari/report/index.html",
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "DemoQA Visual Regression Suite",
+    "slug": "demoqa-visual-regression-suite",
+    "count": 1,
+    "reportPath": "target/allure-segmented/testType/demoqa-visual-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "visual",
+    "slug": "visual",
+    "count": 1,
+    "reportPath": "target/allure-segmented/category/visual/report/index.html",
     "generated": false
   },
   {
     "dimension": "testType",
     "dimensionLabel": "By Test Type",
-    "value": "DemoQA Safari Regression Suite",
-    "slug": "demoqa-safari-regression-suite",
-    "count": 120,
-    "reportPath": "target/allure-segmented/testType/demoqa-safari-regression-suite/report/index.html",
+    "value": "DemoQA Accessibility Suite",
+    "slug": "demoqa-accessibility-suite",
+    "count": 2,
+    "reportPath": "target/allure-segmented/testType/demoqa-accessibility-suite/report/index.html",
     "generated": false
   },
   {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "SauceDemo Safari Regression Suite",
-    "slug": "saucedemo-safari-regression-suite",
-    "count": 20,
-    "reportPath": "target/allure-segmented/testType/saucedemo-safari-regression-suite/report/index.html",
-    "generated": false
-  },
-  {
-    "dimension": "testType",
-    "dimensionLabel": "By Test Type",
-    "value": "SAHMAT Safari Regression Suite",
-    "slug": "sahmat-safari-regression-suite",
-    "count": 13,
-    "reportPath": "target/allure-segmented/testType/sahmat-safari-regression-suite/report/index.html",
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "accessibility",
+    "slug": "accessibility",
+    "count": 2,
+    "reportPath": "target/allure-segmented/category/accessibility/report/index.html",
     "generated": false
   }
 ]
