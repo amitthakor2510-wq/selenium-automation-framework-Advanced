@@ -1,0 +1,2 @@
+[WARNING] security - Error with Permissions-Policy header: Unrecognized feature: 'notifications'.
+[SEVERE] https://staging2.pmgatishakti.gov.in/PermissionPortal/assets/js/newhomepage.js 19:26 Uncaught TypeError: Cannot read properties of null (reading 'innerHTML')
