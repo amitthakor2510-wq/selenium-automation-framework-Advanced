@@ -272,7 +272,7 @@ jobs:
           cache: 'maven'
 
       - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
 
       - name: Build coverage map for ${{ matrix.site }}
         env:
