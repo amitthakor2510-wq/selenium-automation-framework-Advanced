@@ -23,7 +23,7 @@ import java.util.stream.Stream;
  *
  * <p>Invoked via {@code mvn exec:java@coverage-map} (see the matching pom.xml profile) after a
  * serial, JMX-enabled capture run — see {@code Scripts/build-coverage-map.sh} for the full
- * sequence, and {@code TEST_IMPACT_ANALYSIS.md} ("Coverage-based fallback") for the design.
+ * sequence, and {@code docs/TEST_IMPACT_ANALYSIS.md} ("Coverage-based fallback") for the design.
  */
 public final class CoverageMapBuilder {
 

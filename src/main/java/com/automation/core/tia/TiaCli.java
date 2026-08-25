@@ -8,7 +8,7 @@ import java.util.List;
  * Command-line entry point, invoked via {@code mvn exec:java@tia} (see the {@code tia} profile
  * in {@code pom.xml}) or directly with {@code java -cp target/classes com.automation.core.tia.TiaCli}.
  * See {@code Scripts/test-impact-analysis.sh} for the wrapper that ties this together with
- * {@code mvn test}, and {@code TEST_IMPACT_ANALYSIS.md} for full usage.
+ * {@code mvn test}, and {@code docs/TEST_IMPACT_ANALYSIS.md} for full usage.
  *
  * <pre>
  *   --repo-root DIR        Repo root (default: current directory)

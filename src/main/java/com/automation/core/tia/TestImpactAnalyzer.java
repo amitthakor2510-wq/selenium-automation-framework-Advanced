@@ -13,7 +13,7 @@ import java.util.Set;
  * Orchestrates test-impact analysis end to end: git diff -&gt; classify each changed file -&gt;
  * either bail out to "run everything" (unsafe change) or walk the compiled-class dependency
  * graph plus the resource-literal/site fallbacks to produce the precise set of impacted test
- * classes. See {@code TEST_IMPACT_ANALYSIS.md} at the repo root for the full design writeup,
+ * classes. See {@code docs/TEST_IMPACT_ANALYSIS.md} for the full design writeup,
  * the CLI, and the CI wiring.
  */
 public final class TestImpactAnalyzer {
@@ -207,7 +207,7 @@ public final class TestImpactAnalyzer {
     }
 
     private static void addReason(Map<String, List<ImpactResult.ImpactReasonDetail>> impacted,
-                                   String fqcn, ImpactReason reason, String detail) {
+                                  String fqcn, ImpactReason reason, String detail) {
         impacted.computeIfAbsent(fqcn, k -> new ArrayList<>())
             .add(new ImpactResult.ImpactReasonDetail(reason, detail));
     }

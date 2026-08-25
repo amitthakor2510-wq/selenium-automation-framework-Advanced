@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * one {@code .exec} file per test class, under {@code target/jacoco-per-test/} — so
  * {@code com.automation.core.coverage.CoverageMapBuilder} can later say "these are the classes
  * this specific test class actually executed", independent of whether any of them show up as a
- * static bytecode reference. See {@code TEST_IMPACT_ANALYSIS.md} → "Coverage-based fallback".
+ * static bytecode reference. See {@code docs/TEST_IMPACT_ANALYSIS.md} → "Coverage-based fallback".
  *
  * <p><b>Only active when {@code -Djacoco.jmx=true}</b> (this project's {@code jacoco.jmx}
  * property, off by default — see its comment in {@code pom.xml}) registered the
@@ -134,9 +134,9 @@ public class JacocoPerTestCoverageListener implements IClassListener, ISuiteList
         System.out.println("[coverage-capture] Suite \"" + suite.getName() + "\" finished — "
             + count + " per-class .exec file(s) written to " + OUTPUT_DIR.toAbsolutePath()
             + (UNRELIABLE.get() ? " (run marked UNRELIABLE — see reason above; no map will be built from these)"
-                : count == 0 ? " (no files written — check for an earlier \"MBean not found\" message above; "
-                    + "capture was likely never active for this run)"
-                : ""));
+            : count == 0 ? " (no files written — check for an earlier \"MBean not found\" message above; "
+            + "capture was likely never active for this run)"
+            : ""));
     }
 
     @Override

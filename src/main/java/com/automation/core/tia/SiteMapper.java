@@ -9,7 +9,7 @@ import java.util.Optional;
  * that holds its tests, and back. Mirrors {@code SiteRegistry.KNOWN_SITES} — kept as a small,
  * separate, dependency-free list here rather than reflectively reading that class, since TIA
  * needs to run from plain compiled {@code .class} files without pulling in the rest of the
- * framework (see {@code TEST_IMPACT_ANALYSIS.md}). Update both places together when a new site
+ * framework (see {@code docs/TEST_IMPACT_ANALYSIS.md}). Update both places together when a new site
  * is added (the same checklist {@code SiteRegistry}'s own javadoc already describes).
  */
 public final class SiteMapper {
@@ -20,6 +20,13 @@ public final class SiteMapper {
         SITE_TEST_PACKAGE.put("demoqa", "com.automation.sites.demoqa");
         SITE_TEST_PACKAGE.put("saucedemo", "com.automation.sites.saucedemo");
         SITE_TEST_PACKAGE.put("mobile", "com.automation.mobile");
+        // Site key is "SAHMAT" (case-sensitive, matches SiteRegistry.KNOWN_SITES,
+        // config/SAHMAT.properties, and objectrepository/SAHMAT.properties) even
+        // though the Java package underneath stayed lowercase "sahmat" — was
+        // missing here entirely, which meant TIA silently fell back to a
+        // site-blind "unsafe/full suite" decision for every SAHMAT resource
+        // change instead of scoping to SAHMAT's own tests.
+        SITE_TEST_PACKAGE.put("SAHMAT", "com.automation.sites.sahmat");
     }
 
     private SiteMapper() {

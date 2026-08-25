@@ -190,7 +190,7 @@ jobs:
   # without waiting on the full matrix, and a team that later wants to
   # actually gate on this can swap `Scripts/test-impact-analysis.sh --run`
   # into (or alongside) the `test` job's own steps — see
-  # TEST_IMPACT_ANALYSIS.md for that migration path.
+  # docs/TEST_IMPACT_ANALYSIS.md for that migration path.
   test-impact-analysis:
     needs: build
     if: github.event_name == 'pull_request'
@@ -243,7 +243,7 @@ jobs:
   # CoverageMap) — it only ever WIDENS the impacted-tests set versus the
   # bytecode graph alone, catching reflection/dynamic-dispatch dependencies
   # the graph can't see, so a map that's up to a day stale is still safe to
-  # use; see CoverageMap's own javadoc on why. TEST_IMPACT_ANALYSIS.md →
+  # use; see CoverageMap's own javadoc on why. docs/TEST_IMPACT_ANALYSIS.md →
   # "Coverage-based fallback" has the full design.
   coverage-map:
     needs: [ build, matrix-setup ]

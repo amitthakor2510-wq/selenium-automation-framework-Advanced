@@ -1,0 +1,33 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- SEQUENTIAL (parallel="none"), deliberately unlike the smoke/regression/accessibility
+     suites: RegistrationSyntheticDataTest hits DemoQA's real, ReCaptcha-rate-limited
+     registration endpoint (see RegistrationPage.isRegistrationSuccessful's javadoc) —
+     running its two data-provider-driven test methods concurrently would only make that
+     rate limit more likely to trip, not run any faster in a way that's worth the risk. -->
+<suite name="DemoQA Synthetic Data Suite" parallel="none">
+
+  <!-- Opt-in suite — not wired into CI by default, same reasoning as
+       demoqa-accessibility.xml/demoqa-visual.xml. Run explicitly with:
+         mvn test -DsuiteXmlFile=testng-suites/demoqa-synthetic-data.xml -Dsite=demoqa
+       Override row counts/reproducibility via -Dsynthetic.data.count=N and
+       -Dsynthetic.data.seed=<long> — see docs/configuration.md and
+       RegistrationSyntheticDataTest.java's own javadoc for the ReCaptcha-rate-limit
+       reasoning behind keeping this opt-in and sequential. -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="DemoQA Synthetic Data Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="synthetic-data"/>
+      </run>
+    </groups>
+
+    <packages>
+      <package name="com.automation.sites.demoqa.tests"/>
+    </packages>
+
+  </test>
+
+</suite>

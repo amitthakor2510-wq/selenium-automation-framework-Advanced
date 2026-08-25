@@ -12,6 +12,7 @@
 - [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)
 - [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
 - [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance)
+- [🧬 Synthetic/Generated Test Data](#-syntheticgenerated-test-data)
 - [📱 Mobile Testing (Appium)](#-mobile-testing-appium)
 - [🚦 Smoke vs Regression](#-smoke-vs-regression)
 
@@ -196,6 +197,26 @@ Plan lives in `perf/basic-smoke.jmx`. Results land in `target/jmeter/results/`, 
 
 ---
 
+## 🧬 Synthetic/Generated Test Data
+
+`RegistrationSyntheticDataTest` (demoqa) exercises Book Store registration with generated data instead of a hand-written CSV/Excel row — two complementary flavors, both built on [DataFaker](https://www.datafaker.net/) (see `core/data/synthetic/SyntheticDataGenerator.java`):
+
+- **Realistic** — Faker-generated names/emails/usernames/passwords, for happy-path coverage across a wider variety of inputs than a handful of hand-typed rows ever would.
+- **Edge case** — a fixed, deliberately awkward set of boundary values (empty, whitespace-only, a single character, a 300-character run, unicode/emoji, SQL-injection-/XSS-shaped strings) applied to the username field, for exercising validation a realistic-looking value would never trigger — a lightweight, property-based-testing-style check without pulling in a full property-based-testing library.
+
+```bash
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-synthetic-data.xml
+# tune row count / reproducibility:
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-synthetic-data.xml -Dsynthetic.data.count=10 -Dsynthetic.data.seed=12345
+```
+
+> [!TIP]
+> **Opt-in and sequential, not part of `demoqa-smoke.xml`/`demoqa-regression.xml` or CI** — DemoQA's real registration endpoint is ReCaptcha rate-limited (see `RegistrationPage.isRegistrationSuccessful`'s javadoc), so this deliberately stays a small, explicit, non-parallel run rather than something that fires on every push. A row that hits the rate limit is skipped, not failed — that's a known site-side limit, not a defect.
+
+Reusable outside this one test class via `DataProviderFactory.syntheticRegistrations(count)` / `.syntheticRegistrations()` (count from `synthetic.data.count`) / `.syntheticRegistrationEdgeCases()` — or `SyntheticDataGenerator` directly for a one-off value (`new SyntheticDataGenerator().email()`, `.strongPassword()`, etc.) in a new test of your own. See `synthetic.data.count` / `synthetic.data.seed` in [Configuration](configuration.md).
+
+---
+
 ## 📱 Mobile Testing (Appium)
 
 A separate Appium module (`com.automation.mobile`) for Android/iOS app testing, alongside — not instead of — the browser framework above. Same Page Object + TestNG + Allure/Extent shape as every web test, just against a mobile driver instead of a browser one.
@@ -258,7 +279,7 @@ mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 ```
 
 > [!NOTE]
-> `accessibility`, `visual`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance) and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly.
+> `accessibility`, `visual`, `synthetic-data`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance), [Synthetic/Generated Test Data](#-syntheticgenerated-test-data), and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly.
 
 <div align="center">
 

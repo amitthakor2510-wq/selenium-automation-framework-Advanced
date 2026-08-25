@@ -15,7 +15,7 @@
 #
 # Falls back to the full suite whenever TIA itself decides it can't safely
 # narrow things down (a build/config file changed, a resource with no
-# traceable owner, etc.) — see TEST_IMPACT_ANALYSIS.md for exactly which
+# traceable owner, etc.) — see docs/TEST_IMPACT_ANALYSIS.md for exactly which
 # changes trigger that and why.
 
 set -euo pipefail

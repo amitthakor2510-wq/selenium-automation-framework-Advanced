@@ -56,6 +56,10 @@ data.tags=                          # comma-separated tag filter, e.g. -Ddata.ta
                                      # (blank = run every row regardless of its "tags" column)
 data.execute.column=execute         # column DataProvider checks to skip a row (no/false/0/skip = excluded)
 
+# ── Synthetic/Generated Test Data (see core/data/synthetic/SyntheticDataGenerator.java) ──
+synthetic.data.count=3              # rows DataProviderFactory.syntheticRegistrations() (no-arg) generates
+synthetic.data.seed=                # blank = fresh random data every run; set an integer to pin Faker to a fixed, repeatable sequence
+
 # ── Self-Healing Locators (see core/selfhealing/SelfHealingEngine.java) ──
 self-healing.enabled=true                                      # master switch — false falls back to plain fail-on-first-miss
 self-healing.threshold=0.55                                     # min similarity (0.0-1.0) a candidate must reach to be accepted

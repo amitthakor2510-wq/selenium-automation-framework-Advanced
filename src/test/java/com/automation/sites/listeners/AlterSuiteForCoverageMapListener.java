@@ -26,7 +26,7 @@ import java.util.List;
  * </ol>
  *
  * <p>See {@code Scripts/build-coverage-map.sh} for how this flag actually gets set, and
- * {@code TEST_IMPACT_ANALYSIS.md} → "Coverage-based fallback" for the end-to-end design.
+ * {@code docs/TEST_IMPACT_ANALYSIS.md} → "Coverage-based fallback" for the end-to-end design.
  */
 public class AlterSuiteForCoverageMapListener implements IAlterSuiteListener {
 

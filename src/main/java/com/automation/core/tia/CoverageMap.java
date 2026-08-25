@@ -19,7 +19,7 @@ import java.util.Set;
  * independent signal alongside {@link DependencyGraph}'s static bytecode analysis, and it's the
  * one that can see through the cases static analysis can't: a class reached only via reflection
  * with a computed (non-literal) name, dynamic dispatch, or anything else that leaves no matching
- * string anywhere in the caller's compiled constant pool. See {@code TEST_IMPACT_ANALYSIS.md} →
+ * string anywhere in the caller's compiled constant pool. See {@code docs/TEST_IMPACT_ANALYSIS.md} →
  * "Coverage-based fallback".
  *
  * <p>Deliberately has zero dependency on {@code org.jacoco.core} or anything else beyond the JDK

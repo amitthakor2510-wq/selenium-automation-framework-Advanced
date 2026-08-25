@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * A strict CONSTANT_Class-only reader would miss all of those — real dependencies a naive
  * import-parser or a stricter bytecode reader would silently drop, which is far worse for test
  * impact analysis than the rare over-inclusive false positive. See
- * {@code TEST_IMPACT_ANALYSIS.md} → "How dependencies are found" for the tradeoffs and the cases
+ * {@code docs/TEST_IMPACT_ANALYSIS.md} → "How dependencies are found" for the tradeoffs and the cases
  * (constructed strings, not literals) this still can't see.
  */
 public final class ClassFileScanner {

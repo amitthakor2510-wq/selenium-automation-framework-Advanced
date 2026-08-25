@@ -103,6 +103,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | 🔄 [CI/CD Pipelines](docs/ci-cd.md) | Jenkins, GitHub Actions, GitLab CI |
 | ➕ [Extending the Framework](docs/extending.md) | Adding a new site, debugging a live site redesign |
 | 🩹 [Troubleshooting & Glossary](docs/troubleshooting.md) | Common errors and fixes, glossary |
+| 🎯 [Test Impact Analysis](docs/TEST_IMPACT_ANALYSIS.md) | Run only the tests a change actually affects — design, CLI usage, CI wiring |
 | 🗺️ [Roadmap](docs/roadmap.md) | Suggestions and planned work |
 
 - [🤝 Contributing](#-contributing)

@@ -27,7 +27,7 @@ import java.util.stream.Stream;
  * {@code ConfigReader}'s {@code "config/" + site + ".properties"}, or
  * {@code ObjectRepository}'s {@code "objectrepository/" + site + ".properties"}) — those aren't
  * literals to find. {@link SiteMapper}'s site-inference fallback covers that case instead; see
- * {@code TEST_IMPACT_ANALYSIS.md}.
+ * {@code docs/TEST_IMPACT_ANALYSIS.md}.
  */
 public final class ResourceReferenceIndex {
 

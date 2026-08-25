@@ -7,7 +7,7 @@
 # executing which class at runtime" data com.automation.core.tia.TestImpactAnalyzer
 # uses as a second signal alongside its static bytecode dependency graph, closing
 # the gap on reflection/dynamic-dispatch cases the bytecode graph can't see. See
-# TEST_IMPACT_ANALYSIS.md → "Coverage-based fallback" for the full design.
+# docs/TEST_IMPACT_ANALYSIS.md → "Coverage-based fallback" for the full design.
 #
 # Two things make this different from an ordinary `mvn test` run, both required
 # for the resulting map to be trustworthy (see JacocoPerTestCoverageListener's

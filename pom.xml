@@ -200,6 +200,15 @@
     <pitest.version>1.16.1</pitest.version>
     <pitest-junit5.version>1.2.1</pitest-junit5.version>
 
+    <!-- DataFaker — synthetic/generated test data, see
+         core/data/synthetic/SyntheticDataGenerator.java and
+         docs/testing-guide.md's "Synthetic/Generated Test Data" section.
+         Same build-verification caveat as axe-core/ashot/appium above: this
+         sandbox has no Maven Central access, so pin/version compatibility
+         hasn't been build-verified here — run `mvn dependency:resolve`
+         locally and bump if this version has since been superseded. -->
+    <datafaker.version>2.4.2</datafaker.version>
+
     <!-- Lombok — pinned explicitly (previously undeclared even though
          RegistrationPage.java uses @Getter, so it was resolving from an
          unpinned transitive version). 1.18.30+ is required for JDK 21+:
@@ -507,6 +516,19 @@
       <groupId>io.appium</groupId>
       <artifactId>java-client</artifactId>
       <version>9.3.0</version>
+    </dependency>
+
+    <!-- DataFaker — generates realistic-looking synthetic test data (names,
+         emails, usernames, addresses, ...) plus the boundary/edge-case value
+         sets in EdgeCaseValues, see core/data/synthetic/SyntheticDataGenerator.java.
+         Compile scope (not test) since SyntheticDataGenerator/SyntheticDataProvider
+         live under src/main alongside DataProvider/DataProviderFactory, matching
+         how opencsv/snakeyaml (the other data-file-format dependencies) are
+         scoped above. Same build-verification caveat as axe-core above applies. -->
+    <dependency>
+      <groupId>net.datafaker</groupId>
+      <artifactId>datafaker</artifactId>
+      <version>${datafaker.version}</version>
     </dependency>
 
     <!-- JUnit 5 — see the <junit.version> property comment above for why
