@@ -29,8 +29,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@code org.jacoco:type=Runtime} JMX MBean this class talks to. Every method here checks for
  * that MBean first and silently does nothing at all if it isn't there — an ordinary
  * {@code mvn test} run must behave identically whether or not this listener happens to be on the
- * suite (see {@code AlterSuiteForCoverageMapListener}, which is what actually attaches it, only
- * when {@code -Dcoverage.map.enabled=true} too).
+ * suite.
+ *
+ * <p>ServiceLoader-registered (see {@code META-INF/services/org.testng.ITestNGListener}), so it's
+ * attached to every suite unconditionally and the MBean check above is the only thing gating its
+ * behavior. An earlier version relied on {@code AlterSuiteForCoverageMapListener} to attach this
+ * class dynamically instead — that didn't reliably work (see that class's javadoc for what a real
+ * failed run showed), which is why this is ServiceLoader-registered now.
+ * {@code AlterSuiteForCoverageMapListener} is still needed for forcing {@code parallel="none"}
+ * when {@code -Dcoverage.map.enabled=true}.
  *
  * <p><b>Concurrency is the one thing this cannot safely paper over.</b> JaCoCo's runtime data is
  * one shared accumulator per JVM — if two test classes execute at the same time on different
@@ -66,6 +73,18 @@ public class JacocoPerTestCoverageListener implements IClassListener, ISuiteList
     @Override
     public void onBeforeClass(ITestClass testClass) {
         synchronized (LOCK) {
+            // Now ServiceLoader-registered (see META-INF/services/org.testng.ITestNGListener),
+            // so this fires on every suite run, not just coverage-map ones — check the MBean
+            // FIRST and bail out completely when capture isn't active, before touching
+            // ACTIVE_CLASS_COUNT/UNRELIABLE at all. Otherwise an ordinary parallel="classes"
+            // regression run (no -Djacoco.jmx=true, no coverage map involved) would trip the
+            // "concurrent test classes" check below on ITS OWN normal concurrency and mark
+            // itself UNRELIABLE for no reason — writing a spurious marker file and error to
+            // every plain `mvn test` run.
+            JacocoRuntimeMXBean mbean = runtime();
+            if (mbean == null) {
+                return;
+            }
             int active = ACTIVE_CLASS_COUNT.incrementAndGet();
             if (active > 1) {
                 markUnreliable("Detected " + active + " test classes executing concurrently "
@@ -76,10 +95,6 @@ public class JacocoPerTestCoverageListener implements IClassListener, ISuiteList
                     + "automatically when -Dcoverage.map.enabled=true) to get a usable map.");
             }
             if (UNRELIABLE.get()) {
-                return;
-            }
-            JacocoRuntimeMXBean mbean = runtime();
-            if (mbean == null) {
                 return;
             }
             try {
@@ -93,16 +108,21 @@ public class JacocoPerTestCoverageListener implements IClassListener, ISuiteList
     @Override
     public void onAfterClass(ITestClass testClass) {
         synchronized (LOCK) {
+            // Mirror onBeforeClass's early bail-out: mbean is a single cached (or
+            // consistently-null) value per JVM, so if onBeforeClass never incremented
+            // ACTIVE_CLASS_COUNT for this run (mbean == null, capture inactive), this must not
+            // decrement it either, or the counter drifts negative on every ordinary suite run.
+            JacocoRuntimeMXBean mbean = runtime();
+            if (mbean == null) {
+                return;
+            }
             try {
                 if (!UNRELIABLE.get()) {
-                    JacocoRuntimeMXBean mbean = runtime();
-                    if (mbean != null) {
-                        try {
-                            byte[] data = mbean.getExecutionData(true);
-                            writeExecFile(testClass.getName(), data);
-                        } catch (RuntimeException | IOException e) {
-                            logMBeanIssue("dumping after " + testClass.getName(), e);
-                        }
+                    try {
+                        byte[] data = mbean.getExecutionData(true);
+                        writeExecFile(testClass.getName(), data);
+                    } catch (RuntimeException | IOException e) {
+                        logMBeanIssue("dumping after " + testClass.getName(), e);
                     }
                 }
             } finally {

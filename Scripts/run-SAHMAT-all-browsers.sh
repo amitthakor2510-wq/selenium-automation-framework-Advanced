@@ -26,7 +26,12 @@
 #   mvn test -Dsite=SAHMAT -DsuiteXmlFile=testng-suites/SAHMAT-safari-regression.xml -Dbrowser=safari
 
 set -uo pipefail
-cd "$(dirname "$0")/.."
+# `-e` is deliberately NOT set (see the per-browser loop below, which must
+# keep going after one browser's `mvn test` fails so the other browsers
+# still run and get reported) — but that means this cd needs its own
+# explicit failure check, or a failed cd would silently leave the script
+# running mvn from the wrong directory instead of stopping.
+cd "$(dirname "$0")/.." || exit 1
 
 SUITE_TYPE="${1:-regression}"
 if [[ "$SUITE_TYPE" != "smoke" && "$SUITE_TYPE" != "regression" ]]; then

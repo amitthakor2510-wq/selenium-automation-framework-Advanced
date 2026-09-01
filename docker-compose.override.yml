@@ -40,11 +40,11 @@
 # since other developers' machines likely don't have this conflict.
 
 # FIX: Compose merges list-type fields (ports, volumes, etc.) across
-# files by APPENDING, not replacing, by default. Without the !reset tag
+# files by APPENDING, not replacing, by default. Without the !override tag
 # below, this override's ports list was being added ALONGSIDE the base
 # file's original "4442:4442"/"4443:4443"/"4444:4444" entries rather than
 # replacing them — so Docker still tried to bind the original (conflicting)
-# ports even with this file correctly loaded and merged. The !reset tag
+# ports even with this file correctly loaded and merged. The !override tag
 # (Compose Specification's merge-and-override syntax) discards the base
 # file's value for this field first, so only the remapped ports below
 # actually get applied.

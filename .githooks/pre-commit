@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Pre-commit hook — runs the same fast local checks CI already gates on
+# (Checkstyle, gitleaks), so a violation is caught before push instead of
+# a round-trip through CI. Installed via Scripts/install-hooks.sh, which
+# points git at this directory (git config core.hooksPath .githooks) —
+# this file itself lives in the repo (unlike .git/hooks/*, which isn't
+# version-controlled), so updates to the hook ship with a normal commit
+# and every contributor picks them up on their next `git pull` with no
+# re-install step.
+#
+# Escape hatch: SKIP_HOOKS=1 git commit ...  (or git commit --no-verify)
+# for the rare case you need to commit through a known, already-triaged
+# violation — same spirit as allow_failure: true on the CI jobs this
+# mirrors, just local instead of in the pipeline.
+set -uo pipefail
+
+if [ "${SKIP_HOOKS:-0}" = "1" ]; then
+  echo "[pre-commit] SKIP_HOOKS=1 — skipping checks."
+  exit 0
+fi
+
+cd "$(dirname "$0")/.." || exit 1
+
+STAGED_JAVA=$(git diff --cached --name-only --diff-filter=ACM -- '*.java')
+FAILED=0
+
+# --- gitleaks: staged changes only, same tool/config as CI's secret-scan
+# job (.gitlab-ci.yml / github-ci.yml) — but scoped to just what's about
+# to be committed, not the whole history, so it's fast enough to run on
+# every commit. Warns (doesn't block) if gitleaks isn't installed locally
+# rather than trying to auto-download mid-commit — CI is still the real
+# gate either way.
+if command -v gitleaks &> /dev/null; then
+  echo "[pre-commit] Running gitleaks on staged changes..."
+  if ! gitleaks protect --staged --redact -v; then
+    echo "[pre-commit] gitleaks found a likely secret in your staged changes — see above."
+    FAILED=1
+  fi
+else
+  echo "[pre-commit] gitleaks not installed locally — skipping (CI's secret-scan job still covers this on push)."
+  echo "[pre-commit]   Install: https://github.com/gitleaks/gitleaks#installing"
+fi
+
+# --- Checkstyle: only bother when a staged .java file is actually part
+# of this commit — running it on doc/config-only commits would just add
+# a several-second delay for zero signal. Uses the same checkstyle.xml
+# and maven-checkstyle-plugin config CI's own build already enforces at
+# the verify phase (see pom.xml) — this just moves the same check earlier.
+if [ -n "$STAGED_JAVA" ]; then
+  echo "[pre-commit] Staged .java files changed — running Checkstyle..."
+  if ! mvn -q checkstyle:check 2> /tmp/pre-commit-checkstyle.log; then
+    echo "[pre-commit] Checkstyle failed:"
+    cat /tmp/pre-commit-checkstyle.log
+    FAILED=1
+  fi
+else
+  echo "[pre-commit] No staged .java files — skipping Checkstyle."
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] One or more checks failed — commit blocked."
+  echo "[pre-commit] Fix the issue above, or bypass with SKIP_HOOKS=1 git commit ... / git commit --no-verify"
+  exit 1
+fi
+
+echo "[pre-commit] All checks passed."
+exit 0

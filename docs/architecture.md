@@ -14,6 +14,7 @@
 - [🔑 Core Files — What Each One Does](#-core-files--what-each-one-does)
 - [🩹 Self-Healing Locators](#-self-healing-locators)
 - [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
+- [🧱 Component-Based Page Objects](#-component-based-page-objects)
 - [🧰 Key Selenium Concepts Used](#-key-selenium-concepts-used)
 
 ---
@@ -361,6 +362,37 @@ public void verifyFormSubmission() {
 }
 ```
 </details>
+
+---
+
+## 🧱 Component-Based Page Objects
+
+Some UI widgets show up on more than one page with the same structure and the same quirks — a Bootstrap modal being the recurring example on demoqa (Modal Dialogs' small/large modals, and the Practice Form's submission-confirmation modal are all the same shape). Rather than every page object re-implementing "wait for it to open, read its title/body, close it defensively" from scratch, that logic lives once in `core/components/` and each page composes an instance of it — same relationship a page object has to `BasePage`, just at a narrower, per-widget scope instead of whole-page scope.
+
+`core/components/BootstrapModalComponent.java` is the one component so far: construct it with the modal's title/body/close-button locators, then call `waitForOpen()` / `getTitle()` / `getBody()` / `closeHardened()` instead of hand-rolling the sequence again. `closeHardened()` is the same defensive 3-attempt close (JS click the close button, then Escape, then a backdrop click — stopping at whichever works first) that `PracticeFormPage` originally hand-rolled on its own to survive DemoQA's occasional overlay/coordinate flakiness; every page that composes the component now gets that resilience for free.
+
+```java
+public class ModalDialogsPage extends BasePage {
+    private final BootstrapModalComponent smallModal;
+
+    public ModalDialogsPage(WebDriver driver) {
+        super(driver);
+        this.smallModal = new BootstrapModalComponent(driver, wait,
+            By.id("example-modal-sizes-title-sm"), By.cssSelector(".modal-body"), By.id("closeSmallModal"));
+    }
+
+    public void openSmallModal() {
+        HumanActions.click(driver, smallModalButton);
+        smallModal.waitForOpen();
+    }
+
+    public void closeSmallModal() { smallModal.closeHardened(); }
+}
+```
+
+Currently composed by `ModalDialogsPage` (two instances — small and large modal) and `PracticeFormPage` (one instance, the submission modal).
+
+**Not every modal-shaped widget fits.** `WebTablesPage`'s add/edit dialog is a Bootstrap modal too, but it's a data-entry *form* — no dedicated close button (it dismisses itself on successful submit) and no single "title"/"body" to read the way a confirmation dialog has. Forcing it into `BootstrapModalComponent`'s shape would mean adding parameters the component doesn't otherwise need just for this one caller, so `WebTablesPage` deliberately keeps composing its own field locators instead — see the comment at the top of its "Registration form (modal)" section for the specific reasoning.
 
 ---
 

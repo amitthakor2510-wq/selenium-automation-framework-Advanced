@@ -775,7 +775,19 @@ security-scan:
     # their own dedicated stages elsewhere in this pipeline, for no
     # benefit. See the same fix in .github/workflows/github-ci.yml's
     # security-scan job for the full explanation.
-    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DskipTests
+    #
+    # -DnvdApiKey=$NVD_API_KEY: without an API key, NVD rate-limits
+    # dependency-check to 5 requests/30s; with one, 50 requests/30s — this
+    # is the actual difference between the "hours" this job used to take
+    # and the few-minutes-first-run/seconds-after that NVD's own docs
+    # describe. Requires an NVD_API_KEY CI/CD variable (Settings > CI/CD >
+    # Variables, Masked + Protected) — get a free key at
+    # https://nvd.nist.gov/developers/request-an-api-key. $NVD_API_KEY
+    # resolves to empty if that variable isn't set yet, which mvn treats
+    # the same as no key (see the <nvdApiKey> comment in pom.xml) — so
+    # this is safe to merge before the variable exists, it just won't
+    # speed anything up until it does.
+    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
   artifacts:
     name: "owasp-dependency-check-$CI_COMMIT_REF_SLUG"
     when: always

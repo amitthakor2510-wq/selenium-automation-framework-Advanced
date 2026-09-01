@@ -16,6 +16,12 @@ public class WebTablesPage extends BasePage {
     private final By searchBox       = By.id("searchBox");
 
     // ── Registration form (modal) ───────────────────────────────────────────────
+    // Deliberately NOT composing core.components.BootstrapModalComponent here:
+    // that component models a title/body/close-button confirmation dialog, but
+    // this modal is a data-entry FORM with no dedicated close button (it
+    // dismisses itself on successful submit via clickSubmit() below) and no
+    // single "title"/"body" to read — see BootstrapModalComponent's own
+    // javadoc for why it's scoped out here.
     private final By firstNameInput  = By.id("firstName");
     private final By lastNameInput   = By.id("lastName");
     private final By emailInput      = By.id("userEmail");

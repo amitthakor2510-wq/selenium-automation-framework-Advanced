@@ -1,7 +1,7 @@
 package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.config.ConfigReader;
+import com.automation.core.components.BootstrapModalComponent;
 import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
@@ -10,9 +10,6 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
-import org.openqa.selenium.support.ui.WebDriverWait;
-
-import java.time.Duration;
 
 public class PracticeFormPage extends BasePage {
 
@@ -52,12 +49,13 @@ public class PracticeFormPage extends BasePage {
     private final By submitButton = By.id("submit");
 
     // ── Modal ──────────────────────────────────────────────────────────────────
-    private final By modalTitle       = By.id("example-modal-sizes-title-lg");
-    private final By modalTableBody   = By.cssSelector(".table-responsive tbody");
-    private final By modalCloseButton = By.id("closeLargeModal");
+    private final BootstrapModalComponent submissionModal;
 
     public PracticeFormPage(WebDriver driver) {
         super(driver);
+        this.submissionModal = new BootstrapModalComponent(driver, wait,
+            By.id("example-modal-sizes-title-lg"), By.cssSelector(".table-responsive tbody"),
+            By.id("closeLargeModal"));
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────
@@ -232,95 +230,24 @@ public class PracticeFormPage extends BasePage {
     }
 
     // ── Modal ──────────────────────────────────────────────────────────────────
+    // Delegates to BootstrapModalComponent — see docs/architecture.md
+    // #-component-based-page-objects. Behavior is unchanged: same
+    // title/body-tbody/close-button locators, same hardened 3-attempt close.
 
     public boolean isModalDisplayed() {
-        return wait.until(
-            ExpectedConditions.visibilityOfElementLocated(modalTitle)
-        ).isDisplayed();
+        return submissionModal.isDisplayed();
     }
 
     public String getModalTitle() {
-        return wait.until(
-            ExpectedConditions.visibilityOfElementLocated(modalTitle)
-        ).getText();
+        return submissionModal.getTitle();
     }
 
     public String getModalContent() {
-        return wait.until(
-            ExpectedConditions.visibilityOfElementLocated(modalTableBody)
-        ).getText();
+        return submissionModal.getBody();
     }
 
-    /**
-     * Fixed closeModal:
-     * 1. Scroll modal into center view
-     * 2. Wait until close button is visible AND clickable
-     * 3. JS click to bypass any overlay
-     * 4. Wait for modal to fully disappear from DOM
-     */
     public void closeModal() {
-        // Scroll to top so modal is fully in view
-        js.executeScript("window.scrollTo(0, 0)");
-        HumanActions.pause();
-
-        // Wait until modal is visible
-        WebElement modal = wait.until(
-            ExpectedConditions.visibilityOfElementLocated(modalTitle)
-        );
-
-        // Try 3 different ways to close — stops at whichever works first
-        boolean closed = false;
-
-        // Attempt 1 — JS click on close button
-        try {
-            WebElement closeBtn = driver.findElement(modalCloseButton);
-            js.executeScript("arguments[0].click();", closeBtn);
-            HumanActions.pause();
-
-            // Check if modal disappeared
-            if (driver.findElements(modalTitle).isEmpty()
-                || !driver.findElement(modalTitle).isDisplayed()) {
-                closed = true;
-            }
-        } catch (Exception ignored) {
-            // JS click didn't work — fall through to the next attempt
-        }
-
-        // Attempt 2 — Press Escape key to dismiss modal
-        if (!closed) {
-            try {
-                driver.findElement(By.tagName("body"))
-                    .sendKeys(Keys.ESCAPE);
-                HumanActions.pause();
-
-                if (driver.findElements(modalTitle).isEmpty()
-                    || !driver.findElement(modalTitle).isDisplayed()) {
-                    closed = true;
-                }
-            } catch (Exception ignored) {
-                // Escape key didn't dismiss it — fall through to the next attempt
-            }
-        }
-
-        // Attempt 3 — Click outside the modal (the backdrop)
-        if (!closed) {
-            try {
-                js.executeScript(
-                    "document.querySelector('.modal-backdrop').click();"
-                );
-                HumanActions.pause();
-            } catch (Exception ignored) {
-                // backdrop click didn't work either — final wait below will report the state
-            }
-        }
-
-        // Final wait — just confirm modal is gone, don't throw if already gone
-        try {
-            new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)))
-                .until(ExpectedConditions.invisibilityOfElementLocated(modalTitle));
-        } catch (Exception ignored) {
-            // Modal may have already closed via one of the attempts above
-        }
+        submissionModal.closeHardened();
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────

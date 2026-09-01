@@ -1,4 +1,25 @@
 com.automation.sites.listeners.AlterSuiteForCoverageMapListener
+# JacocoPerTestCoverageListener (IClassListener + ISuiteListener) — used to be
+# added dynamically by AlterSuiteForCoverageMapListener mutating each
+# XmlSuite's <listeners> list from inside IAlterSuiteListener.alter(). That
+# never actually got the listener wired up in practice (its own onStart/
+# onBeforeClass/onAfterClass/onFinish diagnostic prints never showed up in a
+# real coverage-map CI run, even though AlterSuiteForCoverageMapListener's
+# own "attached" line did — i.e. the alter() call ran, but the listener it
+# tried to attach was never invoked), which is why
+# Scripts/build-coverage-map.sh kept failing with target/jacoco-per-test
+# never being created. Registered here via ServiceLoader instead — the same
+# proven-working mechanism already used for the other two listeners on this
+# page — so it's always on the classpath, exactly like them. This is safe
+# unconditionally: every method on JacocoPerTestCoverageListener already
+# checks for the org.jacoco:type=Runtime JMX MBean first and no-ops
+# completely unless -Djacoco.jmx=true actually registered it (see its
+# javadoc), so an ordinary `mvn test` run is unaffected either way.
+# AlterSuiteForCoverageMapListener is still needed and still
+# ServiceLoader-registered above — it now only forces parallel="none" on the
+# suite when -Dcoverage.map.enabled=true, which per-test coverage capture
+# still requires.
+com.automation.sites.listeners.JacocoPerTestCoverageListener
 # ReportPortal's own TestNG agent (com.epam.reportportal:agent-java-testng —
 # see pom.xml's dependency block). Registered here, not via @Listeners or a
 # testng-suites/*.xml <listeners> entry, so it covers every suite (web,

@@ -1067,6 +1067,7 @@ jobs:
       - name: Run OWASP Dependency-Check
         env:
           SECURITY_FAIL_CVSS: ${{ vars.SECURITY_FAIL_CVSS || '11' }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         # -DskipTests: this job only wants the dependency-check:check
         # goal, but `verify` runs the ENTIRE default lifecycle — without
         # this flag it was also compiling+running the full 216-test real-
@@ -1079,7 +1080,17 @@ jobs:
         # minutes and produced nothing this job actually uses — it only
         # needs target/classes compiled (for dependency-check to resolve
         # the dependency tree) and the dependency-check:check goal itself.
-        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DskipTests
+        #
+        # -DnvdApiKey=$NVD_API_KEY: unauthenticated NVD requests are
+        # rate-limited to 5/30s vs 50/30s with a key — this is the actual
+        # difference between the multi-hour unauthenticated download this
+        # job used to do and the few-minutes-first-run/seconds-after NVD's
+        # own docs describe. Add an NVD_API_KEY repo/org secret (Settings
+        # > Secrets and variables > Actions) — free key at
+        # https://nvd.nist.gov/developers/request-an-api-key. Empty
+        # resolves the same as no key (see pom.xml's <nvdApiKey> comment),
+        # so this is safe to merge before the secret exists.
+        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
 
       - name: Upload Dependency-Check report
         if: always()
@@ -1094,18 +1105,60 @@ jobs:
   # ================================================================
   # Secret scanning — gitleaks
   # ================================================================
-  # Runs on every push/PR (unlike security-scan above, this is fast — no
-  # CVE database to build) so a committed credential gets flagged before
-  # it merges, not discovered later on a nightly run. exit-code left at
-  # gitleaks-action's default (fails the step, not the whole workflow —
-  # see continue-on-error below) for now: a repo's first-ever gitleaks
-  # run commonly turns up pre-existing/false-positive matches in history
-  # or test fixtures that need triage before this can safely block
-  # pushes — drop continue-on-error once that initial pass is clean (or
-  # a .gitleaksignore baseline is in place).
+  # Runs on every push/PR (unlike security-scan above, this is meant to be
+  # fast — no CVE database to build) so a committed credential gets
+  # flagged before it merges, not discovered later on a nightly run.
+  # exit-code left at gitleaks-action's default (fails the step, not the
+  # whole workflow — see continue-on-error below) for now: a repo's
+  # first-ever gitleaks run commonly turns up pre-existing/false-positive
+  # matches in history or test fixtures that need triage before this can
+  # safely block pushes — drop continue-on-error once that initial pass
+  # is clean (or a .gitleaksignore baseline is in place).
+  #
+  # PERFORMANCE: this job used to checkout with fetch-depth: 0 on every
+  # single push/PR, which clones the ENTIRE git history every run — as
+  # the repo's history has grown that "fast, no CVE database" framing
+  # above stopped being true; the checkout+scan against the full log is
+  # what was making this stage slow, not gitleaks itself. Every push/PR
+  # only needs to scan the commits that are actually new, so this now
+  # fetches just enough history to diff against the previous state
+  # (push: base..head via fetch-depth 2 and github.event.before; PR: the
+  # PR's base..head range) and scans only that range with
+  # `gitleaks git --log-opts`. The full-history deep scan still happens,
+  # just moved to the existing nightly `schedule` cron (see
+  # accessibility-visual-test above for the same push/PR-vs-schedule
+  # split) where its slowness doesn't sit in every contributor's PR path.
   # ================================================================
   secret-scan:
     needs: build
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Run gitleaks (new commits only)
+        continue-on-error: true
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            RANGE="${{ github.event.before }}..${{ github.event.after }}"
+          fi
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest \
+            git --log-opts="$RANGE" -v .
+
+  # Full-history scan — same tool, but against the entire git log instead
+  # of just the new commits, so anything that slipped in before this job
+  # existed (or before .gitleaksignore was added) still gets caught. Only
+  # runs on the nightly cron, since fetch-depth: 0 + a full-log scan is
+  # exactly the slow combination secret-scan above was moved off of.
+  secret-scan-full-history:
+    needs: build
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -1113,7 +1166,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run gitleaks
+      - name: Run gitleaks (full history)
         continue-on-error: true
         uses: gitleaks/gitleaks-action@v2
         env:
