@@ -652,6 +652,17 @@ jobs:
       # leg above. Results still land in the artifact under a per-site
       # folder purely so the merge step in the allure-report job below can
       # tell them apart.
+      # RECORD_VIDEO=true left on across a long regression run (many failures, each getting
+      # its own recording — see VideoRecorder's javadoc) can leave far more files under
+      # target/videos/ than any one run needs to keep. retention-days: 7 on the "Upload
+      # Extent + Surefire Artifacts" step below already bounds growth ACROSS runs, but does
+      # nothing about a single oversized upload — this bounds that instead. Best-effort: `|| true`
+      # so a pruning hiccup never fails an otherwise-green test job. See
+      # com.automation.core.retention.ArtifactRetentionCleaner and docs/RETENTION_POLICY.md.
+      - name: Prune old local video recordings
+        if: always() && env.RECORD_VIDEO == 'true'
+        run: mvn -q exec:java@prune-artifacts -Pprune-artifacts -Dprune.keepRuns=10 || true
+
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4

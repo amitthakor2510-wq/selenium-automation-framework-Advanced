@@ -1226,6 +1226,69 @@
       </properties>
     </profile>
 
+    <!-- Video/artifact retention — see com.automation.core.retention.ArtifactRetentionCleaner's
+         javadoc for the full design (why "last N runs" rather than "last N files", and how runs
+         are reconstructed from plain last-modified timestamps). Same "profile, not a plugin under
+         <build><plugins>" pattern as every other opt-in profile here: `mvn test` is completely
+         unaffected by this profile's presence. Not wired into any lifecycle phase automatically —
+         deleting files as a side effect of an ordinary `mvn test`/`mvn clean` run would be a
+         surprising thing for this framework to do on its own, so it's opt-in only, invoked
+         directly (typically via Scripts/prune-artifacts.sh) whenever a developer wants to reclaim
+         local disk space, or from a CI step immediately before an artifact is uploaded/published.
+
+         Typical usage:
+           mvn -q exec:java@prune-artifacts -Pprune-artifacts
+           mvn -q exec:java@prune-artifacts -Pprune-artifacts -Dprune.keepRuns=10 -Dprune.dryRun=true
+           # or, per Scripts/prune-artifacts.sh:
+           ./Scripts/prune-artifacts.sh -\-keep-runs 10 -\-dry-run -->
+    <profile>
+      <id>prune-artifacts</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>prune-artifacts</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.retention.ArtifactRetentionCleaner</mainClass>
+              <classpathScope>test</classpathScope>
+              <arguments>
+                <argument>--dir</argument>
+                <argument>${prune.dir}</argument>
+                <argument>--keep-runs</argument>
+                <argument>${prune.keepRuns}</argument>
+                <argument>--gap-minutes</argument>
+                <argument>${prune.gapMinutes}</argument>
+                <argument>--extension</argument>
+                <argument>${prune.extension}</argument>
+                <argument>--dry-run</argument>
+                <argument>${prune.dryRun}</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <properties>
+        <!-- Overridable via -Dprune.dir=... / -Dprune.keepRuns=... / -Dprune.gapMinutes=...
+             / -Dprune.dryRun=true. Defaults match ArtifactRetentionCleaner's own built-in
+             defaults so this profile and a direct `exec:java` invocation without any -D flags
+             behave identically. -->
+        <prune.dir>target/videos</prune.dir>
+        <prune.keepRuns>5</prune.keepRuns>
+        <prune.gapMinutes>30</prune.gapMinutes>
+        <prune.extension>.avi</prune.extension>
+        <prune.dryRun>false</prune.dryRun>
+      </properties>
+    </profile>
+
     <!-- Coverage-map capture — see com.automation.core.coverage.CoverageMapBuilder's javadoc
          and TEST_IMPACT_ANALYSIS.md ("Coverage-based fallback") for the full design. Same
          "profile, not a plugin under <build><plugins>" pattern as every other opt-in profile

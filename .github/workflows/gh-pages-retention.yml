@@ -1,0 +1,74 @@
+name: gh-pages Retention (squash history)
+
+# The main CI workflow's "Deploy Reports to GitHub Pages" step (peaceiris/actions-gh-pages,
+# keep_files: true) commits fresh Allure/Extent report output to the gh-pages branch on every
+# push/PR run, forever. keep_files: true and the underlying report generation already bound
+# how much CONTENT any single commit's checked-out tree contains (see that step's own comments,
+# and simple-elf/allure-report-action's keep_reports: 20) — but they do nothing about the git
+# HISTORY itself: every one of those commits, and every blob it introduced (report data files
+# are content-addressed with per-run-ish names, so most of them differ commit to commit), stays
+# in the branch's object database forever. Over months of daily pushes that's what eventually
+# turns a repo with a genuinely small *current* gh-pages tree into a multi-GB .git.
+#
+# This workflow doesn't touch the tree GitHub Pages actually serves (checkstyle: the exact
+# files at HEAD are re-committed byte-for-byte) — it only rewrites gh-pages' commit history
+# into a single fresh commit once the branch has accumulated more than KEEP_COMMITS commits,
+# then force-pushes that. Anyone who needs an old report has already lost easy access to it
+# once GitHub Pages moved on anyway (the live URL only ever shows the latest); this just stops
+# paying disk/clone-time cost to keep those old commits reachable in the branch's own history.
+#
+# Runs weekly (cheap — this is a git-only operation, no build) plus on-demand.
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Sundays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      keep_commits:
+        description: "Squash gh-pages if it has more commits than this"
+        type: string
+        default: "50"
+
+permissions:
+  contents: write
+
+jobs:
+  squash-gh-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0 # need full history to count commits below
+
+      - name: Squash gh-pages history if it has grown past the threshold
+        env:
+          KEEP_COMMITS: ${{ inputs.keep_commits || '50' }}
+        run: |
+          set -euo pipefail
+
+          commit_count=$(git rev-list --count HEAD)
+          echo "gh-pages currently has $commit_count commit(s); threshold is $KEEP_COMMITS."
+
+          if [ "$commit_count" -le "$KEEP_COMMITS" ]; then
+            echo "Under threshold — nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Snapshot the current tree, then replace history with a single orphan commit that
+          # tree — content served by Pages is unchanged, only the branch's own commit history
+          # (and the blobs only reachable from now-discarded commits) is discarded.
+          git checkout --orphan gh-pages-squashed
+          git add -A
+          git commit -m "chore: squash gh-pages history (was $commit_count commits) [skip ci]"
+          git branch -M gh-pages-squashed gh-pages
+          git push --force origin gh-pages
+
+          echo "Squashed gh-pages down to 1 commit. Run 'git gc --aggressive --prune=now' on any"
+          echo "local clone of this branch if you want the freed space reflected there too —"
+          echo "the old objects are unreachable now but a local clone won't know that until it"
+          echo "re-fetches or is re-cloned."

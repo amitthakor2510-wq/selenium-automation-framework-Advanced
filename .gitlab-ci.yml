@@ -966,6 +966,14 @@ report:
       fi
     - |
       if [ -d "target/videos" ] && [ -n "$(ls -A target/videos 2>/dev/null)" ]; then
+        # Belt-and-suspenders retention: this doesn't stop the branch/pipeline history from
+        # growing (the `pages` job's own expire_in below handles that) but it does keep a
+        # single run's own published videos bounded — RECORD_VIDEO left on across a long
+        # regression run with many failures can otherwise leave hundreds of .avi files in
+        # one deployment. Keeps the newest 10 "runs" (see ArtifactRetentionCleaner's javadoc
+        # for what a "run" means here); safe to no-op (mvn not found, profile fails) since
+        # this is best-effort housekeeping, not something that should fail the report job.
+        mvn -q compile exec:java@prune-artifacts -Pprune-artifacts -Dprune.keepRuns=10 || true
         mkdir -p public/videos
         cp -r target/videos/. public/videos/
       fi
@@ -1062,6 +1070,18 @@ pages:
   script:
     - echo "Publishing to GitLab Pages"
   artifacts:
+    # GitLab Pages itself always serves the LATEST deployment only — it does not keep a
+    # browsable history the way GitHub's gh-pages branch does. But the underlying job
+    # artifact behind each deployment (this full copy of public/, videos included) is a
+    # normal GitLab CI/CD artifact, and without an explicit expire_in it defaults to the
+    # project's own "keep artifacts" setting, which on most projects means "forever" — so
+    # every single pipeline run leaves behind its own full copy in GitLab's artifact
+    # storage, growing without bound even though only the newest one is ever actually
+    # served. expire_in here bounds that the same way every other job in this file already
+    # bounds its own artifacts; see docs/RETENTION_POLICY.md for the full picture (this,
+    # plus the target/videos/ pruning below, plus the equivalent gh-pages branch-history
+    # squash on the GitHub Actions side).
+    expire_in: 30 days
     paths:
       - public/
   dependencies:
