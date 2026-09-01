@@ -1440,8 +1440,14 @@ pipeline {
             }
             steps {
                 script {
+                    // -DskipTests: same fix as the GitHub Actions
+                    // security-scan job and GitLab's security job — see
+                    // .github/workflows/github-ci.yml's comment for the
+                    // full explanation of why `mvn verify -Psecurity`
+                    // alone also ran the entire real-browser TestNG suite
+                    // and every other verify-phase goal for no reason.
                     int exitCode = sh(
-                            script: "mvn -B -ntp verify -Psecurity -DfailBuildOnCVSS=${params.SECURITY_FAIL_CVSS}",
+                            script: "mvn -B -ntp verify -Psecurity -DfailBuildOnCVSS=${params.SECURITY_FAIL_CVSS} -DskipTests",
                             returnStatus: true
                     )
                     if (exitCode != 0) {

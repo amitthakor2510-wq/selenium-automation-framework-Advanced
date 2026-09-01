@@ -994,6 +994,25 @@
               <suppressionFiles>
                 <suppressionFile>owasp-suppressions.xml</suppressionFile>
               </suppressionFiles>
+              <!-- Sonatype's OSS Index now rejects unauthenticated
+                   requests outright ("Invalid credentials provided for
+                   OSS Index" / HTTP 401) — this repo has never configured
+                   analyzer.ossindex.username/password (no such secret
+                   exists in any of the three CI configs), so every run
+                   of this profile hit that 401 and hard-failed the whole
+                   `mvn verify` with AnalysisException, never even
+                   reaching the actual report. This analyzer is a
+                   supplementary enrichment source on top of the primary
+                   NVD CVE Analyzer above it (which authenticates with
+                   nvd.api.key instead and was working fine — see its own
+                   "Downloaded N/384,598" progress in the log) — disabling
+                   it doesn't lose CVE coverage, just the extra
+                   cross-reference data it would have added. Re-enable by
+                   removing this line once real OSS Index credentials are
+                   configured (analyzer.ossindex.username/password
+                   properties, or ANALYZER_OSSINDEX_USERNAME/PASSWORD
+                   env vars wired into the security-scan job). -->
+              <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
             </configuration>
             <executions>
               <execution>

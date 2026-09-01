@@ -579,6 +579,29 @@ jobs:
           if [ "${{ env.RECORD_VIDEO }}" = "true" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             MVN_RUNNER="xvfb-run -a"
           fi
+          # Dependency resolution against Maven Central can hit a transient
+          # "Connection reset" (seen on macos-latest legs pulling poi/
+          # commons-math3 the first time cache:'maven' has nothing to
+          # restore for that OS's key) — that's a network blip, not a real
+          # build problem, but a bare `mvn test` treats it as fatal and
+          # fails the whole job on one bad handshake. Wrap the actual mvn
+          # invocation in a small retry loop (3 attempts, short backoff) so
+          # a one-off reset doesn't waste the whole matrix leg; a real
+          # compile/test failure still fails on its own merits since the
+          # command's own exit code is what's being retried on.
+          run_mvn_with_retry() {
+            local attempt=1
+            local max_attempts=3
+            until "$@"; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "mvn failed after $attempt attempts — giving up." >&2
+                return 1
+              fi
+              echo "mvn attempt $attempt failed (possible transient network issue) — retrying in $((attempt * 10))s..." >&2
+              sleep $((attempt * 10))
+              attempt=$((attempt + 1))
+            done
+          }
           if [ "${{ matrix.browser }}" = "safari" ]; then
             # Uses the dedicated *-safari-<suite>.xml suite files
             # (parallel="none") instead of the plain ones the other three
@@ -591,7 +614,7 @@ jobs:
             # leg's results in their own subfolder for the same reason the
             # old dedicated job did: merge-multiple in the allure-report
             # job's download step needs every leg's folder name to differ.
-            $MVN_RUNNER mvn -B test \
+            run_mvn_with_retry $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
               -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
               -Dbrowser=safari \
@@ -605,7 +628,7 @@ jobs:
               -Dreportportal.attributes="site:${{ matrix.site }};browser:safari;suite:${{ env.SUITE_TYPE }};ci:github-actions;run:${{ github.run_id }}" \
               -Dmaven.test.failure.ignore=true
           else
-            $MVN_RUNNER mvn -B test \
+            run_mvn_with_retry $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
               -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
               -Dbrowser=${{ matrix.browser }} \
@@ -1044,7 +1067,19 @@ jobs:
       - name: Run OWASP Dependency-Check
         env:
           SECURITY_FAIL_CVSS: ${{ vars.SECURITY_FAIL_CVSS || '11' }}
-        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS
+        # -DskipTests: this job only wants the dependency-check:check
+        # goal, but `verify` runs the ENTIRE default lifecycle — without
+        # this flag it was also compiling+running the full 216-test real-
+        # browser TestNG suite first (this job never installs Chrome/
+        # Firefox/Edge, unlike the `test` matrix job above, so every one
+        # of those tests failed fast with SessionNotCreatedException
+        # "Chrome instance exited"), plus the allure-report/jacoco-check/
+        # checkstyle-check goals that already have their own dedicated
+        # jobs elsewhere in this workflow. All of that ran for ~35
+        # minutes and produced nothing this job actually uses — it only
+        # needs target/classes compiled (for dependency-check to resolve
+        # the dependency tree) and the dependency-check:check goal itself.
+        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DskipTests
 
       - name: Upload Dependency-Check report
         if: always()
@@ -1299,10 +1334,23 @@ jobs:
           else
             echo "::warning::target/allure-segmented missing — segmented (by browser/site/type/category) Allure reports will not be updated this run"
           fi
-          if [ -d "target/videos" ]; then
-            mkdir -p target/gh-pages-publish/videos
-            cp -r target/videos/. target/gh-pages-publish/videos/
-          fi
+          # NOTE: target/videos/ is deliberately NOT copied into
+          # gh-pages-publish/ here. It used to be, but this job's
+          # "Deploy Reports to GitHub Pages" step below runs with
+          # keep_files: true, which only ever ADDS/overwrites files on the
+          # gh-pages branch — it never deletes anything. Video filenames
+          # are per-site/per-browser/per-run, so every record_video=true
+          # run's recordings landed at a brand-new path and just piled up
+          # on that branch forever, with nothing ever pruning old ones —
+          # this is what eventually pushed the branch/publish past
+          # GitHub's ~10GB artifact size limit and made this step start
+          # failing to publish. Videos already get their own short-lived
+          # (retention-days: 7) actions/upload-artifact upload in the
+          # "Run Tests" job above — that's the right place for them.
+          # Anyone who wants a specific run's video should download it
+          # from that run's Artifacts list; if permanently-hosted
+          # highlight videos are ever wanted, prune old ones by run/date
+          # before adding them back here rather than keeping every one.
 
       # ExtentManager nests each report at <site>/<browser-or-mobile>/<suite>/
       # index.html (not a single flat index.html) — so extent-report/ on its

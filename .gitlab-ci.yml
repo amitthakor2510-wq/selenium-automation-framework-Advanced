@@ -768,7 +768,14 @@ security-scan:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
     - echo "======= Running OWASP Dependency-Check (mvn verify -Psecurity) ======="
-    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS
+    # -DskipTests: `verify` runs the whole default lifecycle, not just the
+    # dependency-check goal — without this it also ran the full real-
+    # browser TestNG suite (this job never installs a browser) plus the
+    # allure-report/jacoco-check/checkstyle-check goals that already have
+    # their own dedicated stages elsewhere in this pipeline, for no
+    # benefit. See the same fix in .github/workflows/github-ci.yml's
+    # security-scan job for the full explanation.
+    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DskipTests
   artifacts:
     name: "owasp-dependency-check-$CI_COMMIT_REF_SLUG"
     when: always
@@ -951,7 +958,7 @@ report:
         cp -r target/videos/. public/videos/
       fi
     # Browser-wise/site-wise/test-type-wise/category-wise/severity-wise/
-    # flaky reports — see Scripts/generate_segmented_reports.py's
+    # flaky reports — see .github/workflows/scripts/generate_segmented_reports.py's
     # docstring. Reuses the same allure-cli just extracted above (on
     # PATH) rather than downloading a second copy; --skip-combined since
     # the `allure generate` line above already built the combined report.
@@ -975,7 +982,7 @@ report:
       fi
     - |
       if command -v python3 &> /dev/null; then
-        python3 Scripts/generate_segmented_reports.py \
+        python3 .github/workflows/scripts/generate_segmented_reports.py \
           --results-dir target/allure-results \
           --skip-combined \
           --output-dir public/allure-segmented \
@@ -1012,11 +1019,18 @@ report:
     name: "allure-report-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 30 days
+    # target/extent-reports/, target/logs/, target/screenshots/ used to be
+    # re-listed here too — but this job's own `dependencies: [test,
+    # mobile-test]` already downloads them from those jobs' artifacts (see
+    # their own `artifacts.paths` above), and this job never modifies them,
+    # it only reads target/extent-reports to mirror it into
+    # public/extent-report/ (already covered by public/ below). Re-archiving
+    # them here just uploaded the same ~168 files a second time on every
+    # run, padding this job's artifact size for nothing — a real
+    # contributor to the "413 Request Entity Too Large" artifact-upload
+    # failures alongside the Scripts/ path bug above.
     paths:
       - public/
-      - target/extent-reports/
-      - target/logs/
-      - target/screenshots/
     reports:
       junit: target/surefire-reports/*.xml
   # accessibility-visual-test only runs on scheduled pipelines (see its
