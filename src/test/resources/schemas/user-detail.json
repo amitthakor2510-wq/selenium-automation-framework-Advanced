@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /Account/v1/User/{UUID} response",
+  "description": "Response shape for the user-detail endpoint, used by BookStoreApiTest Test 7 (getUserDetails_ShouldIncludeAddedBook). NOTE the casing: this endpoint's id field is 'userId' (lowercase d), while POST /Account/v1/User's creation response (see account-created.json) uses 'userID' (capital D) for what is otherwise the same value — a real, documented inconsistency in DemoQA's own API, not a typo in this schema. This is exactly the kind of thing schema validation is meant to catch if it were ever silently 'fixed' (or broken further) server-side: the field-by-field Hamcrest assertions in the test only check 'username' and 'books.isbn' today and would not notice a change to this field's name or casing.",
+  "type": "object",
+  "required": ["userId", "username", "books"],
+  "properties": {
+    "userId": { "type": "string" },
+    "username": { "type": "string" },
+    "books": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["isbn", "title"],
+        "properties": {
+          "isbn": { "type": "string" },
+          "title": { "type": "string" },
+          "subTitle": { "type": "string" },
+          "author": { "type": "string" },
+          "publish_date": { "type": "string" },
+          "publisher": { "type": "string" },
+          "pages": { "type": "integer" },
+          "description": { "type": "string" },
+          "website": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -142,6 +142,34 @@ Run it on its own:
 mvn test -Dtest=BookStoreApiTest
 ```
 
+### 📐 API Contract Validation
+
+Tests 1, 4, 5, and 7 above also assert the *whole shape* of the response, not just the specific field values the table above implies:
+
+```java
+.body(matchesJsonSchemaInClasspath("schemas/bookstore/account-created.json"))
+.body("username", equalTo(API_USERNAME))
+.body("userID", not(emptyString()))
+```
+
+Schema validation and field-by-field Hamcrest assertions catch different things, and neither replaces the other:
+- **A field-by-field assertion** (`equalTo`, `hasItem`, ...) catches a specific value being *wrong* — e.g. `username` echoing back something other than what was submitted.
+- **Schema validation** catches the response's *shape* changing — a field disappearing, being renamed, or switching type (say, `pages` starting to come back as a string) — even when every field the Hamcrest assertions happen to check still passes.
+
+The four schemas live under `src/test/resources/schemas/bookstore/`:
+
+| Schema | Validates | Used in |
+|---|---|---|
+| `account-created.json` | `POST /Account/v1/User` | Test 1 |
+| `books-list.json` | `GET /BookStore/v1/Books` | Test 4 |
+| `book-detail.json` | `GET /BookStore/v1/Book?ISBN=...` | Test 5 |
+| `user-detail.json` | `GET /Account/v1/User/{UUID}` | Test 7 |
+
+> [!IMPORTANT]
+> `user-detail.json` documents a real quirk: `GET /Account/v1/User/{UUID}` returns the id field as `userId` (lowercase d), while `POST /Account/v1/User`'s creation response uses `userID` (capital D) for what is otherwise the same value. That's DemoQA's own API being inconsistent between endpoints, not a typo in the schema — see the comment in that file.
+
+Each schema's field list was written from what the live DemoQA Book Store API is documented and known to return, matching what Tests 1/4/5/7 already assert field-by-field — not re-verified against a fresh live response in this pass, since this sandbox has no network access to `demoqa.com`. Worth one real `mvn test -Dtest=BookStoreApiTest` run to confirm before relying on these in CI; if a field name or type is off, the failure will point at exactly which schema and which field.
+
 ---
 
 ## 🧵 Keyword-Driven & Data-Driven Testing

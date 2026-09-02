@@ -492,6 +492,22 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- REST Assured's JSON Schema module — whole-response-shape assertions
+         (matchesJsonSchemaInClasspath) alongside the existing field-by-field Hamcrest
+         checks in BookStoreApiTest. Pinned to the exact same version as rest-assured
+         itself above; these two artifacts are versioned and released together, and
+         rest-assured has broken against a mismatched json-schema-validator version
+         before, so intentionally not left to a range/latest resolution. See
+         docs/testing-guide.md#-api-contract-validation for what this catches that
+         the field-by-field assertions alone don't (a field disappearing or changing
+         type, vs. a specific field having the wrong value). -->
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>json-schema-validator</artifactId>
+      <version>5.4.0</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- axe-core — accessibility (WCAG/GIGW-adjacent) scanning, see
          core/utils/AccessibilityUtils.java. Version pinned against what was
          current at time of writing; this sandbox has no access to Maven

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /BookStore/v1/Book response",
+  "description": "Response shape for a single book fetched by ISBN, used by BookStoreApiTest Test 5 (getBookByIsbn_ShouldReturnMatchingBook). Same per-book field shape as each entry in books-list.json's 'books' array — see that file's own description for why the shape is inlined in both rather than shared via $ref.",
+  "type": "object",
+  "required": ["isbn", "title"],
+  "properties": {
+    "isbn": { "type": "string" },
+    "title": { "type": "string" },
+    "subTitle": { "type": "string" },
+    "author": { "type": "string" },
+    "publish_date": { "type": "string" },
+    "publisher": { "type": "string" },
+    "pages": { "type": "integer" },
+    "description": { "type": "string" },
+    "website": { "type": "string" }
+  },
+  "additionalProperties": true
+}

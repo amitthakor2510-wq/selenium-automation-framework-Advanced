@@ -1,0 +1,49 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Pure-HTTP API tests only — no WebDriver, no Selenium Grid, no browser. Deliberately
+     listed as explicit <classes> rather than a <packages> scan (unlike the UI suites'
+     package-scan pattern): a package scan would need every current and future class in
+     com.automation.sites.demoqa.tests to be reviewed for whether it happens to need a
+     browser, whereas an explicit list only ever runs what's named here, and stays correct
+     by construction as new UI test classes are added to that package over time.
+
+     PARALLEL EXECUTION: classes + thread-count=2. Both classes here create their own
+     disposable account and don't share any state (unlike BaseTest's ThreadLocal<WebDriver>
+     UI tests need to worry about) — there's nothing about running them in parallel that's
+     unsafe. Only two classes exist today, so thread-count=2 just means "run them both at
+     once"; bump it if more API test classes are added later.
+
+     WHY THIS SUITE EXISTS separately from demoqa-smoke.xml/demoqa-regression.xml, which
+     already run these same classes via their group filter + package scan: those suites
+     require the full Selenium/browser CI setup (ChromeDriver, the Docker Selenium Grid,
+     browser matrix) to run at all, even though these two classes need none of it. This
+     suite lets API tests run fast and standalone — see the "api-tests" CI job in
+     github-ci.yml/.gitlab-ci.yml, which runs this suite directly on the base
+     maven:...-eclipse-temurin-17 image with no browser/Grid setup step at all. -->
+<suite name="API Tests Suite" parallel="classes" thread-count="2">
+
+  <!-- RetryListener is an IAnnotationTransformer — must be registered here
+       (or via ServiceLoader), not via @Listeners on a test class, or it
+       silently never fires. See BaseTest.java for the full explanation.
+       Kept here too even though API failures are usually deterministic
+       (a real contract violation, not browser flakiness) — a transient
+       network blip hitting demoqa.com's API is exactly the kind of thing
+       worth one retry before failing the build. -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="Book Store API Tests" preserve-order="true">
+    <groups>
+      <run>
+        <include name="api"/>
+      </run>
+    </groups>
+
+    <classes>
+      <class name="com.automation.sites.demoqa.tests.BookStoreApiTest"/>
+      <class name="com.automation.sites.demoqa.tests.BookStoreApiNegativeTest"/>
+    </classes>
+
+  </test>
+
+</suite>

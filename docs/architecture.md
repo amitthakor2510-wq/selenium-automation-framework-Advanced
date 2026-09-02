@@ -394,9 +394,35 @@ Currently composed by `ModalDialogsPage` (two instances — small and large moda
 
 **Not every modal-shaped widget fits.** `WebTablesPage`'s add/edit dialog is a Bootstrap modal too, but it's a data-entry *form* — no dedicated close button (it dismisses itself on successful submit) and no single "title"/"body" to read the way a confirmation dialog has. Forcing it into `BootstrapModalComponent`'s shape would mean adding parameters the component doesn't otherwise need just for this one caller, so `WebTablesPage` deliberately keeps composing its own field locators instead — see the comment at the top of its "Registration form (modal)" section for the specific reasoning.
 
+### `ReactDatePickerComponent`
+
+The second component: the react-datepicker month/year/day picker behind both `DatePickerPage`'s standalone date field and `PracticeFormPage`'s date-of-birth field — same open-a-text-input → pick month `<select>` → pick year `<select>` → click day-cell sequence in both places, previously hand-rolled twice.
+
+```java
+public class DatePickerPage extends BasePage {
+    private final ReactDatePickerComponent datePicker;
+
+    public DatePickerPage(WebDriver driver) {
+        super(driver);
+        this.datePicker = new ReactDatePickerComponent(driver, wait, dateInput,
+            By.className("react-datepicker__month-select"), By.cssSelector("select[aria-label='Month']"),
+            By.className("react-datepicker__year-select"), By.cssSelector("select[aria-label='Year']"));
+    }
+
+    public void selectDate(String month, String year, String day) {
+        datePicker.selectDate(month, year, day);
+    }
+}
+```
+
+Consolidating the two copies surfaced a real gap rather than just duplicated text: `DatePickerPage`'s copy already resolved the month/year `<select>`s through `SmartLocator` with a fallback (the underlying `<select>`'s accessible name, which tends to survive a date-picker-library swap even when the wrapping CSS classes don't), but `PracticeFormPage`'s copy used `driver.findElement(...)` directly with no fallback at all. Both callers now get the more resilient version.
+
+Currently composed by `DatePickerPage` (its main date field) and `PracticeFormPage` (its date-of-birth field). `DatePickerPage`'s separate date-and-time input is deliberately **not** part of this component — it's typed directly rather than picked from a month/year/day UI, so it's a different widget, not another instance of this one.
+
 ---
 
 ## 🧰 Key Selenium Concepts Used
+
 
 A copy-paste cheat sheet of every Selenium technique this framework relies on — locators, waits, JS execution, Actions, alerts, frames, windows, dropdowns, ARIA. Collapsed by default since it's reference material, not something to read top-to-bottom.
 

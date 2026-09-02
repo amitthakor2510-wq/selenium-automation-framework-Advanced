@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /Account/v1/User response",
+  "description": "Response shape for account creation, used by BookStoreApiTest Test 1 (createAccount_ShouldReturnUserIdAndUsername). Deliberately does not require/type-check 'books' beyond 'array' — a freshly created account's books list is always empty in practice, but nothing about account creation guarantees that will stay true, and the field-by-field Hamcrest assertions in the test are what actually check the specific values (userID non-empty, username matches) — this schema's job is just to catch the response's overall SHAPE changing, e.g. 'userID' disappearing or becoming a number.",
+  "type": "object",
+  "required": ["userID", "username"],
+  "properties": {
+    "userID": { "type": "string" },
+    "username": { "type": "string" },
+    "books": { "type": "array" }
+  },
+  "additionalProperties": true
+}

@@ -4,15 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.automation.core.base.BasePage;
-import com.automation.core.utils.ElementUtils;
+import com.automation.core.components.ReactDatePickerComponent;
 import com.automation.core.utils.HumanActions;
-import com.automation.core.utils.SmartLocator;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.Select;
 
 public class DatePickerPage extends BasePage {
 
@@ -20,23 +18,19 @@ public class DatePickerPage extends BasePage {
 
     private final By dateInput   = By.id("datePickerMonthYearInput");
 
-    // Resolved through SmartLocator instead of driver.findElement() directly:
-    // react-datepicker's own class names are the only locator confirmed against
-    // the live site so far. If demoqa's date-picker library is ever swapped out
-    // the same way the Check Box widget was (react-checkbox-tree -> rc-tree),
-    // these fallbacks give the framework a chance to recover instead of failing
-    // outright on the next CI run. Both fallbacks target the underlying native
-    // <select> via its accessible name, which tends to survive a library swap
-    // even when the wrapping CSS classes don't.
-    private final By monthSelect         = By.className("react-datepicker__month-select");
-    private final By monthSelectFallback = By.cssSelector("select[aria-label='Month']");
-    private final By yearSelect          = By.className("react-datepicker__year-select");
-    private final By yearSelectFallback  = By.cssSelector("select[aria-label='Year']");
-
     private final By dateTimeInput = By.id("dateAndTimePickerInput");
+
+    // Month/year/day picking itself now lives in ReactDatePickerComponent — see
+    // core/components/ReactDatePickerComponent's javadoc for why (the same widget also backs
+    // PracticeFormPage's date-of-birth field, previously a hand-rolled duplicate without this
+    // class's SmartLocator fallback resilience).
+    private final ReactDatePickerComponent datePicker;
 
     public DatePickerPage(WebDriver driver) {
         super(driver);
+        this.datePicker = new ReactDatePickerComponent(driver, wait, dateInput,
+            By.className("react-datepicker__month-select"), By.cssSelector("select[aria-label='Month']"),
+            By.className("react-datepicker__year-select"), By.cssSelector("select[aria-label='Year']"));
     }
 
     public void navigateToDatePicker() {
@@ -46,27 +40,7 @@ public class DatePickerPage extends BasePage {
     }
 
     public void selectDate(String month, String year, String day) {
-        HumanActions.click(driver, dateInput);
-
-        WebElement monthDropdown = SmartLocator.find(driver, wait,
-            "DatePicker month <select>", monthSelect, monthSelectFallback);
-        HumanActions.pause();
-
-        new Select(monthDropdown).selectByVisibleText(month);
-        HumanActions.pause();
-
-        WebElement yearDropdown = SmartLocator.find(driver, wait,
-            "DatePicker year <select>", yearSelect, yearSelectFallback);
-        new Select(yearDropdown).selectByVisibleText(year);
-        HumanActions.pause();
-
-        By dayLocator = By.xpath(
-            "//div[contains(@class,'react-datepicker__day')" +
-                " and not(contains(@class,'outside-month'))" +
-                " and text()=" + ElementUtils.xpathLiteral(day) + "]"
-        );
-        wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
-        HumanActions.click(driver, dayLocator);
+        datePicker.selectDate(month, year, day);
     }
 
     public String getSelectedDate() {

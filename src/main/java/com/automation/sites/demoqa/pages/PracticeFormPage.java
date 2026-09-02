@@ -2,14 +2,13 @@ package com.automation.sites.demoqa.pages;
 
 import com.automation.core.base.BasePage;
 import com.automation.core.components.BootstrapModalComponent;
-import com.automation.core.utils.ElementUtils;
+import com.automation.core.components.ReactDatePickerComponent;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.Select;
 
 public class PracticeFormPage extends BasePage {
 
@@ -27,8 +26,6 @@ public class PracticeFormPage extends BasePage {
 
     // ── Date of birth ──────────────────────────────────────────────────────────
     private final By dateOfBirthInput = By.id("dateOfBirthInput");
-    private final By monthSelect      = By.className("react-datepicker__month-select");
-    private final By yearSelect       = By.className("react-datepicker__year-select");
 
     // ── Hobbies ────────────────────────────────────────────────────────────────
     private final By sportsLabel  = By.xpath("//label[@for='hobbies-checkbox-1']");
@@ -51,11 +48,20 @@ public class PracticeFormPage extends BasePage {
     // ── Modal ──────────────────────────────────────────────────────────────────
     private final BootstrapModalComponent submissionModal;
 
+    // Date-of-birth picking now lives in ReactDatePickerComponent — see its own javadoc for
+    // why (the same widget DatePickerPage uses standalone; this page's copy used to hand-roll
+    // the identical month/year/day sequence without that class's SmartLocator fallback
+    // resilience).
+    private final ReactDatePickerComponent dateOfBirthPicker;
+
     public PracticeFormPage(WebDriver driver) {
         super(driver);
         this.submissionModal = new BootstrapModalComponent(driver, wait,
             By.id("example-modal-sizes-title-lg"), By.cssSelector(".table-responsive tbody"),
             By.id("closeLargeModal"));
+        this.dateOfBirthPicker = new ReactDatePickerComponent(driver, wait, dateOfBirthInput,
+            By.className("react-datepicker__month-select"), By.cssSelector("select[aria-label='Month']"),
+            By.className("react-datepicker__year-select"), By.cssSelector("select[aria-label='Year']"));
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────
@@ -109,25 +115,7 @@ public class PracticeFormPage extends BasePage {
     // ── Date of Birth ──────────────────────────────────────────────────────────
 
     public void selectDateOfBirth(String month, String year, String day) {
-        HumanActions.click(driver, dateOfBirthInput);
-        wait.until(ExpectedConditions.visibilityOfElementLocated(monthSelect));
-        HumanActions.pause();
-
-        // Month and year are plain HTML selects - Select class works fine
-        new Select(driver.findElement(monthSelect)).selectByVisibleText(month);
-        HumanActions.pause();
-
-        new Select(driver.findElement(yearSelect)).selectByVisibleText(year);
-        HumanActions.pause();
-
-        // Click the correct day - exclude only days from other months
-        By dayLocator = By.xpath(
-            "//div[contains(@class,'react-datepicker__day')" +
-                " and not(contains(@class,'outside-month'))" +
-                " and text()=" + ElementUtils.xpathLiteral(day) + "]"
-        );
-        wait.until(ExpectedConditions.elementToBeClickable(dayLocator));
-        HumanActions.click(driver, dayLocator);
+        dateOfBirthPicker.selectDate(month, year, day);
     }
 
     // ── Subjects ───────────────────────────────────────────────────────────────

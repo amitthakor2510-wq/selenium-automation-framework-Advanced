@@ -40,6 +40,13 @@ import static org.hamcrest.Matchers.not;
  *
  * No browser is used — this is pure HTTP, independent of the Selenium tests.
  *
+ * Tests 1, 4, 5, and 7 also assert the response's whole shape via
+ * {@code matchesJsonSchemaInClasspath(...)} against schemas under
+ * {@code src/test/resources/schemas/bookstore/} — see
+ * docs/testing-guide.md#-api-contract-validation for what that catches that
+ * the field-by-field Hamcrest assertions below don't (a field disappearing
+ * or changing type, vs. a specific field having the wrong value).
+ *
  * Extends BaseApiTest, which wires ConfigReader + ApiClient (base URI,
  * request/response logging) in one @BeforeClass instead of each API test
  * class repeating that setup.

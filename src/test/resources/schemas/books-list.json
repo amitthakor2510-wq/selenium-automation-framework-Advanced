@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /BookStore/v1/Books response",
+  "description": "Response shape for the book catalogue, used by BookStoreApiTest Test 4 (getBooksList_ShouldReturnNonEmptyCatalogue). Each book's fields are inlined here rather than in a separate $ref'd fragment file — REST Assured's json-schema-validator resolves $ref against the classpath root by default, not relative to this file, which makes cross-file $ref more trouble than it's worth for just two schemas (this one and book-detail.json) sharing one small shape. If a third schema ever needs the same book shape, that's the point to extract a shared fragment and wire up a proper classpath-relative resolver.",
+  "type": "object",
+  "required": ["books"],
+  "properties": {
+    "books": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["isbn", "title"],
+        "properties": {
+          "isbn": { "type": "string" },
+          "title": { "type": "string" },
+          "subTitle": { "type": "string" },
+          "author": { "type": "string" },
+          "publish_date": { "type": "string" },
+          "publisher": { "type": "string" },
+          "pages": { "type": "integer" },
+          "description": { "type": "string" },
+          "website": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
