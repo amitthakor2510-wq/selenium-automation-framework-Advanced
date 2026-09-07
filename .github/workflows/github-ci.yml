@@ -1416,12 +1416,35 @@ jobs:
           path: target/allure-results/
           merge-multiple: true
 
+      # BUG FIX: this used to be a full `actions/checkout@v4` of the entire
+      # gh-pages branch — but that branch's tree has grown past 1,000,000
+      # files (see "Assemble combined GitHub Pages publish directory"
+      # below for the full history of how: every run's Allure/Extent
+      # attachments land under a fresh random UUID filename, and the old
+      # keep_files:true additive push never deleted a prior run's now-
+      # orphaned copies). Checking out that whole tree just to read two
+      # small subfolders (allure-report/history/ for Allure's own trend
+      # graph, history/ for compute_flaky_trend.py's rolling window) was
+      # itself what made this job hang/fail — "Updating files: ... 94%"
+      # for over a million files, never finishing, is exactly a checkout
+      # like this one stuck mid-clone. sparse-checkout limits what's
+      # actually written to disk to just those two paths, so this step
+      # (and everything downstream that depends on it) stops paying the
+      # cost of the branch's historical bloat at all — regardless of how
+      # large the rest of the tree still is.
       - name: Load Previous Allure History
         uses: actions/checkout@v4
         continue-on-error: true
         with:
           ref: gh-pages
           path: gh-pages
+          sparse-checkout: |
+            allure-report/history
+            history
+          # Cone mode (the default, but stated explicitly here) matches
+          # whole directories, which is exactly what both paths above are
+          # — no need for non-cone gitignore-style glob patterns.
+          sparse-checkout-cone-mode: true
 
       - name: Copy Previous History for Trend Graph
         continue-on-error: true
@@ -1507,15 +1530,6 @@ jobs:
         id: self_healing
         run: python3 .github/workflows/scripts/compute_self_healing_summary.py
 
-      # Builds the per-test pass/fail trend across recent runs and flags
-      # anything flip-flopping. Needs the gh-pages history checked out
-      # above (same "Load Previous Allure History" step Allure's own trend
-      # graph already relies on) plus this run's surefire XML, downloaded
-      # by the step just above.
-      - name: Compute flaky test trend
-        id: flaky_trend
-        run: python3 .github/workflows/scripts/compute_flaky_trend.py
-
       # Both reports are assembled into one local directory tree and
       # published with a SINGLE peaceiris/actions-gh-pages call below,
       # rather than two separate calls (the previous "Deploy Allure Report"
@@ -1551,12 +1565,19 @@ jobs:
       # Fix: seed target/gh-pages-publish from the gh-pages/ checkout
       # ("Load Previous Allure History" step above) MINUS the three
       # subtrees being regenerated this run, then lay the fresh local
-      # builds on top, then push the result as a full mirror (keep_files:
-      # false, see the Deploy step below) instead of an additive overlay.
-      # That actually drops stale attachment files every run instead of
-      # accumulating them, while still preserving anything else on the
-      # branch that isn't one of these three dirs, because it's copied
-      # from the real current branch content rather than reconstructed.
+      # builds on top, then push the result as a fresh orphan commit
+      # (force_orphan: true, see the Deploy step below) instead of an
+      # additive overlay. That actually drops stale attachment files every
+      # run instead of accumulating them. Note "the gh-pages/ checkout"
+      # above is now a SPARSE checkout (allure-report/history + history
+      # only, see that step's own comment) — so the only pre-existing
+      # content this rsync actually pulls forward is those two small
+      # history folders, not a full mirror of whatever else used to be on
+      # the branch. That's fine here: index.html is fully regenerated
+      # below regardless, and allure-report/extent-report/allure-segmented
+      # get rm -rf'd and rebuilt from scratch either way — those two
+      # history paths were the only things worth preserving from the old
+      # tree in the first place.
       - name: Assemble combined GitHub Pages publish directory
         run: |
           mkdir -p target/gh-pages-publish
@@ -1604,6 +1625,27 @@ jobs:
           # highlight videos are ever wanted, prune old ones by run/date
           # before adding them here rather than keeping every one.
 
+      # BUG FIX: this step must run AFTER "Assemble combined GitHub Pages
+      # publish directory" above, not before it (which is where it used to
+      # sit, right next to "Compute self-healing summary"). This script
+      # writes its updated, appended history straight to
+      # target/gh-pages-publish/history/test-history.json — but the
+      # Assemble step's `rsync -a gh-pages/. target/gh-pages-publish/`
+      # copies the OLD (pre-update) gh-pages/history/test-history.json
+      # into that same path, and rsync overwrites an existing destination
+      # file with the source's version by default. Running this step
+      # first meant every run's freshly-computed history got silently
+      # clobbered by yesterday's stale copy moments later — the flaky-
+      # trend file on gh-pages never actually accumulated anything past
+      # one run. Moving this step to after Assemble means its write is
+      # the last one to touch that path, so the update actually sticks.
+      # Needs the gh-pages history checked out earlier (the sparse
+      # "Load Previous Allure History" step above) plus this run's
+      # surefire XML, downloaded further above.
+      - name: Compute flaky test trend
+        id: flaky_trend
+        run: python3 .github/workflows/scripts/compute_flaky_trend.py
+
       # ExtentManager nests each report at <site>/<browser-or-mobile>/<suite>/
       # index.html (not a single flat index.html) — so extent-report/ on its
       # own has no default page a browser would land on. This generates a
@@ -1622,20 +1664,41 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/gh-pages-publish
-          # keep_files: false — this is now a FULL MIRROR push, not an
-          # additive overlay. That's intentional and safe: the "Assemble
-          # combined GitHub Pages publish directory" step above already
-          # seeded target/gh-pages-publish from the real current gh-pages
-          # content (so anything unrelated to Allure/Extent/segmented
-          # reports is preserved), then deleted and freshly rebuilt just
-          # those three report trees. Mirroring that assembled tree is
-          # what actually lets stale, orphaned UUID-named Allure/Extent
-          # attachment files from past runs get dropped instead of piling
-          # up forever — see that step's comments for the full history.
-          # (keep_files: true previously meant the deploy step itself
-          # could never delete anything, which is what let gh-pages grow
-          # past 1M files and start failing/timing out on its own clone.)
-          keep_files: false
+          # BUG FIX: was `keep_files: false` (a full-mirror push). That
+          # fixed the CONTENT going forward — stale, orphaned UUID-named
+          # Allure/Extent attachments no longer accumulate on future runs
+          # — but it didn't fix the failing stage itself, because
+          # `keep_files: false` still isn't `force_orphan: true`: with
+          # force_orphan left at its default (false), this action's own
+          # "Prepare publishing assets" step still runs
+          # `git clone --depth=1 --single-branch --branch gh-pages ...`
+          # against the CURRENT branch before it can compute and push the
+          # mirrored result — i.e. the exact clone stuck at "Updating
+          # files: ... 94%" for 1,084,070 files in this project's failing
+          # runs. The old keep_files:true regime already grew that branch
+          # past a million files before this fix landed, so every run
+          # still has to survive cloning that backlog first, regardless of
+          # how clean the push it's about to make is. That's a deadlock:
+          # the fix that shrinks the branch can't take effect until a run
+          # gets past a clone that the branch's own (pre-fix) size makes
+          # too slow to finish.
+          #
+          # force_orphan: true breaks the deadlock: it skips cloning the
+          # existing branch entirely and pushes target/gh-pages-publish as
+          # a brand-new single-commit history. Nothing is lost by this —
+          # the "Assemble combined GitHub Pages publish directory" step
+          # above already reconstructs everything worth keeping (via the
+          # sparse "Load Previous Allure History" checkout, which itself
+          # no longer pays the 1M-file cost either — see that step's own
+          # comment) before this step ever runs, so there's no state left
+          # for a clone-and-merge to protect. The very next run after this
+          # replaces the branch with a small tree from scratch, which is
+          # what actually undoes the historical bloat — no manual branch
+          # surgery needed. (Note: this also means gh-pages will only ever
+          # have 1 commit from here on, so gh-pages-retention.yml's weekly
+          # squash-if->50-commits job becomes a permanent no-op — harmless,
+          # but worth knowing if that job's silence is ever questioned.)
+          force_orphan: true
 
       # Prints clickable report links directly on the workflow run's
       # Summary tab, so viewing the reports never requires downloading

@@ -131,8 +131,8 @@ docker compose run --rm \
 # 4. Watch a node live (password: secret)
 open http://localhost:7900   # chrome noVNC — firefox on 7901, edge on 7902
 
-# 5. Watch the grid console
-open http://localhost:4444/ui
+# 5. Watch the grid console — note the trailing slash (without it, assets 404)
+open http://localhost:4444/ui/
 
 # 6. Tear everything down
 docker compose down -v

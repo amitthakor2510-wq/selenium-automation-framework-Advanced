@@ -24,7 +24,7 @@ target/
 │   ├── environment.properties     # Written by AllureEnvironmentWriter → powers the Environment widget
 │   ├── categories.json            # Written by AllureEnvironmentWriter → powers the Categories tab
 │   └── *-result.json              # One per test, written by the allure-testng listener
-├── allure-segmented/              # Written by Scripts/generate_segmented_reports.py
+├── allure-segmented/              # Written by .github/workflows/scripts/generate_segmented_reports.py
 │   ├── browser/<chrome|firefox|edge>/report/index.html
 │   ├── site/<site>/report/index.html
 │   ├── testType/<suite>/report/index.html
@@ -51,7 +51,8 @@ things are true at once here:
    — a genuinely different file per site/browser/test-type combination, not
    just a filter inside one file.
 2. **Allure is split after the fact.** Allure's CLI only ever builds one
-   report from one results directory, so `Scripts/generate_segmented_reports.py`
+   report from one results directory, so
+   `.github/workflows/scripts/generate_segmented_reports.py`
    runs after `mvn test` and copies each result (+ its screenshots/page-source/
    console-log/video attachments) into per-dimension results folders, then
    calls `allure generate` once per folder — producing a real, separate
@@ -59,9 +60,15 @@ things are true at once here:
    (suite), every severity, every category (TestNG group) a test belongs to,
    and — when any exist — a dedicated "flaky" report for tests that only
    passed after a retry. Run it locally the same way CI does:
+   <!-- BUG FIX: this previously said `Scripts/generate_segmented_reports.py` —
+        that path doesn't exist; the script only ever lived at
+        .github/workflows/scripts/generate_segmented_reports.py (confirmed
+        against what all three CI pipelines actually invoke). Anyone following
+        this section's "run it locally" instruction as written would have hit
+        a plain "No such file or directory". -->
    ```bash
    mvn test -Dsite=demoqa
-   python3 Scripts/generate_segmented_reports.py   # writes target/allure-segmented/ + target/report-index.html
+   python3 .github/workflows/scripts/generate_segmented_reports.py   # writes target/allure-segmented/ + target/report-index.html
    ```
    The script also writes `target/report-index.html` — one self-contained
    page linking every report it just found (combined, every segment, every
