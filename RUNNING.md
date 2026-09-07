@@ -181,7 +181,7 @@ mvn verify -Pperf
 # tune concurrency/thresholds:
 mvn verify -Pperf -Dthreads=10 -DrampUp=5 -Dloops=5 -DmaxResponseMs=3000
 ```
-JMeter results: `target/jmeter/results/` (raw) and `target/jmeter/reports/` (HTML). Details on all three: [`docs/testing-guide.md`](docs/testing-guide.md#️️-specialized-testing--accessibility-visual-regression--performance).
+JMeter results: `target/jmeter/results/` (raw) and `target/jmeter/reports/` (HTML). Details on all three: [`docs/testing-guide.md`](docs/testing-guide.md#-performance-testing).
 
 ---
 

@@ -18,8 +18,10 @@ import org.openqa.selenium.OutputType;
 import org.openqa.selenium.Rectangle;
 import org.openqa.selenium.StaleElementReferenceException;
 import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,6 +138,18 @@ public class CaptchaSolver {
     // LLM reads the actual shapes in context rather than matching against a
     // fixed glyph library, which is why this is the real fix rather than
     // further threshold/denoise tuning.
+    // Master switch: true (default) = solve automatically via AI Vision/OCR
+    // as before. false = don't touch the OCR/AI pipeline at all - pause and
+    // wait for a human tester to read the CAPTCHA off the real browser
+    // window and type it in themselves (see waitForManualCaptchaEntry()).
+    // Use this per-site (e.g. SAHMAT.properties) when the automated solver
+    // isn't accurate enough for that site's CAPTCHA font yet.
+    private final boolean automationEnabled = ConfigReader.getBoolean("captcha.automation.enabled", true);
+
+    // How long to wait for the manual entry above before giving up and
+    // continuing the test with whatever (if anything) is in the field.
+    private final int manualEntryTimeoutSeconds = ConfigReader.getInt("captcha.manualEntry.timeoutSeconds", 120);
+
     private final boolean aiEnabled = ConfigReader.getBoolean("captcha.ai.enabled", false);
     // captcha.ai.provider: "anthropic" (default, unchanged behavior) or
     // "ollama" — a local/remote Ollama server running a vision-capable model
@@ -877,6 +891,13 @@ public class CaptchaSolver {
                                    WebElement captchaImage,
                                    WebElement captchaInputField) {
         log.info("▶ solveTextCaptcha started");
+
+        if (!automationEnabled) {
+            // Manual mode: skip AI Vision/OCR entirely and let a human
+            // enter the CAPTCHA in the real browser window instead.
+            return waitForManualCaptchaEntry(driver, captchaInputField);
+        }
+
         try {
             // 1. Screenshot CAPTCHA element (with a small margin — see
             //    screenshotElementWithMargin() javadoc — so glyphs that
@@ -950,6 +971,141 @@ public class CaptchaSolver {
         } catch (Exception e) {
             log.error("❌ solveTextCaptcha failed: {}", e.getMessage(), e);
             return null;
+        }
+    }
+
+    /**
+     * Manual-entry mode (captcha.automation.enabled=false). Instead of
+     * running AI Vision/OCR, this pauses the test here and waits for a
+     * human tester to read the CAPTCHA off the actual browser window
+     * (the driver must be running non-headless for this to be usable) and
+     * type the answer into {@code captchaInputField} by hand.
+     *
+     * Deliberately polls the input field's own value via WebDriverWait
+     * instead of blocking on System.in/console input — that keeps this
+     * safe to leave wired into a suite that might occasionally run
+     * headless/in CI: if nobody is watching the browser, this simply times
+     * out after captcha.manualEntry.timeoutSeconds and the test continues
+     * (same soft-failure shape as the OCR path returning null), rather
+     * than hanging a whole pipeline forever waiting for console input that
+     * will never come.
+     *
+     * Two things make this robust against firing on something the tester
+     * never actually typed (observed in practice: the wait was satisfied
+     * within ~3s on a single stray character, "n" — almost certainly a
+     * leftover value or a browser-autofill flicker, not a real answer):
+     *   1. The field is cleared up front, so any pre-existing/autofilled
+     *      value can't immediately satisfy the wait.
+     *   2. The completion check is length-aware: if the expected answer
+     *      length is known (captcha.expected.length, or the field's own
+     *      maxlength/DOM maxLength — see resolveExpectedLength()), the wait
+     *      holds until that many characters are present, not just "non-
+     *      empty". If the length genuinely isn't known, it instead requires
+     *      the same value to show up on two consecutive polls (~400ms
+     *      apart) before accepting it, so a mid-typing snapshot can't be
+     *      mistaken for a finished entry.
+     *
+     * @return whatever was typed into the field, or null if nothing was
+     *         entered before the timeout
+     */
+    private String waitForManualCaptchaEntry(WebDriver driver, WebElement captchaInputField) {
+        // Try to raise the actual OS-level browser window first. This is a
+        // real limitation, not something click()/focus() can fix: those
+        // only set focus *inside* the page's DOM, but if a freshly-spawned
+        // browser window (a new one is launched per test case) never
+        // became the OS-focused window in the first place, real keystrokes
+        // from the tester's physical keyboard go to whatever window (e.g.
+        // the terminal running mvn) the window manager still has focused —
+        // no amount of in-page focus() changes that. switchTo() on the
+        // driver's own window handle is the one WebDriver call that
+        // actually asks the browser/OS to raise the window, and does help
+        // on many window managers, but it isn't guaranteed everywhere
+        // (some Linux WMs ignore raise requests from background
+        // processes) — see the log message below for the manual fallback.
+        try {
+            driver.switchTo().window(driver.getWindowHandle());
+        } catch (Exception e) {
+            log.debug("[CaptchaSolver] Could not switch to/raise the browser window before manual "
+                + "entry (non-fatal): {}", e.getMessage());
+        }
+        // Get real, reliable keyboard focus onto the field before waiting.
+        // A plain click() is enough in Chrome but is a known Firefox
+        // WebDriver quirk: it doesn't always transfer true native keyboard
+        // focus, so a tester's keystrokes can silently go nowhere while
+        // this wait times out. Layer scrollIntoView + click + an explicit
+        // JS focus() so at least one of them lands regardless of browser.
+        try {
+            ((JavascriptExecutor) driver).executeScript(
+                "arguments[0].scrollIntoView({block:'center', inline:'center'});", captchaInputField);
+        } catch (Exception e) {
+            log.debug("[CaptchaSolver] Could not scroll the CAPTCHA field into view before manual "
+                + "entry (non-fatal): {}", e.getMessage());
+        }
+        try {
+            captchaInputField.click();
+        } catch (Exception e) {
+            log.debug("[CaptchaSolver] click() on the CAPTCHA field before manual entry failed "
+                + "(non-fatal, falling back to a JS focus()): {}", e.getMessage());
+        }
+        try {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].focus();", captchaInputField);
+        } catch (Exception e) {
+            log.debug("[CaptchaSolver] JS focus() on the CAPTCHA field before manual entry failed "
+                + "(non-fatal): {}", e.getMessage());
+        }
+        try {
+            captchaInputField.clear();
+        } catch (Exception e) {
+            log.debug("[CaptchaSolver] Could not clear the CAPTCHA field before manual entry "
+                + "(non-fatal): {}", e.getMessage());
+        }
+
+        int expectedLength = resolveExpectedLength(driver, captchaInputField);
+        log.info("✋ CAPTCHA automation is disabled (captcha.automation.enabled=false) — "
+                + "please read the CAPTCHA in the browser window and type it into the field "
+                + "yourself. Waiting up to {}s{}... "
+                + "NOTE: a fresh browser window launches for every test case — if your keystrokes "
+                + "aren't landing in the field, the window likely doesn't have real OS keyboard "
+                + "focus yet (WebDriver can't force this on every window manager); click once on "
+                + "the browser window itself, then type.", manualEntryTimeoutSeconds,
+            expectedLength > 0 ? " for " + expectedLength + " character(s)" : "");
+
+        java.util.concurrent.atomic.AtomicReference<String> lastSeen =
+            new java.util.concurrent.atomic.AtomicReference<>("");
+
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(manualEntryTimeoutSeconds))
+                .pollingEvery(Duration.ofMillis(400))
+                .until(d -> {
+                    String value;
+                    try {
+                        value = captchaInputField.getAttribute("value");
+                    } catch (StaleElementReferenceException e) {
+                        return false;
+                    }
+                    value = value == null ? "" : value.trim();
+                    if (value.isEmpty()) {
+                        lastSeen.set("");
+                        return false;
+                    }
+                    if (expectedLength > 0) {
+                        return value.length() >= expectedLength;
+                    }
+                    boolean stableAcrossTwoPolls = value.equals(lastSeen.get());
+                    lastSeen.set(value);
+                    return stableAcrossTwoPolls;
+                });
+            String typed = captchaInputField.getAttribute("value");
+            log.info("✅ Manual CAPTCHA entry detected: [{}]", typed);
+            return typed;
+        } catch (TimeoutException e) {
+            log.warn("⚠ No complete manual CAPTCHA entry detected within {}s — continuing with "
+                + "whatever (if anything) is currently in the field", manualEntryTimeoutSeconds);
+            try {
+                return captchaInputField.getAttribute("value");
+            } catch (Exception ex) {
+                return null;
+            }
         }
     }
 

@@ -1,0 +1,36 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- API tests for the standalone, API-only "jsonplaceholder" site — no UI, no page objects,
+     no object repository (see SiteRegistry.KNOWN_SITES). Kept as its own suite file rather
+     than a second <test> block inside api-tests.xml because -Dsite is a single JVM-wide
+     system property (see ConfigReader's class javadoc) — this suite must run as
+     -Dsite=jsonplaceholder, api-tests.xml's demoqa suite must run as -Dsite=demoqa (the
+     default), and no single `mvn test` invocation can satisfy both at once. See
+     api-tests.xml's own comment for the full reasoning.
+
+     This is also the reference example for "adding a brand-new API-only site" — see
+     docs/extending.md's "Adding a New API-Only Site" section, which walks through exactly
+     the files this suite depends on (SiteRegistry entry, pipeline-config.properties toggle,
+     config/{site}.properties, this suite file, the test class itself). -->
+<suite name="API Tests Suite - jsonplaceholder" parallel="classes" thread-count="1">
+
+  <!-- See api-tests.xml's identical comment on RetryListener — same
+       reasoning applies here (a transient network blip hitting
+       jsonplaceholder.typicode.com is worth one retry). -->
+  <listeners>
+    <listener class-name="com.automation.sites.listeners.RetryListener"/>
+  </listeners>
+
+  <test name="JsonPlaceholder API Tests" preserve-order="false">
+    <groups>
+      <run>
+        <include name="api"/>
+      </run>
+    </groups>
+
+    <classes>
+      <class name="com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest"/>
+    </classes>
+
+  </test>
+
+</suite>

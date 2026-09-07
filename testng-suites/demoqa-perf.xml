@@ -1,0 +1,34 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Load test(s) for demoqa. Own suite file, not folded into demoqa-smoke.xml/
+     demoqa-regression.xml: perf tests are opt-in (group "perf", excluded from
+     smoke/regression the same way the synthetic-data group is — see
+     RegistrationSyntheticDataTest) since a load test takes meaningfully longer
+     than a functional test and its pass/fail depends on response-time/error-rate
+     budgets that are environment-sensitive (a shared CI runner under other load is
+     not a fair environment to assert a tight p99 budget against) rather than being
+     a pure code-correctness check every commit should gate on. Run explicitly:
+     -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-perf.xml
+
+     Single <test>, thread-count=1: unlike the API/UI functional suites, running
+     multiple DIFFERENT load tests concurrently in the same JVM would have each
+     one's JMeter engine competing for the same CPU/network resources, skewing
+     both tests' measured response times. Each perf test class already generates
+     its own internal concurrency (PerfConfig.threads() virtual users) — that's
+     the load being measured; JVM-level thread-count=1 here just keeps this
+     suite's *test classes* running sequentially, not the load each one generates. -->
+<suite name="Performance Tests Suite - demoqa" parallel="none" thread-count="1">
+
+  <test name="demoqa Performance Tests" preserve-order="false">
+    <groups>
+      <run>
+        <include name="perf"/>
+      </run>
+    </groups>
+
+    <classes>
+      <class name="com.automation.sites.demoqa.perf.DemoQaHomePagePerfTest"/>
+    </classes>
+
+  </test>
+
+</suite>

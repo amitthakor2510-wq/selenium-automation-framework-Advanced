@@ -61,7 +61,14 @@ public final class SiteRegistry {
         // (Site key is "SAHMAT" — matches config/SAHMAT.properties,
         // objectrepository/SAHMAT.properties, and the
         // com.automation.sites.sahmat Java package, all case-consistently.)
-        "SAHMAT", new SiteDefinition(true)
+        "SAHMAT", new SiteDefinition(true),
+        // API-only — no page objects, no browser, no keyword engine. Proves
+        // the same site-registration mechanism used for UI sites scales to
+        // a pure-HTTP site with zero extra machinery: just a config file
+        // (config/jsonplaceholder.properties, "url" pointing at the public
+        // JSONPlaceholder test API) and this one line. See ApiConfig's
+        // javadoc and sites/jsonplaceholder/tests/JsonPlaceholderApiTest.java.
+        "jsonplaceholder", new SiteDefinition(false)
     );
 
     private SiteRegistry() {

@@ -9,9 +9,10 @@
 ## 📋 Table of Contents
 - [🔁 Retry & Resilience](#-retry--resilience)
 - [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
-- [🌐 Book Store REST API Tests](#-book-store-rest-api-tests)
+- [🌐 API Testing](#-api-testing)
 - [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
-- [♿🖼️⏱️ Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance)
+- [♿🖼️ Specialized Testing — Accessibility & Visual Regression](#️️-specialized-testing--accessibility--visual-regression)
+- [⚡ Performance Testing](#-performance-testing)
 - [🧬 Synthetic/Generated Test Data](#-syntheticgenerated-test-data)
 - [📱 Mobile Testing (Appium)](#-mobile-testing-appium)
 - [🚦 Smoke vs Regression](#-smoke-vs-regression)
@@ -115,9 +116,35 @@ Page objects add a second layer of resilience beyond retry: several locators are
 
 ---
 
-## 🌐 Book Store REST API Tests
+## 🌐 API Testing
 
-`BookStoreApiTest` covers the same Book Store domain as the UI flow above, but hits `demoqa.com`'s REST endpoints directly with Rest-Assured — no browser, no Selenium, independent of every other test class. It runs a single account through 9 sequential, dependency-chained tests (`dependsOnMethods`) using one shared `userId`/`authToken`/`sampleIsbn`:
+Pure-HTTP tests — no browser, no Selenium/Grid — built on Rest-Assured plus this framework's own thin layer around it (`core/api/`). Two flavors, both first-class:
+
+- **Site-coupled** — a site that has both UI and API coverage (`BookStoreApiTest`/`BookStoreApiNegativeTest` against demoqa's REST endpoints, run with the same `-Dsite=demoqa` the UI tests use).
+- **Standalone / API-only** — a site that's nothing but an API, registered the same way as any UI site (`SiteRegistry`, `pipeline-config.properties`, a `config/{site}.properties` file) but with no page objects at all. `JsonPlaceholderApiTest` (against the public [JSONPlaceholder](https://jsonplaceholder.typicode.com) API) is the reference example — see [➕ Adding a New API-Only Site](extending.md#-adding-a-new-api-only-site) for the checklist to add your own.
+
+### 🧰 The API framework (`core/api/`)
+
+| Class | What it's for |
+|---|---|
+| `ApiClient` | Base-URI setup (`ApiClient.configure()`), request builders (`jsonRequest()`/`request()`), and one-line HTTP verb helpers (`get/post/put/patch/delete(path)`) |
+| `ApiConfig` | Resolves the active site's base URI + retry/timeout defaults — same `ConfigReader` mechanism (`global.properties` → `{site}.properties` → `-D` override) as everything else in this framework |
+| `AuthProvider` (+`BearerTokenAuthProvider`/`BasicAuthProvider`/`ApiKeyAuthProvider`) | Pluggable auth strategies, composed via `ApiClient.authenticatedRequest(provider)` — add a new scheme (OAuth2, HMAC, ...) by implementing one interface method, no `ApiClient` changes needed |
+| `ApiAssertions` | One-line status/schema/response-time/header/array assertions with readable failure messages (response body attached on a status mismatch) |
+| `ApiRetry` | Explicit, opt-in exponential-backoff retry for a single flaky call — `ApiRetry.withRetry(() -> ApiClient.get(path))`. Not automatic on every call: most API failures here are real contract violations worth surfacing immediately, not blips worth masking |
+
+```java
+Response response = ApiClient.get("/posts/1");
+ApiAssertions.assertStatus(response, 200);
+ApiAssertions.assertMatchesSchema(response, "schemas/jsonplaceholder/post.json");
+ApiAssertions.assertResponseTimeUnder(response);   // uses api.responseTime.maxMs
+```
+
+Every call made through `ApiClient` is attached to the Allure report automatically (request + response + timing), regardless of pass/fail — see `ApiClient.configure()`'s `AllureRestAssured` filter.
+
+### 📚 Book Store REST API Tests (demoqa)
+
+`BookStoreApiTest` runs a single account through 9 sequential, dependency-chained tests (`dependsOnMethods`) using one shared `userId`/`authToken`/`sampleIsbn`:
 
 | # | Test | Endpoint |
 |---|---|---|
@@ -140,11 +167,24 @@ Two eventual-consistency details worth knowing if you're extending this class:
 Run it on its own:
 ```bash
 mvn test -Dtest=BookStoreApiTest
+# or the full suite (both demoqa API test classes):
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests.xml
 ```
+
+### 🌍 Standalone API-Only Sites (JsonPlaceholderApiTest)
+
+`JsonPlaceholderApiTest` hits the public [JSONPlaceholder](https://jsonplaceholder.typicode.com) fake REST API and exists specifically to demonstrate the framework's API layer working against a site with **no UI counterpart at all** — GET/POST/PUT/DELETE, schema validation, `ApiAssertions`, `ApiRetry`, and `AuthProvider` composition, all in one class.
+
+```bash
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-tests-jsonplaceholder.xml
+```
+
+> [!NOTE]
+> This runs as its own suite file, not folded into `api-tests.xml` — `-Dsite` is a single JVM-wide system property (see `ConfigReader`), so one `mvn test` invocation can only resolve one site's base URI at a time. `BookStoreApiTest` needs `-Dsite=demoqa`; `JsonPlaceholderApiTest` needs `-Dsite=jsonplaceholder`. Two suite files, each its own `mvn test -Dsite=...` run, is what actually keeps both correct.
 
 ### 📐 API Contract Validation
 
-Tests 1, 4, 5, and 7 above also assert the *whole shape* of the response, not just the specific field values the table above implies:
+Tests 1, 4, 5, and 7 of `BookStoreApiTest` also assert the *whole shape* of the response, not just the specific field values the table above implies:
 
 ```java
 .body(matchesJsonSchemaInClasspath("schemas/bookstore/account-created.json"))
@@ -152,23 +192,29 @@ Tests 1, 4, 5, and 7 above also assert the *whole shape* of the response, not ju
 .body("userID", not(emptyString()))
 ```
 
+Or, using the new `ApiAssertions` helper (equivalent, usable outside a `.then()` chain — e.g. after `ApiRetry.withRetry`):
+```java
+ApiAssertions.assertMatchesSchema(response, "schemas/bookstore/account-created.json");
+```
+
 Schema validation and field-by-field Hamcrest assertions catch different things, and neither replaces the other:
 - **A field-by-field assertion** (`equalTo`, `hasItem`, ...) catches a specific value being *wrong* — e.g. `username` echoing back something other than what was submitted.
 - **Schema validation** catches the response's *shape* changing — a field disappearing, being renamed, or switching type (say, `pages` starting to come back as a string) — even when every field the Hamcrest assertions happen to check still passes.
 
-The four schemas live under `src/test/resources/schemas/bookstore/`:
+The schemas live under `src/test/resources/schemas/<site>/` — `bookstore/` for demoqa's 4 schemas, `jsonplaceholder/post.json` for the standalone site:
 
 | Schema | Validates | Used in |
 |---|---|---|
-| `account-created.json` | `POST /Account/v1/User` | Test 1 |
-| `books-list.json` | `GET /BookStore/v1/Books` | Test 4 |
-| `book-detail.json` | `GET /BookStore/v1/Book?ISBN=...` | Test 5 |
-| `user-detail.json` | `GET /Account/v1/User/{UUID}` | Test 7 |
+| `bookstore/account-created.json` | `POST /Account/v1/User` | `BookStoreApiTest` Test 1 |
+| `bookstore/books-list.json` | `GET /BookStore/v1/Books` | `BookStoreApiTest` Test 4 |
+| `bookstore/book-detail.json` | `GET /BookStore/v1/Book?ISBN=...` | `BookStoreApiTest` Test 5 |
+| `bookstore/user-detail.json` | `GET /Account/v1/User/{UUID}` | `BookStoreApiTest` Test 7 |
+| `jsonplaceholder/post.json` | `GET/POST/PUT /posts...` | `JsonPlaceholderApiTest` |
 
 > [!IMPORTANT]
 > `user-detail.json` documents a real quirk: `GET /Account/v1/User/{UUID}` returns the id field as `userId` (lowercase d), while `POST /Account/v1/User`'s creation response uses `userID` (capital D) for what is otherwise the same value. That's DemoQA's own API being inconsistent between endpoints, not a typo in the schema — see the comment in that file.
 
-Each schema's field list was written from what the live DemoQA Book Store API is documented and known to return, matching what Tests 1/4/5/7 already assert field-by-field — not re-verified against a fresh live response in this pass, since this sandbox has no network access to `demoqa.com`. Worth one real `mvn test -Dtest=BookStoreApiTest` run to confirm before relying on these in CI; if a field name or type is off, the failure will point at exactly which schema and which field.
+Each schema's field list was written from what the live API is documented and known to return, matching what the corresponding test class already asserts field-by-field — not re-verified against a fresh live response in this pass, since this sandbox has no network access. Worth one real run of the relevant suite to confirm before relying on these in CI; if a field name or type is off, the failure will point at exactly which schema and which field.
 
 ---
 
@@ -192,9 +238,9 @@ Adding a brand-new site with all three styles already scaffolded is one command 
 
 ---
 
-## ♿🖼️⏱️ Specialized Testing — Accessibility, Visual Regression & Performance
+## ♿🖼️ Specialized Testing — Accessibility & Visual Regression
 
-Three opt-in test types beyond standard functional coverage — none run in CI by default (all three are extra network/compute cost per run), each is one explicit command:
+Two opt-in test types beyond standard functional coverage — neither runs in CI by default (extra network/compute cost per run), each is one explicit command:
 
 ### ♿ Accessibility — axe-core
 `AccessibilityTest` runs a WCAG/GIGW-adjacent scan (via [axe-core](https://www.deque.com/axe/)) against demoqa pages and asserts on violation severity, not just "does the page look right." Relevant specifically for government-portal-style QA subject to GIGW accessibility guidelines, but useful for any UI.
@@ -214,14 +260,73 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-visual.xml
 > [!TIP]
 > **First run per snapshot name always passes** — it's capturing the baseline. Commit that baseline image; from the second run on, it's a real regression check. Only one demoqa page has a baseline so far — extend coverage to more pages as they stabilize (a page whose layout is still actively changing will just generate false-positive diffs).
 
-### ⏱️ Performance Smoke — JMeter
+---
+
+## ⚡ Performance Testing
+
+Two complementary ways to load-test this framework's sites — pick based on what you need, they measure the same kind of thing (server/network response time and error rate under concurrent load, never client-side rendering — that's what the real-browser UI suite already covers) but at very different levels of investment:
+
+| | 🪶 JMeter smoke (legacy) | ☕ Java DSL (recommended) |
+|---|---|---|
+| Where it lives | `perf/basic-smoke.jmx` (hand-edited XML) | `core/perf/` + a normal `*PerfTest` class per site |
+| How you run it | `mvn verify -Pperf` (separate Maven profile) | `mvn test -DsuiteXmlFile=testng-suites/<site>-perf.xml -Dgroups=perf` (same `mvn test` everything else uses) |
+| Config source | Command-line `-D` flags only | `ConfigReader` (`global.properties` → `{site}.properties` → `-D`) — same as every other test type |
+| Reporting | Its own JMeter HTML report only | Allure/ExtentReports/ReportPortal (automatic — it's a normal TestNG `@Test`) **+** a JMeter DSL HTML report/JTL under `target/perf-reports/` |
+| Best for | A quick, no-code eyeball check, or opening the plan in the JMeter GUI | Everything else — reviewable as a Java diff, reuses this framework's site/config/reporting stack, assertions on p99/error-rate as real TestNG failures |
+
+### ☕ Load tests — Java DSL (recommended)
+
+Built on [jmeter-java-dsl](https://abstracta.github.io/jmeter-java-dsl/) (see `pom.xml`) — a real embedded JMeter engine underneath, but the test plan itself is ordinary, code-reviewable Java instead of hand-edited XML. `core/perf/PerfTestBase` is the base class every perf test extends:
+
+```java
+public class DemoQaHomePagePerfTest extends PerfTestBase {
+    @Test(groups = {"perf"})
+    public void homePage_ShouldMeetResponseTimeAndErrorRateBudget() throws Exception {
+        TestPlanStats stats = runGetLoadTest("demoqa-home", "/");
+        PerfAssertions.assertSamplesRecorded(stats);
+        PerfAssertions.assertErrorRateUnder(stats);   // uses perf.maxErrorRatePercent
+        PerfAssertions.assertP99Under(stats);          // uses perf.maxP99Millis
+    }
+}
+```
+
+Run it:
+```bash
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-perf.xml -Dgroups=perf
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/jsonplaceholder-perf.xml -Dgroups=perf
+
+# tune the load profile:
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-perf.xml -Dgroups=perf \
+  -Dperf.threads=25 -Dperf.rampUpSeconds=10 -Dperf.iterations=10 -Dperf.maxP99Millis=3000
+```
+
+`runGetLoadTest(reportName, relativePath)` covers the common single-GET-endpoint case, resolving `relativePath` against the active site's base URI (same `ApiConfig`/`ConfigReader` path an API test uses). For a multi-step scenario (login then an authenticated page load, or a POST with a body), build a `DslDefaultThreadGroup` directly and pass it to `PerfTestBase.run(reportName, group)` — see `PerfTestBase`'s own javadoc.
+
+`PerfConfig` (`global.properties`' "PERFORMANCE TESTING" section) controls the defaults every perf test reads unless overridden per-run:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `perf.threads` | 10 | Peak concurrent virtual users |
+| `perf.rampUpSeconds` | 5 | Seconds to ramp 0 → `perf.threads` |
+| `perf.iterations` | 5 | Iterations per thread after ramp-up |
+| `perf.maxP99Millis` | 5000 | p99 response-time budget `PerfAssertions.assertP99Under(stats)` checks |
+| `perf.maxErrorRatePercent` | 1.0 | Max acceptable error rate `PerfAssertions.assertErrorRateUnder(stats)` checks |
+| `perf.reportBaseDir` | `target/perf-reports` | Where the HTML report + JTL land, one subfolder per test |
+
+> [!NOTE]
+> Perf tests are opt-in (`group "perf"`, excluded from `smoke`/`regression` — same convention as the synthetic-data tests) since a load test's pass/fail depends on response-time/error-rate budgets that are environment-sensitive: a shared, variably-loaded CI runner isn't a fair baseline for a tight p99 assertion. In CI, the `perf-tests` job (GitHub Actions) runs these nightly rather than on every push — see `docs/ci-cd.md`.
+
+Adding a perf test for a new site: extend `PerfTestBase`, add one `@Test(groups = {"perf"})` method calling `runGetLoadTest(...)`, and a `<site>-perf.xml` suite file (copy `demoqa-perf.xml` or `jsonplaceholder-perf.xml` as a template) — no other framework code changes needed.
+
+### 🪶 Quick smoke — JMeter (legacy)
+
 A lightweight response-time/response-code check (not a load or capacity test) via the `perf` Maven profile, so `mvn test` — used everywhere else, CI included — is completely unaffected by its presence.
 ```bash
 mvn verify -Pperf
 # tune concurrency/thresholds:
 mvn verify -Pperf -Dthreads=10 -DrampUp=5 -Dloops=5 -DmaxResponseMs=3000
 ```
-Plan lives in `perf/basic-smoke.jmx`. Results land in `target/jmeter/results/`, an HTML report in `target/jmeter/reports/`.
+Plan lives in `perf/basic-smoke.jmx`. Results land in `target/jmeter/results/`, an HTML report in `target/jmeter/reports/`. Kept as-is (untouched by the Java DSL addition above) since it's still the quickest way to eyeball a response-time smoke check or open the plan in the JMeter GUI — not wired into any CI job, local/manual use only.
 
 ---
 
@@ -307,7 +412,7 @@ mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
 ```
 
 > [!NOTE]
-> `accessibility`, `visual`, `synthetic-data`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility-visual-regression--performance), [Synthetic/Generated Test Data](#-syntheticgenerated-test-data), and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly.
+> `accessibility`, `visual`, `perf`, `synthetic-data`, and mobile's own `smoke`/`regression` are separate, **opt-in** groups run via their own suite XML — see [Specialized Testing](#️️-specialized-testing--accessibility--visual-regression), [Performance Testing](#-performance-testing), [Synthetic/Generated Test Data](#-syntheticgenerated-test-data), and [Mobile Testing](#-mobile-testing-appium). They're not part of `demoqa-smoke.xml`/`demoqa-regression.xml` and won't run unless you point at their suite file explicitly. The `api` group is different: `BookStoreApiTest`/`BookStoreApiNegativeTest` are also tagged `smoke`/`regression`, so they already run as part of those suites — `testng-suites/api-tests.xml` (see [API Testing](#-api-testing)) just lets you run *only* the API tests, fast, without the browser/Grid setup the full suite needs. `JsonPlaceholderApiTest` is the exception among API tests: it's genuinely standalone since it targets a different site (`-Dsite=jsonplaceholder`) than `demoqa-smoke.xml`/`-regression.xml` run against.
 
 <div align="center">
 

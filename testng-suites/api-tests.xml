@@ -6,11 +6,24 @@
      browser, whereas an explicit list only ever runs what's named here, and stays correct
      by construction as new UI test classes are added to that package over time.
 
+     Scoped to demoqa's API tests only (site-coupled: -Dsite=demoqa, the default) — see
+     api-tests-jsonplaceholder.xml for the standalone API-only site's suite, kept as a
+     SEPARATE file rather than a second <test> block in this one. Reason: -Dsite is a single
+     JVM-wide system property (see ConfigReader's own class javadoc), so one `mvn test`
+     invocation can only ever resolve one site's base URI — BookStoreApiTest needs
+     -Dsite=demoqa and JsonPlaceholderApiTest needs -Dsite=jsonplaceholder, and there is no
+     TestNG suite-XML construct that lets two <test> blocks in the same JVM run with two
+     different values of the same system property. Splitting into two suite files (each run
+     as its own `mvn test -Dsite=...` invocation) is what actually keeps both runnable
+     correctly, rather than a single suite that only works for whichever site happens to be
+     passed. See the "api-tests" CI job in github-ci.yml, which runs both suites as separate
+     steps for exactly this reason.
+
      PARALLEL EXECUTION: classes + thread-count=2. Both classes here create their own
      disposable account and don't share any state (unlike BaseTest's ThreadLocal<WebDriver>
      UI tests need to worry about) — there's nothing about running them in parallel that's
      unsafe. Only two classes exist today, so thread-count=2 just means "run them both at
-     once"; bump it if more API test classes are added later.
+     once"; bump it if more demoqa API test classes are added later.
 
      WHY THIS SUITE EXISTS separately from demoqa-smoke.xml/demoqa-regression.xml, which
      already run these same classes via their group filter + package scan: those suites
@@ -19,7 +32,7 @@
      suite lets API tests run fast and standalone — see the "api-tests" CI job in
      github-ci.yml/.gitlab-ci.yml, which runs this suite directly on the base
      maven:...-eclipse-temurin-17 image with no browser/Grid setup step at all. -->
-<suite name="API Tests Suite" parallel="classes" thread-count="2">
+<suite name="API Tests Suite - demoqa" parallel="classes" thread-count="2">
 
   <!-- RetryListener is an IAnnotationTransformer — must be registered here
        (or via ServiceLoader), not via @Listeners on a test class, or it

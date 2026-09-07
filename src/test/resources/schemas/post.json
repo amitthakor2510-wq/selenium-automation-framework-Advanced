@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "JSONPlaceholder post",
+  "description": "Shape of a single post object returned by GET /posts/{id} and POST /posts (https://jsonplaceholder.typicode.com/guide/). See docs/testing-guide.md's API Contract Validation section for what this catches that field-by-field assertions alone don't.",
+  "type": "object",
+  "properties": {
+    "userId": { "type": "integer" },
+    "id": { "type": "integer" },
+    "title": { "type": "string" },
+    "body": { "type": "string" }
+  },
+  "required": ["id", "title", "body"],
+  "additionalProperties": false
+}

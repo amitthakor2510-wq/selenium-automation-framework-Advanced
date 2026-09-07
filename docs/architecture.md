@@ -15,6 +15,8 @@
 - [🩹 Self-Healing Locators](#-self-healing-locators)
 - [📄 Page Objects — Pattern Explained](#-page-objects--pattern-explained)
 - [🧱 Component-Based Page Objects](#-component-based-page-objects)
+- [🌐⚡ API & Performance Testing Layers](#-api--performance-testing-layers)
+- [🧩 Adding a New Test Type — The Extension Pattern](#-adding-a-new-test-type--the-extension-pattern)
 - [🧰 Key Selenium Concepts Used](#-key-selenium-concepts-used)
 
 ---
@@ -241,10 +243,10 @@ Tries a primary `By` locator, then falls back to one or more alternates before g
 The automatic, framework-wide counterpart to `SmartLocator`. Full explanation: [🩹 Self-Healing Locators](#-self-healing-locators) below.
 
 ### `AccessibilityUtils.java`
-Thin wrapper around [axe-core](https://www.deque.com/axe/) (Deque's accessibility engine) for Selenium. Runs a WCAG/GIGW-adjacent scan against the current page and returns violations bucketed by severity (`critical`, `serious`, `moderate`, `minor`). Config-driven: `a11y.enabled` turns scanning on/off, `a11y.failOn` (default `critical,serious`) decides which severities actually fail the test versus just get logged/attached to Allure. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility-visual-regression--performance) below.
+Thin wrapper around [axe-core](https://www.deque.com/axe/) (Deque's accessibility engine) for Selenium. Runs a WCAG/GIGW-adjacent scan against the current page and returns violations bucketed by severity (`critical`, `serious`, `moderate`, `minor`). Config-driven: `a11y.enabled` turns scanning on/off, `a11y.failOn` (default `critical,serious`) decides which severities actually fail the test versus just get logged/attached to Allure. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility--visual-regression) below.
 
 ### `VisualRegressionUtils.java`
-Thin wrapper around [AShot](https://github.com/pazone/ashot) for pixel-level screenshot diffing. First run for a given snapshot name captures and saves a baseline image (always passes); every run after that diffs the current screenshot against the committed baseline and fails if the difference exceeds a configurable threshold. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility-visual-regression--performance) below.
+Thin wrapper around [AShot](https://github.com/pazone/ashot) for pixel-level screenshot diffing. First run for a given snapshot name captures and saves a baseline image (always passes); every run after that diffs the current screenshot against the committed baseline and fails if the difference exceeds a configurable threshold. See [♿🖼️⏱️ Specialized Testing](testing-guide.md#️️-specialized-testing--accessibility--visual-regression) below.
 
 </details>
 
@@ -420,6 +422,49 @@ Consolidating the two copies surfaced a real gap rather than just duplicated tex
 Currently composed by `DatePickerPage` (its main date field) and `PracticeFormPage` (its date-of-birth field). `DatePickerPage`'s separate date-and-time input is deliberately **not** part of this component — it's typed directly rather than picked from a month/year/day UI, so it's a different widget, not another instance of this one.
 
 ---
+
+## 🌐⚡ API & Performance Testing Layers
+
+Two more layers alongside the UI layer described above, following the same "thin core + per-site classes" shape:
+
+```text
+core/api/                          <- ApiConfig, ApiClient, ApiAssertions, ApiRetry
+core/api/auth/                     <- AuthProvider + Bearer/Basic/ApiKey implementations
+core/perf/                         <- PerfConfig, PerfTestBase, PerfAssertions
+
+sites/core/BaseApiTest.java        <- @BeforeClass glue: ConfigReader.reset() + ApiClient.configure()
+sites/<site>/tests/*ApiTest.java   <- extends BaseApiTest — the actual API tests
+sites/<site>/perf/*PerfTest.java   <- extends PerfTestBase — the actual load tests
+```
+
+`ApiConfig`/`PerfConfig` both resolve everything through the same `ConfigReader` three-layer mechanism (`global.properties` → `{site}.properties` → `-D` override) `DriverFactory`/page objects already use for the UI layer — no separate config-loading machinery had to be invented for either. `ApiClient.configure()` points RestAssured at `ApiConfig.baseUri()`, exactly the "url" key `DriverFactory` navigates to for UI tests; `PerfTestBase.runGetLoadTest(...)` resolves its target the same way.
+
+**API-only sites** (no page objects at all — see `jsonplaceholder`) register through the exact same `SiteRegistry`/`pipeline-config.properties` mechanism as a UI site, with `requiresObjectRepository=false` and a `type=api` tag (read by `Scripts/enabled-sites.sh --browser-only` to keep such sites out of the UI browser test matrix). See `docs/extending.md`'s "Adding a New API-Only Site" for the full checklist.
+
+**Performance tests** run against either a UI site's raw HTTP endpoint (`DemoQaHomePagePerfTest` — a JMeter sampler hits the page URL directly, no WebDriver involved; this measures server/network response time, a different and complementary thing to the real-browser UI suite's rendering-focused checks) or an API-only site's endpoint (`JsonPlaceholderApiPerfTest`), through the same `PerfTestBase`/`jmeter-java-dsl`-backed base class either way.
+
+Full usage (config keys, example tests, running/tuning) lives in `docs/testing-guide.md`'s API Testing and Performance Testing sections.
+
+---
+
+## 🧩 Adding a New Test Type — The Extension Pattern
+
+The API and Performance layers above aren't special-cased additions — they're the second and third proof that this framework's actual scaling unit is "a new `Base*Test` class plus per-site subclasses of it," not "invent a new toolchain integration each time." Every test type this project supports follows the same four pieces:
+
+| Piece | UI (`BaseTest`) | API (`BaseApiTest`) | Performance (`PerfTestBase`) |
+|---|---|---|---|
+| **1. Config resolution** | `ConfigReader.reset()` in `@BeforeClass`/`@BeforeSuite` | `ConfigReader.reset()` in `@BeforeClass` | `ConfigReader.reset()` in `@BeforeClass` |
+| **2. Client/engine setup** | `DriverFactory.createDriver()` → `ThreadLocal<WebDriver>` | `ApiClient.configure()` → RestAssured `baseURI` | `PerfTestBase.runGetLoadTest(...)` → embedded JMeter engine |
+| **3. Per-site subclass** | `sites/<site>/tests/*Test.java` (+ page objects) | `sites/<site>/tests/*ApiTest.java` | `sites/<site>/perf/*PerfTest.java` |
+| **4. Suite XML + groups** | `testng-suites/<site>-smoke.xml` / `-regression.xml` | `testng-suites/api-tests[-<site>].xml`, group `"api"` | `testng-suites/<site>-perf.xml`, group `"perf"` |
+
+Reporting (Allure/ExtentReports/ReportPortal), `RetryListener`, and parallel-execution suite-XML mechanics are already wired at the TestNG-listener level (see `TestListener.java`'s ServiceLoader registration and `testng-suites/*.xml`'s `<listeners>` blocks) — they apply automatically to *any* `@Test` method, regardless of which `Base*Test` it extends. A new test type inherits all of that for free; it doesn't need its own reporting integration.
+
+**What this means for a genuinely new kind of test** (contract/consumer-driven testing, chaos/fault-injection, security/DAST scanning, whatever comes next): write a `Base<Type>Test` following the same four-piece shape (config resolution + client/engine setup in a `@BeforeClass`, one subclass per site under `sites/<site>/<type>/`, a suite XML with its own opt-in group), and it gets this framework's full reporting/config/CI stack without touching `DriverFactory`, `ConfigReader`, `SiteRegistry`, or any existing test type's code. That's the actual scalability property "supports API and performance testing" was standing in for: not just those two specific additions, but a framework where adding a third, fourth, or fifth kind of testing is a small, self-contained addition rather than a redesign.
+
+---
+
+
 
 ## 🧰 Key Selenium Concepts Used
 

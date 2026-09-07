@@ -508,6 +508,39 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- Allure's RestAssured filter — attaches the full request/response
+         (headers, body, status, timing) of every API call to the Allure
+         report automatically, registered once in ApiClient.configure()
+         (RestAssured.filters(new AllureRestAssured())). No version pinned
+         here, same as allure-java-commons above — already managed by the
+         allure-bom import. See docs/testing-guide.md's API Testing section. -->
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JMeter Java DSL — write load/performance tests as ordinary Java
+         (see core/perf/PerfTestBase.java) instead of hand-edited .jmx XML.
+         Runs a real embedded JMeter engine under the hood; the DSL is just
+         a programmatic, code-reviewable, IDE-refactorable front end for it
+         (a jmx2dsl tool also exists upstream for migrating the other
+         direction, from an existing .jmx into DSL code, if perf/basic-
+         smoke.jmx is ever ported over). Pinned to the latest release as of
+         this addition (2.2.1, per Maven Central/mvnrepository.com) rather
+         than a range, matching this project's version-pinning convention
+         everywhere else. Could not verify this resolves/builds in this
+         sandbox (no Maven Central access here), same caveat as
+         monte-screen-recorder/axe-core/pitest above — run
+         `mvn dependency:resolve` locally and bump if this version has
+         since been yanked. -->
+    <dependency>
+      <groupId>us.abstracta.jmeter</groupId>
+      <artifactId>jmeter-java-dsl</artifactId>
+      <version>2.2.1</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- axe-core — accessibility (WCAG/GIGW-adjacent) scanning, see
          core/utils/AccessibilityUtils.java. Version pinned against what was
          current at time of writing; this sandbox has no access to Maven

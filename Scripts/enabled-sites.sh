@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Usage:
 #   Scripts/enabled-sites.sh                  # newline list of every enabled site
-#   Scripts/enabled-sites.sh --browser-only    # same, minus "mobile"
+#   Scripts/enabled-sites.sh --browser-only    # same, minus "mobile" and any API-only site
+#   Scripts/enabled-sites.sh --api-only        # only sites tagged site.<name>.type=api
 #   Scripts/enabled-sites.sh --json            # ["demoqa","saucedemo"] (empty -> [])
 #   Scripts/enabled-sites.sh --browser-only --json
+#   Scripts/enabled-sites.sh --api-only --json
 #   Scripts/enabled-sites.sh --check <site>    # exit 0 if enabled, 1 if disabled/unknown
 #   Scripts/enabled-sites.sh --dotenv          # SITE_<NAME>_ENABLED=true|false, one per line
 #
@@ -42,6 +44,21 @@ all_known() {
         | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled=(true|false)[[:space:]]*$/\1/'
 }
 
+# Sites tagged "site.<name>.type=api" — no browser/page-object involvement
+# at all (e.g. jsonplaceholder, see SiteRegistry.KNOWN_SITES's
+# requiresObjectRepository=false entries). --browser-only excludes these
+# the same way it already excludes "mobile", so the `test` job's browser
+# matrix (matrix-setup, one Selenium session per site x browser) never
+# tries to spin one up against a site with no UI tests to run. A site
+# with no "type=" line at all is assumed to be a browser site (the
+# common case, and what every existing site predates this convention as)
+# — this is purely additive, opt-in per new API-only site, not a
+# behavior change for demoqa/saucedemo/SAHMAT/mobile.
+all_api_only() {
+    grep -E '^site\.[a-zA-Z0-9_-]+\.type=api[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.type=api[[:space:]]*$/\1/' || true
+}
+
 to_json() {
     local list="$1"
     if [ -z "$list" ]; then
@@ -63,9 +80,16 @@ case "${1:-}" in
         ;;
     --browser-only)
         if [ "${2:-}" = "--json" ]; then
-            to_json "$(all_enabled | grep -v '^mobile$' || true)"
+            to_json "$(all_enabled | grep -v '^mobile$' | grep -Fxvf <(all_api_only) || true)"
         else
-            all_enabled | grep -v '^mobile$' || true
+            all_enabled | grep -v '^mobile$' | grep -Fxvf <(all_api_only) || true
+        fi
+        ;;
+    --api-only)
+        if [ "${2:-}" = "--json" ]; then
+            to_json "$(all_enabled | grep -Fxf <(all_api_only) || true)"
+        else
+            all_enabled | grep -Fxf <(all_api_only) || true
         fi
         ;;
     --dotenv)

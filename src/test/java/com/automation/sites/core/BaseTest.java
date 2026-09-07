@@ -7,9 +7,11 @@ import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
 import com.automation.core.utils.HumanActions;
 import com.automation.sites.listeners.TestListener;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.MDC;
 import org.testng.ITestContext;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
@@ -117,6 +119,64 @@ public class BaseTest implements DriverProvider {
         if (currentSite == null || !currentSite.equals(requestedSite)) {
             ConfigReader.reset();
         }
+
+        // Manual CAPTCHA entry (captcha.automation.enabled=false — see
+        // CaptchaSolver.waitForManualCaptchaEntry()) needs a human to
+        // actually click into the browser window and type. A brand-new
+        // WebDriver window per test method means the OS window manager may
+        // never hand that new window real keyboard focus (WebDriver can't
+        // force this on every window manager), so the tester ends up
+        // fighting for window focus on every single scenario. When manual
+        // mode is on, reuse the SAME browser window across every test
+        // method on this thread instead of tearing it down and relaunching
+        // between scenarios — once the tester has clicked into it for the
+        // first scenario, it stays the focused window for the rest of the
+        // class. tearDown() below deliberately skips quitting the driver
+        // in this mode; it's quit once, for real, in tearDownClass().
+        boolean manualCaptchaMode = !ConfigReader.getBoolean("captcha.automation.enabled", true);
+        WebDriver existing = driver.get();
+        if (manualCaptchaMode && existing != null) {
+            // Reusing the window (see comment above) would otherwise leak
+            // session state between scenarios — e.g. TC01's successful
+            // login would leave TC02_WrongPassword still authenticated
+            // when it navigates back, silently invalidating that negative
+            // test. Clear cookies + local/session storage first so each
+            // scenario still starts logged-out, exactly as it did with a
+            // fresh driver, just without relaunching the window itself.
+            //
+            // IMPORTANT: do this while STILL on the live authenticated
+            // page (cookies/localStorage are origin-scoped, so clearing
+            // them only works reliably while that origin is the current
+            // page), but some SPAs run an auth-guard that reacts to a
+            // suddenly-wiped session by calling location.reload() on their
+            // own — clearing state and then immediately calling get(url)
+            // can race with that self-triggered reload and get the
+            // browser stuck bouncing between the two (observed on Chrome:
+            // an endless "reload the site" loop). Bouncing through
+            // about:blank in between forces the previous page's JS
+            // context (and any reload/interval it just kicked off) to
+            // fully unload before the real navigation happens, so there's
+            // nothing left running to race against.
+            try {
+                existing.manage().deleteAllCookies();
+            } catch (Exception e) {
+                // non-fatal — worst case a stray cookie survives one run
+            }
+            try {
+                ((JavascriptExecutor) existing).executeScript(
+                    "window.localStorage.clear(); window.sessionStorage.clear();");
+            } catch (Exception e) {
+                // non-fatal (e.g. thrown on about:blank before first navigation)
+            }
+            try {
+                existing.get("about:blank");
+            } catch (Exception e) {
+                // non-fatal — worst case the old page's JS had a bit longer to run
+            }
+            existing.get(ConfigReader.get("url"));
+            return;
+        }
+
         WebDriver webDriver = DriverFactory.createDriver();
         driver.set(webDriver);
         getDriver().get(ConfigReader.get("url"));
@@ -132,7 +192,13 @@ public class BaseTest implements DriverProvider {
         // does for this test, guaranteed via alwaysRun=true even if setUp()
         // itself failed — is what actually closes that gap.
         try {
-            if (getDriver() != null) {
+            // In manual-CAPTCHA mode (see setUp()), the driver is
+            // deliberately kept alive across every method in the class so
+            // the tester isn't stuck re-focusing a brand-new window for
+            // every scenario — it gets quit once, in tearDownClass(),
+            // instead of here.
+            boolean manualCaptchaMode = !ConfigReader.getBoolean("captcha.automation.enabled", true);
+            if (!manualCaptchaMode && getDriver() != null) {
                 // ROOT CAUSE FIX: quit() intermittently throws "Timed out
                 // waiting for driver server to stop" under load (confirmed
                 // by both the local and Jenkins regression runs) — that
@@ -156,6 +222,26 @@ public class BaseTest implements DriverProvider {
             }
         } finally {
             MDC.remove("test");
+        }
+    }
+
+    /**
+     * Only relevant in manual-CAPTCHA mode (captcha.automation.enabled=
+     * false), where tearDown() above deliberately leaves the driver alive
+     * between test methods so the tester doesn't have to re-focus a
+     * brand-new browser window for every scenario (see setUp()). Quits it
+     * here instead, once, after every method in the class has run. In the
+     * normal (automated-solve) mode this is a no-op — tearDown() already
+     * quit and cleared the driver after the last method.
+     */
+    @AfterClass(alwaysRun = true)
+    public void tearDownClass() {
+        if (getDriver() != null) {
+            try {
+                DriverFactory.quitDriver(getDriver());
+            } finally {
+                driver.remove();
+            }
         }
     }
 

@@ -8,6 +8,8 @@
 
 ## 📋 Table of Contents
 - [➕ Adding a New Site](#-adding-a-new-site--auto-configured-across-all-3-testing-styles)
+- [🌐 Adding a New API-Only Site](#-adding-a-new-api-only-site)
+- [⚡ Adding a Performance Test for a Site](#-adding-a-performance-test-for-a-site)
 - [🧭 Debugging a Live Site Redesign](#-debugging-a-live-site-redesign--lessons-from-a-real-session)
 
 ---
@@ -74,6 +76,71 @@ mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
 ```
 Runs all three testing styles together. Filter to just one with `-Dgroups`,
 e.g. `-Dgroups=keyword-driven` or `-Dgroups=data-driven`.
+
+---
+
+## 🌐 Adding a New API-Only Site
+
+For a site that's nothing but an API — no browser, no page objects at all. `jsonplaceholder` (see `config/jsonplaceholder.properties`, `sites/jsonplaceholder/tests/JsonPlaceholderApiTest.java`) is the reference example; this is the checklist that built it, unlike `Scripts/new-site.sh` (Step 1 above) there's no scaffold script for this path yet since it's only a handful of files — a good candidate to script the same way if this pattern gets used often.
+
+1. **Register the site** — add one line to `SiteRegistry.KNOWN_SITES` (`src/main/java/com/automation/core/config/SiteRegistry.java`):
+   ```java
+   "mysite", new SiteDefinition(false)   // false = no object repository required
+   ```
+2. **Config file** — `src/test/resources/config/mysite.properties`:
+   ```properties
+   site.name=mysite
+   url=https://api.mysite.com
+   ```
+3. **Enable it + tag it API-only** — `pipeline-config.properties`:
+   ```properties
+   site.mysite.enabled=true
+   site.mysite.type=api
+   ```
+   The `type=api` line matters: it's what tells `Scripts/enabled-sites.sh --browser-only` (used by GitHub Actions' `matrix-setup` job, and the Jenkins/GitLab equivalents) to exclude this site from the UI browser test matrix — without it, CI would try to spin up a Selenium session against a site with no page objects to test. A site with no `type=` line at all is assumed to be a browser site (every existing UI site predates this convention).
+4. **Test class** — extend `BaseApiTest`, use `ApiClient`/`ApiAssertions`/`ApiConfig` as normal:
+   ```java
+   public class MySiteApiTest extends BaseApiTest {
+       @Test(groups = {"smoke", "api"})
+       public void getWidget_ShouldReturn200() {
+           Response response = ApiClient.get("/widgets/1");
+           ApiAssertions.assertStatus(response, 200);
+       }
+   }
+   ```
+5. **Suite file** — `testng-suites/api-tests-mysite.xml`, copy `testng-suites/api-tests-jsonplaceholder.xml` as a template and swap the class name. Keep it as its **own suite file**, not a second `<test>` block inside an existing one — `-Dsite` is a single JVM-wide system property (see `ConfigReader`), so a suite mixing two different sites' API test classes can only ever correctly resolve one of them per run. See `testng-suites/api-tests.xml`'s own comment for the full reasoning.
+6. **(Optional) JSON schemas** — `src/test/resources/schemas/mysite/*.json` if you want contract validation via `ApiAssertions.assertMatchesSchema(...)`.
+7. **Run it**:
+   ```bash
+   mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/api-tests-mysite.xml
+   ```
+8. **(Optional) Wire into CI** — add one entry to the `api-tests` job's matrix in `.github/workflows/github-ci.yml` (`{ site: mysite, suiteFile: testng-suites/api-tests-mysite.xml }`); it's self-gating via `Scripts/enabled-sites.sh --check mysite`, so it's a safe no-op until step 3's `enabled=true` lands.
+
+---
+
+## ⚡ Adding a Performance Test for a Site
+
+Works for either a UI site (load-testing a page's raw HTTP response, not driving a real browser) or an API-only site — both go through the exact same `PerfTestBase`. See `docs/testing-guide.md`'s Performance Testing section for the full picture; this is just the "add one for a new site" checklist.
+
+1. **Test class** — extend `core.perf.PerfTestBase`:
+   ```java
+   public class MySiteHomePagePerfTest extends PerfTestBase {
+       @Test(groups = {"perf"})
+       public void homePage_ShouldMeetBudget() throws Exception {
+           TestPlanStats stats = runGetLoadTest("mysite-home", "/");
+           PerfAssertions.assertSamplesRecorded(stats);
+           PerfAssertions.assertErrorRateUnder(stats);
+           PerfAssertions.assertP99Under(stats);
+       }
+   }
+   ```
+2. **Suite file** — `testng-suites/mysite-perf.xml`, copy `testng-suites/demoqa-perf.xml` or `testng-suites/jsonplaceholder-perf.xml` as a template.
+3. **Run it**:
+   ```bash
+   mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-perf.xml -Dgroups=perf
+   ```
+4. **(Optional) Tune the load profile** per-site — add `perf.threads`/`perf.rampUpSeconds`/`perf.maxP99Millis`/etc. to `config/mysite.properties` if its real-world traffic profile differs from the `global.properties` defaults, same override mechanism as everything else in `PerfConfig`.
+5. **(Optional) Wire into CI** — add one matrix entry to the `perf-tests` job in `.github/workflows/github-ci.yml`, same pattern as the API-only checklist's step 8 above.
 
 ---
 

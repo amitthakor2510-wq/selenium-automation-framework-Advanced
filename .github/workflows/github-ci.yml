@@ -1030,6 +1030,159 @@ jobs:
           retention-days: 7
 
   # ================================================================
+  # API Tests — pure-HTTP, no browser/Grid at all (testng-suites/api-tests*.xml)
+  # ================================================================
+  # Runs on every push/PR, same as `test` — unlike accessibility-visual-test/
+  # security-scan, these are fast (seconds, not minutes) and deterministic
+  # enough to gate merges on, not just a nightly report. Deliberately its own
+  # job rather than folded into `test`: `test` needs the full ChromeDriver/
+  # Selenium Grid matrix setup these classes don't use at all, so keeping API
+  # tests separate means they still run (and finish first) even if the
+  # browser-matrix setup step itself is slow or flaky that day.
+  #
+  # One matrix entry per known API suite file, each independently gated on
+  # its own site being enabled (pipeline-config.properties) — mirrors
+  # accessibility-visual-test's "if suite file not found, skip" defensive
+  # pattern below, just checking site-enablement instead of file-existence
+  # (the files themselves are always present; whether to actually spend CI
+  # minutes running them is the pipeline-config.properties toggle). Adding a
+  # new API-only site (see docs/extending.md) means adding one line to this
+  # matrix, same as accessibility-visual-test's own suite: [...] list above.
+  # ================================================================
+  api-tests:
+    needs: [ build, matrix-setup ]
+    runs-on: ubuntu-latest
+    env:
+      RP_API_KEY: ${{ secrets.RP_API_KEY }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - site: demoqa
+            suiteFile: testng-suites/api-tests.xml
+          - site: jsonplaceholder
+            suiteFile: testng-suites/api-tests-jsonplaceholder.xml
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run API Suite
+        run: |
+          echo "======= Running ${{ matrix.site }} API Tests ======="
+          if ! bash Scripts/enabled-sites.sh --check ${{ matrix.site }}; then
+            echo "site.${{ matrix.site }}.enabled is not true in pipeline-config.properties - skipping"
+            exit 0
+          fi
+          mvn -B test \
+            -Dsite=${{ matrix.site }} \
+            -DsuiteXmlFile=${{ matrix.suiteFile }} \
+            -Dallure.results.directory=target/allure-results/${{ matrix.site }}-api \
+            -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
+            -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
+            -Dreportportal.project=${{ secrets.RP_PROJECT }} \
+            -Dreportportal.attributes="site:${{ matrix.site }};suite:api;ci:github-actions;run:${{ github.run_id }}" \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.site }}-api
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Extent + Surefire Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.site }}-api-${{ github.run_id }}
+          path: |
+            target/extent-reports/
+            target/logs/
+            target/surefire-reports/
+          retention-days: 7
+
+  # ================================================================
+  # Performance Tests — Java DSL load tests (core/perf, testng-suites/*-perf.xml)
+  # ================================================================
+  # Nightly-only (schedule gate), same reasoning as accessibility-visual-test:
+  # a load test's pass/fail depends on response-time/error-rate budgets
+  # (PerfConfig.maxP99Millis/maxErrorRatePercent) that a shared, variably-loaded
+  # CI runner cannot fairly be held to on every push — nightly gives a more
+  # consistent baseline, and still catches a real regression within a day.
+  # The legacy perf/basic-smoke.jmx (`mvn verify -Pperf`) is intentionally NOT
+  # wired into any CI job here — it remains a local/manual sanity check, see
+  # docs/performance-testing-guide.md.
+  # ================================================================
+  perf-tests:
+    needs: [ build, matrix-setup ]
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      RP_API_KEY: ${{ secrets.RP_API_KEY }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - site: demoqa
+            suiteFile: testng-suites/demoqa-perf.xml
+          - site: jsonplaceholder
+            suiteFile: testng-suites/jsonplaceholder-perf.xml
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Performance Suite
+        run: |
+          echo "======= Running ${{ matrix.site }} Performance Tests ======="
+          if ! bash Scripts/enabled-sites.sh --check ${{ matrix.site }}; then
+            echo "site.${{ matrix.site }}.enabled is not true in pipeline-config.properties - skipping"
+            exit 0
+          fi
+          mvn -B test \
+            -Dsite=${{ matrix.site }} \
+            -DsuiteXmlFile=${{ matrix.suiteFile }} \
+            -Dgroups=perf \
+            -Dallure.results.directory=target/allure-results/${{ matrix.site }}-perf \
+            -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
+            -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
+            -Dreportportal.project=${{ secrets.RP_PROJECT }} \
+            -Dreportportal.attributes="site:${{ matrix.site }};suite:perf;ci:github-actions;run:${{ github.run_id }}" \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload Allure Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.site }}-perf
+          path: target/allure-results/
+          retention-days: 7
+
+      - name: Upload Performance Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-reports-${{ matrix.site }}-${{ github.run_id }}
+          path: |
+            target/perf-reports/
+            target/surefire-reports/
+          retention-days: 14
+
+  # ================================================================
   # Security — OWASP Dependency-Check (mvn verify -Psecurity, see pom.xml)
   # ================================================================
   # Scans every resolved dependency against the NVD CVE database. First
@@ -1234,16 +1387,16 @@ jobs:
   # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
-    needs: [ test, mobile-test, accessibility-visual-test ]
-    # accessibility-visual-test only actually runs on the schedule
-    # trigger, and the safari leg of `test` above only runs on push (plus
-    # manual dispatch with run_safari ticked — see the `test` job's own
-    # `if:`) but is still skipped on PR runs — `always()` here means this
-    # job still runs on ordinary pushes/PRs even though those jobs may
-    # show as skipped rather than succeeded, which `needs:` alone would
-    # block on. test-safari no longer exists as a separate job — its
-    # matrix legs are now folded into `test` (see matrix.os there), so
-    # `needs: test` already covers them.
+    needs: [ test, mobile-test, accessibility-visual-test, api-tests, perf-tests ]
+    # accessibility-visual-test/perf-tests only actually run on the
+    # schedule trigger, and the safari leg of `test` above only runs on
+    # push (plus manual dispatch with run_safari ticked — see the `test`
+    # job's own `if:`) but is still skipped on PR runs — `always()` here
+    # means this job still runs on ordinary pushes/PRs even though those
+    # jobs may show as skipped rather than succeeded, which `needs:`
+    # alone would block on. test-safari no longer exists as a separate
+    # job — its matrix legs are now folded into `test` (see matrix.os
+    # there), so `needs: test` already covers them.
     if: always()
     runs-on: ubuntu-latest
     permissions:
