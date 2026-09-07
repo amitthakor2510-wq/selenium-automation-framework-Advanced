@@ -2074,17 +2074,56 @@ public class CaptchaSolver {
     // split perfectly evenly in practice.
     private static final double MIN_SPLIT_HALF_RATIO = 0.4;
 
-    /** Rebuilds a Segment for a sub-region of the original image, with a real (not assumed-solid) pixel count. */
+    /**
+     * Rebuilds a Segment for a sub-region of the original image, with a real
+     * (not assumed-solid) pixel count AND a re-tightened y0/y1 bounding box.
+     *
+     * Bug fixed here: this is called by trySplitByColumnValley() to build
+     * the two halves after slicing a wide, touching-characters component
+     * down the middle. The caller only knows a new x-range for each half —
+     * it still passes the ORIGINAL (parent) component's y0/y1 straight
+     * through unchanged. That's fine when both halves are similarly tall,
+     * but when a short, case-symmetric lowercase letter (o/s/u/v/w/x/z —
+     * see CASE_SYMMETRIC_LETTERS) is touching a taller neighbor with an
+     * ascender or descender (e.g. real captcha "bpo33", where "b"+"p"+"o"
+     * fuse into one blob before splitting), the short letter's half kept
+     * reporting the TALL parent's full height instead of its own — which
+     * fed a wrong (near 1.0, "looks uppercase") height ratio straight into
+     * applyRelativeCaseCorrection()/applyRelativeCaseCorrectionToVisionAnswer(),
+     * flipping an already-correct lowercase read (e.g. AI Vision's correct
+     * "bpo33") into a wrong one ("bpO33"). Confirmed against a real captcha
+     * screenshot (text_captcha_20260907_134151.png) where this silently
+     * corrupted an otherwise-correct AI Vision answer.
+     *
+     * Fix: scan for the actual min/max y containing ink WITHIN this
+     * sub-region and use that as the segment's real y0/y1, exactly the way
+     * findConnectedComponents() derives a tight box for a genuine standalone
+     * component. If the half has no ink at all (shouldn't normally happen,
+     * but the caller/valley search could theoretically produce an empty
+     * slice), fall back to the caller-supplied box rather than emit an
+     * inverted (minY > maxY) range.
+     */
     private Segment rebuildSegmentFromBinary(int x0, int y0, int x1, int y1, BufferedImage binary) {
         int pixelCount = 0;
+        int minY = Integer.MAX_VALUE;
+        int maxY = Integer.MIN_VALUE;
         for (int x = x0; x < x1; x++) {
             for (int y = y0; y < y1; y++) {
                 if (isInk(binary, x, y)) {
                     pixelCount++;
+                    if (y < minY) {
+                        minY = y;
+                    }
+                    if (y > maxY) {
+                        maxY = y;
+                    }
                 }
             }
         }
-        return new Segment(x0, y0, x1, y1, pixelCount);
+        if (pixelCount == 0) {
+            return new Segment(x0, y0, x1, y1, 0);
+        }
+        return new Segment(x0, minY, x1, maxY + 1, pixelCount);
     }
 
     /**

@@ -1528,11 +1528,54 @@ jobs:
       # same job), so it sometimes still sees no gh-pages branch, tries to
       # create one via `checkout --orphan`, and collides with local state
       # left behind from its own clone attempt. One push instead of two
-      # removes the race entirely, and keep_files: true still preserves
-      # whatever already lives on the branch from previous runs.
+      # removes the race entirely.
+      #
+      # THIS STEP NOW STARTS FROM THE REAL gh-pages CONTENT, NOT AN EMPTY
+      # DIR. Previously it started from an always-empty target/gh-pages-publish
+      # and relied on keep_files: true in the deploy step below to merge
+      # that in on top of whatever already existed on the branch. That
+      # merge is ADD/OVERWRITE-ONLY — it never deletes a file that isn't
+      # re-supplied this run. Allure's own Allure.addAttachment() (used in
+      # TestListener.java) writes every screenshot/log attachment under a
+      # freshly random UUID filename on EVERY run, even for the exact same
+      # test/failure, and allure-segmented duplicates each of those into
+      # 4-5 more per-dimension report trees on top of that. So every past
+      # run's now-orphaned attachment files (old UUID, never referenced by
+      # the current report's own index) just piled up under allure-report/,
+      # extent-report/, and allure-segmented/ forever — this is exactly the
+      # same failure shape already diagnosed and fixed for target/videos/
+      # below, just recurring inside Allure/Extent's own output instead.
+      # That's what grew gh-pages to 1M+ files and made the Deploy step's
+      # own clone of the branch slow enough to fail/time out.
+      #
+      # Fix: seed target/gh-pages-publish from the gh-pages/ checkout
+      # ("Load Previous Allure History" step above) MINUS the three
+      # subtrees being regenerated this run, then lay the fresh local
+      # builds on top, then push the result as a full mirror (keep_files:
+      # false, see the Deploy step below) instead of an additive overlay.
+      # That actually drops stale attachment files every run instead of
+      # accumulating them, while still preserving anything else on the
+      # branch that isn't one of these three dirs, because it's copied
+      # from the real current branch content rather than reconstructed.
       - name: Assemble combined GitHub Pages publish directory
         run: |
           mkdir -p target/gh-pages-publish
+          # Seed from the real current gh-pages content (checked out
+          # earlier as gh-pages/) so anything NOT regenerated this run
+          # (and not one of the three report dirs below) survives the
+          # upcoming full-mirror push. continue-on-error: true on that
+          # checkout step means gh-pages/ may not exist at all yet
+          # (first-ever deploy) — that's fine, just start from empty.
+          if [ -d "gh-pages" ]; then
+            rsync -a --exclude='.git' gh-pages/. target/gh-pages-publish/
+          fi
+          # Drop the old versions of exactly the three trees we're about
+          # to regenerate, so their stale/orphaned UUID-named attachment
+          # files from past runs don't survive into the fresh copy below.
+          rm -rf target/gh-pages-publish/allure-report
+          rm -rf target/gh-pages-publish/extent-report
+          rm -rf target/gh-pages-publish/allure-segmented
+
           if [ -d "target/allure-report" ]; then
             mkdir -p target/gh-pages-publish/allure-report
             cp -r target/allure-report/. target/gh-pages-publish/allure-report/
@@ -1551,23 +1594,15 @@ jobs:
           else
             echo "::warning::target/allure-segmented missing — segmented (by browser/site/type/category) Allure reports will not be updated this run"
           fi
-          # NOTE: target/videos/ is deliberately NOT copied into
-          # gh-pages-publish/ here. It used to be, but this job's
-          # "Deploy Reports to GitHub Pages" step below runs with
-          # keep_files: true, which only ever ADDS/overwrites files on the
-          # gh-pages branch — it never deletes anything. Video filenames
-          # are per-site/per-browser/per-run, so every record_video=true
-          # run's recordings landed at a brand-new path and just piled up
-          # on that branch forever, with nothing ever pruning old ones —
-          # this is what eventually pushed the branch/publish past
-          # GitHub's ~10GB artifact size limit and made this step start
-          # failing to publish. Videos already get their own short-lived
-          # (retention-days: 7) actions/upload-artifact upload in the
-          # "Run Tests" job above — that's the right place for them.
+          # target/videos/ stays deliberately excluded from gh-pages-publish/
+          # for the same reason as above — per-run/per-site/per-browser
+          # filenames with no bound. Videos already get their own
+          # short-lived (retention-days: 7) actions/upload-artifact upload
+          # in the "Run Tests" job above — that's the right place for them.
           # Anyone who wants a specific run's video should download it
           # from that run's Artifacts list; if permanently-hosted
           # highlight videos are ever wanted, prune old ones by run/date
-          # before adding them back here rather than keeping every one.
+          # before adding them here rather than keeping every one.
 
       # ExtentManager nests each report at <site>/<browser-or-mobile>/<suite>/
       # index.html (not a single flat index.html) — so extent-report/ on its
@@ -1587,11 +1622,20 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/gh-pages-publish
-          # Preserves anything already on the branch that isn't under
-          # allure-report/ or extent-report/ this run (e.g. if one of the
-          # two was skipped above because its source directory was
-          # missing).
-          keep_files: true
+          # keep_files: false — this is now a FULL MIRROR push, not an
+          # additive overlay. That's intentional and safe: the "Assemble
+          # combined GitHub Pages publish directory" step above already
+          # seeded target/gh-pages-publish from the real current gh-pages
+          # content (so anything unrelated to Allure/Extent/segmented
+          # reports is preserved), then deleted and freshly rebuilt just
+          # those three report trees. Mirroring that assembled tree is
+          # what actually lets stale, orphaned UUID-named Allure/Extent
+          # attachment files from past runs get dropped instead of piling
+          # up forever — see that step's comments for the full history.
+          # (keep_files: true previously meant the deploy step itself
+          # could never delete anything, which is what let gh-pages grow
+          # past 1M files and start failing/timing out on its own clone.)
+          keep_files: false
 
       # Prints clickable report links directly on the workflow run's
       # Summary tab, so viewing the reports never requires downloading
