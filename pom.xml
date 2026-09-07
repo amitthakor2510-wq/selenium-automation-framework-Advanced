@@ -520,26 +520,18 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- JMeter Java DSL — write load/performance tests as ordinary Java
-         (see core/perf/PerfTestBase.java) instead of hand-edited .jmx XML.
-         Runs a real embedded JMeter engine under the hood; the DSL is just
-         a programmatic, code-reviewable, IDE-refactorable front end for it
-         (a jmx2dsl tool also exists upstream for migrating the other
-         direction, from an existing .jmx into DSL code, if perf/basic-
-         smoke.jmx is ever ported over). Pinned to the latest release as of
-         this addition (2.2.1, per Maven Central/mvnrepository.com) rather
-         than a range, matching this project's version-pinning convention
-         everywhere else. Could not verify this resolves/builds in this
-         sandbox (no Maven Central access here), same caveat as
-         monte-screen-recorder/axe-core/pitest above — run
-         `mvn dependency:resolve` locally and bump if this version has
-         since been yanked. -->
-    <dependency>
-      <groupId>us.abstracta.jmeter</groupId>
-      <artifactId>jmeter-java-dsl</artifactId>
-      <version>2.2.1</version>
-      <scope>test</scope>
-    </dependency>
+    <!-- JMeter Java DSL moved to the opt-in "perf" profile below (real bug
+         fix — see that profile's comment). It used to sit here as a plain
+         test-scope dependency, which meant PLAIN `mvn test`/`test-compile`
+         (no -P flag at all, used everywhere else in this project and in
+         CI) had to resolve JMeter's entire embedded engine plus its
+         Kotlin/lets-plot/Batik/Groovy/darklaf transitive tree just to
+         compile core/perf/PerfTestBase.java and PerfAssertions.java —
+         directly contradicting this project's own stated "opt-in, `mvn
+         test` completely unaffected" pattern that the perf/security/
+         mutation profiles all follow for their *plugins*. See the "perf"
+         profile for the dependency and the matching testExcludes below
+         that keeps the perf sources out of the default compile too. -->
 
     <!-- axe-core — accessibility (WCAG/GIGW-adjacent) scanning, see
          core/utils/AccessibilityUtils.java. Version pinned against what was
@@ -639,6 +631,17 @@
               <version>${lombok.version}</version>
             </path>
           </annotationProcessorPaths>
+          <!-- Perf sources depend on jmeter-java-dsl, which now lives only
+               in the "perf" profile (see that profile + the removed
+               top-level dependency comment above). Excluding them here
+               keeps plain `mvn test`/`test-compile` — used everywhere else,
+               CI included — from needing JMeter's dependency tree at all.
+               The perf profile below re-includes them with an empty
+               override of this same list. -->
+          <testExcludes>
+            <testExclude>**/core/perf/**</testExclude>
+            <testExclude>**/sites/*/perf/**</testExclude>
+          </testExcludes>
         </configuration>
       </plugin>
 
@@ -967,8 +970,40 @@
   <profiles>
     <profile>
       <id>perf</id>
+      <dependencies>
+        <!-- JMeter Java DSL — write load/performance tests as ordinary Java
+             (see core/perf/PerfTestBase.java) instead of hand-edited .jmx
+             XML. Runs a real embedded JMeter engine under the hood; the DSL
+             is just a programmatic, code-reviewable, IDE-refactorable front
+             end for it. Lives here (not as a top-level dependency) so that
+             plain `mvn test`/`test-compile` never needs JMeter's embedded-
+             engine dependency tree (Kotlin, lets-plot, Batik, Groovy,
+             darklaf, etc.) — only `mvn verify -Pperf` does. Pinned to
+             2.2.1, matching this project's version-pinning convention
+             everywhere else. Could not verify this resolves/builds in this
+             sandbox (no Maven Central access here) — run
+             `mvn dependency:resolve -Pperf` locally and bump if this
+             version has since been yanked. -->
+        <dependency>
+          <groupId>us.abstracta.jmeter</groupId>
+          <artifactId>jmeter-java-dsl</artifactId>
+          <version>2.2.1</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
       <build>
         <plugins>
+          <!-- Re-include the perf sources that the default compiler config
+               (see maven-compiler-plugin above) excludes, now that this
+               profile's jmeter-java-dsl dependency above makes them
+               resolvable/compilable. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <testExcludes combine.self="override"/>
+            </configuration>
+          </plugin>
           <plugin>
             <groupId>com.lazerycode.jmeter</groupId>
             <artifactId>jmeter-maven-plugin</artifactId>

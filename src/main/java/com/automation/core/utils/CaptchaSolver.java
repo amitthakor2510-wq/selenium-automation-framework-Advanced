@@ -151,6 +151,17 @@ public class CaptchaSolver {
     private final int manualEntryTimeoutSeconds = ConfigReader.getInt("captcha.manualEntry.timeoutSeconds", 120);
 
     private final boolean aiEnabled = ConfigReader.getBoolean("captcha.ai.enabled", false);
+    // When AI Vision is used, also run the classical OCR pipeline alongside it
+    // (not just as a fallback when AI fails) and reconcile the two answers —
+    // see resolveTextCaptchaAnswer()/reconcileAiAndOcrAnswers(). Two
+    // independently-implemented readers agreeing is much stronger evidence
+    // than either alone, especially against a CAPTCHA style/font this
+    // deployment hasn't been tuned against before, and a disagreement
+    // between them is itself a useful, loggable signal. Set to false to
+    // skip the extra OCR pass whenever AI Vision alone already succeeds
+    // (matches the old "AI first, OCR only as a fallback" behavior, trading
+    // away the cross-check for a little less latency/CPU per CAPTCHA).
+    private final boolean aiCrossCheckWithOcr = ConfigReader.getBoolean("captcha.ai.crossCheckWithOcr", true);
     // captcha.ai.provider: "anthropic" (default, unchanged behavior) or
     // "ollama" — a local/remote Ollama server running a vision-capable model
     // (e.g. llava). Ollama's /api/generate has a completely different
@@ -887,6 +898,134 @@ public class CaptchaSolver {
      *
      * @return solved text
      */
+    /**
+     * Shared by solveTextCaptcha() and solveWithAI(): resolves a single
+     * CAPTCHA screenshot to a final answer string, optionally attempting AI
+     * Vision and always attempting OCR when AI doesn't produce a usable
+     * answer on its own — and, when aiCrossCheckWithOcr is true (the
+     * default) and AI DID succeed, running OCR anyway as an independent
+     * cross-check rather than skipping it. See reconcileAiAndOcrAnswers()
+     * for how the two are combined when both are present.
+     *
+     * @param attemptAi whether to try AI Vision at all for this call — the
+     *                  two callers differ here: solveTextCaptcha() only
+     *                  attempts it when captcha.ai.enabled=true, while
+     *                  solveWithAI() (the explicit SOLVE_CAPTCHA_WITH_AI
+     *                  keyword) always attempts it regardless of that flag.
+     * @return the final answer, or null if neither AI nor OCR produced one.
+     */
+    private String resolveTextCaptchaAnswer(File captchaFile, int expectedLength, boolean attemptAi) {
+        String aiAnswer = null;
+
+        if (attemptAi) {
+            try {
+                aiAnswer = solveViaVision(captchaFile, expectedLength);
+                log.info("✅ Text CAPTCHA solved via AI Vision: [{}]", aiAnswer);
+            } catch (Exception aiEx) {
+                log.warn("⚠ AI Vision solve failed ({}) — falling back to OCR for this CAPTCHA",
+                    aiEx.getMessage());
+            }
+        }
+
+        String ocrAnswer = null;
+        boolean haveAiAnswer = aiAnswer != null && !aiAnswer.isEmpty();
+        if (!haveAiAnswer || aiCrossCheckWithOcr) {
+            try {
+                BufferedImage processed = preprocessImage(captchaFile);
+                ocrAnswer = resolveViaOcr(processed, expectedLength);
+            } catch (Exception ocrEx) {
+                log.debug("OCR read failed/unavailable ({}) — {}", ocrEx.getMessage(),
+                    haveAiAnswer ? "continuing with the AI Vision answer alone"
+                        : "no answer available from either path");
+            }
+        }
+
+        return reconcileAiAndOcrAnswers(aiAnswer, ocrAnswer, expectedLength, captchaFile);
+    }
+
+    /**
+     * Combines an AI Vision answer and an OCR answer for the same CAPTCHA
+     * into one final answer, logging enough detail to actually measure
+     * agreement over time as this solver is pointed at new sites/CAPTCHA
+     * styles it hasn't been tuned against before.
+     *
+     * Preference order:
+     *   1. If only one of the two is present/non-empty, use it — nothing to
+     *      reconcile.
+     *   2. If a known expected length is available and exactly ONE answer
+     *      matches it, prefer that one regardless of provider — a length
+     *      mismatch is a strong, cheap signal of a bad read (the same
+     *      principle solveViaVision()'s own length-mismatch retry already
+     *      relies on).
+     *   3. If both answers are identical, use it — two independently
+     *      implemented readers agreeing is the strongest evidence available.
+     *   4. If they agree case-insensitively but differ in case, prefer the
+     *      AI Vision answer — it's already been through pixel-height case
+     *      correction (applyRelativeCaseCorrectionToVisionAnswer(), the
+     *      same logic OCR itself uses), so log the residual case-only
+     *      disagreement for visibility without changing which provider wins.
+     *   5. A genuine character-level disagreement is logged at WARN with
+     *      both readings and the saved image path for manual review, and
+     *      the AI Vision answer is kept (this class's established "AI
+     *      Vision first" preference) — but now VISIBLY: previously, once
+     *      AI Vision succeeded, OCR never even ran, so a disagreement like
+     *      this couldn't be seen or measured at all.
+     */
+    private String reconcileAiAndOcrAnswers(String aiAnswer, String ocrAnswer, int expectedLength,
+                                            File captchaFile) {
+        boolean haveAi = aiAnswer != null && !aiAnswer.isEmpty();
+        boolean haveOcr = ocrAnswer != null && !ocrAnswer.isEmpty();
+
+        if (!haveAi && !haveOcr) {
+            return null;
+        }
+        if (!haveOcr) {
+            return aiAnswer;
+        }
+        if (!haveAi) {
+            if (expectedLength > 0 && ocrAnswer.length() != expectedLength) {
+                log.warn("⚠ Solved CAPTCHA length ({}) does not match expected length ({}). "
+                        + "The result might be incorrect. Solved: [{}]",
+                    ocrAnswer.length(), expectedLength, ocrAnswer);
+            }
+            return ocrAnswer;
+        }
+
+        // Both are present from here on.
+        boolean aiMatchesLength = expectedLength <= 0 || aiAnswer.length() == expectedLength;
+        boolean ocrMatchesLength = expectedLength <= 0 || ocrAnswer.length() == expectedLength;
+
+        if (aiMatchesLength && !ocrMatchesLength) {
+            log.info("🔀 AI Vision/OCR cross-check: only the AI Vision answer matches the expected "
+                + "length ({}) — using it. AI=[{}], OCR=[{}]", expectedLength, aiAnswer, ocrAnswer);
+            return aiAnswer;
+        }
+        if (ocrMatchesLength && !aiMatchesLength) {
+            log.info("🔀 AI Vision/OCR cross-check: only the OCR answer matches the expected length "
+                    + "({}) — using it despite the usual AI-first preference. AI=[{}], OCR=[{}]",
+                expectedLength, aiAnswer, ocrAnswer);
+            return ocrAnswer;
+        }
+
+        if (aiAnswer.equals(ocrAnswer)) {
+            log.info("✅ AI Vision/OCR cross-check: both readers agree exactly: [{}]", aiAnswer);
+            return aiAnswer;
+        }
+
+        if (aiAnswer.equalsIgnoreCase(ocrAnswer)) {
+            log.debug("AI Vision/OCR cross-check: readers agree except for case (AI=[{}], OCR=[{}]) "
+                    + "— using the AI Vision answer (already pixel-height case-corrected).",
+                aiAnswer, ocrAnswer);
+            return aiAnswer;
+        }
+
+        log.warn("⚠ AI Vision/OCR cross-check DISAGREEMENT — AI=[{}], OCR=[{}]. Using the AI Vision "
+                + "answer (established preference) but this disagreement is worth reviewing manually "
+                + "— saved screenshot: {}",
+            aiAnswer, ocrAnswer, captchaFile.getAbsolutePath());
+        return aiAnswer;
+    }
+
     public String solveTextCaptcha(WebDriver driver,
                                    WebElement captchaImage,
                                    WebElement captchaInputField) {
@@ -917,34 +1056,11 @@ public class CaptchaSolver {
             // that gets truncated by the field itself.
             int effectiveExpectedLength = resolveExpectedLength(driver, captchaInputField);
 
-            String solved = null;
-
-            if (aiEnabled) {
-                try {
-                    solved = solveViaVision(captchaFile, effectiveExpectedLength);
-                    log.info("✅ Text CAPTCHA solved via AI Vision: [{}]", solved);
-                } catch (Exception aiEx) {
-                    log.warn("⚠ AI Vision solve failed ({}) — falling back to OCR for this CAPTCHA",
-                        aiEx.getMessage());
-                    solved = null;
-                }
-            }
-
-            if (solved == null || solved.isEmpty()) {
-                // 2. Pre-process for OCR
-                BufferedImage processed = preprocessImage(captchaFile);
-
-                // 3. Identify every character first — nothing gets typed until
-                //    this returns a final answer. resolveViaOcr() runs the
-                //    per-character segmentation pipeline first (see class
-                //    javadoc) and falls back to whole-string OCR automatically.
-                solved = resolveViaOcr(processed, effectiveExpectedLength);
-                if (effectiveExpectedLength > 0 && solved.length() != effectiveExpectedLength) {
-                    log.warn("⚠ Solved CAPTCHA length ({}) does not match expected length ({}). " +
-                            "The result might be incorrect. Solved: [{}]",
-                        solved.length(), effectiveExpectedLength, solved);
-                }
-            }
+            // Resolves via AI Vision (only if captcha.ai.enabled=true), OCR, or
+            // both — when both run, resolveTextCaptchaAnswer() cross-checks
+            // them against each other rather than blindly trusting whichever
+            // ran first. See its javadoc and reconcileAiAndOcrAnswers().
+            String solved = resolveTextCaptchaAnswer(captchaFile, effectiveExpectedLength, aiEnabled);
 
             if (solved == null || solved.isEmpty()) {
                 log.error("❌ solveTextCaptcha: could not identify any characters at all "
@@ -1346,6 +1462,103 @@ public class CaptchaSolver {
             return new CharGuess(String.valueOf(corrected), guess.confidence);
         }
         return guess;
+    }
+
+    /**
+     * Applies the same relative-height case heuristic used by segmentedIdentify()
+     * (see applyRelativeCaseCorrection() above) to an AI Vision answer instead
+     * of an OCR one.
+     *
+     * Vision models are told in the prompt to judge case for case-symmetric
+     * letters (CASE_SYMMETRIC_LETTERS: C/c, O/o, S/s, U/u, V/v, W/w, X/x, Z/z)
+     * "from height relative to the other characters" — but that's asking a
+     * vision-language model to do a precise geometric measurement from a
+     * verbal instruction alone, which smaller/local models in particular are
+     * unreliable at, even though they usually identify WHICH letter it is
+     * correctly. Classical connected-component analysis measures that same
+     * pixel height directly and exactly, so instead of trusting the model's
+     * own case judgment, this keeps the model's character identity (its
+     * shape-reading is generally fine) and overrides ONLY the case of
+     * case-symmetric letters using the same referenceHeight-ratio logic
+     * segmentedIdentify() already trusts for OCR.
+     *
+     * This requires connected-component segmentation to find EXACTLY as many
+     * character segments as the vision answer has characters, in left-to-right
+     * order, so each segment can be paired positionally with the model's
+     * character at that index. If segmentation is disabled, the image can't
+     * be segmented into that exact count (e.g. touching/overlapping glyphs
+     * segmentation can't cleanly split), or anything else goes wrong, this
+     * is a best-effort enhancement — it silently returns the vision answer
+     * completely unchanged rather than risk corrupting an otherwise-correct
+     * read. It never throws.
+     */
+    private String applyRelativeCaseCorrectionToVisionAnswer(File captchaFile, String visionAnswer) {
+        if (visionAnswer == null || visionAnswer.isEmpty() || !segmentationEnabled) {
+            return visionAnswer;
+        }
+        try {
+            BufferedImage processed = preprocessImage(captchaFile);
+
+            List<Segment> raw = findConnectedComponents(processed);
+            List<Segment> noBorder = removeBorderFrameComponents(raw, processed.getWidth(), processed.getHeight());
+            List<Segment> denoised = filterNoiseComponents(noBorder);
+            List<Segment> wholeGlyphs = mergeFragments(denoised);
+            List<Segment> merged = splitTouchingCharactersAdaptive(wholeGlyphs, processed, visionAnswer.length());
+            merged.sort(Comparator.comparingInt(s -> s.x0));
+
+            if (merged.size() != visionAnswer.length()) {
+                log.debug("Vision case-correction: connected-component segmentation found {} segment(s) but "
+                        + "the AI Vision answer has {} character(s) — can't align segments to characters "
+                        + "1:1, leaving the AI Vision case reading as-is: [{}]",
+                    merged.size(), visionAnswer.length(), visionAnswer);
+                return visionAnswer;
+            }
+
+            // Reference (full-glyph) height, exactly as segmentedIdentify() computes
+            // it — but anchored on the VISION model's own character identities
+            // rather than an OCR guess, since we're trusting the model for shape.
+            int referenceHeight = 0;
+            for (int i = 0; i < merged.size(); i++) {
+                char upper = Character.toUpperCase(visionAnswer.charAt(i));
+                if (CASE_SYMMETRIC_LETTERS.indexOf(upper) < 0) {
+                    referenceHeight = Math.max(referenceHeight, merged.get(i).height());
+                }
+            }
+            if (referenceHeight <= 0) {
+                log.debug("Vision case-correction: every character in [{}] is case-symmetric — no anchor "
+                    + "glyph to measure against, leaving the AI Vision case reading as-is.", visionAnswer);
+                return visionAnswer;
+            }
+
+            StringBuilder corrected = new StringBuilder(visionAnswer.length());
+            boolean anyChanged = false;
+            for (int i = 0; i < visionAnswer.length(); i++) {
+                char c = visionAnswer.charAt(i);
+                char upper = Character.toUpperCase(c);
+                if (CASE_SYMMETRIC_LETTERS.indexOf(upper) < 0) {
+                    corrected.append(c);
+                    continue;
+                }
+                double ratio = (double) merged.get(i).height() / referenceHeight;
+                char fixed = ratio < caseHeightRatioThreshold ? Character.toLowerCase(upper) : upper;
+                if (fixed != c) {
+                    anyChanged = true;
+                }
+                corrected.append(fixed);
+            }
+
+            if (anyChanged) {
+                log.info("📏 Vision case-correction: pixel-height measurement overrode the AI's own case "
+                    + "reading -> [{}] (was: [{}])", corrected, visionAnswer);
+                return corrected.toString();
+            }
+            return visionAnswer;
+
+        } catch (Exception e) {
+            log.debug("Vision case-correction skipped ({}) — leaving the AI Vision answer as-is: [{}]",
+                e.getMessage(), visionAnswer);
+            return visionAnswer;
+        }
     }
 
     /**
@@ -2366,15 +2579,10 @@ public class CaptchaSolver {
             File captchaFile = screenshotElementWithMargin(driver, captchaImage, "ai_captcha");
             int expectedLength = resolveExpectedLength(driver, captchaInputField);
 
-            String solved;
-            try {
-                solved = solveViaVision(captchaFile, expectedLength);
-                log.info("✅ CAPTCHA solved via AI Vision: [{}]", solved);
-            } catch (Exception aiEx) {
-                log.warn("⚠ AI Vision solve failed ({}) — falling back to OCR", aiEx.getMessage());
-                BufferedImage processed = preprocessImage(captchaFile);
-                solved = resolveViaOcr(processed, expectedLength);
-            }
+            // attemptAi=true unconditionally: SOLVE_CAPTCHA_WITH_AI always uses
+            // AI Vision regardless of captcha.ai.enabled (see class javadoc) —
+            // OCR still runs alongside/as fallback per resolveTextCaptchaAnswer().
+            String solved = resolveTextCaptchaAnswer(captchaFile, expectedLength, true);
 
             if (solved == null || solved.isEmpty()) {
                 log.error("❌ solveWithAI: could not identify any characters (AI and OCR fallback both "
@@ -2442,6 +2650,13 @@ public class CaptchaSolver {
                     retryEx.getMessage(), solved);
             }
         }
+
+        // Cross-check the model's own case judgment for case-symmetric letters
+        // (C/c, O/o, S/s, U/u, V/v, W/w, X/x, Z/z) against actual pixel height —
+        // see applyRelativeCaseCorrectionToVisionAnswer() javadoc. Runs after
+        // the length-mismatch retry above so it always measures the final,
+        // length-correct answer rather than a since-discarded first attempt.
+        solved = applyRelativeCaseCorrectionToVisionAnswer(captchaFile, solved);
 
         return solved;
     }
@@ -2689,6 +2904,16 @@ public class CaptchaSolver {
      *      screenshotElementWithMargin() giving it more of the actual pixels
      *      to work with in the first place.
      */
+    /**
+     * NOTE: the confusable-pairs list below is hand-written prose (each pair
+     * needs its own "how to tell them apart" clue, which a generic loop over
+     * CONFUSABLE_PAIRS can't produce) and is NOT generated from
+     * CONFUSABLE_PAIRS above — it must be kept in sync with it manually.
+     * This already drifted out of sync once (CONFUSABLE_PAIRS has had '2'/'Z'
+     * for a while; this prompt never mentioned it until a real SAHMAT
+     * CAPTCHA got misread as a direct result). When adding a new pair to
+     * CONFUSABLE_PAIRS for the OCR side, add the equivalent guidance here too.
+     */
     private String buildVisionPrompt(int expectedLength, String previousAttempt) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("This image is a distorted-text CAPTCHA. Reply with ONLY the exact characters "
@@ -2710,7 +2935,11 @@ public class CaptchaSolver {
             + "- '1' vs 'I' vs 'l' (lowercase L) vs 'i' vs '!' — check for a dot above the stroke (i), "
             + "serifs top and bottom (I), or a stroke/dot below the vertical line (!).\n"
             + "- '0' vs 'O' vs 'o', '5' vs 'S', '6' vs 'G', '8' vs 'B', '9' vs 'g'/'q', 'u' vs 'v', "
-            + "'m' vs 'n', 'c' vs 'e'.\n"
+            + "'m' vs 'n' vs 'h', 'c' vs 'e'.\n"
+            + "- '2' vs 'Z'/'z' — a '2' has a curved top (like the top of an 'S') and a flat, straight "
+            + "bottom stroke; a 'Z'/'z' has two straight, flat horizontal strokes joined by a single "
+            + "diagonal, with no curve anywhere. Only report 'Z'/'z' if you see two flat horizontals "
+            + "and no curve at the top.\n"
             + "- Upper vs lower case for letters that share the same basic shape at either case "
             + "(c/C, o/O, s/S, u/U, v/V, w/W, x/X, z/Z) — judge this from the character's height and "
             + "weight relative to the other characters in the same image, not from shape alone.\n\n");
@@ -3686,19 +3915,10 @@ public class CaptchaSolver {
                 discoveredLength, assumedExpectedLength > 0 ? String.valueOf(assumedExpectedLength) : "unknown",
                 solved.length());
 
-            String corrected = null;
-            if (aiEnabled) {
-                try {
-                    corrected = solveViaVision(captchaFile, discoveredLength);
-                } catch (Exception aiEx) {
-                    log.warn("⚠ AI Vision re-solve at the corrected length failed ({}) — falling back to OCR",
-                        aiEx.getMessage());
-                }
-            }
-            if (corrected == null || corrected.isEmpty()) {
-                BufferedImage processed = preprocessImage(captchaFile);
-                corrected = resolveViaOcr(processed, discoveredLength);
-            }
+            // Same AI/OCR cross-check as the initial solve (resolveTextCaptchaAnswer()) —
+            // kept consistent rather than duplicating an older AI-then-OCR-fallback-only
+            // version of this logic here.
+            String corrected = resolveTextCaptchaAnswer(captchaFile, discoveredLength, aiEnabled);
 
             if (corrected != null && !corrected.isEmpty() && !corrected.equals(solved)) {
                 log.info("✅ Re-solved CAPTCHA at the corrected length: [{}] (was: [{}])", corrected, solved);
