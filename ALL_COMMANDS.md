@@ -289,7 +289,24 @@ data-file readers) — not wired into any CI pipeline, same as `perf`.
 
 ---
 
-## 13. Test Impact Analysis (TIA) — run only tests affected by a code change
+## 13. Plain JUnit 5 Unit Tests (core/tia + core/data readers) — opt-in `unit-tests` profile
+
+```bash
+mvn verify -Punit-tests
+```
+Runs the JUnit 5 regression suites that have no other way to execute: `core/tia`'s own
+unit tests (`GitDiffReaderTest`, `SiteMapperTest`, `TestClassDetectorTest`,
+`SourcePathResolverTest`, `ResourceReferenceIndexTest`, `CoverageMapTest`,
+`ClassFileScannerAndDependencyGraphTest`, `UnsafeChangeRulesTest`,
+`TestImpactAnalyzerIntegrationTest` — see docs/TEST_IMPACT_ANALYSIS.md) plus the same
+`core/data/readers` tests `-Pmutation` above targets. Uses Failsafe (not Surefire) so it
+never touches the TestNG provider pinned for the default `mvn test` — see the
+`unit-tests` profile's own comment in pom.xml for why that separation matters. Not wired
+into any CI pipeline yet, same as `perf`/`mutation`.
+
+---
+
+## 14. Test Impact Analysis (TIA) — run only tests affected by a code change
 
 ```bash
 # See what would run, without running it
@@ -310,7 +327,7 @@ cat target/tia/impact-report.md
 
 ---
 
-## 14. Coverage Map (which tests exercise which classes)
+## 15. Coverage Map (which tests exercise which classes)
 
 ```bash
 ./Scripts/build-coverage-map.sh <site> [suiteXmlFile]
@@ -319,7 +336,7 @@ mvn -B -q exec:java@coverage-map -Pcoverage-map
 
 ---
 
-## 15. Artifact / Video Retention Cleanup
+## 16. Artifact / Video Retention Cleanup
 
 ```bash
 ./Scripts/prune-artifacts.sh                          # keep last 5 runs of target/videos
@@ -334,7 +351,7 @@ Opt-in only — never bound to any lifecycle phase; `mvn test`/`mvn clean` never
 
 ---
 
-## 16. ReportPortal (opt-in, local run against your own RP instance)
+## 17. ReportPortal (opt-in, local run against your own RP instance)
 
 ```bash
 export RP_API_KEY=<your-api-key>
@@ -346,7 +363,7 @@ mvn test -Preportportal \
 
 ---
 
-## 17. Site On/Off Switch (`pipeline-config.properties` reader)
+## 18. Site On/Off Switch (`pipeline-config.properties` reader)
 
 ```bash
 Scripts/enabled-sites.sh                        # newline list of every enabled site
@@ -361,7 +378,7 @@ Scripts/enabled-sites.sh --dotenv               # SITE_<NAME>_ENABLED=true|false
 
 ---
 
-## 18. Adding a New Site
+## 19. Adding a New Site
 
 ```bash
 ./Scripts/new-site.sh <sitename> <base-url>
@@ -373,7 +390,7 @@ mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-perf.xml -Dgroups=per
 
 ---
 
-## 19. Project Audit (package/directory consistency check)
+## 20. Project Audit (package/directory consistency check)
 
 ```bash
 Scripts/audit-project.sh                # run every check
@@ -383,7 +400,7 @@ Scripts/audit-project.sh --quick         # skip mvn compile (fast, no network ne
 
 ---
 
-## 20. Git Hooks (Checkstyle + gitleaks on commit)
+## 21. Git Hooks (Checkstyle + gitleaks on commit)
 
 ```bash
 Scripts/install-hooks.sh                # one-time per clone: point git at .githooks/
@@ -398,7 +415,7 @@ mvn -q checkstyle:check
 
 ---
 
-## 21. gh-pages Retention (squash branch history)
+## 22. gh-pages Retention (squash branch history)
 
 ```bash
 # Runs on a schedule (Sundays 03:00 UTC) or manually via workflow_dispatch
@@ -409,7 +426,7 @@ gh workflow run "gh-pages Retention (squash history)" -f keep_commits=50
 
 ---
 
-## 22. CI/CD — Jenkins service management (server-side, one-time setup)
+## 23. CI/CD — Jenkins service management (server-side, one-time setup)
 
 ```bash
 sudo systemctl edit jenkins
@@ -419,7 +436,7 @@ sudo systemctl restart jenkins
 
 ---
 
-## 23. Git / Setup
+## 24. Git / Setup
 
 ```bash
 git clone <repo-url> && cd selenium-automation-framework
@@ -427,7 +444,7 @@ git clone <repo-url> && cd selenium-automation-framework
 
 ---
 
-## 24. What CI itself runs (for reference — these fire automatically, you don't type them)
+## 25. What CI itself runs (for reference — these fire automatically, you don't type them)
 
 ```bash
 # GitHub Actions / GitLab CI security-scan job

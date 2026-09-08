@@ -55,7 +55,6 @@ CLASS="${SITE^}HomePage"
 # 1. Config
 # =========================================================================
 cat > "src/test/resources/config/${SITE}.properties" <<EOF
-site.name=${SITE}
 url=${URL}
 EOF
 echo "[✓] Created config/${SITE}.properties"

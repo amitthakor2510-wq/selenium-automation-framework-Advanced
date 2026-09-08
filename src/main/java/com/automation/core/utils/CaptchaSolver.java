@@ -528,10 +528,19 @@ public class CaptchaSolver {
         // rounded/distorted CAPTCHA font is a near-enclosed loop with a
         // short right-hand stroke — visually one flourish away from '@'.
         // See resolveConfusableByShape() for the geometric tiebreak.
-        Map.entry('a', new char[]{'@'}),
+        Map.entry('a', new char[]{'@', 'f'}),
         Map.entry('A', new char[]{'@'}),
         Map.entry('@', new char[]{'a', 'A'}),
-        Map.entry('e', new char[]{'c'})
+        Map.entry('e', new char[]{'c'}),
+        // 'f' vs 'a': seen for real on SAHMAT's CAPTCHA — this site draws a
+        // thin decorative strike-through/noise line across the whole image,
+        // and when that line happens to cross an 'f' near its ascender it
+        // visually closes the shape into something that reads as a bowl,
+        // i.e. an 'a'. Genuine 'f' has a tall ascender rising above the
+        // other characters plus a horizontal crossbar and no closed loop at
+        // the baseline; 'a' is a fully closed bowl the same height as
+        // neighbouring lowercase letters with no ascender at all.
+        Map.entry('f', new char[]{'a'})
     );
 
     // Every character CaptchaSolver will recognize/type for a text CAPTCHA —
@@ -2963,6 +2972,12 @@ public class CaptchaSolver {
         prompt.append("Every character in this CAPTCHA is one of: ").append(textCaptchaCharset).append(". ")
             .append("Do not output any character outside that set.\n\n");
 
+        prompt.append("The image may contain a thin, faint gray or black decorative line running across "
+            + "it (a strike-through or wavy background line). This line is NOT a character and carries no "
+            + "meaning — ignore it completely when identifying characters, even where it crosses through "
+            + "or overlaps one. Only the bold, solid-colored strokes are the actual characters; do not let "
+            + "the thin line close up, extend, or change the shape of a letter in your reading.\n\n");
+
         prompt.append("Read the image very carefully, character by character, and watch specifically for "
             + "these commonly-confused pairs — decide by the actual shape in front of you, not by which "
             + "one is more common in normal text:\n"
@@ -2975,6 +2990,11 @@ public class CaptchaSolver {
             + "serifs top and bottom (I), or a stroke/dot below the vertical line (!).\n"
             + "- '0' vs 'O' vs 'o', '5' vs 'S', '6' vs 'G', '8' vs 'B', '9' vs 'g'/'q', 'u' vs 'v', "
             + "'m' vs 'n' vs 'h', 'c' vs 'e'.\n"
+            + "- 'f' vs 'a' — 'f' has a tall ascender that rises clearly above the other lowercase "
+            + "characters, plus a horizontal crossbar partway up, and its bottom is an open curve or "
+            + "hook, never a fully closed loop. 'a' has no ascender at all (same height as other "
+            + "lowercase letters) and its bottom is a fully closed, round bowl shape. A stray line "
+            + "crossing an 'f' does not make it a closed bowl — judge by the ascender's presence alone.\n"
             + "- '2' vs 'Z'/'z' — a '2' has a curved top (like the top of an 'S') and a flat, straight "
             + "bottom stroke; a 'Z'/'z' has two straight, flat horizontal strokes joined by a single "
             + "diagonal, with no curve anywhere. Only report 'Z'/'z' if you see two flat horizontals "

@@ -28,7 +28,7 @@ import static org.hamcrest.Matchers.nullValue;
  * <p>Each test below documents a specific way the API is known to respond to bad input — a
  * duplicate account, a wrong password, an ISBN that doesn't exist, a request with no auth token
  * — based on the well-documented public DemoQA Book Store API contract. As with the JSON schemas
- * in {@code src/test/resources/schemas/bookstore/}, these exact status codes/messages were not
+ * in {@code src/test/resources/schemas/} (used by {@code BookStoreApiTest}), these exact status codes/messages were not
  * re-verified against a fresh live response as part of writing this class (no live network
  * access in that pass) — run this class for real once before relying on it in CI:
  *

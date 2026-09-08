@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import com.automation.core.api.ApiClient;
 import com.automation.sites.core.BaseApiTest;
+import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.response.Response;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -42,7 +43,7 @@ import static org.hamcrest.Matchers.not;
  *
  * Tests 1, 4, 5, and 7 also assert the response's whole shape via
  * {@code matchesJsonSchemaInClasspath(...)} against schemas under
- * {@code src/test/resources/schemas/bookstore/} — see
+ * {@code src/test/resources/schemas/} (flat, no per-site subfolder — see
  * docs/testing-guide.md#-api-contract-validation for what that catches that
  * the field-by-field Hamcrest assertions below don't (a field disappearing
  * or changing type, vs. a specific field having the wrong value).
@@ -54,6 +55,15 @@ import static org.hamcrest.Matchers.not;
 public class BookStoreApiTest extends BaseApiTest {
 
     private static final Logger logger = LoggerFactory.getLogger(BookStoreApiTest.class);
+
+    // Schema resources live flat under src/test/resources/schemas/ — see each
+    // file's own description for exactly which test below it belongs to.
+    // These were previously written but never actually wired into the tests
+    // (the class javadoc above claimed tests 1, 4, 5, 7 used them; none did).
+    private static final String SCHEMA_ACCOUNT_CREATED = "schemas/account-created.json";
+    private static final String SCHEMA_BOOKS_LIST = "schemas/books-list.json";
+    private static final String SCHEMA_BOOK_DETAIL = "schemas/book-detail.json";
+    private static final String SCHEMA_USER_DETAIL = "schemas/user-detail.json";
 
     private static final String UNIQUE_ID = UUID.randomUUID().toString().substring(0, 8);
     private static final String API_USERNAME = "ApiTest_" + UNIQUE_ID;
@@ -86,6 +96,7 @@ public class BookStoreApiTest extends BaseApiTest {
             .statusCode(201)
             .body("username", equalTo(API_USERNAME))
             .body("userID", not(emptyString()))
+            .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(SCHEMA_ACCOUNT_CREATED))
             .extract().response();
 
         userId = response.jsonPath().getString("userID");
@@ -146,6 +157,7 @@ public class BookStoreApiTest extends BaseApiTest {
             .then()
             .statusCode(200)
             .body("books", not(empty()))
+            .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(SCHEMA_BOOKS_LIST))
             .extract().response();
 
         List<String> isbns = response.jsonPath().getList("books.isbn", String.class);
@@ -168,7 +180,8 @@ public class BookStoreApiTest extends BaseApiTest {
             .then()
             .statusCode(200)
             .body("isbn", equalTo(sampleIsbn))
-            .body("title", not(emptyString()));
+            .body("title", not(emptyString()))
+            .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(SCHEMA_BOOK_DETAIL));
 
         logger.info("✓ Test 5 PASS — Book detail matches ISBN: " + sampleIsbn);
     }
@@ -209,7 +222,8 @@ public class BookStoreApiTest extends BaseApiTest {
             .then()
             .statusCode(200)
             .body("username", equalTo(API_USERNAME))
-            .body("books.isbn", hasItem(sampleIsbn));
+            .body("books.isbn", hasItem(sampleIsbn))
+            .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(SCHEMA_USER_DETAIL));
 
         logger.info("✓ Test 7 PASS — User's collection contains: " + sampleIsbn);
     }

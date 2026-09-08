@@ -1,5 +1,7 @@
 package com.automation.sites.listeners;
 
+import com.automation.core.ai.AiExceptionAnalyzer;
+import com.automation.core.ai.AiFailureAnalysis;
 import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
@@ -320,6 +322,23 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 new ByteArrayInputStream(consoleLogs.getBytes(StandardCharsets.UTF_8)),
                 "log"
             );
+        }
+
+        // ── AI root-cause analysis (opt-in, see AiExceptionAnalyzer) ─────────
+        // isEnabled() short-circuits to a plain config-flag check when the
+        // feature is off, so this costs nothing on a default checkout.
+        if (AiExceptionAnalyzer.isEnabled()) {
+            String currentUrl = driver != null ? safeCurrentUrl(driver) : null;
+            AiFailureAnalysis analysis = AiExceptionAnalyzer.analyze(
+                result.getMethod().getMethodName(), result.getThrowable(), currentUrl, pageSource, consoleLogs);
+            if (analysis != null) {
+                Allure.addAttachment(
+                    "AI Root-Cause Analysis — " + result.getMethod().getMethodName(),
+                    "text/plain",
+                    new ByteArrayInputStream(analysis.toReportText().getBytes(StandardCharsets.UTF_8)),
+                    "txt"
+                );
+            }
         }
 
         if (driver != null) {

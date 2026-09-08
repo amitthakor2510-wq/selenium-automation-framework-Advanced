@@ -275,6 +275,8 @@ Every locator in this framework eventually goes through one of three chokepoints
 
 Visual healing is **off by default** because capturing a screenshot hash happens at fingerprint-capture time (step 2 above) — on every successful find, not just on a heal — and `find`/`findClickable` run on effectively every page interaction across ~34 page objects. Turn it on (`-Dself-healing.visual.enabled=true`) for suites where recovering those DOM-invisible cases is worth the added per-find screenshot cost.
 
+If DOM **and** visual both still come up short, a third stage exists: `self-healing.ai.enabled=true` describes the baseline element and the same small candidate pool visual healing would have screenshotted to a text LLM (`AiLocatorHealer`, see [🤖 AI Features](AI_FEATURES.md#1-ai-assisted-self-healing-stage-3)) and asks it to pick the closest match **by index only** — it can never invent a selector, only point at a real element Selenium already resolved. Also off by default; tagged `ai` in the heal report alongside `dom`/`visual`.
+
 **Where the output goes:**
 - `self-healing-data/locator-repository.json` — the fingerprint store, persisted between runs so healing works from the *first* locator failure of a fresh run, not just after this run has already seen the element once. Deliberately outside `target/`, which `mvn clean` wipes before every run.
 - `target/self-healing/healing-report.json` — written only if at least one heal happened; a flat list of `{elementKey, originalLocator, healedDescription, score, matchMethod, timestamp}` (`matchMethod` is `dom` or `visual`), meant to be reviewed (or wired into CI as a build artifact) so a locator that quietly drifted still gets fixed properly instead of staying invisible behind a passing test.
@@ -289,6 +291,8 @@ Visual healing is **off by default** because capturing a screenshot hash happens
 | `self-healing.report.path` | `target/self-healing/healing-report.json` | Where the end-of-run heal summary is written. |
 | `self-healing.visual.enabled` | `false` | Turns on the screenshot-hash fallback stage (and the extra per-find screenshot needed to capture its baseline). |
 | `self-healing.visual.weight` | `0.5` | How much the visual similarity counts vs. the DOM score once the visual stage runs (`0.0` = visual score ignored, `1.0` = DOM score ignored). |
+| `self-healing.ai.enabled` | `false` | Turns on the AI-assisted third stage — see [🤖 AI Features](AI_FEATURES.md). |
+| `self-healing.ai.confidence` | `0.6` | Minimum model self-reported confidence (0.0–1.0) to accept its pick. |
 
 **What this is not:** it can't heal a locator that has *never* successfully resolved (no fingerprint to compare against — a typo in a brand-new locator still fails immediately, as it should), and it isn't visual/screenshot matching — purely DOM attribute/text/structure similarity. For a locator you already know is fragile and want an explicit, hand-picked (not scored) fallback for, `SmartLocator` is still the right tool — see above.
 

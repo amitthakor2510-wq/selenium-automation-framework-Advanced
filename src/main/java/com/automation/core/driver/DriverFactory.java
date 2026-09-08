@@ -1347,11 +1347,25 @@ public final class DriverFactory {
      * that's incidental, not structural, so it's scoped by site here too
      * rather than left as a landmine for the next download test added to a
      * second site.
+     * <p>
+     * BUG FIX: {@code download.folder.path} (global.properties) documented
+     * itself as "can be overridden per site or via -D flag" but nothing
+     * ever actually read it — this method built the base directory from a
+     * hardcoded {@code target/downloads} instead, so setting
+     * {@code -Ddownload.folder.path=...} silently did nothing. Fixed by
+     * reading it here (default unchanged: {@code target/downloads},
+     * resolved against {@code user.dir} exactly as before when the
+     * property is left at that default) as the BASE directory, with the
+     * existing per-site/per-thread isolation still layered underneath it —
+     * an overridden base still gets the same collision protection, it just
+     * starts from wherever the property points instead of the hardcoded path.
      */
     public static String getDownloadPath() {
-        String path = System.getProperty("user.dir")
-            + File.separator + "target"
-            + File.separator + "downloads"
+        String base = ConfigReader.get("download.folder.path", "target/downloads");
+        String baseResolved = new File(base).isAbsolute()
+            ? base
+            : System.getProperty("user.dir") + File.separator + base;
+        String path = baseResolved
             + File.separator + safeSiteName()
             + File.separator + "thread-" + Thread.currentThread().getId();
         new File(path).mkdirs();

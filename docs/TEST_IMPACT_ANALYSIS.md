@@ -3,8 +3,10 @@
 Run only the test classes actually affected by a code change, instead of the full suite,
 via `git diff` → compiled-class dependency graph → impacted test classes.
 
-Implementation: `src/main/java/com/automation/core/tia/` (entry point: `TiaCli`).
-Tests: `src/test/java/com/automation/core/tia/`.
+Implementation: `../src/main/java/com/automation/core/tia` (entry point: `TiaCli`).
+Tests: `src/test/java/com/automation/core/tia/` — run with `mvn verify -Punit-tests`
+(see `ALL_COMMANDS.md` #13; these are plain JUnit 5, not TestNG, so they don't run under
+a plain `mvn test` the way the framework's browser suites do).
 
 ## Quick start
 
@@ -53,7 +55,7 @@ test under `com.automation.core.data`) is bucketed under `other` and left for a 
 1. **`git diff --name-status`** (plus `git ls-files --others --exclude-standard` for brand-new,
    not-yet-committed files, which `git diff` never reports) produces the raw changed-file list.
 2. Every changed `.java` file is mapped to its fully-qualified class name from its path under
-   `src/main/java/` or `src/test/java/`.
+   `../src/main/java` or `src/test/java/`.
 3. **`ClassFileScanner`** reads the raw `.class` file format directly (a small, dependency-free
    constant-pool parser — see its javadoc for exactly which tags it walks) and pulls out every
    `CONSTANT_Utf8` string in each compiled class, grouped by *top-level* class (an inner/anonymous
@@ -69,12 +71,12 @@ test under `com.automation.core.data`) is bucketed under `other` and left for a 
    positive (running one extra test).
 5. Given the set of changed classes, `DependencyGraph.reverseTransitiveClosure` walks the graph
    **backwards**: every class that (directly or transitively) depends on a changed class. That
-   closure, intersected with the concrete (non-abstract) classes under `src/test/java`, is the
+   closure, intersected with the concrete (non-abstract) classes under `../src/test/java`, is the
    impacted-test set.
 
 A changed **test-source** class seeds the same closure a changed **main-source** class does —
 not just "run this one test". This project's own `BaseTest`, `BaseApiTest`, `KeywordTestBase`,
-and `MobileBaseTest` all live under `src/test/java`, not `src/main/java`; a change to any of them
+and `MobileBaseTest` all live under `../src/test/java`, not `src/main/java`; a change to any of them
 has to fan out to every subclass exactly the way a changed main-source utility class fans out to
 its callers. (This was caught as a real bug while building this feature — see
 `TestImpactAnalyzerIntegrationTest#baseSourceChangePropagatesToSubclassesEvenWhenBaseIsUnderTestRoot`
@@ -103,12 +105,12 @@ handles two different patterns:
 
 ## What always forces a full run (`UnsafeChangeRules`)
 
-Any changed file matching a pattern in `src/test/resources/tia/unsafe-patterns.txt` (or the
+Any changed file matching a pattern in `../src/test/resources/tia/unsafe-patterns.txt` (or the
 built-in defaults in `UnsafeChangeRules.defaults()` if that file is absent) makes TIA report
 `FULL` instead of a narrowed list — deliberately conservative, since a TIA tool that ever
 *silently* skips a test a change actually broke is worse than no TIA at all:
 
-- Build/tooling: `pom.xml`, `checkstyle.xml`, `owasp-suppressions.xml`, `Dockerfile`,
+- Build/tooling: `../pom.xml`, `checkstyle.xml`, `owasp-suppressions.xml`, `Dockerfile`,
   `docker-compose.yml`, `Jenkinsfile`, `.gitlab-ci.yml`
 - Suite topology and automation scripts: `testng-suites/**`, `Scripts/**`, `.github/workflows/**`
 - Config that applies to every site at once: `config/global.properties`,
@@ -121,7 +123,7 @@ Also forced to `FULL`, dynamically, regardless of that file:
   `mvn compile test-compile` before running TIA; it won't guess.
 - A resource change with no literal reference and no inferable site (see above).
 
-Tune `src/test/resources/tia/unsafe-patterns.txt` (one glob per line, `#` comments allowed) to
+Tune `../src/test/resources/tia/unsafe-patterns.txt` (one glob per line, `#` comments allowed) to
 add project-specific patterns without recompiling.
 
 ## What deliberately can't be traced (known limitations)
@@ -135,7 +137,7 @@ add project-specific patterns without recompiling.
   for exactly this case.
 - **Config-driven behavior with no corresponding class change**, beyond what `SiteMapper`'s
   site-based fallback already covers (e.g. a *totally* new resource category under
-  `src/test/resources/` that isn't `config/`, `objectrepository/`, `visual-baselines/`, or
+  `../src/test/resources` that isn't `config/`, `objectrepository/`, `visual-baselines/`, or
   `testdata/`) — falls back to `FULL`, see above. Coverage data doesn't help here: JaCoCo
   instruments bytecode, not file I/O, so it has nothing to say about which test opened which
   resource file.
@@ -155,11 +157,11 @@ straight through *how* a class was reached because it doesn't care — it only r
 ### How it works
 
 1. **Capture** (`Scripts/build-coverage-map.sh <site>`) runs that site's regression suite with
-   two things turned on that are both off by default (see their property comments in `pom.xml`):
+   two things turned on that are both off by default (see their property comments in `../pom.xml`):
    - `-Djacoco.jmx=true` — the JaCoCo agent registers a JMX MBean
      (`org.jacoco:type=Runtime`) instead of (or alongside) its usual dump-on-exit file.
    - `-Dcoverage.map.enabled=true` — `AlterSuiteForCoverageMapListener`
-     (`src/test/java/com/automation/sites/listeners/`, auto-registered via TestNG's
+     (`../src/test/java/com/automation/sites/listeners`, auto-registered via TestNG's
      `ServiceLoader`-based `META-INF/services/org.testng.ITestNGListener`, but a complete no-op
      unless this flag is set) forces the suite to `parallel="none"` and attaches
      `JacocoPerTestCoverageListener`.
@@ -170,7 +172,7 @@ straight through *how* a class was reached because it doesn't care — it only r
 
 2. **Build** (`mvn exec:java@coverage-map -Pcoverage-map`, wrapped by the same script) reads every
    one of those files via `CoverageExecReader` (the one class in this project that imports
-   `org.jacoco.core` — see its own javadoc and the dependency's comment in `pom.xml`), keeps only
+   `org.jacoco.core` — see its own javadoc and the dependency's comment in `../pom.xml`), keeps only
    the classes each file shows at least one hit probe for, and writes the result as plain,
    dependency-free tab-separated text to `target/tia/coverage-map.txt`:
    `testFqcn<TAB>coveredClassFqcn`, one pair per line.
@@ -184,7 +186,7 @@ straight through *how* a class was reached because it doesn't care — it only r
 
 JaCoCo's runtime execution data is one shared accumulator per JVM. This project's own TestNG
 suites run `parallel="classes"` with multiple threads *inside a single forked JVM* (see the
-`argLine`/`forkCount` comments in `pom.xml`) — if two test classes ran concurrently during
+`argLine`/`forkCount` comments in `../pom.xml`) — if two test classes ran concurrently during
 capture, a reset-then-dump cycle nominally scoped to "test class A" could actually contain
 whatever class B happened to touch in that same window. That's not a smaller, still-useful
 signal; it's silently wrong data, and wrong data is worse than no data for a tool feeding
@@ -213,7 +215,7 @@ would've run.
 
 ## CI integration
 
-`.github/workflows/github-ci.yml` has a `test-impact-analysis` job (PR-triggered) that computes
+`../.github/workflows/github-ci.yml` has a `test-impact-analysis` job (PR-triggered) that computes
 the impacted set against the PR's base branch and posts `impact-report.md` to the job summary,
 plus uploads `target/tia/` as an artifact. It's **informational only** — it does not gate or
 replace the existing full `test` / `mobile-test` matrix, which remains the real safety net on
@@ -238,6 +240,6 @@ already been reduced to plain tab-separated text. `TestImpactAnalyzer`'s own byt
 still compiles and runs anywhere a JDK does, with or without `org.jacoco.core` resolvable at all
 — the coverage signal is additive and optional by construction, not a hard requirement the rest
 of TIA now silently depends on. (This sandbox has no Maven Central access, matching a limitation
-this project's own `pom.xml` comments already note elsewhere — `CoverageExecReader` and the two
+this project's own `../pom.xml` comments already note elsewhere — `CoverageExecReader` and the two
 new TestNG listeners that feed it could not be compile-verified here for that reason; the rest of
 `com.automation.core.tia`, unaffected by the new dependency, was.)

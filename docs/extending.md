@@ -89,7 +89,6 @@ For a site that's nothing but an API — no browser, no page objects at all. `js
    ```
 2. **Config file** — `src/test/resources/config/mysite.properties`:
    ```properties
-   site.name=mysite
    url=https://api.mysite.com
    ```
 3. **Enable it + tag it API-only** — `pipeline-config.properties`:

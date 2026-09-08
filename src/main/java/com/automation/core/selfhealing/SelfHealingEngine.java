@@ -47,7 +47,17 @@ import org.slf4j.LoggerFactory;
  *      recovers cases DOM scoring structurally cannot: an icon button with
  *      no id/name/stable text, or a `<button>` that became a
  *      `<div role="button">`.
- *   5. If the best match (DOM or visual) clears the threshold, use it, log
+ *   4b. If DOM and visual both still come up short, and self-healing.ai.enabled
+ *      is turned on, fall back to a third, AI-assisted stage (see
+ *      {@link AiLocatorHealer}, com.automation.core.ai.OllamaClient):
+ *      describe the baseline element and the same small candidate pool
+ *      stage 2 would have screenshotted to a text LLM and ask it to pick
+ *      the closest match by index — never by inventing a selector, so it
+ *      can only ever point at a real, already-resolved element. Useful
+ *      when a page has been restructured enough that neither DOM
+ *      attributes nor visual similarity have anything left to match on,
+ *      but the element is still recognizable by role/context.
+ *   5. If the best match (DOM, visual, or AI) clears the threshold, use it, log
  *      a warning (so the drift doesn't go unnoticed even though the test
  *      passes), and record a {@link HealingEvent} for the end-of-run
  *      report. Otherwise the original timeout is rethrown — healing only
@@ -159,6 +169,19 @@ public final class SelfHealingEngine {
             }
         }
 
+        // Stage 3: AI-assisted last resort — only if opted in (self-healing.ai.enabled).
+        // Reuses the same near-miss/broad-scan candidate pool stage 2 would
+        // screenshot, but hands descriptions to a text LLM instead of
+        // comparing pixels — see AiLocatorHealer's javadoc for why it's
+        // index-based rather than letting the model invent a selector.
+        if (AiLocatorHealer.isEnabled()) {
+            List<WebElement> aiPool = buildCandidatePool(driver, requireClickable, domRanked);
+            AiLocatorHealer.AiHealResult aiResult = AiLocatorHealer.attemptHeal(baseline, requireClickable, aiPool);
+            if (aiResult != null) {
+                return heal(key, locator, new ScoredCandidate(aiResult.element, aiResult.confidence), "ai");
+            }
+        }
+
         logger.warn("[SelfHealing] '" + key + "' broke and no candidate matched closely enough"
             + " (best score " + (best == null ? "n/a" : String.format(Locale.ROOT, "%.2f", best.score))
             + ", threshold " + threshold + "). Falling back to the original failure.");
@@ -196,16 +219,7 @@ public final class SelfHealingEngine {
     private static ScoredCandidate attemptVisualHeal(WebDriver driver, ElementFingerprint baseline,
                                                      boolean requireClickable, List<ScoredCandidate> domRanked,
                                                      double threshold) {
-        List<WebElement> pool = new ArrayList<>();
-        for (ScoredCandidate c : domRanked) {
-            if (c.score < DOM_NEAR_MISS_FLOOR || pool.size() >= MAX_VISUAL_CANDIDATES_FROM_DOM) {
-                break;
-            }
-            pool.add(c.element);
-        }
-        if (pool.isEmpty()) {
-            pool.addAll(scanInteractiveElements(driver, requireClickable));
-        }
+        List<WebElement> pool = buildCandidatePool(driver, requireClickable, domRanked);
         if (pool.isEmpty()) {
             return null;
         }
@@ -240,6 +254,30 @@ public final class SelfHealingEngine {
             return null;
         }
         return new ScoredCandidate(bestElement, bestCombined);
+    }
+
+    /**
+     * Builds the small, targeted candidate pool shared by stage 2 (visual)
+     * and stage 3 (AI): the strongest same-tag near-misses from stage 1's
+     * DOM ranking, or — only when stage 1 found nothing worth screenshotting
+     * at all (the element's tag itself changed) — a broader scan of common
+     * interactive elements. Extracted so both later stages describe/score
+     * exactly the same candidates rather than scanning the live DOM twice
+     * with slightly different logic.
+     */
+    private static List<WebElement> buildCandidatePool(WebDriver driver, boolean requireClickable,
+                                                       List<ScoredCandidate> domRanked) {
+        List<WebElement> pool = new ArrayList<>();
+        for (ScoredCandidate c : domRanked) {
+            if (c.score < DOM_NEAR_MISS_FLOOR || pool.size() >= MAX_VISUAL_CANDIDATES_FROM_DOM) {
+                break;
+            }
+            pool.add(c.element);
+        }
+        if (pool.isEmpty()) {
+            pool.addAll(scanInteractiveElements(driver, requireClickable));
+        }
+        return pool;
     }
 
     /**

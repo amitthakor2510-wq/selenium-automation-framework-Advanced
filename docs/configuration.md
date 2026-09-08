@@ -67,6 +67,21 @@ self-healing.repository.path=self-healing-data/locator-repository.json  # known-
 self-healing.report.path=target/self-healing/healing-report.json        # end-of-run summary of every locator that had to be healed
 self-healing.visual.enabled=false                                # opt-in screenshot-hash fallback when DOM scoring alone misses
 self-healing.visual.weight=0.5                                   # 0.0 = visual stage never influences the outcome; 1.0 = DOM score is ignored once visual healing kicks in
+self-healing.ai.enabled=false                                    # opt-in 3rd stage — AI picks a candidate by index when DOM+visual both miss, see docs/AI_FEATURES.md
+self-healing.ai.confidence=0.6                                   # min model self-reported confidence (0.0-1.0) to accept its pick
+
+# ── AI Assistant / Bug Crawler (see core/ai/OllamaClient.java, core/crawler/SiteCrawler.java) ──
+ai.provider=ollama                  # "ollama" (default, no API key) or "anthropic" — own namespace, separate from captcha.ai.* above
+ai.endpoint=http://localhost:11434/api/chat  # override for a remote/LAN Ollama box, or https://api.anthropic.com/v1/messages for anthropic
+ai.apiKey=                          # only required for anthropic (or set ANTHROPIC_API_KEY)
+ai.model=                           # required — e.g. a Qwen-Coder tag for ollama. See docs/AI_FEATURES.md for model guidance.
+ai.timeout.seconds=60               # per-call HTTP timeout
+ai.exceptionAnalysis.enabled=false  # opt-in AI root-cause note attached to Allure on test failure/skip
+crawler.maxPages=50                 # bug-crawler page cap (mvn exec:java@bug-crawler -Pbug-crawler)
+crawler.maxDepth=3                  # bug-crawler link-depth cap
+crawler.outputDir=target/crawler    # where crawl-report.json/.txt are written
+crawler.a11y.enabled=true           # run the axe-core accessibility check on every crawled page
+crawler.ai.enabled=false            # opt-in per-page AI content review (leftover placeholder text, visible error dumps, etc.)
 
 # ── CAPTCHA / Page Load (see core/utils/CaptchaSolver.java, core/keyword/KeywordEngine.java) ──
 captcha.autoDetect.enabled=true     # master switch for Mode 1 (automatic) CAPTCHA detect/solve — see docs/CAPTCHA_SOLVER.md

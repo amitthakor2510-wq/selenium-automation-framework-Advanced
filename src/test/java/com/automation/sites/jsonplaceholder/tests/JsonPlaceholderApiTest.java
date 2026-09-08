@@ -31,7 +31,7 @@ import static org.hamcrest.Matchers.notNullValue;
  *  - {@link ApiAssertions} (status, schema, response time, JSON array)
  *  - {@link ApiRetry} (explicit opt-in retry-with-backoff)
  *  - {@link ApiKeyAuthProvider} (AuthProvider composition)
- *  - JSON schema contract validation (schemas/jsonplaceholder/post.json)
+ *  - JSON schema contract validation (schemas/post.json)
  *
  * JSONPlaceholder (https://jsonplaceholder.typicode.com/guide/) fakes
  * writes: POST/PUT/PATCH/DELETE all return a plausible response but
@@ -50,7 +50,15 @@ import static org.hamcrest.Matchers.notNullValue;
  */
 public class JsonPlaceholderApiTest extends BaseApiTest {
 
-    private static final String SCHEMA_POST = "schemas/jsonplaceholder/post.json";
+    // Schema resources live flat under src/test/resources/schemas/ (no
+    // per-site subfolder — see book-detail.json/user-detail.json etc.
+    // alongside this one), so the classpath path is just the filename.
+    // This previously pointed at "schemas/jsonplaceholder/post.json", a
+    // subfolder that doesn't exist, which made
+    // matchesJsonSchemaInClasspath resolve a null schema and fail every
+    // run with "IllegalArgumentException: Schema to use cannot be null"
+    // — not a validation failure, the schema was never found at all.
+    private static final String SCHEMA_POST = "schemas/post.json";
 
     // ════════════════════════════════════════════════════════════════════
     // GET — single resource, schema + response-time assertions

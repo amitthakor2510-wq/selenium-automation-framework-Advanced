@@ -755,19 +755,6 @@
             <version>${aspectj.version}</version>
           </dependency>
 
-          <!-- Apache Commons IO (for file handling) -->
-          <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.16.1</version>
-          </dependency>
-
-          <!-- Selenium -->
-          <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-java</artifactId>
-            <version>4.25.0</version>
-          </dependency>
           <!-- Force the TestNG provider explicitly. The junit-jupiter dependency
                above (added so the mutation/pitest profile has JUnit 5 unit tests
                to target) also sits on the default test classpath, and without a
@@ -1246,6 +1233,97 @@
       </build>
     </profile>
 
+    <!-- Plain JUnit 5 unit tests — deliberately its OWN plugin (Failsafe, not
+         Surefire) and its OWN Maven profile, so it never collides with the
+         default `mvn test` (TestNG, via the surefire-testng provider forced
+         above) or gets scoped down to "noise-free classes only" the way the
+         mutation profile above is.
+
+         BACKGROUND: this project has two flavors of JUnit 5 test —
+         core/data/readers' (DataRow, Csv/JsonDataFileReader — targeted by
+         -Pmutation above) and core/tia's own regression suite (see
+         docs/TEST_IMPACT_ANALYSIS.md's "Tests:" line —
+         GitDiffReaderTest, SiteMapperTest, TestClassDetectorTest,
+         SourcePathResolverTest, ResourceReferenceIndexTest, CoverageMapTest,
+         ClassFileScannerAndDependencyGraphTest, UnsafeChangeRulesTest,
+         TestImpactAnalyzerIntegrationTest). Before this profile existed,
+         NEITHER had a real path to execution: the default `mvn test` only
+         ever runs the TestNG suite (that's the whole point of the
+         surefire-testng provider fix above), and -Pmutation's pitest
+         targetTests are deliberately hardcoded to the 3 data-reader classes
+         only — core/tia's suite was never named there or anywhere else in
+         the project (no profile, no CI job, no Scripts/*.sh invocation).
+         Written, real, passing-in-isolation test code with zero way to
+         actually run it.
+
+         Using Failsafe instead of a second Surefire execution is the fix,
+         not a style choice: Surefire resolves ONE provider from its
+         <dependencies> for the whole plugin (that's exactly the mechanism
+         the surefire-testng pin above relies on), so a second execution of
+         the same plugin can't quietly ask for the JUnit Platform provider
+         instead — it would immediately reopen the ambiguous-auto-detection
+         bug that pin was written to close. Failsafe is a genuinely separate
+         plugin with its own classpath/provider resolution, so declaring
+         junit-jupiter-engine only on ITS classpath below is unambiguous:
+         nothing else on that classpath could make it prefer TestNG.
+
+         Run explicitly with:
+           mvn verify -Punit-tests
+         Bound to Failsafe's own integration-test/verify goals (not `test`)
+         precisely so a plain `mvn test` — local or in any of the three CI
+         systems — is completely unaffected by this profile even existing.
+         testFailureIgnore is deliberately NOT set here (unlike the main
+         TestNG execution above, which needs it so a driver/browser flake
+         doesn't kill later per-site reporting steps) — these are pure-logic
+         unit tests with no browser/network flakiness to tolerate, so a real
+         failure should actually fail `mvn verify -Punit-tests`. -->
+    <profile>
+      <id>unit-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>3.2.5</version>
+            <dependencies>
+              <!-- Declared here (not just relying on the project's own
+                   junit-jupiter test dependency above) so this plugin's own
+                   provider resolution sees JUnit 5 and only JUnit 5 — see
+                   the profile-level comment above for why that isolation is
+                   the actual point, not decoration. -->
+              <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit.version}</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <!-- Overrides Failsafe's default **/IT*.java / **/*IT.java /
+                   **/*ITCase.java naming convention — this project's JUnit 5
+                   classes follow the same *Test.java convention as
+                   everything else here (see checkstyle.xml/CONVENTIONS.md),
+                   there's no reason to rename them just to fit Failsafe's
+                   default, and TestNG's *Test.java classes are never on this
+                   plugin's radar in the first place (only junit-jupiter-engine
+                   is on ITS classpath, so it has nothing TestNG to find). -->
+              <includes>
+                <include>**/core/data/**/*Test.java</include>
+                <include>**/core/tia/**/*Test.java</include>
+              </includes>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <!-- Test Impact Analysis — deliberately a profile, not a plugin under
          <build><plugins>, so `mvn test` everywhere else in this project (CI
          included) is completely unaffected by its presence, same pattern as
@@ -1308,6 +1386,41 @@
         <tia.head></tia.head>
         <tia.outputDir>${project.build.directory}/tia</tia.outputDir>
       </properties>
+    </profile>
+
+    <!-- AI bug crawler — see com.automation.core.crawler.CrawlerCli / SiteCrawler's
+         javadoc for the full design (rule-based checks + optional AI review pass per
+         page). Same "profile, not a plugin under <build><plugins>" pattern as tia/
+         prune-artifacts above: mvn test is completely unaffected by this profile's
+         presence.
+
+         Typical usage:
+           mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com
+           mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com \
+               -Dcrawler.maxPages=20 -Dcrawler.ai.enabled=true -Dsite=demoqa -->
+    <profile>
+      <id>bug-crawler</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>bug-crawler</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.crawler.CrawlerCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
 
     <!-- Video/artifact retention — see com.automation.core.retention.ArtifactRetentionCleaner's

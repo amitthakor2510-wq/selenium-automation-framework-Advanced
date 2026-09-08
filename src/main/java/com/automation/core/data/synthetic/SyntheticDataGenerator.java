@@ -75,7 +75,10 @@ public final class SyntheticDataGenerator {
      * just with a more realistic-looking prefix.
      */
     public String uniqueUsername() {
-        String base = faker.name().username().replaceAll("[^a-zA-Z0-9]", "");
+        // faker.name().username() is @Deprecated in DataFaker 2.4.x in favor of
+        // faker.internet().username() (Name.username() is just a delegating
+        // wrapper around it anyway — same output, no behavior change here).
+        String base = faker.internet().username().replaceAll("[^a-zA-Z0-9]", "");
         return base + "_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
