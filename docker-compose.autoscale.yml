@@ -1,0 +1,70 @@
+# =============================================================================
+# docker-compose.autoscale.yml — on-demand browser-node pool for
+# Scripts/grid-autoscaler.py.
+#
+# Layer this on top of docker-compose.yml (and docker-compose.override.yml,
+# if present) via explicit -f flags — grid-autoscaler.py already does this
+# for you (see its default_compose_files()), so you normally never invoke
+# this file directly. It's split out from docker-compose.yml rather than
+# added to it because these services must have NEITHER a fixed
+# `container_name` NOR a fixed host port publish (both would collide the
+# moment `docker compose up --scale <service>=N` creates a second replica)
+# — the debug chrome/firefox/edge nodes in docker-compose.yml deliberately
+# keep both, for a stable, individually-noVNC-watchable single node, and
+# are never touched by this file or by grid-autoscaler.py.
+#
+# Every pool service starts at 0 replicas (no `deploy.replicas` /
+# `scale:` key below — Compose defaults to 1 per service that IS defined,
+# but grid-autoscaler.py always passes explicit --scale flags on every
+# `up`, including the very first one, so nothing spins up until the
+# autoscaler decides a browser's queue actually needs a node). Running
+# `docker compose up -d` on the merged files WITHOUT going through the
+# autoscaler would still create one replica of each pool service the
+# normal Compose way — always launch/manage this file through
+# Scripts/grid-autoscaler.py, not directly, so replica counts stay under
+# its control.
+#
+# Image tags and env vars are kept identical to docker-compose.yml's
+# chrome/firefox/edge nodes on purpose — a session queued for "chrome"
+# should behave the same whether it lands on the fixed debug node or an
+# autoscaled pool replica. Bump both files together if you ever change
+# the selenium/node-* version.
+# =============================================================================
+
+services:
+
+  chrome-pool:
+    image: selenium/node-chrome:4.21.0
+    shm_size: 3gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=3
+
+  firefox-pool:
+    image: selenium/node-firefox:4.21.0
+    shm_size: 3gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=3
+
+  edge-pool:
+    image: selenium/node-edge:4.21.0
+    shm_size: 3gb
+    depends_on:
+      selenium-hub:
+        condition: service_healthy
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=3

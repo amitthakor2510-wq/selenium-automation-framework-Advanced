@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * The single source of truth for "what sites exist and what does each one
@@ -72,6 +73,21 @@ public final class SiteRegistry {
     );
 
     private SiteRegistry() {
+    }
+
+    /**
+     * The full set of registered site keys — used by
+     * {@code SiteMapperTest.siteMapperStaysInSyncWithSiteRegistry()} to catch
+     * drift between this map and {@code SiteMapper.SITE_TEST_PACKAGE} at
+     * build time instead of relying on a manual audit to notice (this
+     * exact drift shipped unnoticed twice before: SAHMAT, then
+     * jsonplaceholder — see SiteMapper's own class-level Javadoc). Not
+     * used by any runtime code path — SiteMapper deliberately avoids
+     * depending on this class at runtime (see its own Javadoc), so this
+     * accessor exists purely for that test-time cross-check.
+     */
+    public static Set<String> knownSiteKeys() {
+        return KNOWN_SITES.keySet();
     }
 
     /**

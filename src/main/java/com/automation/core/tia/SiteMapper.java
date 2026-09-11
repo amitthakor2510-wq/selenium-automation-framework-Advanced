@@ -27,6 +27,13 @@ public final class SiteMapper {
         // site-blind "unsafe/full suite" decision for every SAHMAT resource
         // change instead of scoping to SAHMAT's own tests.
         SITE_TEST_PACKAGE.put("SAHMAT", "com.automation.sites.sahmat");
+        // API-only site (SiteRegistry.KNOWN_SITES: requiresObjectRepository=false,
+        // see docs/extending.md's "Adding a New API-Only Site" checklist) — was
+        // missing here entirely, same bug class as the SAHMAT comment above: a
+        // change to config/jsonplaceholder.properties or a jsonplaceholder test
+        // class fell through to TIA's site-blind "unsafe/full suite" decision
+        // instead of being scoped to just this site's tests.
+        SITE_TEST_PACKAGE.put("jsonplaceholder", "com.automation.sites.jsonplaceholder");
     }
 
     private SiteMapper() {

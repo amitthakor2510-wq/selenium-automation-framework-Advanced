@@ -87,6 +87,11 @@ For a site that's nothing but an API — no browser, no page objects at all. `js
    ```java
    "mysite", new SiteDefinition(false)   // false = no object repository required
    ```
+1b. **Register it with Test Impact Analysis too** — add one line to `SiteMapper.SITE_TEST_PACKAGE` (`src/main/java/com/automation/core/tia/SiteMapper.java`):
+   ```java
+   SITE_TEST_PACKAGE.put("mysite", "com.automation.sites.mysite");
+   ```
+   Easy to forget since nothing fails loudly without it — TIA just silently falls back to its site-blind "unsafe/full suite" decision for every change touching this site instead of scoping to just its tests. (This step is step 1's own sibling for `Scripts/new-site.sh`-scaffolded UI sites, where the script now does it for you automatically; API-only sites have no scaffold script yet, so it's a manual step here. `jsonplaceholder` itself shipped without this line for a while before it was caught in an audit — see `SiteMapper.java`'s own comment.)
 2. **Config file** — `src/test/resources/config/mysite.properties`:
    ```properties
    url=https://api.mysite.com

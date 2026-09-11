@@ -1,9 +1,11 @@
 """
 Builds target/gh-pages-publish/index.html: one bookmarkable landing page
 linking to the Allure report, every Extent report file present this run,
-the self-healing summary, and the flaky-test trend — so viewing any of
-this only ever requires the Pages URL, never downloading the workflow's
-artifact zip.
+coverage, Test Impact Analysis, the self-healing summary, the flaky-test
+trend, and a trend-over-time table for all four — so viewing any of this
+only ever requires the Pages URL, never downloading the workflow's
+artifact zip or clicking between separate report pages to piece together
+overall test health.
 
 Rewritten in Python (was inline bash/printf) once it needed to render
 tables from JSON rather than just a flat link list — HTML-from-JSON is a
@@ -21,6 +23,9 @@ SEGMENTED_DIR = os.path.join(PUBLISH_DIR, "allure-segmented")
 SEGMENTS_MANIFEST = os.path.join(SEGMENTED_DIR, "segments.json")
 SELF_HEALING_SUMMARY_PATH = "target/self-healing-summary.json"
 FLAKY_TESTS_PATH = "target/flaky-tests.json"
+COVERAGE_SUMMARY_PATH = "target/coverage-summary.json"
+TIA_SUMMARY_PATH = "target/tia/impact-summary.json"
+DASHBOARD_HISTORY_PATH = os.path.join(PUBLISH_DIR, "history", "dashboard-history.json")
 OUTPUT_PATH = os.path.join(PUBLISH_DIR, "index.html")
 
 STYLE = """
@@ -171,6 +176,72 @@ def render_flaky_section():
     )
 
 
+def render_coverage_section():
+    summary = load_json(COVERAGE_SUMMARY_PATH)
+    if not summary:
+        return '<p class="muted">No coverage data for this run (coverage-gate job may have had no .exec data to merge, or hasn\'t run yet).</p>'
+    status_class = "badge-pass" if summary["passed"] else "badge-fail"
+    status_text = "PASS" if summary["passed"] else "FAIL"
+    return (
+        f'<p><strong>{summary["line_pct"]}%</strong> line coverage on '
+        f'<code>{html.escape(summary["scope"])}</code> '
+        f'({summary["line_covered"]}/{summary["line_total"]} lines) '
+        f'<span class="badge {status_class}">{status_text}</span> '
+        f'against the {summary["threshold_pct"]}% gate. '
+        f'<small>See the <code>jacoco-merged-report</code> artifact for the full drill-down.</small></p>'
+    )
+
+
+def render_tia_section():
+    summary = load_json(TIA_SUMMARY_PATH)
+    if not summary:
+        return '<p class="muted">No Test Impact Analysis data for this run — TIA only runs on pull requests.</p>'
+    if summary.get("mode") == "FULL":
+        return (
+            '<p><strong>FULL</strong> mode — TIA fell back to running every test class this run '
+            '(see the <code>test-impact-analysis</code> artifact\'s <code>impact-report.md</code> for why).</p>'
+        )
+    impacted = summary.get("impacted_count", 0)
+    total = summary.get("total_test_classes", 0)
+    pct = round(100.0 * impacted / total, 1) if total else 0.0
+    return (
+        f'<p><strong>{impacted} / {total}</strong> test classes selected ({pct}%) across '
+        f'<strong>{summary.get("changed_files_count", 0)}</strong> changed file(s). '
+        f'<small>See the <code>test-impact-analysis</code> artifact\'s <code>impact-report.md</code> for the full breakdown.</small></p>'
+    )
+
+
+def render_trends_section():
+    """Renders the last N runs of coverage %, self-healing count, flaky
+    count, and TIA-impacted % as a compact table — the one thing the
+    per-section snapshots above can't show: whether any of these is
+    trending the wrong way over time, not just what it is right now."""
+    history = load_json(DASHBOARD_HISTORY_PATH)
+    if not history:
+        return '<p class="muted">No history yet — this trend builds up across future runs.</p>'
+    rows = []
+    for entry in reversed(history[-15:]):
+        ts = entry.get("timestamp", "")[:10]  # date only, keeps the table narrow
+        coverage = f'{entry["coverage_pct"]}%' if entry.get("coverage_pct") is not None else "&mdash;"
+        tia = f'{entry["tia_impacted_pct"]}%' if entry.get("tia_impacted_pct") is not None else "&mdash;"
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(ts)}</td>"
+            f"<td>{html.escape(str(entry.get('event', '')))}</td>"
+            f"<td>{coverage}</td>"
+            f"<td>{entry.get('self_healing_count', 0)}</td>"
+            f"<td>{entry.get('flaky_count', 0)}</td>"
+            f"<td>{tia}</td>"
+            "</tr>"
+        )
+    return (
+        "<table><thead><tr><th>Date</th><th>Trigger</th><th>Coverage</th>"
+        "<th>Self-Healed</th><th>Flaky</th><th>TIA Selected</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+        f'<p><small>Last {len(history)} run(s) retained. TIA columns show &mdash; on non-PR runs (expected — TIA only runs on pull requests).</small></p>'
+    )
+
+
 def main():
     os.makedirs(PUBLISH_DIR, exist_ok=True)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -193,11 +264,20 @@ def main():
   <h2>Extent</h2>
   {render_extent_section()}
 
+  <h2>Coverage (core/)</h2>
+  {render_coverage_section()}
+
+  <h2>Test Impact Analysis</h2>
+  {render_tia_section()}
+
   <h2>Self-Healing Locators</h2>
   {render_self_healing_section()}
 
   <h2>Flaky Test Trend</h2>
   {render_flaky_section()}
+
+  <h2>Trends Over Time</h2>
+  {render_trends_section()}
 </body>
 </html>
 """

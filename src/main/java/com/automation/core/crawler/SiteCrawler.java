@@ -7,6 +7,8 @@ import com.deque.html.axecore.results.Rule;
 import com.deque.html.axecore.selenium.AxeBuilder;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.logging.LogEntry;
@@ -65,9 +67,16 @@ import java.util.Set;
  *       lines starting with {@code #} are skipped). Independent of
  *       {@code crawler.ai.enabled}: pointing at a checklist file is itself
  *       the opt-in for this pass.</li>
+ *   <li>{@link AiScreenshotReviewer} ({@code crawler.ai.vision.enabled}) —
+ *       sends a screenshot of the page to a vision-capable LLM to catch
+ *       visible layout/rendering bugs the two text-only passes above can't
+ *       see (they only ever look at HTML, never at how it actually
+ *       renders).</li>
  * </ul>
- * Both share a single {@code driver.getPageSource()} call per page rather
- * than fetching it twice.
+ * The two text passes share a single {@code driver.getPageSource()} call
+ * per page rather than fetching it twice; the vision pass takes its own
+ * screenshot only when enabled, since most runs won't want the extra
+ * per-page screenshot/API-call cost.
  *
  * Invoked via {@link CrawlerCli} ({@code mvn exec:java@bug-crawler
  * -Pbug-crawler}) — see docs/AI_FEATURES.md for usage and config.
@@ -85,6 +94,7 @@ public final class SiteCrawler {
     private final int maxPages;
     private final int maxDepth;
     private final boolean aiEnabled;
+    private final boolean aiVisionEnabled;
     private final boolean a11yEnabled;
     private final List<String> checklist;
 
@@ -93,6 +103,8 @@ public final class SiteCrawler {
         this.maxPages = ConfigReader.getInt("crawler.maxPages", 50);
         this.maxDepth = ConfigReader.getInt("crawler.maxDepth", 3);
         this.aiEnabled = ConfigReader.getBoolean("crawler.ai.enabled", false) && OllamaClient.isConfigured();
+        this.aiVisionEnabled = ConfigReader.getBoolean("crawler.ai.vision.enabled", false)
+            && com.automation.core.ai.AiVisionClient.isConfigured();
         this.a11yEnabled = ConfigReader.getBoolean("crawler.a11y.enabled", true);
         this.checklist = loadChecklist(ConfigReader.get("crawler.checklistFile", ""));
     }
@@ -206,7 +218,20 @@ public final class SiteCrawler {
                 AiChecklistReviewer.review(url, pageSource, checklist, result);
             }
         }
+        if (aiVisionEnabled) {
+            AiScreenshotReviewer.review(url, safeScreenshotBase64(), result);
+        }
         return result;
+    }
+
+    /** Best-effort full-viewport screenshot for {@link AiScreenshotReviewer}; never throws. */
+    private String safeScreenshotBase64() {
+        try {
+            return ((TakesScreenshot) driver).getScreenshotAs(OutputType.BASE64);
+        } catch (Exception e) {
+            logger.debug("[SiteCrawler] Could not capture screenshot for AI visual review: {}", e.getMessage());
+            return null;
+        }
     }
 
     // ── Individual checks ───────────────────────────────────────────────

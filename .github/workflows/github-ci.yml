@@ -920,6 +920,26 @@ jobs:
           path: target/site/jacoco/
           retention-days: 14
 
+      # Machine-readable counterpart to the jacoco:check gate below, for
+      # the unified test-health dashboard (generate_landing_page.py). Run
+      # BEFORE jacoco:check (not after) since jacoco:check's
+      # haltOnFailure=true would otherwise abort the job on a real
+      # coverage drop before this ever got a chance to run — the
+      # dashboard should show a failing coverage run too, not just
+      # passing ones.
+      - name: Compute coverage summary
+        if: steps.merge.outputs.have_data == 'true'
+        run: python3 .github/workflows/scripts/compute_coverage_summary.py
+
+      - name: Upload coverage summary
+        if: always() && steps.merge.outputs.have_data == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-summary
+          path: target/coverage-summary.json
+          retention-days: 14
+          if-no-files-found: ignore
+
       # This is the real gate: fails the job (and therefore the workflow
       # run) if com.automation.core.* line coverage across the merged data
       # is under 50% — see the jacoco-check execution/comment in pom.xml.
@@ -1387,7 +1407,7 @@ jobs:
   # STAGE 3 - Allure Report (merges every site's results into one report)
   # ================================================================
   allure-report:
-    needs: [ test, mobile-test, accessibility-visual-test, api-tests, perf-tests ]
+    needs: [ test, mobile-test, accessibility-visual-test, api-tests, perf-tests, coverage-gate, test-impact-analysis ]
     # accessibility-visual-test/perf-tests only actually run on the
     # schedule trigger, and the safari leg of `test` above only runs on
     # push (plus manual dispatch with run_safari ticked — see the `test`
@@ -1396,7 +1416,14 @@ jobs:
     # jobs may show as skipped rather than succeeded, which `needs:`
     # alone would block on. test-safari no longer exists as a separate
     # job — its matrix legs are now folded into `test` (see matrix.os
-    # there), so `needs: test` already covers them.
+    # there), so `needs: test` already covers them. coverage-gate/
+    # test-impact-analysis were added so this job can download their
+    # coverage-summary/test-impact-analysis artifacts for the unified
+    # dashboard (see the two "Download ... for dashboard" steps below) —
+    # test-impact-analysis only actually runs on pull_request events (see
+    # its own `if:`), and coverage-gate's own steps already tolerate
+    # having no jacoco data to merge, so `always()` still means this job
+    # runs on every trigger even though one or both may show as skipped.
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -1519,6 +1546,29 @@ jobs:
           pattern: test-results-*-${{ github.run_id }}
           path: target/
           merge-multiple: true
+
+      # Both are optional inputs for the unified dashboard (Coverage / Test
+      # Impact Analysis sections in generate_landing_page.py). Neither is
+      # guaranteed to exist: coverage-summary is only uploaded when
+      # coverage-gate actually had .exec data to merge (steps.merge.outputs
+      # .have_data), and test-impact-analysis only runs at all on
+      # pull_request events — continue-on-error means a plain push/schedule
+      # run (no TIA artifact) or a first-ever run (no coverage data yet)
+      # doesn't fail this job, it just leaves that section showing its
+      # existing "nothing to show" fallback.
+      - name: Download coverage summary for dashboard
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-summary
+          path: target/
+
+      - name: Download TIA report for dashboard
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: test-impact-analysis
+          path: target/tia/
 
       # Aggregates every target/self-healing/<site>-healing-report.json
       # (now included in each test/mobile-test/accessibility-visual-test
@@ -1646,14 +1696,24 @@ jobs:
         id: flaky_trend
         run: python3 .github/workflows/scripts/compute_flaky_trend.py
 
+      # Same "must run after Assemble" reasoning as the flaky-trend step
+      # just above — writes straight to target/gh-pages-publish/history/,
+      # which the Assemble step already seeded with yesterday's copy via
+      # rsync. Also must run after every compute_*.py step this reads
+      # from (coverage/self-healing/flaky/TIA, all above).
+      - name: Compute dashboard history
+        run: python3 .github/workflows/scripts/compute_dashboard_history.py
+
       # ExtentManager nests each report at <site>/<browser-or-mobile>/<suite>/
       # index.html (not a single flat index.html) — so extent-report/ on its
       # own has no default page a browser would land on. This generates a
       # root landing page at gh-pages-publish/index.html that links to the
       # combined + segmented Allure reports, every nested Extent report file
-      # actually present this run, the self-healing summary, and the
-      # flaky-test trend — one bookmarkable URL instead of guessing a path
-      # or downloading the artifact zip. Moved from inline bash/printf to a
+      # actually present this run, coverage, Test Impact Analysis, the
+      # self-healing summary, the flaky-test trend, and a trend-over-time
+      # table for all four — one bookmarkable URL instead of guessing a
+      # path, downloading the artifact zip, or clicking between four
+      # separate report pages. Moved from inline bash/printf to a
       # checked-in script once it needed to render tables from the JSON the
       # steps above produce.
       - name: Generate reports landing page

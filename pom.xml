@@ -1423,6 +1423,40 @@
       </build>
     </profile>
 
+    <!-- Mobile AI bug crawler — same idea as the "bug-crawler" profile above, retargeted at
+         MobileCrawlerCli (Appium/native-app screens instead of web URLs). See
+         MobileAppCrawler's class javadoc and the crawler.mobile.* keys in global.properties
+         before running this against a real device/account.
+
+         Typical usage:
+           mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler -Dsite=<your-mobile-site>
+           mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler \
+               -Dcrawler.mobile.maxScreens=15 -Dcrawler.mobile.ai.enabled=true -->
+    <profile>
+      <id>mobile-bug-crawler</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>mobile-bug-crawler</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.mobile.crawler.MobileCrawlerCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <!-- Video/artifact retention — see com.automation.core.retention.ArtifactRetentionCleaner's
          javadoc for the full design (why "last N runs" rather than "last N files", and how runs
          are reconstructed from plain last-modified timestamps). Same "profile, not a plugin under

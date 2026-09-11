@@ -79,11 +79,28 @@ things are true at once here:
    All three CI pipelines (Jenkinsfile, github-ci.yml, .gitlab-ci.yml) run
    this automatically after tests finish and publish each segment as its own
    link (Jenkins: one `publishHTML` per segment, plus `report-index.html` in
-   the archived artifacts; GitHub Pages: `generate_landing_page.py` groups
+   the archived artifacts; GitHub Pages: `../.github/workflows/scripts/generate_landing_page.py` groups
    them under "By Browser" / "By Site / App" / "By Test Type" / "By Category"
    / "By Severity" / "Flaky"; GitLab: the script writes straight into
    `public/`, so `public/index.html` — GitLab Pages' own site root, which
    previously had nothing at it — becomes that same landing page).
+
+   On GitHub Pages, `../.github/workflows/scripts/generate_landing_page.py` (`.github/workflows/scripts/`)
+   goes further than just the segmented Allure links — it's the framework's
+   unified test-health dashboard, one bookmarkable page combining: the
+   Allure/Extent report links above, **Coverage** (line % on `core/.*`
+   against the 50% gate, from `../.github/workflows/scripts/compute_coverage_summary.py`), **Test Impact
+   Analysis** (selected/total test classes on PR runs, from `ReportWriter`'s
+   `impact-summary.json`), **Self-Healing Locators** (this run's drifted-and-
+   recovered locators, from `compute_self_healing_summary.py`), **Flaky Test
+   Trend** (from `compute_flaky_trend.py`), and a **Trends Over Time** table
+   (the last 20 runs of all four metrics side by side, from
+   `../.github/workflows/scripts/compute_dashboard_history.py`'s rolling `history/dashboard-history.json`
+   on the `gh-pages` branch) — so spotting "coverage dropped the same week
+   flakiness spiked" no longer means opening four separate artifacts and
+   eyeballing dates across them. Jenkins/GitLab don't have an equivalent
+   page today; both already publish coverage/self-healing/flaky data as
+   individual artifacts/reports, just not combined into one dashboard.
 
 ### How a result becomes two reports
 

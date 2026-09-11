@@ -51,8 +51,11 @@ public final class CrawlReportWriter {
             .append(" (").append(report.totalErrors()).append(" error(s))\n\n");
 
         for (PageResult page : report.pages) {
+            // statusCode is -1 for non-HTTP crawls (e.g. the mobile app crawler, which has no
+            // HTTP status per screen) — omit that segment entirely rather than printing "HTTP -1".
+            String statusSegment = page.statusCode >= 0 ? ", HTTP " + page.statusCode : "";
             sb.append("== ").append(page.url).append(" (depth ").append(page.depth)
-                .append(", HTTP ").append(page.statusCode).append(") ==\n");
+                .append(statusSegment).append(") ==\n");
             sb.append("Title: ").append(page.title).append('\n');
             if (page.issues.isEmpty()) {
                 sb.append("  (no issues found)\n");

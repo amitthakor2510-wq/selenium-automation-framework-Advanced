@@ -385,6 +385,79 @@ pipeline {
             }
         }
 
+        stage('Test Impact Analysis') {
+            // Jenkins equivalent of .github/workflows/github-ci.yml's own
+            // `test-impact-analysis` job / .gitlab-ci.yml's job of the same
+            // name — see docs/TEST_IMPACT_ANALYSIS.md for the full design.
+            // Informational only: never gates or replaces the real
+            // 'Run Tests Per Site' / 'Mobile Test' stages below, which stay
+            // the actual safety net on every build exactly as before.
+            //
+            // Gated on env.CHANGE_TARGET rather than a param/branch check:
+            // this Jenkinsfile runs as a parameterized (non-multibranch)
+            // pipeline today, which has no "pull request" concept at all —
+            // CHANGE_TARGET/CHANGE_ID/CHANGE_BRANCH only exist if/when this
+            // job is ever reconfigured as a Multibranch Pipeline with PR
+            // discovery enabled, at which point Jenkins sets them
+            // automatically and this stage starts running with zero
+            // further changes needed. Until then it just skips cleanly,
+            // same pattern as the 'Mobile Test' stage's RUN_MOBILE guard.
+            when {
+                expression { env.CHANGE_TARGET?.trim() }
+            }
+            steps {
+                script {
+                    // The 'Checkout' stage above is deliberately shallow
+                    // (depth: 1, see its own comment) to keep this agent's
+                    // slow link to GitHub fast for the common case — but
+                    // TIA needs the merge-base commit with CHANGE_TARGET
+                    // locally to diff against, which a depth-1 clone
+                    // doesn't have. Unshallow, then fetch the target
+                    // branch specifically (cheaper than a blind
+                    // `--unshallow` of the whole history on a big repo,
+                    // and works even if this checkout's remote name isn't
+                    // literally "origin").
+                    //
+                    // Explicit destination ref (origin/$CHANGE_TARGET:refs/remotes/...)
+                    // rather than a bare `git fetch origin "$CHANGE_TARGET"` — a bare
+                    // fetch only lands under refs/remotes/origin/* if this job's
+                    // configured refspec happens to map it there, which isn't
+                    // guaranteed since this checkout reuses scm.userRemoteConfigs as
+                    // configured on the job rather than a refspec fixed here. Writing
+                    // the destination explicitly means `origin/${CHANGE_TARGET}` below
+                    // is guaranteed to resolve regardless of that job configuration.
+                    sh '''
+                        git fetch --unshallow || echo "Already unshallow — continuing."
+                        git fetch origin "+$CHANGE_TARGET:refs/remotes/origin/$CHANGE_TARGET"
+                    '''
+                    // Passing both --base and --head explicitly (rather than leaving
+                    // --head unset to fall back to "diff against working tree") matches
+                    // GitDiffReader's own documented CI convention ("In CI, pass both ...
+                    // for a fixed comparison") and mirrors the working GitHub Actions job's
+                    // -Dtia.head=<PR head SHA>. env.GIT_COMMIT is populated by the Git
+                    // plugin after any checkout step using GitSCM (including the explicit
+                    // one used in the 'Checkout' stage above), so it's available here.
+                    // Falls back to an unset --head (working-tree diff) only in the
+                    // unexpected case GIT_COMMIT wasn't populated, rather than failing the
+                    // stage outright — TIA's own safety rules still apply either way.
+                    String tiaHeadArg = env.GIT_COMMIT?.trim() ? "-Dtia.head=${env.GIT_COMMIT}" : ''
+                    int exitCode = sh(
+                            script: "mvn -B -ntp -q exec:java@tia -Ptia -Dtia.base=origin/${env.CHANGE_TARGET} ${tiaHeadArg}",
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Test Impact Analysis failed to run — see console output above. ' +
+                                'Falling back to the full suite in the stages below, same as TIA\'s own ' +
+                                'safety-rule fallback for any change it can\'t reason about.'
+                    } else if (fileExists('target/tia/impact-report.md')) {
+                        echo readFile('target/tia/impact-report.md')
+                    }
+                    archiveArtifacts artifacts: 'target/tia/**', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Discover Site Projects') {
             steps {
                 script {
@@ -600,6 +673,76 @@ pipeline {
                     if (failedSites) {
                         currentBuild.result = 'UNSTABLE'
                         echo "Sites with failures: ${failedSites.join(', ')}"
+                    }
+                }
+            }
+        }
+
+        stage('API Tests') {
+            // Jenkins equivalent of github-ci.yml's `api-tests` job — pure
+            // HTTP, no browser/Grid, so it doesn't belong inside 'Run Tests
+            // Per Site' (that stage's tesseract/xvfb setup and per-browser
+            // fan-out are all irrelevant here). Runs on every build, not
+            // just nightly: these are fast (seconds) and deterministic
+            // enough to gate merges on, same reasoning as github-ci.yml's
+            // own comment on that job. One branch per known API suite file,
+            // each independently gated on its own site being enabled via
+            // Scripts/enabled-sites.sh --check, mirroring the regular
+            // per-site loop above. Adding a new API-only site means adding
+            // one entry to apiSuites below, same as the GitHub Actions
+            // matrix's own `include:` list.
+            steps {
+                script {
+                    sh 'mkdir -p target/jacoco-artifacts'
+                    def apiSuites = [
+                            demoqa         : 'testng-suites/api-tests.xml',
+                            jsonplaceholder: 'testng-suites/api-tests-jsonplaceholder.xml'
+                    ]
+                    def rpArgs = params.REPORTPORTAL_ENABLE
+                            ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\""
+                            : "-Dreportportal.enable=false"
+                    def apiResults = [:]
+
+                    def runApiSuites = {
+                        apiSuites.each { site, suiteFile ->
+                            if (sh(script: "bash Scripts/enabled-sites.sh --check ${site}", returnStatus: true) != 0) {
+                                echo "site.${site}.enabled is not true in pipeline-config.properties - skipping API suite"
+                                return
+                            }
+                            if (!fileExists(suiteFile)) {
+                                echo "Skipping ${site}: ${suiteFile} not found"
+                                return
+                            }
+                            echo "==== Running ${site} API Tests ===="
+                            int exitCode = sh(
+                                    script: """
+                                       mvn -B -ntp test \\
+                                          -Dsite=${site} \\
+                                          -DsuiteXmlFile=${suiteFile} \\
+                                          -Dallure.results.directory=target/allure-results/${site}-api \\
+                                          -Dsurefire.reportsDirectory=target/surefire-reports/${site}-api \\
+                                          -Djacoco.destFile=target/jacoco-artifacts/${site}-api.exec \\
+                                          ${rpArgs} \\
+                                          -Dreportportal.attributes="site:${site};suite:api;ci:jenkins;build:${env.BUILD_NUMBER}" \\
+                                          -Dmaven.test.failure.ignore=true
+                                    """,
+                                    returnStatus: true
+                            )
+                            apiResults[site] = exitCode
+                        }
+                    }
+                    if (params.REPORTPORTAL_ENABLE) {
+                        withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                            runApiSuites()
+                        }
+                    } else {
+                        runApiSuites()
+                    }
+
+                    def failedApiSites = apiResults.findAll { k, v -> v != 0 }.keySet()
+                    if (failedApiSites) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "API suites with failures: ${failedApiSites.join(', ')}"
                     }
                 }
             }
@@ -1253,8 +1396,95 @@ pipeline {
             }
         }
 
+        stage('Performance Tests - Java DSL (Nightly)') {
+            // Jenkins equivalent of github-ci.yml's `perf-tests` job — the
+            // jmeter-java-dsl load tests under core/perf (real p99/error-rate
+            // budget assertions via PerfAssertions, ordinary TestNG classes),
+            // distinct from the legacy JMeter XML smoke check run by the
+            // 'Performance Smoke (Nightly)' stage further down. Same
+            // cron-only gating: a load test's pass/fail depends on
+            // response-time/error-rate budgets that a shared,
+            // variably-loaded CI agent can't fairly be held to on every
+            // build — nightly gives a more consistent baseline. One branch
+            // per known perf suite file, each gated on its site being
+            // enabled, same pattern as the 'API Tests' stage above.
+            // Deliberately placed here, before 'Coverage Gate' rather than
+            // down by 'Performance Smoke' — coverage-gate only picks up
+            // whatever target/jacoco-artifacts/*.exec already exists on
+            // disk when it runs, so a jacoco-instrumented stage placed
+            // after it would silently never count toward the threshold.
+            when {
+                expression {
+                    currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').size() > 0
+                }
+            }
+            steps {
+                script {
+                    sh 'mkdir -p target/jacoco-artifacts'
+                    def perfSuites = [
+                            demoqa         : 'testng-suites/demoqa-perf.xml',
+                            jsonplaceholder: 'testng-suites/jsonplaceholder-perf.xml'
+                    ]
+                    def rpArgs = params.REPORTPORTAL_ENABLE
+                            ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\""
+                            : "-Dreportportal.enable=false"
+                    def perfFailures = []
+
+                    def runPerfSuites = {
+                        perfSuites.each { site, suiteFile ->
+                            if (sh(script: "bash Scripts/enabled-sites.sh --check ${site}", returnStatus: true) != 0) {
+                                echo "site.${site}.enabled is not true in pipeline-config.properties - skipping perf suite"
+                                return
+                            }
+                            if (!fileExists(suiteFile)) {
+                                echo "Skipping ${site}: ${suiteFile} not found"
+                                return
+                            }
+                            echo "==== Running ${site} Performance Tests (Java DSL) ===="
+                            int exitCode = sh(
+                                    script: """
+                                       mvn -B -ntp test \\
+                                          -Dsite=${site} \\
+                                          -DsuiteXmlFile=${suiteFile} \\
+                                          -Dgroups=perf \\
+                                          -Dallure.results.directory=target/allure-results/${site}-perf \\
+                                          -Dsurefire.reportsDirectory=target/surefire-reports/${site}-perf \\
+                                          -Djacoco.destFile=target/jacoco-artifacts/${site}-perf.exec \\
+                                          ${rpArgs} \\
+                                          -Dreportportal.attributes="site:${site};suite:perf;ci:jenkins;build:${env.BUILD_NUMBER}" \\
+                                          -Dmaven.test.failure.ignore=true
+                                    """,
+                                    returnStatus: true
+                            )
+                            if (exitCode != 0) {
+                                perfFailures.add(site)
+                            }
+                        }
+                    }
+                    if (params.REPORTPORTAL_ENABLE) {
+                        withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                            runPerfSuites()
+                        }
+                    } else {
+                        runPerfSuites()
+                    }
+
+                    if (perfFailures) {
+                        // Same reasoning as the legacy JMeter smoke stage: a
+                        // load-test budget miss shouldn't hard-fail the whole
+                        // nightly build the way a real functional regression
+                        // should.
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Performance (Java DSL) suites with budget failures: ${perfFailures.join(', ')} — see target/perf-reports"
+                    }
+                    archiveArtifacts artifacts: 'target/perf-reports/**', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Coverage Gate') {
-            // Runs after Run Tests Per Site + Mobile Test so every branch's
+            // Runs after Run Tests Per Site + Mobile Test + API Tests +
+            // Performance Tests (Java DSL, nightly-only) so every branch's
             // target/jacoco-artifacts/<key>.exec (see -Djacoco.destFile
             // above) is already on disk. Each individual branch only
             // exercises the slice of core/ its own suite touches, so
@@ -1546,12 +1776,25 @@ pipeline {
                     if (env.RUN_MOBILE == 'true') {
                         resultDirs += [[path: 'target/allure-results/mobile']]
                     }
+                    // 'API Tests' runs on every build (see that stage above),
+                    // so its per-site result dirs belong alongside the
+                    // regular per-site ones, not gated behind NIGHTLY_RESULT_DIRS.
+                    // Only dirs that actually exist are included — an API
+                    // suite skipped via enabled-sites.sh never writes one.
+                    resultDirs += ['demoqa-api', 'jsonplaceholder-api']
+                            .findAll { fileExists("target/allure-results/${it}") }
+                            .collect { [path: "target/allure-results/${it}"] }
                     if (!resultDirs) {
                         resultDirs = [[path: 'target/allure-results']]
                     }
                     if (env.NIGHTLY_RESULT_DIRS) {
                         resultDirs += env.NIGHTLY_RESULT_DIRS.split(',').collect { [path: "target/allure-results/${it}"] }
                     }
+                    // 'Performance Tests - Java DSL (Nightly)' dirs — same
+                    // existence check, since that stage only runs on cron.
+                    resultDirs += ['demoqa-perf', 'jsonplaceholder-perf']
+                            .findAll { fileExists("target/allure-results/${it}") }
+                            .collect { [path: "target/allure-results/${it}"] }
                     allure([
                             includeProperties: false,
                             jdk: '',

@@ -215,11 +215,36 @@ would've run.
 
 ## CI integration
 
-`../.github/workflows/github-ci.yml` has a `test-impact-analysis` job (PR-triggered) that computes
-the impacted set against the PR's base branch and posts `impact-report.md` to the job summary,
-plus uploads `target/tia/` as an artifact. It's **informational only** — it does not gate or
+All three pipelines run TIA informationally, on the PR/MR path only — none of them gate or
 replace the existing full `test` / `mobile-test` matrix, which remains the real safety net on
-every push and PR exactly as before.
+every push and PR/MR exactly as before:
+
+- **GitHub Actions** (`../.github/workflows/github-ci.yml`) — `test-impact-analysis` job,
+  PR-triggered, posts `impact-report.md` to the job summary and uploads `target/tia/` as an
+  artifact.
+- **GitLab CI** (`../.gitlab-ci.yml`) — `test-impact-analysis` job, `merge_request_event`-triggered
+  (`GIT_DEPTH: "0"` for that job specifically, since TIA needs the MR's merge-base commit locally
+  and this project's default clone depth doesn't guarantee that), diffs against GitLab's own
+  precomputed `$CI_MERGE_REQUEST_DIFF_BASE_SHA`, echoes `impact-report.md` to the job log, and
+  uploads `target/tia/` as an artifact. GitLab doesn't have a `$GITHUB_STEP_SUMMARY` equivalent for
+  posting Markdown straight into the MR view, so surfacing this as an inline MR comment instead of
+  a job-log/artifact would need a separate API-token-authenticated step (e.g. `glab mr note`) —
+  left as a follow-up once the report format has proven itself worth that wiring.
+- **Jenkins** (`../Jenkinsfile`) — `Test Impact Analysis` stage, gated on `env.CHANGE_TARGET` being
+  set. This Jenkinsfile runs as a parameterized (non-multibranch) pipeline today, which has no "pull
+  request" concept at all, so `CHANGE_TARGET`/`CHANGE_ID` only exist if/when this job is
+  reconfigured as a Multibranch Pipeline with PR discovery — at which point Jenkins sets them
+  automatically and this stage starts running with no further changes. Until then it skips cleanly,
+  same pattern as the `Mobile Test` stage's `RUN_MOBILE` guard. The stage also unshallows the
+  checkout (`git fetch --unshallow`) before running TIA, since the `Checkout` stage's clone is
+  deliberately `depth: 1` for this agent's slow link to GitHub — TIA needs `CHANGE_TARGET`'s history
+  locally to diff against, which a depth-1 clone doesn't have.
+
+None of the three has been run for real against an actual PR/MR in this pass (no GitHub Actions
+runner, GitLab runner, or Jenkins agent reachable from this environment) — the GitLab and Jenkins
+additions mirror the already-working GitHub Actions job's `-Ptia -Dtia.base=... -Dtia.head=...`
+invocation exactly, but are worth a real dry run (open a throwaway PR/MR touching one test file)
+before trusting the report output on a real one.
 
 To actually gate CI on TIA once you've built confidence in it (e.g. running both in parallel for
 a few weeks and confirming IMPACTED mode never misses a failure FULL mode would have caught),

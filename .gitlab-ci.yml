@@ -178,6 +178,16 @@ test:
   # instance actually executes is fully config-driven below.
   needs: [ "generate-pipeline-config" ]
   rules:
+    # AUTO-GENERATED-SITE-RULES-START — Scripts/new-site.sh inserts each new
+    # site's disable-rule directly after this marker (`sed ... /marker/a`).
+    # This marker was previously missing from this file entirely, so the
+    # script's GitLab-wiring step silently failed for every site scaffolded
+    # before this fix (SAHMAT included) — it always fell through to the
+    # "[✗] Could not find the AUTO-GENERATED-SITE-LIST marker" message and
+    # left both this rules: block and the site matrix list below for a
+    # human to edit by hand, contradicting the script's own "no CI/CD file
+    # needs manual editing" success banner. Do not remove or reword this
+    # marker line — the script matches its exact text.
     - if: '$SITE == "demoqa" && $SITE_DEMOQA_ENABLED == "false"'
       when: never
     - if: '$SITE == "saucedemo" && $SITE_SAUCEDEMO_ENABLED == "false"'
@@ -209,6 +219,11 @@ test:
       # filtering above — a disabled site's 3 instances are skipped via
       # `rules:`, not removed from this list, so re-enabling it needs no
       # edit here).
+      # AUTO-GENERATED-SITE-LIST — Scripts/new-site.sh appends each new site
+      # into the site matrix line below (regex-matched on "SITE:", not
+      # marker-anchored, but this comment's presence is what the script
+      # checks for before attempting the edit at all — see the rules: block
+      # above for why the marker was missing until now).
       - SITE: [ demoqa, saucedemo, SAHMAT ]
         BROWSER: [ chrome, firefox, edge ]
   script:
@@ -838,6 +853,165 @@ secret-scan:
     - merge_requests
 
 # ================================================================
+# Test Impact Analysis — informational only, merge requests only
+# ================================================================
+# GitLab equivalent of .github/workflows/github-ci.yml's own
+# `test-impact-analysis` job — see docs/TEST_IMPACT_ANALYSIS.md for the
+# full design. Deliberately does NOT replace or gate the real `test`/
+# `mobile-test` jobs above; this answers a narrower, faster question up
+# front ("which test classes does com.automation.core.tia.
+# TestImpactAnalyzer think this MR actually affects, and by how much
+# could a filtered run have saved"). GitLab's own `report:` artifact
+# types don't have a free-form-Markdown-to-MR-comment option the way
+# GitHub Actions' $GITHUB_STEP_SUMMARY does, so the report is instead
+# uploaded as a job artifact and echoed to the job log — posting it as
+# an actual MR comment would need a GitLab API token wired in
+# separately (e.g. via a `glab mr note` call) and is a reasonable follow-
+# up once this job has run for a while and the report format is stable.
+#
+# GIT_DEPTH: 0 (full clone, overriding whatever shallow depth this
+# project/runner defaults to) is required here — TIA diffs against the
+# MR's merge-base commit, which a shallow clone commonly doesn't have
+# locally, exactly the same reason the GitHub Actions job passes
+# `fetch-depth: 0`. $CI_MERGE_REQUEST_DIFF_BASE_SHA is GitLab's own
+# precomputed merge-base for the MR, so no extra `git fetch`/branch
+# lookup is needed the way Jenkins' equivalent stage needs one.
+# ================================================================
+test-impact-analysis:
+  stage: test
+  interruptible: true
+  allow_failure: true
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - 'echo "======= Test Impact Analysis: $CI_MERGE_REQUEST_DIFF_BASE_SHA...$CI_COMMIT_SHA ======="'
+    - mvn -B -q compile test-compile
+    - mvn -B -q exec:java@tia -Ptia
+      -Dtia.base="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+      -Dtia.head="$CI_COMMIT_SHA"
+    - cat target/tia/impact-report.md
+  artifacts:
+    name: "test-impact-analysis-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - target/tia/
+
+# ================================================================
+# API Tests — pure-HTTP, no browser/Grid at all (testng-suites/api-tests*.xml)
+# ================================================================
+# GitLab equivalent of github-ci.yml's `api-tests` job / the Jenkinsfile's
+# 'API Tests' stage — see either's own comment for the full reasoning.
+# Runs on every branch/MR push, not just nightly: fast (seconds) and
+# deterministic enough to gate merges on. One job instance per known API
+# suite file via `parallel: matrix:` (values must stay static here, same
+# limitation as the `test` job's SITE matrix above), each independently
+# gated on its own site being enabled through the dotenv flags from
+# generate-pipeline-config.
+# ================================================================
+api-tests:
+  stage: test
+  interruptible: true
+  needs: [ "generate-pipeline-config" ]
+  rules:
+    - if: '$SITE == "demoqa" && $SITE_DEMOQA_ENABLED == "false"'
+      when: never
+    - if: '$SITE == "jsonplaceholder" && $SITE_JSONPLACEHOLDER_ENABLED == "false"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+      when: on_success
+  parallel:
+    matrix:
+      - SITE: [ demoqa, jsonplaceholder ]
+  script:
+    - 'echo "======= Running API Tests: site=$SITE ======="'
+    - |
+      case "$SITE" in
+        demoqa) SUITE_FILE="testng-suites/api-tests.xml" ;;
+        jsonplaceholder) SUITE_FILE="testng-suites/api-tests-jsonplaceholder.xml" ;;
+      esac
+    - mvn -B test
+      -Dsite=$SITE
+      -DsuiteXmlFile=$SUITE_FILE
+      -Dallure.results.directory=target/allure-results/$SITE-api
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:$SITE;suite:api;ci:gitlab;pipeline:$CI_PIPELINE_ID"
+      -Dmaven.test.failure.ignore=true
+    - mkdir -p target/jacoco-artifacts
+    - cp target/jacoco.exec target/jacoco-artifacts/$SITE-api.exec
+  artifacts:
+    name: "api-test-results-$SITE-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/allure-results/
+      - target/extent-reports/
+      - target/logs/
+      - target/surefire-reports/
+      - target/jacoco-artifacts/
+    reports:
+      junit: target/surefire-reports/*.xml
+
+# ================================================================
+# Performance Tests — Java DSL load tests (core/perf, testng-suites/*-perf.xml)
+# ================================================================
+# GitLab equivalent of github-ci.yml's `perf-tests` job / the Jenkinsfile's
+# 'Performance Tests - Java DSL (Nightly)' stage. Nightly-only
+# (schedule-gated), same reasoning as perf-smoke below: response-time/
+# error-rate budgets (PerfConfig) aren't fair to assert on every push
+# against a shared runner. Distinct from perf-smoke, which stays the
+# legacy JMeter XML sanity check.
+# ================================================================
+perf-tests:
+  stage: test
+  interruptible: true
+  allow_failure: true
+  needs: [ "generate-pipeline-config" ]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SITE == "demoqa" && $SITE_DEMOQA_ENABLED == "false"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SITE == "jsonplaceholder" && $SITE_JSONPLACEHOLDER_ENABLED == "false"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  parallel:
+    matrix:
+      - SITE: [ demoqa, jsonplaceholder ]
+  script:
+    - 'echo "======= Running Performance Tests (Java DSL): site=$SITE ======="'
+    - |
+      case "$SITE" in
+        demoqa) SUITE_FILE="testng-suites/demoqa-perf.xml" ;;
+        jsonplaceholder) SUITE_FILE="testng-suites/jsonplaceholder-perf.xml" ;;
+      esac
+    - mvn -B test
+      -Dsite=$SITE
+      -DsuiteXmlFile=$SUITE_FILE
+      -Dgroups=perf
+      -Dallure.results.directory=target/allure-results/$SITE-perf
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:$SITE;suite:perf;ci:gitlab;pipeline:$CI_PIPELINE_ID"
+      -Dmaven.test.failure.ignore=true
+    - mkdir -p target/jacoco-artifacts
+    - cp target/jacoco.exec target/jacoco-artifacts/$SITE-perf.exec
+  artifacts:
+    name: "perf-results-$SITE-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - target/allure-results/
+      - target/perf-reports/
+      - target/surefire-reports/
+      - target/jacoco-artifacts/
+
+# ================================================================
 # Performance smoke — perf/basic-smoke.jmx via the pom.xml `perf` Maven
 # profile (jmeter-maven-plugin resolves JMeter itself via Maven, into the
 # already-cached .m2/repository/ — no separate download/cache needed).
@@ -867,14 +1041,19 @@ perf-smoke:
       - target/jmeter/reports/
 
 # ================================================================
-# Coverage Gate (merged JaCoCo check across every SITE + mobile)
+# Coverage Gate (merged JaCoCo check across every SITE + mobile + api-tests)
 # ================================================================
-# Each test/mobile-test instance only exercises the slice of core/ its
-# own suite touches, so checking any single instance's jacoco.exec against
-# the 50% core/ threshold in pom.xml would fail unfairly. Merges every
-# SITE.exec + mobile.exec captured above into one target/jacoco.exec, then
-# runs the real gate against that union — same approach as the GitHub
-# Actions pipeline's coverage-gate job.
+# Each test/mobile-test/api-tests instance only exercises the slice of
+# core/ its own suite touches, so checking any single instance's
+# jacoco.exec against the 50% core/ threshold in pom.xml would fail
+# unfairly. Merges every SITE.exec + mobile.exec + SITE-api.exec captured
+# above into one target/jacoco.exec, then runs the real gate against that
+# union — same approach as the GitHub Actions pipeline's coverage-gate
+# job. perf-tests' SITE-perf.exec artifacts are listed in dependencies:
+# too for when they exist, but in practice this job's `only: [branches,
+# merge_requests]` means it never actually runs in the same pipeline as
+# perf-tests (schedule-only) — listing it is forward-looking/harmless
+# rather than something currently in effect; see docs/roadmap.md.
 coverage-gate:
   stage: report
   interruptible: true
@@ -882,7 +1061,7 @@ coverage-gate:
     - echo "======= Merging coverage data ======="
     - |
       if [ ! -d "target/jacoco-artifacts" ] || [ -z "$(ls -A target/jacoco-artifacts 2>/dev/null)" ]; then
-        echo "WARNING: no jacoco-artifacts found from test/mobile-test — skipping coverage gate this run."
+        echo "WARNING: no jacoco-artifacts found from test/mobile-test/api-tests — skipping coverage gate this run."
         exit 0
       fi
     - mkdir -p target/jacoco-raw
@@ -902,6 +1081,8 @@ coverage-gate:
   dependencies:
     - test
     - mobile-test
+    - api-tests
+    - perf-tests
   only:
     - branches
     - merge_requests
@@ -1062,6 +1243,8 @@ report:
   dependencies:
     - test
     - mobile-test
+    - api-tests
+    - perf-tests
   only:
     - branches
 pages:

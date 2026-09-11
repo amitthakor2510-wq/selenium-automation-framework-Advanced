@@ -21,6 +21,9 @@ import java.util.TreeSet;
  *       framework selects its site via a single {@code -Dsite=...} JVM system property and can't mix
  *       sites in one {@code mvn test} run (see {@code ConfigReader}'s own javadoc on that constraint)</li>
  *   <li>{@code impact-report.md} — human-readable summary for a CI job summary / PR comment</li>
+ *   <li>{@code impact-summary.json} — the same headline counts as {@code impact-report.md}, as
+ *       machine-readable JSON; read by {@code compute_dashboard_history.py} for the unified
+ *       test-health dashboard's Test Impact Analysis trend (see generate_landing_page.py)</li>
  * </ul>
  */
 public final class ReportWriter {
@@ -37,6 +40,7 @@ public final class ReportWriter {
             writeMode(result);
             if (result.mode() == ImpactResult.Mode.FULL) {
                 writeFullSuiteReport(result);
+                writeImpactSummaryJson(result);
                 return;
             }
             writeFlatList(result);
@@ -46,6 +50,7 @@ public final class ReportWriter {
                 writePerSiteSuiteXml(e.getKey(), e.getValue());
             }
             writeImpactedReport(result, bySite);
+            writeImpactSummaryJson(result);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -123,6 +128,31 @@ public final class ReportWriter {
             sb.append("\n");
         }
         Files.writeString(outputDir.resolve("impact-report.md"), sb.toString(), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Machine-readable counterpart to impact-report.md's headline line
+     * ("N / M test classes selected"). FULL mode counts as every test class
+     * "impacted" (the whole suite is what actually runs), so a consumer
+     * computing a percentage from these two fields gets 100% for FULL and
+     * the real filtered fraction for IMPACTED — no separate mode-branching
+     * needed on the reading side.
+     */
+    private void writeImpactSummaryJson(ImpactResult result) throws IOException {
+        int total = result.totalTestClassesInProject();
+        int impactedCount = result.mode() == ImpactResult.Mode.FULL
+            ? total
+            : result.impactedTests().size();
+        String json = String.format(
+            "{%n"
+                + "  \"generatedAt\": \"%s\",%n"
+                + "  \"mode\": \"%s\",%n"
+                + "  \"impacted_count\": %d,%n"
+                + "  \"total_test_classes\": %d,%n"
+                + "  \"changed_files_count\": %d%n"
+                + "}%n",
+            Instant.now(), result.mode(), impactedCount, total, result.changedFiles().size());
+        Files.writeString(outputDir.resolve("impact-summary.json"), json, StandardCharsets.UTF_8);
     }
 
     private void writeFullSuiteReport(ImpactResult result) throws IOException {

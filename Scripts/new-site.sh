@@ -347,6 +347,44 @@ else
 fi
 
 # =========================================================================
+# 7b. Register with SiteMapper — Test Impact Analysis's own small,
+#    dependency-free mirror of SiteRegistry.KNOWN_SITES (see SiteMapper's
+#    own Javadoc: "Update both places together when a new site is added").
+#    Without a line here, TIA can't map this site's config/resource
+#    changes or test classes back to a site key, and silently falls back
+#    to its site-blind "unsafe/full suite" decision for every change
+#    involving this site — exactly the bug this step exists to prevent
+#    (previously reintroduced twice by hand: once for SAHMAT, once for
+#    the jsonplaceholder API-only site, before this script covered it).
+# =========================================================================
+SITE_MAPPER="src/main/java/com/automation/core/tia/SiteMapper.java"
+if [[ -f "$SITE_MAPPER" ]] && grep -q "SITE_TEST_PACKAGE.put(" "$SITE_MAPPER"; then
+  # awk, not sed: must only insert before the FIRST bare "}" that follows
+  # "static {" (the static initializer's own closing brace) — a plain
+  # "closing brace at start of line" sed pattern also matches the
+  # constructor's closing brace right below it and corrupts the file.
+  awk -v site="${SITE}" '
+    /static[ \t]*\{/ { in_static = 1 }
+    in_static && /^[ \t]*}[ \t]*$/ {
+      print "        SITE_TEST_PACKAGE.put(\"" site "\", \"com.automation.sites." site "\");"
+      print $0
+      in_static = 0
+      next
+    }
+    { print }
+  ' "$SITE_MAPPER" > "${SITE_MAPPER}.tmp" && mv "${SITE_MAPPER}.tmp" "$SITE_MAPPER"
+  if grep -c "SITE_TEST_PACKAGE.put(\"${SITE}\"" "$SITE_MAPPER" | grep -q "^1\$"; then
+    echo "[✓] Registered '${SITE}' in SiteMapper.SITE_TEST_PACKAGE (com.automation.sites.${SITE})"
+  else
+    echo "[✗] Could not confirm '${SITE}' was added to ${SITE_MAPPER} — add this line by hand inside its static block:"
+    echo "        SITE_TEST_PACKAGE.put(\"${SITE}\", \"com.automation.sites.${SITE}\");"
+  fi
+else
+  echo "[✗] Could not find SITE_TEST_PACKAGE in ${SITE_MAPPER} — register '${SITE}' there by hand before relying on Test Impact Analysis:"
+  echo "        SITE_TEST_PACKAGE.put(\"${SITE}\", \"com.automation.sites.${SITE}\");"
+fi
+
+# =========================================================================
 # 8. Register with pipeline-config.properties — the master on/off switch
 #    read by Scripts/enabled-sites.sh (GitHub Actions' matrix-setup,
 #    Jenkins' "Discover Site Projects", GitLab CI's

@@ -92,3 +92,12 @@ reportportal.sync
 /allure-2.27.0.tgz
 /allure-cli/
 /public/
+
+### Python bytecode cache for the .github/workflows/scripts/*.py helpers ###
+# Not previously ignored — found untracked (not yet committed, but one
+# `git add .` away from being accidentally checked in) under
+# .github/workflows/scripts/__pycache__/ during a repo-wide audit.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

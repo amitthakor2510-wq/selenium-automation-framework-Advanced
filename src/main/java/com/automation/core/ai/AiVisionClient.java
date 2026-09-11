@@ -17,49 +17,47 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 /**
- * Shared text-only LLM client for the framework's AI features:
- * AI-assisted self-healing ({@code selfhealing.AiLocatorHealer}), AI
- * root-cause analysis on test failure ({@link AiExceptionAnalyzer}), and
- * the AI-augmented bug crawler ({@code crawler.SiteCrawler}).
+ * Shared image+text LLM client for AI features that need to look at a
+ * screenshot rather than raw HTML/XML text ({@link OllamaClient}'s job) —
+ * currently used by the visual bug-review pass in both the web bug crawler
+ * ({@code crawler.ai.vision.enabled}) and the mobile app bug crawler
+ * ({@code crawler.mobile.ai.vision.enabled}); see
+ * {@code com.automation.core.crawler.AiScreenshotReviewer}.
  *
- * Deliberately separate from {@code CaptchaSolver}'s own AI Vision call:
- * that one sends an image (a CAPTCHA screenshot) and is CaptchaSolver-
- * specific; this one is text-only and shared by everything else in the
- * framework that wants an LLM's opinion on plain text/HTML/logs.
+ * Deliberately separate from {@code CaptchaSolver}'s own AI Vision call
+ * ({@code captcha.ai.*}): that one is CAPTCHA-specific (character-length
+ * hints, confusable-character guidance) and stays with the rest of
+ * CaptchaSolver's CAPTCHA-only logic. This is a general "here's a
+ * screenshot, what looks visually wrong" call, on its own {@code
+ * ai.vision.*} config namespace so it can be pointed at a different
+ * model/provider than either OllamaClient's text model or CaptchaSolver's
+ * CAPTCHA-solving model.
  *
- * Same dual-provider shape as CaptchaSolver though, on its own {@code ai.*}
- * config namespace (kept separate from {@code captcha.ai.*} so the vision
- * model used for CAPTCHAs and the text/coding model used here can be
- * configured independently, which matters — they're different jobs):
- *
+ * Same dual-provider shape as OllamaClient/CaptchaSolver:
  * <ul>
- *   <li>{@code ai.provider=ollama} (default) — calls a local/remote Ollama
- *       server's {@code /api/chat}. No API key required.</li>
- *   <li>{@code ai.provider=anthropic} — calls the Anthropic Messages API.
- *       Needs {@code ai.apiKey} or the {@code ANTHROPIC_API_KEY} env var.</li>
+ *   <li>{@code ai.vision.provider=anthropic} (default) — Anthropic Messages
+ *       API, needs {@code ai.vision.apiKey} or the {@code ANTHROPIC_API_KEY}
+ *       env var, and a vision-capable {@code ai.vision.model}.</li>
+ *   <li>{@code ai.vision.provider=ollama} — a local vision-capable model
+ *       (e.g. llava, bakllava, moondream) served by Ollama's
+ *       {@code /api/chat} with an {@code images} field. No API key
+ *       required.</li>
  * </ul>
- *
- * "Best free model" note: for {@code ai.provider=ollama}, a coding-tuned
- * model in the Qwen-Coder family is currently the strongest generally-
- * available free/local pick for the reasoning these features need
- * (locator-candidate selection, failure root-causing, bug summarization).
- * See docs/AI_FEATURES.md for current sizing guidance — nothing in this
- * class hardcodes a model; {@code ai.model} always comes from config.
  */
-public final class OllamaClient {
+public final class AiVisionClient {
 
-    private static final Logger log = LoggerFactory.getLogger(OllamaClient.class);
+    private static final Logger log = LoggerFactory.getLogger(AiVisionClient.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build();
 
-    private OllamaClient() {
+    private AiVisionClient() {
     }
 
     /** True when enough config is present to even attempt a call. */
     public static boolean isConfigured() {
-        String model = ConfigReader.get("ai.model", "");
+        String model = ConfigReader.get("ai.vision.model", "");
         if (model.isBlank()) {
             return false;
         }
@@ -71,11 +69,11 @@ public final class OllamaClient {
     }
 
     private static boolean isAnthropic() {
-        return "anthropic".equalsIgnoreCase(ConfigReader.get("ai.provider", "ollama").trim());
+        return "anthropic".equalsIgnoreCase(ConfigReader.get("ai.vision.provider", "anthropic").trim());
     }
 
     private static String resolveApiKey() {
-        String configured = ConfigReader.get("ai.apiKey", "");
+        String configured = ConfigReader.get("ai.vision.apiKey", "");
         if (!configured.isBlank()) {
             return configured;
         }
@@ -83,29 +81,30 @@ public final class OllamaClient {
     }
 
     /**
-     * Sends a single-turn chat request (optional system prompt + one user
-     * prompt) and returns the model's raw text reply. Callers that need
-     * structured data should ask for JSON in the prompt itself and parse
-     * the result with {@link #extractJsonObject(String)} — Ollama's
-     * {@code /api/chat} and Anthropic's Messages API don't share a
-     * JSON-mode contract simple enough to normalize here.
+     * Sends one base64-encoded PNG screenshot plus a text prompt and
+     * returns the model's raw text reply. Same "ask for JSON in the
+     * prompt, parse with {@link OllamaClient#extractJsonObject(String)}"
+     * contract as {@link OllamaClient#chat(String, String)}.
      *
      * @throws IOException on any network/HTTP/response-shape failure —
-     *         callers decide what "AI unavailable" should fall back to.
+     *         callers decide what "vision AI unavailable" should fall
+     *         back to.
      */
-    public static String chat(String systemPrompt, String userPrompt) throws IOException {
-        String model = ConfigReader.get("ai.model", "");
+    public static String review(String systemPrompt, String userPrompt, String base64Png) throws IOException {
+        String model = ConfigReader.get("ai.vision.model", "");
         if (model.isBlank()) {
-            throw new ConfigException("[AI] ai.model is not configured — set it to a model your ai.provider "
-                + "can serve (e.g. a Qwen-Coder tag for ai.provider=ollama). See docs/AI_FEATURES.md.");
+            throw new ConfigException("[AiVisionClient] ai.vision.model is not configured — set it to a "
+                + "vision-capable model (a Claude model for ai.vision.provider=anthropic, or a local llava/"
+                + "moondream tag for ai.vision.provider=ollama). See docs/AI_FEATURES.md.");
         }
         boolean anthropic = isAnthropic();
-        // getNonBlank: ai.endpoint currently ships non-blank in global.properties (pointed at
-        // this project's own Ollama box), but a blank override would otherwise silently resolve
-        // to "" instead of the provider default — see ConfigReader.getNonBlank's javadoc.
-        String endpoint = ConfigReader.getNonBlank("ai.endpoint",
+        // getNonBlank, not get: global.properties ships ai.vision.endpoint blank on purpose
+        // ("use the provider's default") — plain get(key, default) only substitutes the
+        // default when the key is ABSENT, not when it's present-but-empty, so this used to
+        // silently resolve to "" and break every call. See ConfigReader.getNonBlank's javadoc.
+        String endpoint = ConfigReader.getNonBlank("ai.vision.endpoint",
             anthropic ? "https://api.anthropic.com/v1/messages" : "http://localhost:11434/api/chat");
-        int timeoutSeconds = ConfigReader.getInt("ai.timeout.seconds", 60);
+        int timeoutSeconds = ConfigReader.getInt("ai.vision.timeout.seconds", 60);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
@@ -116,8 +115,8 @@ public final class OllamaClient {
         if (anthropic) {
             String apiKey = resolveApiKey();
             if (apiKey == null || apiKey.isBlank()) {
-                throw new ConfigException("[AI] ai.provider=anthropic but no API key configured. "
-                    + "Set ai.apiKey or the ANTHROPIC_API_KEY environment variable.");
+                throw new ConfigException("[AiVisionClient] ai.vision.provider=anthropic but no API key "
+                    + "configured. Set ai.vision.apiKey or the ANTHROPIC_API_KEY environment variable.");
             }
             requestBody.put("model", model);
             requestBody.put("max_tokens", 1024);
@@ -125,9 +124,27 @@ public final class OllamaClient {
             if (systemPrompt != null && !systemPrompt.isBlank()) {
                 requestBody.put("system", systemPrompt);
             }
+
+            ObjectNode imageBlock = objectMapper.createObjectNode();
+            imageBlock.put("type", "image");
+            ObjectNode source = objectMapper.createObjectNode();
+            source.put("type", "base64");
+            source.put("media_type", "image/png");
+            source.put("data", base64Png);
+            imageBlock.set("source", source);
+
+            ObjectNode textBlock = objectMapper.createObjectNode();
+            textBlock.put("type", "text");
+            textBlock.put("text", userPrompt);
+
+            ArrayNode content = objectMapper.createArrayNode();
+            content.add(imageBlock);
+            content.add(textBlock);
+
             ObjectNode userMessage = objectMapper.createObjectNode();
             userMessage.put("role", "user");
-            userMessage.put("content", userPrompt);
+            userMessage.set("content", content);
+
             ArrayNode messages = objectMapper.createArrayNode();
             messages.add(userMessage);
             requestBody.set("messages", messages);
@@ -148,6 +165,9 @@ public final class OllamaClient {
             ObjectNode userMessage = objectMapper.createObjectNode();
             userMessage.put("role", "user");
             userMessage.put("content", userPrompt);
+            ArrayNode images = objectMapper.createArrayNode();
+            images.add(base64Png);
+            userMessage.set("images", images);
             messages.add(userMessage);
             requestBody.set("messages", messages);
 
@@ -157,7 +177,7 @@ public final class OllamaClient {
 
             // Most local Ollama setups need no auth at all; only sent if
             // explicitly configured (e.g. a reverse proxy adding its own).
-            String apiKey = ConfigReader.get("ai.apiKey", "");
+            String apiKey = ConfigReader.get("ai.vision.apiKey", "");
             if (!apiKey.isBlank()) {
                 requestBuilder.header("Authorization", "Bearer " + apiKey);
             }
@@ -167,7 +187,7 @@ public final class OllamaClient {
             .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
             .build();
 
-        log.info("🤖 AI call: provider={}, model={}, endpoint={}",
+        log.info("🤖 AI vision call: provider={}, model={}, endpoint={}",
             anthropic ? "anthropic" : "ollama", model, endpoint);
 
         HttpResponse<String> response;
@@ -175,18 +195,18 @@ public final class OllamaClient {
             response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IOException("AI call interrupted: " + e.getMessage(), e);
+            throw new IOException("AI vision call interrupted: " + e.getMessage(), e);
         }
 
         if (response.statusCode() != 200) {
-            throw new IOException("AI call returned HTTP " + response.statusCode() + ": " + response.body());
+            throw new IOException("AI vision call returned HTTP " + response.statusCode() + ": " + response.body());
         }
 
         JsonNode root = objectMapper.readTree(response.body());
         if (anthropic) {
             JsonNode contentArray = root.get("content");
             if (contentArray == null || !contentArray.isArray() || contentArray.isEmpty()) {
-                throw new IOException("AI response had no content block: " + response.body());
+                throw new IOException("AI vision response had no content block: " + response.body());
             }
             StringBuilder sb = new StringBuilder();
             for (JsonNode block : contentArray) {
@@ -203,33 +223,10 @@ public final class OllamaClient {
             if (contentNode == null) {
                 JsonNode errorNode = root.get("error");
                 String detail = errorNode != null ? errorNode.asText() : response.body();
-                throw new IOException("Ollama /api/chat response had no usable message.content field: " + detail);
+                throw new IOException("Ollama /api/chat vision response had no usable message.content field: "
+                    + detail);
             }
             return contentNode.asText();
-        }
-    }
-
-    /**
-     * Best-effort extraction of the first {@code {...}} JSON object found
-     * in a model's reply — local models frequently wrap valid JSON in
-     * prose or a {@code ```json} fence even when explicitly told not to.
-     * Returns null (never throws) if no valid JSON object could be found,
-     * so callers can fall back to their non-AI behavior instead of failing
-     * outright.
-     */
-    public static JsonNode extractJsonObject(String rawReply) {
-        if (rawReply == null) {
-            return null;
-        }
-        int start = rawReply.indexOf('{');
-        int end = rawReply.lastIndexOf('}');
-        if (start < 0 || end <= start) {
-            return null;
-        }
-        try {
-            return objectMapper.readTree(rawReply.substring(start, end + 1));
-        } catch (Exception e) {
-            return null;
         }
     }
 }

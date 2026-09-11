@@ -176,7 +176,11 @@ public class CaptchaSolver {
     private final String aiApiKey = ConfigReader.get("captcha.ai.apiKey",
         System.getenv().getOrDefault("ANTHROPIC_API_KEY", ""));
     private final String aiModel = ConfigReader.get("captcha.ai.model", "");
-    private final String aiEndpoint = ConfigReader.get("captcha.ai.endpoint",
+    // getNonBlank: captcha.ai.endpoint currently ships non-blank in global.properties, but a
+    // blank override (this file's own comment for this key says blank is a valid "use the
+    // default" choice) would otherwise silently resolve to "" instead of the provider default —
+    // see ConfigReader.getNonBlank's javadoc.
+    private final String aiEndpoint = ConfigReader.getNonBlank("captcha.ai.endpoint",
         isOllama ? "http://localhost:11434/api/generate" : "https://api.anthropic.com/v1/messages");
 
     // -----------------------------------------------------------------------

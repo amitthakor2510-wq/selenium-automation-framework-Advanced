@@ -3,6 +3,7 @@ package com.automation.sites.demoqa.tests;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.UploadDownloadPage;
@@ -36,8 +37,14 @@ public class UploadDownloadTest extends BaseTest {
 
         // ── Upload file ────────────────────────────────────────────────────
         try {
+            // Was hardcoded to "target/test-upload.txt" — global.properties
+            // already defines upload.file.path with that exact same value,
+            // but nothing ever read it (dead config). Now wired through
+            // ConfigReader with the old hardcoded value as the fallback
+            // default, so behavior is unchanged unless someone overrides it.
             File uploadFile = new File(
-                System.getProperty("user.dir") + "/target/test-upload.txt"
+                System.getProperty("user.dir") + "/"
+                    + ConfigReader.get("upload.file.path", "target/test-upload.txt")
             );
 
             boolean dirCreated = uploadFile.getParentFile().mkdirs();

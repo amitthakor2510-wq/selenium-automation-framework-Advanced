@@ -114,6 +114,30 @@ public class ConfigReader {
     }
 
     /**
+     * Resolve a key with a fallback default, treating a present-but-blank
+     * value as "use the default" rather than returning the blank string.
+     *
+     * Several config keys in global.properties (e.g. {@code
+     * ai.vision.endpoint}, {@code captcha.ai.endpoint}, {@code ai.endpoint})
+     * are deliberately shipped blank with a comment saying "leave blank to
+     * use the built-in default for the selected provider" — but plain
+     * {@link #get(String, String)} only substitutes defaultValue when the
+     * key is entirely ABSENT from the properties file
+     * ({@code Properties.getProperty(key, default)}'s own contract); a key
+     * that exists with an empty value returns that empty string instead,
+     * which silently breaks any caller building a URI/endpoint from it
+     * (e.g. {@code URI.create("")}) even though the file's own comment says
+     * blank is safe. Use this instead of {@link #get(String, String)}
+     * anywhere the properties file documents "blank = use default" for a
+     * key — see AiVisionClient/OllamaClient/CaptchaSolver's endpoint
+     * resolution for the current callers.
+     */
+    public static String getNonBlank(String key, String defaultValue) {
+        String value = get(key, defaultValue);
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    /**
      * Integer helper. Falls back to defaultValue if key is absent or not a number.
      */
     public static int getInt(String key, int defaultValue) {

@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
+import com.automation.core.config.ConfigReader;
 import com.automation.sites.core.BaseTest;
 import com.automation.sites.demoqa.pages.PracticeFormPage;
 import org.testng.Assert;
@@ -68,8 +69,12 @@ public class PracticeFormTest extends BaseTest {
         fillPersonalDetails(page);
         fillAdditionalDetails(page);
 
-        // Upload picture - change path to a real file on your system
-        String picturePath = System.getProperty("user.dir") + "/target/test-upload.txt";
+        // Upload picture - change path to a real file on your system.
+        // Reads the same upload.file.path key UploadDownloadTest now uses
+        // (was hardcoded here too, identically to that class's old dead
+        // -config bug) so both tests share one configurable file location.
+        String picturePath = System.getProperty("user.dir") + "/"
+            + ConfigReader.get("upload.file.path", "target/test-upload.txt");
         java.io.File pictureFile = new java.io.File(picturePath);
         if (!pictureFile.exists()) {
             pictureFile.getParentFile().mkdirs();

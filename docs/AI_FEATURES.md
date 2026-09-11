@@ -173,6 +173,94 @@ which `browser`/`headless`/Grid config the crawler's own `WebDriver` uses — th
 itself will happily crawl any host you point `crawler.startUrl` at, regardless of which
 site's config supplied the browser settings.
 
+### 3a. Visual AI review (screenshots, not just HTML)
+
+All three passes above only ever look at markup — `AiPageReviewer` and
+`AiChecklistReviewer` read HTML text, and the rule-based checks read DOM attributes. None
+of them can see how a page actually *renders*: overlapping text, an element pushed off
+the visible viewport, a broken CSS layout, or a blank area where content should be can
+all look completely fine in the HTML while being visibly wrong on screen.
+
+`crawler.ai.vision.enabled=true` adds a fourth, independent pass: `AiScreenshotReviewer`
+takes a full-viewport screenshot of the page and sends it to a vision-capable model
+(`AiVisionClient`, its own `ai.vision.*` config namespace — separate from both the
+text-only `ai.*` model above and `captcha.ai.*`, since you'll usually want a different
+model for "read this image of a CAPTCHA" vs. "read this HTML" vs. "look at this whole
+page and tell me what looks broken"). Findings are added to the report under the
+`ai-visual-review` category.
+
+```properties
+crawler.ai.vision.enabled=false
+ai.vision.provider=anthropic
+ai.vision.endpoint=
+ai.vision.apiKey=
+ai.vision.model=
+ai.vision.timeout.seconds=60
+```
+
+`ai.vision.provider=anthropic` needs a real Claude model in `ai.vision.model` (e.g. a
+current Claude model tag) and `ai.vision.apiKey`/`ANTHROPIC_API_KEY`.
+`ai.vision.provider=ollama` works with a local vision-capable model (llava, bakllava,
+moondream, etc.) — no API key needed, same as the text `ai.*` client.
+
+## 4. Mobile app AI bug crawler
+
+`mobile/crawler/MobileAppCrawler.java`, run via `MobileCrawlerCli` (or the
+`mobile-bug-crawler` Maven profile), is the mobile counterpart to the web bug crawler
+above — same idea (visit screens, run checks, optionally ask an LLM what looks wrong),
+adapted to Appium: there's no URL graph to follow, so it explores depth-first by tapping
+clickable elements and navigating back, rather than breadth-first by following `href`s.
+
+Checks run on every screen:
+
+- crash/ANR dialogs (`has stopped`, `isn't responding`, etc. — matched in the UI-hierarchy
+  dump)
+- leaving the app under test entirely (Android only, via `getCurrentPackage()`)
+- duplicate `resource-id`/accessibility-id values on the same screen
+- image/icon controls with no accessible name (`content-desc` on Android, `name`/`label`
+  on iOS) and no text — the mobile equivalent of the web crawler's missing-`alt` check
+- screens with no visible text/content-desc/label at all (likely a blank/broken render)
+
+Optionally, `crawler.mobile.ai.enabled=true` adds `AiMobileScreenReviewer` (text pass over
+the screen's UI-hierarchy XML, same shape as `AiPageReviewer`), and
+`crawler.mobile.ai.vision.enabled=true` adds the same `AiScreenshotReviewer` visual pass
+the web crawler uses, pointed at a screenshot of the current screen instead of a
+webpage.
+
+**Read this before pointing it at a real device/account.** Unlike the web crawler (which
+only ever makes read-only HTTP `HEAD`/`GET` requests to check links), this crawler
+physically taps buttons/links/cells in a real app to discover new screens — which means
+it can trigger real actions (submitting a form, placing an order, logging out, deleting
+data) if the app exposes them as a reachable tap. `crawler.mobile.avoidTextContains` is a
+comma-separated, case-insensitive denylist checked against each candidate element's
+text/content-desc/name/label/resource-id before it is ever tapped — the default covers
+common destructive/irreversible actions (`delete`, `logout`, `uninstall`, `pay`,
+`purchase`, `reset`, `submit`, `confirm`, etc.), but you should extend it with anything
+app-specific before a real run. `crawler.mobile.maxScreens` /
+`crawler.mobile.maxDepth` / `crawler.mobile.maxElementsPerScreen` also bound how much
+exploration happens. This is a best-effort safety net, not a guarantee.
+
+```bash
+mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler -Dsite=<your-mobile-site>
+mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler \
+    -Dcrawler.mobile.maxScreens=15 -Dcrawler.mobile.ai.enabled=true
+```
+
+Produces `target/mobile-crawler/crawl-report.json` and `crawl-report.txt` — same report
+format as the web crawler (they share `CrawlReport`/`CrawlReportWriter`), just with
+screen signatures instead of URLs and no HTTP status per entry.
+
+```properties
+crawler.mobile.maxScreens=30
+crawler.mobile.maxDepth=4
+crawler.mobile.maxElementsPerScreen=8
+crawler.mobile.tapSettleMillis=800
+crawler.mobile.outputDir=target/mobile-crawler
+crawler.mobile.avoidTextContains=delete,logout,log out,sign out,uninstall,pay,purchase,buy,remove account,reset,submit,confirm
+crawler.mobile.ai.enabled=false
+crawler.mobile.ai.vision.enabled=false
+```
+
 ## Full config reference
 
 | Key | Default | Meaning |
@@ -191,13 +279,29 @@ site's config supplied the browser settings.
 | `crawler.a11y.enabled` | `true` | Run the axe-core accessibility check per page |
 | `crawler.ai.enabled` | `false` | Optional per-page AI content review |
 | `crawler.checklistFile` | *(blank)* | Path to a one-item-per-line bug checklist; every crawled page is checked against it (see above) |
+| `crawler.ai.vision.enabled` | `false` | Optional per-page visual AI review (screenshot, not HTML) |
+| `ai.vision.provider` | `anthropic` | `anthropic` or `ollama` — separate model/provider from `ai.*` and `captcha.ai.*` |
+| `ai.vision.model` | *(none — must be set)* | Any vision-capable tag your `ai.vision.provider` can serve |
+| `ai.vision.apiKey` | *(blank)* | Only required for `ai.vision.provider=anthropic`; falls back to `ANTHROPIC_API_KEY` |
+| `ai.vision.timeout.seconds` | `60` | Per-call HTTP timeout |
+| `crawler.mobile.maxScreens` | `30` | Mobile bug-crawler screen cap |
+| `crawler.mobile.maxDepth` | `4` | Mobile bug-crawler tap-depth cap |
+| `crawler.mobile.maxElementsPerScreen` | `8` | Max candidate taps tried per screen |
+| `crawler.mobile.tapSettleMillis` | `800` | Wait after a tap before inspecting the resulting screen |
+| `crawler.mobile.outputDir` | `target/mobile-crawler` | Where the mobile crawler's JSON/text report is written |
+| `crawler.mobile.avoidTextContains` | *(destructive-action defaults — see above)* | Elements matching any of these substrings are never tapped |
+| `crawler.mobile.ai.enabled` | `false` | Optional per-screen AI content review (UI-hierarchy XML) |
+| `crawler.mobile.ai.vision.enabled` | `false` | Optional per-screen visual AI review (screenshot) |
 
-## Why these three, and not more
+## Why these features, and not more
 
 "AI that does coding" inside a live test-automation framework is easy to describe and
 genuinely risky to build carelessly — an agent that edits source files or regenerates
 tests on its own would need its own review/rollback story before it belongs in a CI
-pipeline. The three features above intentionally stop short of that: they inform
-(self-healing's index-only pick, the failure root-cause note, the crawler's findings)
+pipeline. The features above intentionally stop short of that: they inform
+(self-healing's index-only pick, the failure root-cause note, the crawlers' findings)
 rather than act, so the review step stays with a human, same as everything else this
-framework's reports already surface.
+framework's reports already surface. The mobile crawler is the one exception worth
+calling out explicitly — it does *act*, in the narrow sense of tapping real UI elements
+to explore — which is exactly why it ships with an opt-out-style denylist and hard
+exploration caps instead of an unrestricted "click everything" mode.

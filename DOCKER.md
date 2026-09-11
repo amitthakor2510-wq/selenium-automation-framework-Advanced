@@ -18,6 +18,7 @@ locally installed browser. `.dockerignore` keeps the build context small.
 - [🔌 How It Connects](#-how-it-connects-what-changed-in-the-framework-itself)
 - [🔒 Running as Non-Root](#-running-as-non-root)
 - [🧱 Running Without Docker Compose](#-running-without-docker-compose-single-container-against-an-existing-grid)
+- [📈 Grid Autoscaling](#-grid-autoscaling)
 
 ---
 
@@ -124,6 +125,53 @@ docker run --rm \
   -e SITE=demoqa -e BROWSER=chrome \
   selenium-framework
 ```
+
+---
+
+## 📈 Grid Autoscaling
+
+The fixed `chrome`/`firefox`/`edge` nodes above are always exactly one
+container each — fine for a solo local run, but a shared/CI-style grid
+running several suites at once will queue sessions once those three fill
+up. `docker-compose.autoscale.yml` adds three extra pool services
+(`chrome-pool`, `firefox-pool`, `edge-pool`) with no fixed container name
+or host port, so they're safe to scale to N replicas — and
+`Scripts/grid-autoscaler.py` polls the hub's GraphQL API and drives that
+scaling for you.
+
+```bash
+# 1. Bring the hub up as usual (fixed chrome/firefox/edge nodes are optional)
+docker compose up -d selenium-hub
+
+# 2. One-shot: check the queue once, scale if needed, exit — good for cron
+python3 Scripts/grid-autoscaler.py --once
+
+# 2b. See what it would do without touching any containers
+python3 Scripts/grid-autoscaler.py --once --dry-run
+
+# 3. Or run it as a daemon, polling every 15s until Ctrl-C
+python3 Scripts/grid-autoscaler.py
+
+# 4. Tear the pool down along with everything else
+docker compose -f docker-compose.yml -f docker-compose.autoscale.yml down -v
+```
+
+**How it decides:** each poll reads `sessionsInfo.sessionQueueRequests`
+from the hub's GraphQL endpoint. Any browser with queued sessions scales
+its pool up immediately, sized to clear the queue in one step
+(`--sessions-per-node`, default 3, must match `SE_NODE_MAX_SESSIONS` on
+the pool images). Scale-down only happens once the grid's *total* session
+count across every browser has been zero for a full
+`--scale-down-cooldown` window (default 120s) — see the script's own
+module docstring for why scale-down is necessarily grid-wide rather than
+per-node. `--min-replicas` (default 0) and `--max-replicas` (default 5)
+bound every pool.
+
+> [!NOTE]
+> The pool services start at 0 replicas. Only launch/manage them through
+> `Scripts/grid-autoscaler.py`, not a bare `docker compose -f ... up`,
+> so replica counts stay under the autoscaler's control instead of
+> Compose's normal one-replica-per-service default.
 
 <div align="center">
 
