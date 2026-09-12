@@ -1,0 +1,16 @@
+Accessibility scan — Check Box page
+URL: https://demoqa.com/checkbox
+Violations: 3 | Passes: 47 | Incomplete: 2
+
+- [critical] image-alt — Images must have alternate text
+  Affected nodes: 1
+  More info: https://dequeuniversity.com/rules/axe/4.9/image-alt?application=axeAPI
+
+- [serious] link-name — Links must have discernible text
+  Affected nodes: 3
+  More info: https://dequeuniversity.com/rules/axe/4.9/link-name?application=axeAPI
+
+- [moderate] region — All page content should be contained by landmarks
+  Affected nodes: 19
+  More info: https://dequeuniversity.com/rules/axe/4.9/region?application=axeAPI
+

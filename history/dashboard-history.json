@@ -1,0 +1,20 @@
+[
+  {
+    "run_id": "34597452603",
+    "event": "push",
+    "timestamp": "2026-09-11T12:48:33Z",
+    "coverage_pct": 33.52,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "34679698412",
+    "event": "schedule",
+    "timestamp": "2026-09-12T07:25:28Z",
+    "coverage_pct": 32.92,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  }
+]
