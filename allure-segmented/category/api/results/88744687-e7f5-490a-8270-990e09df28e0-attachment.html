@@ -1,0 +1,28 @@
+<div>DELETE to https://demoqa.com/BookStore/v1/Book</div>
+
+    <h4>Body</h4>
+    <div>
+    <pre class="preformated-text">
+{
+    &quot;isbn&quot;: &quot;9781449325862&quot;,
+    &quot;userId&quot;: &quot;612e07d8-93c6-4480-8f2f-e5c3c5d086a1&quot;
+}    </pre>
+    </div>
+
+    <h4>Headers</h4>
+    <div>
+            <div>Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6IkFwaVRlc3RfNDU2ZDc0MTQiLCJwYXNzd29yZCI6IlBhc3N3b3JkMTIzIUAiLCJpYXQiOjE3ODk0NTc2MzB9.IwOMoG4wx33JtbMClgNrfd50ccVCtuWEZMIEFei9YgA</div>
+            <div>Accept: */*</div>
+            <div>Content-Type: application/json</div>
+    </div>
+
+
+
+    <h4>Curl</h4>
+    <div>
+        curl -v -X DELETE &#39;https://demoqa.com/BookStore/v1/Book&#39; -H &#39;Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6IkFwaVRlc3RfNDU2ZDc0MTQiLCJwYXNzd29yZCI6IlBhc3N3b3JkMTIzIUAiLCJpYXQiOjE3ODk0NTc2MzB9.IwOMoG4wx33JtbMClgNrfd50ccVCtuWEZMIEFei9YgA&#39; -H &#39;Accept: */*&#39; -H &#39;Content-Type: application/json&#39; -d &#39;{
+    &quot;isbn&quot;: &quot;9781449325862&quot;,
+    &quot;userId&quot;: &quot;612e07d8-93c6-4480-8f2f-e5c3c5d086a1&quot;
+}&#39;
+    </div>
+
