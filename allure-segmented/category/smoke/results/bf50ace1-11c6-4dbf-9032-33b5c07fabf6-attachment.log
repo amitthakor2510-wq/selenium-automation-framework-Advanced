@@ -1,0 +1,3 @@
+[SEVERE] https://assets.msn.com/service/msn/user?apikey=1hYoJsIRvPEnSkk0hlnJF2092mHqiz7xFenIFKa9uc&activityId=6aae3889-5d35-433a-889e-1a39d99b1fec&ocid=pdp-peregrine&cm=en-us&it=app&user=m-079DC3F44AC360832C6CD42D4BF96110&scn=APP_ANON&source=market-consolidation - Failed to load resource: the server responded with a status of 404 ()
+[WARNING] security - Error with Permissions-Policy header: Unrecognized feature: 'notifications'.
+[SEVERE] https://staging2.pmgatishakti.gov.in/PermissionPortal/assets/js/newhomepage.js 19:26 Uncaught TypeError: Cannot read properties of null (reading 'innerHTML')
