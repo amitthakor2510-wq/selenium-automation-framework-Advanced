@@ -76,7 +76,7 @@ mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
 
 # CAPTCHA — disable auto-detect (see docs/CAPTCHA_SOLVER.md)
 mvn test -Dsite=demoqa -Dbrowser=chrome
-mvn test -Dsite=saucedemo -Dbrowser=chrome -DsuiteXmlFile=testng-suites/saucedemo-keyword-driven.xml
+mvn test -Dsite=saucedemo -Dbrowser=chrome -DsuiteXmlFile=testng-suites/saucedemo-regression.xml
 mvn test -Dcaptcha.autoDetect.enabled=false
 
 # Any global.properties key can be overridden with -Dkey=value (docs/configuration.md)

@@ -94,7 +94,7 @@ Nothing extra to pass — it's on by default. Run tests the normal way:
 
 ```bash
 mvn test -Dsite=demoqa -Dbrowser=chrome
-mvn test -Dsite=saucedemo -Dbrowser=chrome -DsuiteXmlFile=testng-suites/saucedemo-keyword-driven.xml
+mvn test -Dsite=saucedemo -Dbrowser=chrome -DsuiteXmlFile=testng-suites/saucedemo-regression.xml
 ```
 
 If a page happens to render a solvable text/math CAPTCHA, you'll see it in the logs without having written anything CAPTCHA-specific:

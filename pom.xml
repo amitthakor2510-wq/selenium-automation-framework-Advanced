@@ -1309,6 +1309,8 @@
               <includes>
                 <include>**/core/data/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>
+                <include>**/core/utils/**/*Test.java</include>
+                <include>**/sites/listeners/**/*Test.java</include>
               </includes>
             </configuration>
             <executions>

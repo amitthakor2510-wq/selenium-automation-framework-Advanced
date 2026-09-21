@@ -48,6 +48,7 @@ script doesn't attempt — flagged here rather than silently assumed safe.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -56,6 +57,14 @@ import urllib.request
 from datetime import datetime, timezone
 
 DEFAULT_HUB_URL = "http://localhost:4444"
+
+# This script lives in <repo>/Scripts/, so the compose files (repo root) are
+# one directory up. Resolving them from __file__ instead of the current
+# working directory is what makes the "works the same regardless of what's
+# sitting in the working directory" promise in the module docstring true:
+# before, a bare relative "docker-compose.yml" only resolved when the
+# script happened to be launched from the repo root.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Maps the autoscaled pool's service name (docker-compose.autoscale.yml)
 # to the loose (case-insensitive substring) capability-name hints used to
@@ -246,12 +255,14 @@ def apply_scale_targets(targets, compose_files, project_dir, dry_run, timeout=12
 
 
 def default_compose_files(project_dir):
-    import os
-    files = ["docker-compose.yml"]
-    override = os.path.join(project_dir or ".", "docker-compose.override.yml")
+    """Absolute paths under project_dir (default: the repo root), so
+    `docker compose -f ...` never depends on the caller's working directory."""
+    root = project_dir or REPO_ROOT
+    files = [os.path.join(root, "docker-compose.yml")]
+    override = os.path.join(root, "docker-compose.override.yml")
     if os.path.exists(override):
-        files.append("docker-compose.override.yml")
-    files.append("docker-compose.autoscale.yml")
+        files.append(override)
+    files.append(os.path.join(root, "docker-compose.autoscale.yml"))
     return files
 
 
@@ -300,12 +311,15 @@ def main():
     parser.add_argument("--sessions-per-node", type=int, default=3,
                         help="Must match SE_NODE_MAX_SESSIONS on the pool node images (default: 3, matching docker-compose.yml's existing nodes)")
     parser.add_argument("--project-dir", default=None,
-                        help="Passed to `docker compose --project-directory` (default: current directory)")
+                        help="Passed to `docker compose --project-directory` (default: the repo root, i.e. the parent of this script's Scripts/ directory)")
     parser.add_argument("--compose-files", default=None,
                         help="Comma-separated compose file list, overriding the auto-detected default")
     parser.add_argument("--once", action="store_true", help="Poll once, apply if needed, then exit (for cron)")
     parser.add_argument("--dry-run", action="store_true", help="Log what would be scaled without touching containers")
     args = parser.parse_args()
+
+    if not args.project_dir:
+        args.project_dir = REPO_ROOT
 
     args.compose_files = (args.compose_files.split(",") if args.compose_files
                           else default_compose_files(args.project_dir))

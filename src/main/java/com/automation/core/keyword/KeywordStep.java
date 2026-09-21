@@ -2,6 +2,7 @@ package com.automation.core.keyword;
 
 import com.automation.core.data.DataRow;
 import com.automation.core.exceptions.KeywordExecutionException;
+import com.automation.core.utils.SensitiveData;
 
 /**
  * One row of a keyword-driven test script.
@@ -57,7 +58,7 @@ public class KeywordStep {
     public String toString() {
         return "[" + testCase + " #" + stepNo + "] " + keyword
             + (locatorKey.isEmpty() ? "" : " -> " + locatorKey)
-            + (testData.isEmpty() ? "" : " (\"" + testData + "\")")
+            + (testData.isEmpty() ? "" : " (\"" + SensitiveData.maskIfSensitive(locatorKey, testData) + "\")")
             + (description.isEmpty() ? "" : " // " + description);
     }
 }

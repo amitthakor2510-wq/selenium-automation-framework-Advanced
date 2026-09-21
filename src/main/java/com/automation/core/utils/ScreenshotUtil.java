@@ -38,7 +38,7 @@ public class ScreenshotUtil {
         String timestamp = LocalDateTime.now(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmssSSS"));
         String uniqueSuffix = Long.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextLong());
-        String filePath = "target/screenshots/" + testName + "_" + timestamp + "_" + uniqueSuffix + ".png";
+        String filePath = "target/screenshots/" + sanitizeFileName(testName) + "_" + timestamp + "_" + uniqueSuffix + ".png";
 
         try {
             TakesScreenshot ts = (TakesScreenshot) driver;
@@ -62,6 +62,20 @@ public class ScreenshotUtil {
         }
 
         return filePath;
+    }
+
+    /**
+     * The label is caller-supplied — the KeywordEngine's SCREENSHOT keyword
+     * passes a free-text CSV cell straight through — so a "/", "\\", ":" or
+     * ".." in it would either fail the save (Windows) or write outside
+     * target/screenshots. Anything outside [A-Za-z0-9._-] becomes "_".
+     */
+    static String sanitizeFileName(String name) {
+        if (name == null || name.isBlank()) {
+            return "screenshot";
+        }
+        String cleaned = name.trim().replaceAll("[^A-Za-z0-9._-]+", "_").replace("..", "_");
+        return cleaned.isEmpty() ? "screenshot" : cleaned;
     }
 
     /**

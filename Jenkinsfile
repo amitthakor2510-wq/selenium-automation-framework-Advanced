@@ -347,6 +347,39 @@ pipeline {
             }
         }
 
+        stage('Unit Tests') {
+            // BUG FIX: this stage didn't exist before. The "unit-tests"
+            // Maven profile (pom.xml, Failsafe + junit-jupiter-engine) is
+            // the only thing that ever actually runs this project's plain
+            // JUnit 5 classes (core/data, core/tia) — plain `mvn test`
+            // only runs the TestNG browser suite (surefire-testng provider
+            // pin, see pom.xml), and -Pmutation's pitest targetTests are
+            // hardcoded to 3 data-reader classes only. Before this stage,
+            // `mvn verify -Punit-tests` had no scheduled/on-build
+            // invocation anywhere in the project (not here, not
+            // github-ci.yml, not .gitlab-ci.yml), so real regression tests
+            // like SiteMapperTest's
+            // siteMapperStaysInSyncWithSiteRegistry() — written to catch
+            // the exact SAHMAT/jsonplaceholder drift bug class that
+            // shipped unnoticed twice before — never actually ran except
+            // on a developer's own machine. No browser/emulator
+            // dependency, so this runs right alongside Checkstyle;
+            // UNSTABLE (not a hard fail) matches Checkstyle's own
+            // posture above.
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp verify -Punit-tests',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Unit tests (-Punit-tests) failed — see console output above.'
+                    }
+                }
+            }
+        }
+
         stage('Secret Scan') {
             // Runs right after Checkstyle — fast (no CVE database to
             // build, unlike the nightly-only Security Scan stage below),
@@ -2007,6 +2040,30 @@ for seg in segs:
                                 cp self-healing-data/locator-repository.json "$CACHE_DIR/locator-repository.json"
                             fi
                         '''
+
+                    // ── Chat notification (Slack / Microsoft Teams) — opt-in ──
+                    // Silent no-op until a Jenkins "Secret text" credential with ID
+                    // `chat-webhook-url` exists (Manage Jenkins -> Credentials) — a
+                    // missing credential is caught below and just logged, never
+                    // allowed to change the build result. Optional job parameters/env:
+                    // CHAT_PROVIDER (slack|teams, default: auto-detected from the URL)
+                    // and NOTIFY_ON (failure|always, default: failure — silent on an
+                    // all-green run). Same script the GitHub Actions/GitLab jobs use;
+                    // it reads Jenkins' own BUILD_URL/JOB_NAME/GIT_* variables and
+                    // walks target/surefire-reports/** recursively, so the per-site
+                    // report subdirectories this pipeline writes need no special
+                    // handling. Runs BEFORE cleanWs() below, which deletes them.
+                    try {
+                        withCredentials([string(credentialsId: 'chat-webhook-url', variable: 'CHAT_WEBHOOK_URL')]) {
+                            def verdict = currentBuild.currentResult == 'FAILURE' ? 'failure'
+                                    : (currentBuild.currentResult == 'ABORTED' ? 'cancelled' : 'success')
+                            withEnv(["PIPELINE_RESULT=${verdict}", "REPORT_URL=${env.BUILD_URL}"]) {
+                                sh 'command -v python3 >/dev/null 2>&1 && python3 .github/workflows/scripts/notify_chat.py || echo "python3 not available — skipping chat notification"'
+                            }
+                        }
+                    } catch (Exception notifyErr) {
+                        echo "Chat notification skipped: ${notifyErr.message}"
+                    }
 
                     // ── Workspace cleanup ───────────────────────────
                     // Runs last, after artifacts are already archived

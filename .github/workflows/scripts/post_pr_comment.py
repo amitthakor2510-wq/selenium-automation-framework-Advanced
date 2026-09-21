@@ -14,6 +14,7 @@ Requires (from the calling workflow step):
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     PR_NUMBER: ${{ github.event.pull_request.number }}
     CHECKSTYLE_RESULT: ${{ needs.checkstyle.result }}   # optional
+    UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}   # optional
 Also reads GITHUB_REPOSITORY (owner/repo) and GITHUB_RUN_ID, both of which
 GitHub Actions sets automatically on every job — no explicit env: needed
 for those two.
@@ -53,8 +54,15 @@ CHECKSTYLE_LABELS = {
     "skipped": "⚪ Checkstyle skipped",
 }
 
+UNIT_TESTS_LABELS = {
+    "success": "✅ Unit tests passed",
+    "failure": "❌ Unit tests failed — see the `unit-tests` job log",
+    "cancelled": "⚪ Unit tests cancelled",
+    "skipped": "⚪ Unit tests skipped",
+}
 
-def build_body(totals, base_url, run_id, checkstyle_result=None):
+
+def build_body(totals, base_url, run_id, checkstyle_result=None, unit_tests_result=None):
     total, passed, failed, skipped = (
         totals["total"], totals["passed"], totals["failed"], totals["skipped"],
     )
@@ -81,6 +89,10 @@ def build_body(totals, base_url, run_id, checkstyle_result=None):
         label = CHECKSTYLE_LABELS.get(checkstyle_result, f"Checkstyle: {checkstyle_result}")
         lines += [label, ""]
 
+    if unit_tests_result:
+        label = UNIT_TESTS_LABELS.get(unit_tests_result, f"Unit tests: {unit_tests_result}")
+        lines += [label, ""]
+
     lines.append(
         f"[Full reports (Allure + Extent)]({base_url}/) &middot; "
         f"[Allure]({base_url}/allure-report/) &middot; "
@@ -102,7 +114,8 @@ def main():
     _, totals = parse_surefire_dir(SUREFIRE_DIR)
     base_url = pages_base_url(owner, repo_name)
     checkstyle_result = os.environ.get("CHECKSTYLE_RESULT")
-    body = build_body(totals, base_url, run_id, checkstyle_result)
+    unit_tests_result = os.environ.get("UNIT_TESTS_RESULT")
+    body = build_body(totals, base_url, run_id, checkstyle_result, unit_tests_result)
 
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as f:
         f.write(body)

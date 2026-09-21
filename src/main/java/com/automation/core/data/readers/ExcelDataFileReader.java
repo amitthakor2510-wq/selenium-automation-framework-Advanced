@@ -38,7 +38,7 @@ public class ExcelDataFileReader implements DataFileReader {
         List<DataRow> rows = new ArrayList<>();
 
         try (InputStream is = new FileInputStream(file);
-             Workbook workbook = file.getName().endsWith(".xls")
+             Workbook workbook = file.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".xls")
                  ? new HSSFWorkbook(is)
                  : new XSSFWorkbook(is)) {
 
@@ -61,8 +61,16 @@ public class ExcelDataFileReader implements DataFileReader {
             }
 
             List<String> headers = new ArrayList<>();
-            for (Cell cell : headerRow) {
-                headers.add(getCellValue(cell));
+            // Index by column POSITION, not by iterating the row: `for (Cell c : row)`
+            // only visits cells that physically exist, so one blank/missing header
+            // cell in the middle shifted every later header one slot left while the
+            // data rows below (read by index) stayed put — silently putting column
+            // C's values under column D's header. getLastCellNum() is one past the
+            // last defined cell (-1 for an empty row); getCell(j) returns null for a
+            // gap, which getCellValue() maps to "".
+            int headerCount = Math.max(headerRow.getLastCellNum(), 0);
+            for (int j = 0; j < headerCount; j++) {
+                headers.add(getCellValue(headerRow.getCell(j)));
             }
 
             // Data rows
@@ -74,6 +82,9 @@ public class ExcelDataFileReader implements DataFileReader {
 
                 Map<String, String> rowData = new LinkedHashMap<>();
                 for (int j = 0; j < headers.size(); j++) {
+                    if (headers.get(j).isEmpty()) {
+                        continue; // unnamed column — nothing can look it up, and several would collide on ""
+                    }
                     Cell cell = row.getCell(j, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
                     rowData.put(headers.get(j), getCellValue(cell));
                 }

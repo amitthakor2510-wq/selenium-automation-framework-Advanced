@@ -67,7 +67,7 @@ public final class SyntheticDataProvider {
             // rejection — suffix (not prefix, so a maxlength-boundary edge case isn't disturbed
             // at the end where truncation would happen) only for the non-empty/non-whitespace
             // cases, where a suffix doesn't change what's actually being tested.
-            String username = edgeValue.isBlank() ? edgeValue : edgeValue + "_" + i;
+            String username = uniquify(edgeValue, i);
             Map<String, String> row = new LinkedHashMap<>();
             row.put("firstname", fixedFirstName);
             row.put("lastname", fixedLastName);
@@ -75,9 +75,28 @@ public final class SyntheticDataProvider {
             row.put("email", fixedEmail);
             row.put("password", fixedPassword);
             row.put("notes", "edge case: " + describe(edgeValue));
-            rows.add(new DataRow(row, i));
+            rows.add(DataRow.preservingWhitespace(row, i));
         }
         return rows;
+    }
+
+    /**
+     * Makes an edge value unique per run without changing what it tests.
+     * Blank values are left alone (a suffix would turn "whitespace-only"
+     * into something else). For values with leading/trailing whitespace the
+     * suffix goes INSIDE the padding — appending it after would push the
+     * trailing spaces off the end and quietly stop testing "trailing
+     * whitespace" at all.
+     */
+    static String uniquify(String edgeValue, int index) {
+        if (edgeValue.isBlank()) {
+            return edgeValue;
+        }
+        String core = edgeValue.strip();
+        int leading = edgeValue.indexOf(core);
+        String leadingPad = edgeValue.substring(0, leading);
+        String trailingPad = edgeValue.substring(leading + core.length());
+        return leadingPad + core + "_" + index + trailingPad;
     }
 
     private static String describe(String value) {

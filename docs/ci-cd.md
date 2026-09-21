@@ -18,6 +18,7 @@ a nightly OWASP dependency-vulnerability scan, and secret scanning
 - [🧭 Safari](#-safari)
 - [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
 - [🦊 GitLab CI/CD Pipeline](#-gitlab-cicd-pipeline)
+- [💬 Chat Notifications (Slack / Teams)](#-chat-notifications-slack--teams)
 - [🖥️ Running Jenkins + GitLab + Appium on One Machine](#️-running-jenkins--a-self-hosted-gitlab--appiumemulator-on-one-local-machine)
 
 ---
@@ -59,6 +60,12 @@ Checkout                → git checkout
 Build                    → mvn clean compile test-compile (fails fast on compile errors)
 Checkstyle               → mvn checkstyle:check@checkstyle-check — style violations mark
                            the build UNSTABLE, not a hard failure
+Unit Tests               → mvn verify -Punit-tests — plain JUnit 5 classes (core/data,
+                           core/tia; TestNG's browser suite is untouched by this, see
+                           `test`/`mobile-test` stages below) run via a separate Failsafe
+                           execution so they don't collide with the TestNG-only Surefire
+                           provider pin. UNSTABLE (not a hard failure) on a real failure,
+                           matching Checkstyle's posture above.
 Secret Scan              → gitleaks against the working tree — findings mark the build
                            UNSTABLE (report-only until an initial pass is triaged), runs
                            on every build since it's fast (no CVE database to build)
@@ -202,6 +209,13 @@ build                      → mvn clean compile test-compile (fails fast on com
 checkstyle                  → mvn checkstyle:check@checkstyle-check, parallel with test/
                               mobile-test — a violation fails this job (surfaced on PRs via
                               the pr-comment job below), doesn't block the test matrix
+unit-tests                  → mvn verify -Punit-tests, parallel with test/mobile-test/
+                              checkstyle — plain JUnit 5 classes (core/data, core/tia) that
+                              nothing else in the project ever actually runs (TestNG's
+                              browser suite and -Pmutation's pitest scope both leave them
+                              untouched — see pom.xml's "unit-tests" profile comment). A
+                              real failure fails this job, surfaced on PRs via the
+                              pr-comment job below, same as checkstyle
 test                        → matrix job: site (demoqa, saucedemo) x browser (chrome,
                               firefox, edge, + safari on push) = 8 parallel instances on
                               a push run (6 on PR/schedule, which exclude safari), or just
@@ -327,6 +341,13 @@ on why `rp.api.key` is env-var-only and never a `-D`/properties-file value.
 build                      → mvn compile — catches syntax errors before wasting time on tests
 checkstyle                  → mvn checkstyle:check@checkstyle-check, same `test` stage as
                               test/mobile-test/perf-smoke so it runs in parallel with them
+unit-tests                  → mvn verify -Punit-tests, same `test` stage as checkstyle so it
+                              runs in parallel with it — plain JUnit 5 classes (core/data,
+                              core/tia) that nothing else in the pipeline ever actually
+                              runs (TestNG's browser suite and -Pmutation's pitest scope
+                              both leave them untouched — see pom.xml's "unit-tests"
+                              profile comment). Unlike checkstyle above, no allow_failure:
+                              a real failure here fails the pipeline
 test                        → parallel:matrix job, one instance per site x browser
                               (demoqa/saucedemo x chrome/firefox/edge = 6 instances) —
                               installs the browser if missing on the runner. Each instance
@@ -409,6 +430,26 @@ GitLab Pages URL → /allure-report      (full merged Allure report, all sites +
 GitLab Pages URL → /extent-report      (Extent HTML report)
 GitLab Job → Browse Artifacts → target/extent-reports/, target/allure-results/
 ```
+
+---
+
+## 💬 Chat Notifications (Slack / Teams)
+
+All three pipelines can post a one-message run summary to Slack or Microsoft Teams. It is **opt-in** — nothing is sent (and nothing fails) until you create a webhook secret — and it uses one shared, stdlib-only script: [`.github/workflows/scripts/notify_chat.py`](../.github/workflows/scripts/notify_chat.py). It reads whichever CI's own built-in variables are present (`GITHUB_*`, `CI_*`, `BUILD_URL`/`JOB_NAME`), walks `target/surefire-reports/**` for the pass/fail counts, and lists the failed test names (first 10 by default).
+
+| | GitHub Actions | GitLab CI | Jenkins |
+|---|---|---|---|
+| Where it runs | `notify` job, after `allure-report` (`if: always()`) | `notify` job, `pages` stage (`when: always`) | `post { always }`, before `cleanWs()` |
+| Webhook secret | repo secret `CHAT_WEBHOOK_URL` | masked CI/CD variable `CHAT_WEBHOOK_URL` | "Secret text" credential ID `chat-webhook-url` |
+| Optional settings | repo variables `CHAT_PROVIDER`, `NOTIFY_ON` | CI/CD variables `CHAT_PROVIDER`, `NOTIFY_ON` | env vars `CHAT_PROVIDER`, `NOTIFY_ON` |
+
+- `CHAT_PROVIDER` — `slack` or `teams`. Default `auto`: Teams for `*.webhook.office.com` / `*.logic.azure.com` / `*.powerplatform.com` URLs, Slack format for everything else (also fine for Mattermost-style endpoints). The Teams payload is an Adaptive Card message, which is what Teams' Workflows ("Post to a channel when a webhook request is received") webhooks accept.
+- `NOTIFY_ON` — `failure` (default, silent on an all-green run) or `always`.
+- **Zero parsed tests is never reported as green.** A crashed job or compile error that produced no surefire XML sends a "No test results were produced" failure message, and a failed pipeline verdict overrides all-green test counts.
+- **It never fails the pipeline.** A webhook outage or a revoked URL is printed and ignored (4xx isn't retried; other errors get 3 attempts).
+- Tests for the script (local HTTP server, no network): `python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py' -v` — run automatically by the GitHub Actions `unit-tests` job.
+
+Not verified against a real Slack/Teams workspace (no webhook reachable from where this was built) — the payload shapes follow Slack Block Kit and the Adaptive Card 1.4 schema, and the delivery path is covered by the localhost tests above. Send one test run with `NOTIFY_ON=always` to confirm the first time.
 
 ---
 

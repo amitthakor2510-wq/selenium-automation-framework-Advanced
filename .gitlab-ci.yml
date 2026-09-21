@@ -162,6 +162,32 @@ checkstyle:
     - branches
     - merge_requests
 
+# BUG FIX: this job didn't exist before. The "unit-tests" Maven profile
+# (pom.xml, Failsafe + junit-jupiter-engine) is the only thing that ever
+# actually runs this project's plain JUnit 5 classes (core/data, core/tia)
+# — plain `mvn test` only runs the TestNG browser suite (surefire-testng
+# provider pin, see pom.xml), and -Pmutation's pitest targetTests are
+# hardcoded to 3 data-reader classes only. Before this job,
+# `mvn verify -Punit-tests` had no scheduled/on-push invocation anywhere
+# in the project (not here, not github-ci.yml, not the Jenkinsfile), so
+# real regression tests like SiteMapperTest's
+# siteMapperStaysInSyncWithSiteRegistry() — written to catch the exact
+# SAHMAT/jsonplaceholder drift bug class that shipped unnoticed twice
+# before — never actually ran except on a developer's own machine. No
+# browser dependency, so this runs alongside checkstyle; unlike
+# checkstyle this is a real hard gate (no allow_failure) since the
+# profile's own pom.xml comment says a genuine unit-test failure should
+# fail the build, not just warn.
+unit-tests:
+  stage: test
+  interruptible: true
+  script:
+    - echo "======= Running JUnit 5 unit tests (-Punit-tests) ======="
+    - mvn -B verify -Punit-tests
+  only:
+    - branches
+    - merge_requests
+
 # ================================================================
 # STAGE 2 - Test (one job instance per site, running in parallel)
 # ================================================================
@@ -1269,5 +1295,44 @@ pages:
       - public/
   dependencies:
     - report
+  only:
+    - branches
+
+# ================================================================
+# Chat notification (Slack / Microsoft Teams) — opt-in
+# ================================================================
+# Does nothing until a masked CI/CD variable named CHAT_WEBHOOK_URL exists
+# (Settings -> CI/CD -> Variables). Optional variables: CHAT_PROVIDER
+# (slack|teams, default: auto-detected from the URL) and NOTIFY_ON
+# (failure|always, default: failure — silent on an all-green run).
+# The same script the GitHub Actions `notify` job uses; it reads GitLab's own
+# CI_* variables directly. `when: always` so a failed test job (which still
+# uploads its surefire reports, see `test`'s artifacts) is exactly the case
+# that produces a message. notify_chat.py never fails the job over a delivery
+# problem. python:3.12-slim (not the default maven image) because the script is
+# stdlib-only and that image already ships python3 — no apt-get needed.
+notify:
+  stage: pages
+  image: python:3.12-slim
+  when: always
+  interruptible: true
+  script:
+    - python3 .github/workflows/scripts/notify_chat.py
+  variables:
+    REPORT_URL: "$CI_PAGES_URL"
+  # `needs` (not `dependencies`): optional:true tolerates a pipeline where
+  # mobile-test (or test) wasn't created at all, which `dependencies` would
+  # reject. `report` is listed artifacts:false purely so this job waits for
+  # the Allure report to be generated before linking to it.
+  needs:
+    - job: test
+      optional: true
+      artifacts: true
+    - job: mobile-test
+      optional: true
+      artifacts: true
+    - job: report
+      optional: true
+      artifacts: false
   only:
     - branches

@@ -1,5 +1,9 @@
 package com.automation.core.keyword;
 
+import com.automation.core.exceptions.KeywordExecutionException;
+
+import java.util.Locale;
+
 /**
  * Every action the KeywordEngine knows how to execute. A keyword-driven
  * test script (Excel/CSV/JSON/YAML, read via DataProvider) is just a list
@@ -57,16 +61,27 @@ public enum Keyword {
     SOLVE_TEXT_CAPTCHA_IF_PRESENT,
     SCREENSHOT;             // testData = label used in the saved filename (optional)
 
+    /**
+     * Resolves a keyword cell to its enum constant.
+     *
+     * Throws KeywordExecutionException (not IllegalArgumentException) for a
+     * blank or unknown keyword: that's an authoring error in the test data,
+     * identical on every retry, and RetryAnalyzer only skips retries for the
+     * framework's own exception types — an IllegalArgumentException would
+     * have been retried (browser relaunch and all) for nothing. Upper-casing
+     * uses Locale.ROOT so a Turkish-locale JVM doesn't turn "click" into
+     * "CLİCK".
+     */
     public static Keyword from(String raw) {
-        if (raw == null) {
-            throw new IllegalArgumentException("[KeywordEngine] Keyword cell is empty");
+        if (raw == null || raw.isBlank()) {
+            throw new KeywordExecutionException("[KeywordEngine] Keyword cell is empty");
         }
         try {
-            return Keyword.valueOf(raw.trim().toUpperCase().replace(' ', '_'));
+            return Keyword.valueOf(raw.trim().toUpperCase(Locale.ROOT).replace(' ', '_'));
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
+            throw new KeywordExecutionException(
                 "[KeywordEngine] Unknown keyword: '" + raw + "'. Supported: "
-                    + java.util.Arrays.toString(Keyword.values()));
+                    + java.util.Arrays.toString(Keyword.values()), e);
         }
     }
 }

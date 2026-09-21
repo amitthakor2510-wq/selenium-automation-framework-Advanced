@@ -102,6 +102,31 @@ class DataRowTest {
         assertEquals("john", row.get("username"));
     }
 
+    @Test
+    void preservingWhitespaceKeepsValuesExactlyButStillNormalizesKeys() {
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("  UserName ", "   ");
+        data.put("padded", "  x  ");
+        DataRow row = DataRow.preservingWhitespace(data, 3);
+
+        assertEquals("   ", row.get("username"));
+        assertEquals("  x  ", row.get("padded"));
+        assertEquals(3, row.getRowIndex());
+    }
+
+    @Test
+    void preservingWhitespaceStillMapsNullToEmptyString() {
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("username", null);
+        assertEquals("", DataRow.preservingWhitespace(data, 1).get("username"));
+    }
+
+    @Test
+    void regularConstructorStillTrimsValues() {
+        // Guards the OTHER half of the contract: file readers rely on trimming.
+        assertEquals("x", rowOf("padded", "  x  ").get("padded"));
+    }
+
     private static DataRow rowOf(String key, String value) {
         return rowOf(key, value, 1);
     }

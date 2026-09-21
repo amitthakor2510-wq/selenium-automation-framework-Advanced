@@ -178,6 +178,48 @@ jobs:
           mvn -B checkstyle:check@checkstyle-check
 
   # ================================================================
+  # STAGE 1b2 - Unit Tests (JUnit 5 — core/data + core/tia)
+  # ================================================================
+  # BUG FIX: this job didn't exist before. The "unit-tests" Maven profile
+  # (pom.xml, Failsafe + junit-jupiter-engine) is the only thing that ever
+  # actually runs these JUnit 5 classes — plain `mvn test` only runs the
+  # TestNG browser suite (see the surefire-testng provider pin in pom.xml),
+  # and -Pmutation's pitest targetTests are hardcoded to 3 data-reader
+  # classes only. Before this job, `mvn verify -Punit-tests` had no
+  # scheduled or on-push invocation anywhere in the project — not this
+  # file, not .gitlab-ci.yml, not the Jenkinsfile — so real, passing,
+  # regression-guarding tests like SiteMapperTest's
+  # `siteMapperStaysInSyncWithSiteRegistry()` (written specifically to
+  # catch the exact SAHMAT/jsonplaceholder drift bug class that shipped
+  # unnoticed twice before) never actually executed anywhere except a
+  # developer's own machine, if they remembered the profile flag at all.
+  # No browser/network dependency and no matrix needed — pure-logic unit
+  # tests, cheap enough to run on every push/PR alongside checkstyle.
+  unit-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run JUnit 5 Unit Tests (core/data, core/tia, core/utils, listeners)
+        run: |
+          echo "======= Running JUnit 5 unit tests (-Punit-tests) ======="
+          mvn -B verify -Punit-tests
+
+      # Stdlib-only tests for the CI helper scripts (currently notify_chat.py) —
+      # no pip install, runs in a couple of seconds.
+      - name: Run CI helper-script tests (Python)
+        run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py' -v
+
+  # ================================================================
   # STAGE 1c - Test Impact Analysis (informational, PRs only)
   # ================================================================
   # Deliberately does NOT replace or gate the full `test`/`mobile-test`
@@ -1139,7 +1181,7 @@ jobs:
   # consistent baseline, and still catches a real regression within a day.
   # The legacy perf/basic-smoke.jmx (`mvn verify -Pperf`) is intentionally NOT
   # wired into any CI job here — it remains a local/manual sanity check, see
-  # docs/performance-testing-guide.md.
+  # docs/testing-guide.md ("Performance Testing").
   # ================================================================
   perf-tests:
     needs: [ build, matrix-setup ]
@@ -1369,11 +1411,11 @@ jobs:
   # on every actual pull_request event it would just be a permanently
   # skipped dependency this job would have to work around for no benefit.
   pr-comment:
-    # checkstyle is fast and already runs in parallel with test/mobile-test,
-    # so adding it here costs ~nothing in wall time but lets the comment
-    # show style-gate status alongside test results instead of a reviewer
-    # having to click into the Actions tab to notice Checkstyle failed.
-    needs: [ test, mobile-test, checkstyle ]
+    # checkstyle/unit-tests are fast and already run in parallel with
+    # test/mobile-test, so adding them here costs ~nothing in wall time but
+    # lets the comment show style-gate/unit-test status alongside test
+    # results instead of a reviewer having to click into the Actions tab.
+    needs: [ test, mobile-test, checkstyle, unit-tests ]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -1401,6 +1443,7 @@ jobs:
           # passed through as-is rather than pre-formatted, so
           # post_pr_comment.py owns the emoji/wording in one place.
           CHECKSTYLE_RESULT: ${{ needs.checkstyle.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
         run: python3 .github/workflows/scripts/post_pr_comment.py
 
   # ================================================================
@@ -1837,3 +1880,43 @@ jobs:
             echo "::error::$COUNT locators needed self-healing tonight (threshold: $THRESHOLD). Check the self-healing summary on the landing page and fix the underlying locators."
             exit 1
           fi
+
+  # ================================================================
+  # STAGE 4 - Chat notification (Slack / Microsoft Teams)
+  # ================================================================
+  # Opt-in: does nothing until a repository secret named CHAT_WEBHOOK_URL
+  # exists (Settings -> Secrets and variables -> Actions). Optional
+  # repository Variables: CHAT_PROVIDER (slack|teams, default: auto-detected
+  # from the URL) and NOTIFY_ON (failure|always, default: failure — silent on
+  # an all-green run). Runs after allure-report so the "Test report" link in
+  # the message is already live, and with `if: always()` so a crashed or
+  # cancelled upstream job still produces a message instead of silence.
+  # notify_chat.py never fails the job over a delivery problem — see its
+  # module docstring. Secrets aren't available to fork PRs; the script
+  # treats an empty value as "not configured" and exits 0.
+  notify:
+    needs: [ build, checkstyle, unit-tests, test, mobile-test, allure-report ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Surefire Results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: test-results-*-${{ github.run_id }}
+          path: target/
+          merge-multiple: true
+
+      - name: Send chat notification
+        env:
+          CHAT_WEBHOOK_URL: ${{ secrets.CHAT_WEBHOOK_URL }}
+          CHAT_PROVIDER: ${{ vars.CHAT_PROVIDER }}
+          NOTIFY_ON: ${{ vars.NOTIFY_ON }}
+          REPORT_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          # Worst upstream result wins: any failure -> failure, else any
+          # cancellation -> cancelled, else success (skipped legs don't count).
+          PIPELINE_RESULT: ${{ contains(needs.*.result, 'failure') && 'failure' || (contains(needs.*.result, 'cancelled') && 'cancelled' || 'success') }}
+        run: python3 .github/workflows/scripts/notify_chat.py

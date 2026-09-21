@@ -2,7 +2,9 @@ package com.automation.core.utils;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.selfhealing.SelfHealingEngine;
+import io.qameta.allure.Param;
 import io.qameta.allure.Step;
+import io.qameta.allure.model.Parameter;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -108,8 +110,35 @@ public final class HumanActions {
         element.click();
     }
 
-    @Step("Type \"{text}\" into element: {locator}")
+    /**
+     * Types {@code text} into the element with human-like pacing.
+     *
+     * <p>If the locator names a secret-bearing field (password, token, ...
+     * see {@link SensitiveData#isSensitiveName}) the call is routed through
+     * {@link #typeSecret}, so the typed value never reaches the Allure step
+     * name/parameters. BUG FIX: this method's step name used to interpolate
+     * {@code {text}} unconditionally, which wrote every password typed via
+     * a page object (e.g. saucedemo's LoginPage) into the Allure report.
+     */
     public static void type(WebDriver driver, By locator, String text) {
+        if (SensitiveData.isSensitiveName(String.valueOf(locator))) {
+            typeSecret(driver, locator, text);
+        } else {
+            typeVisible(driver, locator, text);
+        }
+    }
+
+    /** Same as {@link #type} but the value is always masked in the report, whatever the locator looks like. */
+    @Step("Type [masked] into element: {locator}")
+    public static void typeSecret(WebDriver driver, By locator,
+                                  @Param(mode = Parameter.Mode.MASKED) String text) {
+        WebElement element = waitFor(driver, locator);
+        pause();
+        typeHumanLike(element, text);
+    }
+
+    @Step("Type \"{text}\" into element: {locator}")
+    private static void typeVisible(WebDriver driver, By locator, String text) {
         WebElement element = waitFor(driver, locator);
         pause();
         typeHumanLike(element, text);
@@ -118,7 +147,10 @@ public final class HumanActions {
     /** Types text one chunk at a time with a small randomized delay, mimicking human typing speed. */
     public static void typeHumanLike(WebElement element, String text) {
         boolean enabled = ConfigReader.getBoolean("human.pause.enabled", true);
-        if (!enabled || text == null || text.isEmpty()) {
+        if (text == null) {
+            return; // nothing to type — WebElement.sendKeys(null) would throw IllegalArgumentException
+        }
+        if (!enabled || text.isEmpty()) {
             element.sendKeys(text);
             return;
         }

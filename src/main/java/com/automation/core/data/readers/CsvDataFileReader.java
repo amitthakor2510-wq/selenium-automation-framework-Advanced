@@ -37,6 +37,13 @@ public class CsvDataFileReader implements DataFileReader {
             }
 
             String[] headers = all.get(0);
+            // Excel's "CSV UTF-8" export prefixes the file with a byte-order mark.
+            // opencsv hands it back as part of the first header ("\uFEFFtestCase"),
+            // and String.trim() does NOT strip U+FEFF, so getRequired("testCase")
+            // would report a column that visibly exists as "missing".
+            if (headers.length > 0 && headers[0] != null && headers[0].startsWith("\uFEFF")) {
+                headers[0] = headers[0].substring(1);
+            }
 
             for (int i = 1; i < all.size(); i++) {
                 String[] rowValues = all.get(i);

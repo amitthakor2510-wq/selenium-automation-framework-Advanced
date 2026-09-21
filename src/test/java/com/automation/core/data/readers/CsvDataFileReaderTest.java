@@ -27,6 +27,18 @@ class CsvDataFileReaderTest {
     private final CsvDataFileReader reader = new CsvDataFileReader();
 
     @Test
+    void utf8ByteOrderMarkIsNotPartOfTheFirstHeader(@TempDir Path tempDir) throws IOException {
+        // Excel's "CSV UTF-8" save-as prepends U+FEFF; without stripping it the
+        // first column can never be found by name.
+        File csv = writeCsv(tempDir, "\uFEFFtestCase,stepNo\nTC01,1\n");
+
+        List<DataRow> rows = reader.read(csv);
+
+        assertEquals(1, rows.size());
+        assertEquals("TC01", rows.get(0).getRequired("testCase"));
+    }
+
+    @Test
     void readsHeaderAndDataRowsInOrder(@TempDir Path tempDir) throws IOException {
         File csv = writeCsv(tempDir, "username,password\njohn,pass123\njane,pass456\n");
 
