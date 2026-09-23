@@ -76,14 +76,45 @@
     return d.innerHTML;
   }
 
+  // navigator.clipboard.writeText needs a secure context (https, or
+  // localhost) — fine when this dashboard is opened at localhost, but a
+  // plain http:// LAN/ngrok URL on another host blocks it silently. The
+  // legacy execCommand path works on any origin, so it's the fallback
+  // rather than the primary (execCommand is deprecated but still broadly
+  // supported, and there is no dependency-free modern equivalent for a
+  // non-secure context).
+  async function copyToClipboard(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) { /* fall through */ }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ── switch widget ──────────────────────────────────────────
 
-  function makeSwitch(checked, onToggle) {
+  function makeSwitch(checked, onToggle, label) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "switch";
     btn.setAttribute("role", "switch");
     btn.setAttribute("aria-checked", String(checked));
+    if (label) btn.setAttribute("aria-label", label);
     const thumb = document.createElement("span");
     thumb.className = "switch-thumb";
     btn.appendChild(thumb);
@@ -129,9 +160,15 @@
 
   // ── sites panel ────────────────────────────────────────────
 
+  let suitesBySite = {};
+
   async function loadSites() {
-    const data = await api("/api/pipeline-config");
-    renderSites(data.sites);
+    const [sitesData, suitesData] = await Promise.all([
+      api("/api/pipeline-config"),
+      api("/api/suites").catch(() => ({ bySite: {} })), // suite listing is a convenience — don't block Sites on it
+    ]);
+    suitesBySite = suitesData.bySite || {};
+    renderSites(sitesData.sites);
   }
 
   function renderSites(sites) {
@@ -160,10 +197,46 @@
         toast(`${site.name} ${next ? "enabled" : "disabled"}`, true);
         renderSites(data.sites);
         loadAudit().catch(() => {});
-      }));
+      }, `${site.name} site`));
 
       list.appendChild(row);
+
+      const suiteFiles = suitesBySite[site.name] || [];
+      if (suiteFiles.length) {
+        list.appendChild(makeSuiteCmdRow(site.name, suiteFiles));
+      }
     });
+  }
+
+  function makeSuiteCmdRow(siteName, suiteFiles) {
+    const row = document.createElement("div");
+    row.className = "row row-sub";
+
+    const select = document.createElement("select");
+    select.className = "suite-select";
+    select.setAttribute("aria-label", `Suite file for ${siteName}`);
+    suiteFiles.forEach((file) => {
+      const opt = document.createElement("option");
+      opt.value = file;
+      opt.textContent = file;
+      select.appendChild(opt);
+    });
+    const smokeIndex = suiteFiles.findIndex((f) => f.includes("smoke") && !f.includes("safari"));
+    select.selectedIndex = smokeIndex >= 0 ? smokeIndex : 0;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-ghost btn-small";
+    btn.textContent = "Copy run command";
+    btn.addEventListener("click", async () => {
+      const cmd = `mvn test -Dsite=${siteName} -DsuiteXmlFile=testng-suites/${select.value}`;
+      const ok = await copyToClipboard(cmd);
+      toast(ok ? `Copied: ${cmd}` : cmd, ok);
+    });
+
+    row.appendChild(select);
+    row.appendChild(btn);
+    return row;
   }
 
   // ── presets panel ─────────────────────────────────────────
@@ -280,7 +353,7 @@
           toast(`${test.name} ${next ? "enabled" : "disabled"}`, true);
           renderTestSections();
           loadAudit().catch(() => {});
-        }));
+        }, `${test.name} test`));
         rows.appendChild(row);
       });
       wrap.appendChild(rows);
@@ -290,6 +363,9 @@
 
   async function bulkSection(section, enabled) {
     const names = section.tests.map((t) => t.name);
+    if (!enabled && !confirm(`Disable all ${names.length} tests in "${section.title}"?`)) {
+      return;
+    }
     try {
       testConfigCache = await postJson("/api/test-config/bulk-section", { names, enabled });
       toast(`${section.title}: ${enabled ? "all enabled" : "all disabled"} (${names.length} tests)`, true);
@@ -341,7 +417,7 @@
         toast(`group '${group.name}' ${next ? "enabled" : "disabled"}`, true);
         renderGroups();
         loadAudit().catch(() => {});
-      }));
+      }, `${group.name} group`));
       list.appendChild(row);
     });
   }
@@ -538,6 +614,9 @@
   }
 
   async function undoLast() {
+    if (!confirm("Undo the most recent dashboard change? This reverts one step back.")) {
+      return;
+    }
     try {
       const data = await postJson("/api/audit/undo", {});
       renderSites(data.sites);
@@ -550,6 +629,50 @@
     } catch (e) {
       toast(e.message, false);
     }
+  }
+
+  // ── snapshot export / import ─────────────────────────────
+
+  function exportSnapshot() {
+    // A plain link download (not fetch+blob) so the browser's native
+    // Basic-Auth credentials are reused automatically — a fetch() would
+    // need to re-send the Authorization header by hand for no benefit.
+    const a = document.createElement("a");
+    a.href = "/api/snapshot";
+    a.download = "dashboard-snapshot.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function importSnapshot(file) {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch (e) {
+        toast("That file isn't valid JSON.", false);
+        return;
+      }
+      try {
+        const data = await postJson("/api/snapshot/import", parsed);
+        toast(`Imported: ${data.applied.sites} site(s), ${data.applied.tests} test(s), ${data.applied.groups} group(s)`, true);
+        if (data.problems && data.problems.length) {
+          toast(`${data.problems.length} entr${data.problems.length === 1 ? "y" : "ies"} skipped — see console`, false);
+          console.warn("Snapshot import — skipped entries:", data.problems);
+        }
+        renderSites(data.sites);
+        testConfigCache = data.test_config;
+        renderTestSections();
+        renderGroups();
+        $("#runOnlyInput").value = testConfigCache.run_only || "";
+        loadAudit().catch(() => {});
+      } catch (e) {
+        toast(e.message, false);
+      }
+    };
+    reader.readAsText(file);
   }
 
   // ── wiring ─────────────────────────────────────────────────
@@ -573,6 +696,12 @@
   $("#newGroupInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addGroupOff(); });
   $("#exportCsvBtn").addEventListener("click", exportResultsCsv);
   $("#undoBtn").addEventListener("click", undoLast);
+  $("#exportSnapshotBtn").addEventListener("click", exportSnapshot);
+  $("#importSnapshotInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) importSnapshot(file);
+    e.target.value = ""; // allow re-selecting the same file next time
+  });
   $("#testFilter").addEventListener("input", (e) => {
     state.testFilter = e.target.value;
     renderTestSections();

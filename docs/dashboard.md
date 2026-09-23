@@ -17,6 +17,8 @@
 - [🩺 Results Drilldown](#-results-drilldown)
 - [🕓 Audit Log & Undo](#-audit-log--undo)
 - [📄 Raw File Viewer & CSV Export](#-raw-file-viewer--csv-export)
+- [📋 Copy Run Command](#-copy-run-command)
+- [💾 Snapshot Export/Import](#-snapshot-exportimport)
 - [🚫 What It Deliberately Doesn't Do](#-what-it-deliberately-doesnt-do)
 - [🧩 How It Works](#-how-it-works)
 - [🩹 Troubleshooting](#-troubleshooting)
@@ -124,6 +126,24 @@ Every change made *through the dashboard* — a site toggle, a test toggle, a bu
 
 - **View raw file** (under the Sites and Tests panels) opens the exact current text of `pipeline-config.properties` / `test-config.properties` in a read-only modal — useful to sanity-check that a toggle landed where you expected, or just to read the file's own header comments without leaving the browser.
 - **Export CSV** (under the results table) downloads the current per-class pass/fail/skip breakdown as a `.csv` — generated client-side from data already on screen, no extra request.
+
+---
+
+## 📋 Copy Run Command
+
+Under each site with matching suite files, a small dropdown lists every `testng-suites/*.xml` file that actually belongs to that site, plus a **Copy run command** button that copies e.g. `mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml` — the exact matched pair `pom.xml`'s own defaults require (see [🎛️ Choosing Which Sites and Tests Run](configuration.md#️-choosing-which-sites-and-tests-run); passing `-Dsite` alone runs the *previous* `-DsuiteXmlFile` default against the new site, which is the mix-up this feature exists to prevent).
+
+The mapping isn't a hardcoded filename-prefix table — it's built by scanning each suite file's actual `com.automation(.mobile)?.sites.<name>` package references (`Scripts/dashboard/suites.py`), so it can't drift out of sync with `testng-suites/` the way a hardcoded table could. A suite file referencing more than one site, or none at all, is left out of every dropdown rather than guessed at.
+
+Copying uses the Clipboard API where available (works on `localhost`) and falls back to the older `execCommand` method elsewhere (a plain `http://` LAN or ngrok URL on another host blocks the Clipboard API as a browser security restriction) — either way, if the copy silently fails, the command still appears in the toast notification to copy by hand.
+
+## 💾 Snapshot Export/Import
+
+**Export snapshot** (under the Sites panel) downloads the *entire* current state — every site, every test, every group, `run.only` — as one `dashboard-snapshot.json` file. **Import snapshot** applies one back: pick a file, and every site/test/group/run-only value in it is written in at most two file writes (one per properties file).
+
+This is the shareable counterpart to the built-in presets: a preset is a maintainer-curated combination checked into `presets.json`; a snapshot is *your* current config at *this* moment, meant to be handed to a specific person for a specific reason — "here's exactly what I had enabled when this bug reproduced," attached to a PR description or sent in Slack.
+
+Every entry in an imported snapshot is validated before anything is written — the same character allow-list the individual setters use — and a corrupted or hand-edited file never applies partway: unrecognized entries are dropped and listed back to you (`Scripts/dashboard/snapshot.py`'s `validate()`), the rest still applies. An unrecognized schema version is treated as a warning, not a hard failure.
 
 ---
 

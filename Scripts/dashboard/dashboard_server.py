@@ -62,8 +62,11 @@ import audit  # noqa: E402
 import config_files as cf  # noqa: E402
 import presets as ps  # noqa: E402
 import results as res  # noqa: E402
+import snapshot as snap  # noqa: E402
+import suites as su  # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+SUITES_DIR = os.path.join(REPO_ROOT, "testng-suites")
 PIPELINE_CONFIG = os.path.join(REPO_ROOT, "pipeline-config.properties")
 TEST_CONFIG = os.path.join(REPO_ROOT, "test-config.properties")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -190,6 +193,19 @@ def make_handler(password):
                     self._send_json(200, res.full_snapshot(REPO_ROOT))
                 elif path == "/api/audit":
                     self._send_json(200, {"entries": audit.recent(REPO_ROOT)})
+                elif path == "/api/suites":
+                    known = [s["name"] for s in cf.read_sites(PIPELINE_CONFIG)]
+                    self._send_json(200, su.list_suites(SUITES_DIR, known))
+                elif path == "/api/snapshot":
+                    snapshot = snap.build(cf.read_sites(PIPELINE_CONFIG), cf.read_test_config(TEST_CONFIG))
+                    body = json.dumps(snapshot, indent=2).encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json; charset=utf-8")
+                    self.send_header("Content-Disposition", 'attachment; filename="dashboard-snapshot.json"')
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
                 else:
                     self._serve_static(path)
             except FileNotFoundError as e:
@@ -263,6 +279,24 @@ def make_handler(password):
                     after = cf.PropertiesFile(TEST_CONFIG).get("run.only")
                     self._audit("run-only", "run.only", "value", before, after)
                     self._send_json(200, cf.read_test_config(TEST_CONFIG))
+
+                elif path == "/api/snapshot/import":
+                    clean, problems = snap.validate(body)
+                    if clean is None:
+                        self._send_json(400, {"error": "; ".join(problems) or "invalid snapshot"})
+                        return
+                    snap.apply(PIPELINE_CONFIG, TEST_CONFIG, clean)
+                    self._audit("snapshot", "import",
+                                f"{len(clean['sites'])} site(s), {len(clean['tests'])} test(s), "
+                                f"{len(clean['groups'])} group(s)", None,
+                                f"run_only={clean.get('run_only', '')}")
+                    self._send_json(200, {
+                        "applied": {"sites": len(clean["sites"]), "tests": len(clean["tests"]),
+                                    "groups": len(clean["groups"])},
+                        "problems": problems,
+                        "sites": cf.read_sites(PIPELINE_CONFIG),
+                        "test_config": cf.read_test_config(TEST_CONFIG),
+                    })
 
                 elif path == "/api/audit/undo":
                     entry = audit.pop_last(REPO_ROOT)

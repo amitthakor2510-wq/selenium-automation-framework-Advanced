@@ -40,3 +40,28 @@ services:
     volumes:
       - .:/workspace
     restart: unless-stopped
+    healthcheck:
+      # /api/health requires auth (see dashboard_server.py), so an
+      # unauthenticated request raises HTTPError(401) rather than
+      # returning normally — urlopen() never returns for a 4xx/5xx
+      # response. Catching that and checking e.code==401 means "the
+      # server answered" without needing DASHBOARD_PASSWORD inside the
+      # healthcheck itself; anything else (connection refused, a
+      # different status, a timeout) is treated as unhealthy.
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - |
+          import sys, urllib.error, urllib.request
+          try:
+              urllib.request.urlopen("http://localhost:5057/api/health", timeout=3)
+              sys.exit(1)  # unexpected: should always be 401 without credentials
+          except urllib.error.HTTPError as e:
+              sys.exit(0 if e.code == 401 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
