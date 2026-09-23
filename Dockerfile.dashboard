@@ -1,0 +1,28 @@
+# Automation Console — the read/toggle dashboard in Scripts/dashboard/.
+#
+# A separate, tiny image from the main Dockerfile on purpose: the
+# dashboard is python3 stdlib only (see dashboard_server.py's module
+# docstring) — it needs none of the JDK/Maven/browser layers the test
+# runner image carries, so building it from python:3.12-slim keeps this
+# image small and the two images independently rebuildable (changing a
+# page object never invalidates this image's cache, and vice versa).
+FROM python:3.12-slim
+
+WORKDIR /workspace
+
+# No pip install: the whole dashboard is stdlib. Only the two source
+# directories it actually reads are copied in (see the mount note in
+# docker-compose.dashboard.yml — in normal use this is a live bind mount
+# of the whole repo instead, so file edits show up without a rebuild;
+# this COPY exists so the image is still fully functional standalone).
+COPY Scripts/dashboard/ Scripts/dashboard/
+COPY .github/workflows/scripts/_junit_utils.py .github/workflows/scripts/_junit_utils.py
+COPY pipeline-config.properties test-config.properties ./
+
+EXPOSE 5057
+
+ENV DASHBOARD_PORT=5057 \
+    DASHBOARD_HOST=0.0.0.0 \
+    PYTHONUNBUFFERED=1
+
+CMD ["python3", "Scripts/dashboard/dashboard_server.py"]

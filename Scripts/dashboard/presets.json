@@ -1,0 +1,50 @@
+[
+  {
+    "id": "all-on",
+    "label": "Everything on",
+    "description": "Every site enabled. The default, healthy state.",
+    "sites": { "demoqa": true, "saucedemo": true, "mobile": true, "SAHMAT": true, "jsonplaceholder": true }
+  },
+  {
+    "id": "all-off",
+    "label": "Everything off",
+    "description": "Every site disabled — nothing runs. Useful before picking just one.",
+    "sites": { "demoqa": false, "saucedemo": false, "mobile": false, "SAHMAT": false, "jsonplaceholder": false }
+  },
+  {
+    "id": "demoqa-only",
+    "label": "demoqa only",
+    "description": "Just demoqa — UI, Book Store API, accessibility, visual and perf suites all live under this site.",
+    "sites": { "demoqa": true, "saucedemo": false, "mobile": false, "SAHMAT": false, "jsonplaceholder": false }
+  },
+  {
+    "id": "saucedemo-only",
+    "label": "saucedemo only",
+    "description": "Just saucedemo's login/keyword/data-driven suites.",
+    "sites": { "demoqa": false, "saucedemo": true, "mobile": false, "SAHMAT": false, "jsonplaceholder": false }
+  },
+  {
+    "id": "sahmat-only",
+    "label": "SAHMAT only",
+    "description": "Just the SAHMAT keyword-driven login/CAPTCHA suite.",
+    "sites": { "demoqa": false, "saucedemo": false, "mobile": false, "SAHMAT": true, "jsonplaceholder": false }
+  },
+  {
+    "id": "mobile-only",
+    "label": "Mobile only",
+    "description": "Just the Appium mobile suite — needs an emulator/device reachable.",
+    "sites": { "demoqa": false, "saucedemo": false, "mobile": true, "SAHMAT": false, "jsonplaceholder": false }
+  },
+  {
+    "id": "api-only",
+    "label": "API only",
+    "description": "jsonplaceholder plus demoqa (kept on for its Book Store REST API tests — there's no separate API-only site).",
+    "sites": { "demoqa": true, "saucedemo": false, "mobile": false, "SAHMAT": false, "jsonplaceholder": true }
+  },
+  {
+    "id": "no-demoqa-no-saucedemo",
+    "label": "Everything except demoqa & saucedemo",
+    "description": "SAHMAT, mobile and jsonplaceholder only.",
+    "sites": { "demoqa": false, "saucedemo": false, "mobile": true, "SAHMAT": true, "jsonplaceholder": true }
+  }
+]

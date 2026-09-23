@@ -100,6 +100,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | 🧩 [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md) | Automatic + keyword-driven CAPTCHA solving, setup (local/Docker/CI), how it's wired into every test style |
 | 🤖 [AI Features](docs/AI_FEATURES.md) | AI-assisted self-healing, AI root-cause failure analysis, AI-augmented bug crawler — model choice, config, usage |
 | ⚙️ [Configuration & Environments](docs/configuration.md) | `global.properties`, Dockerized Selenium Grid |
+| 🖥️ [Automation Console (Dashboard)](docs/dashboard.md) | Local web UI to toggle sites/tests and view the last run's results — no Java/Maven needed |
 | 📈 [Reports & Code Quality](docs/reports-and-quality.md) | Test reports, JaCoCo coverage, Checkstyle |
 | 🔄 [CI/CD Pipelines](docs/ci-cd.md) | Jenkins, GitHub Actions, GitLab CI |
 | ➕ [Extending the Framework](docs/extending.md) | Adding a new site, debugging a live site redesign |

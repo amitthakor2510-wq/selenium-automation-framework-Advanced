@@ -8,6 +8,7 @@
 
 ## 📋 Table of Contents
 - [🔧 Configuration — `global.properties`](#-configuration--globalproperties)
+- [🎛️ Choosing Which Sites and Tests Run](#️-choosing-which-sites-and-tests-run)
 - [🐳 Running Against a Dockerized Selenium Grid](#-running-against-a-dockerized-selenium-grid)
 - [🧭 Safari](#-safari)
 
@@ -124,6 +125,43 @@ mvn test -Dbrowser=edge -Dheadless=true -Dhuman.pause.enabled=false -Dretry.coun
 ```
 
 ---
+
+## 🎛️ Choosing Which Sites and Tests Run
+
+Two small files at the repo root, read by local `mvn test` and all three CI systems alike:
+
+| File | Controls | If a line is missing / mistyped |
+|---|---|---|
+| [`pipeline-config.properties`](../pipeline-config.properties) | which **sites** may run (`site.demoqa.enabled=false`) | site is treated as disabled (fails closed) |
+| [`test-config.properties`](../test-config.properties) | which **tests** run inside an enabled site | test runs (fails open) — only an explicit `=false` switches anything off |
+
+`test-config.properties` ships with one `test.<Class>.enabled=true` line per test class, so the file doubles as a catalogue of what exists. Flip a line to `false` to switch it off:
+
+```properties
+test.BrokenLinksImagesTest.enabled=false                  # a whole class
+test.BookStoreApplicationTest#verifyLogin.enabled=false   # one method
+test.com.automation.sites.demoqa.tests.*.enabled=false    # a whole package
+group.perf.enabled=false                                  # every test with that TestNG group
+run.only=LoginTest,SampleTest                             # run ONLY these classes (blank = no limit)
+```
+
+One-off runs without editing the file:
+
+```bash
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-regression.xml -Dtests.run.only=LoginTest
+mvn test -Dtests.disabled=BrokenLinksImagesTest,BookStoreApplicationTest#verifyLogin
+mvn test -Dtest.config.file=my-other-config.properties
+```
+
+- A switched-off test is not scheduled at all — it doesn't appear as "skipped" in Allure/Extent. The console log lists each one and the rule that switched it off (`[TestSelection] Switched off ...`).
+- It can only switch tests **off** among those the chosen suite XML already includes; it cannot add a test the suite doesn't list.
+- `run.only` narrows further but never re-enables something that is disabled.
+- A test method inherited from a base class is matched by the class that *declares* it — disable it by that class or by group.
+- Implemented by `TestSelectionListener` (an `IAnnotationTransformer` registered through `META-INF/services/org.testng.ITestNGListener`, so it also covers the `*-perf.xml` suites) and `TestSelection` (pure logic, covered by `TestSelectionTest`).
+
+---
+
+> **Prefer clicking over editing?** [🖥️ Automation Console](dashboard.md) is a local web UI over both files above, plus a view of the last run's results — `python3 Scripts/dashboard/dashboard_server.py`, no Java/Maven required to use it.
 
 ## 🐳 Running Against a Dockerized Selenium Grid
 

@@ -33,3 +33,9 @@ com.automation.sites.listeners.JacocoPerTestCoverageListener
 # default. Only CI legs that explicitly pass -Dreportportal.enable=true
 # (see github-ci.yml) actually report to a ReportPortal server.
 com.epam.reportportal.testng.ReportPortalTestNGListener
+
+# TestSelectionListener (IAnnotationTransformer) — applies test-config.properties
+# (repo root): sets enabled=false on every @Test that file switches off. Registered
+# here rather than in each suite XML so it also covers suites that don't list
+# RetryListener (the *-perf.xml ones) and any suite added later. See TestSelection.
+com.automation.sites.listeners.TestSelectionListener

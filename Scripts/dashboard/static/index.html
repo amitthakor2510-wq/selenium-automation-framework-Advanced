@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Automation Console</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <span class="brand-name">Automation Console</span>
+          <span class="brand-sub">Selenium framework — sites, tests, results</span>
+        </div>
+      </div>
+      <div class="topbar-status">
+        <button id="themeToggle" class="btn btn-ghost" title="Toggle light/dark" aria-label="Toggle light/dark theme">◐</button>
+        <span id="connStatus" class="pill pill-muted">connecting…</span>
+        <button id="refreshBtn" class="btn btn-ghost" title="Reload everything">Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <section class="hero" aria-label="Last run summary">
+      <div class="hero-row" id="heroRow"></div>
+      <p id="heroNote" class="hero-note"></p>
+    </section>
+
+    <section class="panels">
+
+      <div class="panel" id="sitesPanel">
+        <div class="panel-head">
+          <h2>Sites</h2>
+          <p class="panel-sub">pipeline-config.properties — turns a site off everywhere: local runs, GitHub Actions, GitLab CI, Jenkins.</p>
+        </div>
+        <div class="panel-body" id="sitesList"></div>
+        <div class="panel-foot">
+          <button class="btn btn-ghost btn-small" id="sitesRawBtn">View raw file</button>
+        </div>
+      </div>
+
+      <div class="panel" id="presetsPanel">
+        <div class="panel-head">
+          <h2>Site presets</h2>
+          <p class="panel-sub">One click to set every site at once. Defined in <code>presets.json</code>.</p>
+        </div>
+        <div class="panel-body" id="presetsList"></div>
+      </div>
+
+    </section>
+
+    <section class="panels">
+
+      <div class="panel" id="runOnlyPanel">
+        <div class="panel-head">
+          <h2>Run only</h2>
+          <p class="panel-sub">Restrict the next run to specific classes. Blank = no restriction. Comma-separated, package.* allowed.</p>
+        </div>
+        <div class="panel-body">
+          <div class="run-only-row">
+            <input id="runOnlyInput" type="text" placeholder="e.g. LoginTest, SampleTest" autocomplete="off" spellcheck="false" />
+            <button id="runOnlySave" class="btn btn-primary">Save</button>
+          </div>
+          <p id="runOnlyStatus" class="field-note"></p>
+        </div>
+      </div>
+
+      <div class="panel" id="groupsPanel">
+        <div class="panel-head">
+          <h2>Groups</h2>
+          <p class="panel-sub">Disables every test carrying a TestNG group, e.g. <code class="mono">perf</code>. A test with several groups is disabled if any one of them is off.</p>
+        </div>
+        <div class="panel-body" id="groupsList"></div>
+        <div class="panel-foot">
+          <div class="run-only-row">
+            <input id="newGroupInput" type="text" placeholder="group name, e.g. accessibility" autocomplete="off" spellcheck="false" />
+            <button id="newGroupSave" class="btn btn-secondary">Add off</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="panel panel-wide" id="testsPanel">
+      <div class="panel-head">
+        <h2>Tests</h2>
+        <p class="panel-sub">test-config.properties — switches individual test classes on/off, grouped by suite. A test switched off is skipped everywhere, not reported as skipped.</p>
+        <input id="testFilter" type="text" class="filter-input" placeholder="Filter by class name…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="panel-body" id="testsSections"></div>
+      <div class="panel-foot">
+        <button class="btn btn-ghost btn-small" id="testsRawBtn">View raw file</button>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" id="resultsPanel">
+      <div class="panel-head">
+        <h2>Last run — by class</h2>
+        <p class="panel-sub" id="resultsSub">From the most recent local <code>target/surefire-reports</code>.</p>
+      </div>
+      <div class="panel-body" id="resultsTable"></div>
+      <div class="panel-foot">
+        <button class="btn btn-ghost btn-small" id="exportCsvBtn">Export CSV</button>
+      </div>
+    </section>
+
+    <section class="panels" id="drilldownPanels">
+
+      <div class="panel" id="healingPanel">
+        <div class="panel-head">
+          <h2>Self-healed locators</h2>
+          <p class="panel-sub">Elements the self-healing engine found via DOM/visual/AI fallback — a broken locator worth fixing at the source.</p>
+        </div>
+        <div class="panel-body" id="healingList"></div>
+      </div>
+
+      <div class="panel" id="flakyPanel">
+        <div class="panel-head">
+          <h2>Flaky tests</h2>
+          <p class="panel-sub">Both passed and failed across the retained run history (<code>flaky-tests.json</code>).</p>
+        </div>
+        <div class="panel-body" id="flakyList"></div>
+      </div>
+
+    </section>
+
+    <section class="panel panel-wide" id="auditPanel">
+      <div class="panel-head">
+        <h2>Recent changes</h2>
+        <p class="panel-sub">Every edit made through this dashboard, newest first. Single-value changes can be undone; bulk/preset changes cannot.</p>
+      </div>
+      <div class="panel-body" id="auditList"></div>
+      <div class="panel-foot">
+        <button class="btn btn-ghost btn-small" id="undoBtn">Undo last change</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span>Reads/edits <code>pipeline-config.properties</code> and <code>test-config.properties</code> directly — a change here applies to the next run, no restart needed.</span>
+  </footer>
+
+  <div id="rawModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <span id="rawModalTitle" class="mono"></span>
+        <button class="btn btn-ghost btn-small" data-close>Close</button>
+      </div>
+      <pre id="rawModalBody" class="raw-view mono"></pre>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

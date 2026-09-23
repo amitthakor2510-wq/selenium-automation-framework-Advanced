@@ -1,0 +1,42 @@
+# Automation Console — optional dashboard service.
+#
+# Not started by a plain `docker compose up` (see the "dashboard"
+# profile below) — it's an add-on, not part of the Grid stack in
+# docker-compose.yml. Start it explicitly:
+#
+#   DASHBOARD_PASSWORD=choose-a-password \
+#     docker compose -f docker-compose.yml -f docker-compose.dashboard.yml \
+#     --profile dashboard up dashboard
+#
+# or, without Docker at all:
+#
+#   DASHBOARD_PASSWORD=choose-a-password python3 Scripts/dashboard/dashboard_server.py
+#
+# Then open http://localhost:5057 (browser prompts for the "dashboard" /
+# $DASHBOARD_PASSWORD Basic-Auth credentials). See docs/dashboard.md.
+#
+# DASHBOARD_PASSWORD is REQUIRED here (no default, unlike running the
+# script directly, which falls back to a random one printed to stdout) —
+# a Docker service is much more likely to be tunnelled/shared than a
+# foreground terminal session, so this compose file refuses to start
+# without an explicit password rather than risk someone forgetting to
+# set one and exposing a config-editing port unauthenticated.
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    image: selenium-automation-framework-dashboard:local
+    profiles:
+      - dashboard
+    ports:
+      - "${DASHBOARD_HOST_PORT:-5057}:5057"
+    environment:
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD before starting the dashboard — see docs/dashboard.md}
+    # Live bind mount of the whole repo (read-write): the dashboard's own
+    # writes are the two properties files at the root, and it reads
+    # target/ for results — both need to be the SAME files your host
+    # `mvn test` runs read/write, not a copy baked into the image.
+    volumes:
+      - .:/workspace
+    restart: unless-stopped
