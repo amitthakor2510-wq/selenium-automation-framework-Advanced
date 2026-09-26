@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*(AssertionError|expected.*but.*was|Expected.*but.*was).*"
+  },
+  {
+    "name": "Element not found / stale",
+    "matchedStatuses": ["broken", "failed"],
+    "traceRegex": ".*(NoSuchElementException|StaleElementReferenceException|ElementClickInterceptedException|ElementNotInteractableException).*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken", "failed"],
+    "traceRegex": ".*(TimeoutException|WaitTimedOutException).*"
+  },
+  {
+    "name": "Driver / infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*(WebDriverException|SessionNotCreatedException|UnreachableBrowserException|NoSuchSessionException).*"
+  },
+  {
+    "name": "Ignored / skipped",
+    "matchedStatuses": ["skipped"]
+  }
+]

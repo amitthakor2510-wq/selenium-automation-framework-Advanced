@@ -1,0 +1,164 @@
+[
+  {
+    "run_id": "34597452603",
+    "event": "push",
+    "timestamp": "2026-09-11T12:48:33Z",
+    "coverage_pct": 33.52,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "34679698412",
+    "event": "schedule",
+    "timestamp": "2026-09-12T07:25:28Z",
+    "coverage_pct": 32.92,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "34745052038",
+    "event": "schedule",
+    "timestamp": "2026-09-13T07:42:23Z",
+    "coverage_pct": 31.91,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "34819460741",
+    "event": "schedule",
+    "timestamp": "2026-09-14T08:05:12Z",
+    "coverage_pct": 16.38,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "34942134362",
+    "event": "schedule",
+    "timestamp": "2026-09-15T07:51:34Z",
+    "coverage_pct": 19.31,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35068906845",
+    "event": "schedule",
+    "timestamp": "2026-09-16T07:52:49Z",
+    "coverage_pct": 16.26,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35194627257",
+    "event": "schedule",
+    "timestamp": "2026-09-17T07:47:06Z",
+    "coverage_pct": 16.16,
+    "self_healing_count": 0,
+    "flaky_count": 9,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35318643266",
+    "event": "schedule",
+    "timestamp": "2026-09-18T07:37:45Z",
+    "coverage_pct": 31.54,
+    "self_healing_count": 0,
+    "flaky_count": 16,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35428727305",
+    "event": "schedule",
+    "timestamp": "2026-09-19T07:31:48Z",
+    "coverage_pct": 32.82,
+    "self_healing_count": 0,
+    "flaky_count": 16,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35570919442",
+    "event": "push",
+    "timestamp": "2026-09-21T07:34:29Z",
+    "coverage_pct": 19.43,
+    "self_healing_count": 0,
+    "flaky_count": 16,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35574892634",
+    "event": "schedule",
+    "timestamp": "2026-09-21T08:10:24Z",
+    "coverage_pct": 33.02,
+    "self_healing_count": 0,
+    "flaky_count": 16,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35700291779",
+    "event": "schedule",
+    "timestamp": "2026-09-22T07:54:56Z",
+    "coverage_pct": 31.25,
+    "self_healing_count": 0,
+    "flaky_count": 16,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35832648243",
+    "event": "schedule",
+    "timestamp": "2026-09-23T07:56:43Z",
+    "coverage_pct": 16.36,
+    "self_healing_count": 0,
+    "flaky_count": 15,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35837354644",
+    "event": "push",
+    "timestamp": "2026-09-23T09:05:47Z",
+    "coverage_pct": 34.5,
+    "self_healing_count": 0,
+    "flaky_count": 24,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35851758239",
+    "event": "push",
+    "timestamp": "2026-09-23T11:32:14Z",
+    "coverage_pct": 31.55,
+    "self_healing_count": 0,
+    "flaky_count": 24,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "35969835963",
+    "event": "schedule",
+    "timestamp": "2026-09-24T07:47:52Z",
+    "coverage_pct": 32.91,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "36107929847",
+    "event": "schedule",
+    "timestamp": "2026-09-25T07:51:04Z",
+    "coverage_pct": 32.06,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "36226658102",
+    "event": "schedule",
+    "timestamp": "2026-09-26T08:11:54Z",
+    "coverage_pct": 16.41,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  }
+]
