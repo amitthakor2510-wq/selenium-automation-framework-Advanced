@@ -97,15 +97,29 @@ def self_healing_summary(repo_root, detail_limit=100):
     the order each site's report already lists them in) — this is a
     dashboard panel, not a full report; docs/AI_FEATURES.md and the
     Allure self-healing attachment are still the complete record.
+
+    File discovery has to cover BOTH shapes SelfHealingReportWriter can
+    produce (see its `self-healing.report.path` property, default in
+    global.properties): every CI job passes an explicit
+    `-Dself-healing.report.path=target/self-healing/<site>-healing-report.json`
+    override (see github-ci.yml/.gitlab-ci.yml/Jenkinsfile — needed so
+    parallel jobs sharing one target/ don't overwrite each other's
+    report), but a plain LOCAL `mvn test` — this dashboard's main
+    audience — has no such override and gets the bare, un-prefixed
+    default filename instead. A glob requiring a "-" before
+    "healing-report.json" only matches the CI-style prefixed form and
+    silently finds nothing for the far more common local-run case, which
+    is the bug this comment is here to stop someone re-introducing.
     """
     events = []
     by_site = {}
-    for path in sorted(glob.glob(os.path.join(repo_root, "target", "self-healing", "*-healing-report.json"))):
-        site = os.path.basename(path)[: -len("-healing-report.json")]
+    for path in sorted(glob.glob(os.path.join(repo_root, "target", "self-healing", "*healing-report.json"))):
+        filename = os.path.basename(path)
+        site = "(local run)" if filename == "healing-report.json" else filename[: -len("-healing-report.json")]
         raw = _read_json(path)
         if not isinstance(raw, list):
             continue
-        by_site[site] = len(raw)
+        by_site[site] = by_site.get(site, 0) + len(raw)
         for item in raw:
             if not isinstance(item, dict):
                 continue
@@ -113,7 +127,10 @@ def self_healing_summary(repo_root, detail_limit=100):
                 "site": site,
                 "original": item.get("originalLocator") or item.get("original") or item.get("elementKey") or "",
                 "healedTo": item.get("healedDescription") or item.get("healedTo") or "",
-                "stage": item.get("stage") or "",
+                # matchMethod is HealingEvent's real field name (see
+                # SelfHealingEngine.heal()); "stage" kept as a fallback
+                # only in case a future schema renames it.
+                "stage": item.get("matchMethod") or item.get("stage") or "",
             })
 
     total = sum(by_site.values())

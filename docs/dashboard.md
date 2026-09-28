@@ -111,7 +111,7 @@ The **Groups** panel lists every `group.<name>.enabled=false` line already in `t
 
 Below the summary tiles and the per-class table, two more panels expand on what only showed as a count before:
 
-- **Self-healed locators** — every locator the self-healing engine actually had to fall back on in the last run (original → healed, which site, which stage — DOM/visual/AI), from `target/self-healing/*-healing-report.json`. A locator showing up here repeatedly is worth fixing at the source rather than leaving to self-heal every run.
+- **Self-healed locators** — every locator the self-healing engine actually had to fall back on in the last run (original → healed, which site, which stage — DOM/visual/AI), from `target/self-healing/*healing-report.json` — both the bare `healing-report.json` a plain local `mvn test` writes and the `<site>-healing-report.json` files each CI job writes via `-Dself-healing.report.path=...` (a local run shows up under the site label "(local run)"). A locator showing up here repeatedly is worth fixing at the source rather than leaving to self-heal every run.
 - **Flaky tests** — from `target/flaky-tests.json` (produced by the `compute_flaky_trend.py` CI script against the retained run-history window on `gh-pages`, so this panel is usually empty on a pure-local checkout that has never run in CI). Each entry shows its pass/fail counts and the most recent statuses as a small strip of ticks.
 
 The summary tiles also add a **TIA selected** count (`impacted / total` test classes) when `target/tia/impact-summary.json` exists from a local Test Impact Analysis run.

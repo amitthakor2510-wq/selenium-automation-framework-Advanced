@@ -195,11 +195,22 @@ public final class SiteCrawler {
             return result;
         }
 
+        // Captured once per page (not per link): the raw HttpClient below shares no
+        // session with the browser, so without this every link/status check on an
+        // authenticated page (e.g. SAHMAT, which requires login) would silently run
+        // unauthenticated — reporting real, working pages/resources as broken because
+        // the anonymous request gets redirected to a login page or 401/403s.
+        // cookieHeader is only ever attached to same-host requests (see
+        // checkLinkStatus), so a page's session cookies never leak to a
+        // third-party link it happens to point at.
+        String pageHost = hostOf(url);
+        String cookieHeader = cookieHeaderForCurrentPage();
+
         result.title = safeTitle();
-        result.statusCode = checkLinkStatus(url).orElse(-1);
+        result.statusCode = checkLinkStatus(url, pageHost, cookieHeader).orElse(-1);
 
         checkConsoleErrors(result);
-        checkLinksAndImages(result);
+        checkLinksAndImages(result, pageHost, cookieHeader);
         checkDuplicateIds(result);
         checkMixedContent(result, url);
         if (a11yEnabled) {
@@ -250,7 +261,7 @@ public final class SiteCrawler {
         }
     }
 
-    private void checkLinksAndImages(PageResult result) {
+    private void checkLinksAndImages(PageResult result, String pageHost, String cookieHeader) {
         List<WebElement> anchors = safeFindElements(By.tagName("a"));
         Set<String> checkedHrefs = new HashSet<>();
         for (WebElement a : anchors) {
@@ -266,7 +277,9 @@ public final class SiteCrawler {
             if (!checkedHrefs.add(href)) {
                 continue; // already checked this exact href on this page
             }
-            int status = checkLinkStatus(href).orElse(0);
+            // Off-site links (a third-party href on this page) are still checked for
+            // brokenness — just never with this page's cookies attached.
+            int status = checkLinkStatus(href, pageHost, cookieHeader).orElse(0);
             if (status >= 400 || status == 0) {
                 result.addIssue(CrawlIssue.Severity.ERROR, "broken-link", href + " -> HTTP " + status);
             }
@@ -372,23 +385,33 @@ public final class SiteCrawler {
         return links;
     }
 
-    /** HEAD request (falls back to GET if the server rejects HEAD) — never loads the link in the browser. */
-    private Optional<Integer> checkLinkStatus(String url) {
+    /**
+     * HEAD request (falls back to GET if the server rejects HEAD) — never loads the
+     * link in the browser. {@code cookieHeader} (see {@link #cookieHeaderForCurrentPage()})
+     * is attached ONLY when {@code url}'s host matches {@code pageHost} — a login-gated
+     * page's session must never be sent to a third-party link it happens to point at.
+     */
+    private Optional<Integer> checkLinkStatus(String url, String pageHost, String cookieHeader) {
+        boolean sameHost = cookieHeader != null && pageHost != null && pageHost.equalsIgnoreCase(hostOf(url));
         try {
-            HttpRequest headRequest = HttpRequest.newBuilder()
+            HttpRequest.Builder headBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(10))
-                .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                .build();
-            int status = httpClient.send(headRequest, HttpResponse.BodyHandlers.discarding()).statusCode();
+                .method("HEAD", HttpRequest.BodyPublishers.noBody());
+            if (sameHost) {
+                headBuilder.header("Cookie", cookieHeader);
+            }
+            int status = httpClient.send(headBuilder.build(), HttpResponse.BodyHandlers.discarding()).statusCode();
             if (status == 405) {
                 // Some servers reject HEAD outright — retry with GET before concluding anything.
-                HttpRequest getRequest = HttpRequest.newBuilder()
+                HttpRequest.Builder getBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(10))
-                    .GET()
-                    .build();
-                status = httpClient.send(getRequest, HttpResponse.BodyHandlers.discarding()).statusCode();
+                    .GET();
+                if (sameHost) {
+                    getBuilder.header("Cookie", cookieHeader);
+                }
+                status = httpClient.send(getBuilder.build(), HttpResponse.BodyHandlers.discarding()).statusCode();
             }
             return Optional.of(status);
         } catch (InterruptedException e) {
@@ -396,6 +419,33 @@ public final class SiteCrawler {
             return Optional.of(0);
         } catch (IOException | IllegalArgumentException e) {
             return Optional.of(0); // 0 = unreachable/timeout/malformed URL
+        }
+    }
+
+    /**
+     * Cookies from the live Selenium session for whatever page is currently loaded,
+     * as a single "name=value; name2=value2" Cookie header — so the raw HttpClient
+     * used for link/status checks (which otherwise shares no session with the
+     * browser at all) can be recognized as the same logged-in session on an
+     * authenticated site. {@code driver.manage().getCookies()} is already scoped by
+     * WebDriver to cookies visible to the current document, so this can't itself
+     * pull in cookies belonging to some other origin the browser has visited.
+     * Returns null (not blank) on any failure or when there are no cookies at all,
+     * so callers can use a simple null-check rather than an empty-string check.
+     */
+    private String cookieHeaderForCurrentPage() {
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (org.openqa.selenium.Cookie cookie : driver.manage().getCookies()) {
+                if (sb.length() > 0) {
+                    sb.append("; ");
+                }
+                sb.append(cookie.getName()).append('=').append(cookie.getValue());
+            }
+            return sb.length() == 0 ? null : sb.toString();
+        } catch (Exception e) {
+            logger.debug("[SiteCrawler] Could not read session cookies for link checks: {}", e.getMessage());
+            return null;
         }
     }
 

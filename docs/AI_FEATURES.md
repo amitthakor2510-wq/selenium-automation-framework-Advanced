@@ -110,6 +110,9 @@ runs a set of checks on every page it visits:
 
 - broken links/images — an HTTP `HEAD` (falling back to `GET` if the server rejects
   `HEAD`) per discovered link, **not** a full browser page load per link
+  Same-host requests carry the live browser session's cookies (so pages behind a login,
+  like SAHMAT, aren't falsely reported as broken); off-site links are checked without
+  them, so a session cookie is never sent to a third party.
 - browser console errors (`SEVERE`-level entries)
 - duplicate element `id`s
 - empty/missing `href` and `alt` attributes

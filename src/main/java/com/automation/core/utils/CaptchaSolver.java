@@ -2587,24 +2587,33 @@ public class CaptchaSolver {
 
             // 3. Parse and evaluate expression
             String answer = evaluateMathExpression(rawText);
+            if (answer == null) {
+                log.error("❌ Math CAPTCHA: could not parse an expression from OCR text [{}] — "
+                    + "leaving the field untouched rather than typing a made-up answer.", rawText);
+                return null;
+            }
 
             log.info("✅ Math CAPTCHA answer: [{}]", answer);
 
             // 4. Type answer
             typeIntoField(captchaInputField, answer);
-
-            // Reset whitelist back to the real configured text-CAPTCHA charset
-            // (upper+lower+digits+symbols by default) — NOT a hardcoded
-            // uppercase-only string. Resetting to an uppercase-only literal
-            // here would silently reintroduce the same case-loss bug for any
-            // text CAPTCHA solved later in the same session.
-            tesseract.setVariable("tessedit_char_whitelist", textCaptchaCharset);
-
             return answer;
 
         } catch (Exception e) {
             log.error("❌ solveMathCaptcha failed: {}", e.getMessage(), e);
             return null;
+        } finally {
+            // Reset whitelist back to the real configured text-CAPTCHA charset
+            // (upper+lower+digits+symbols by default) — NOT a hardcoded
+            // uppercase-only string, which would silently reintroduce the
+            // case-loss bug for any text CAPTCHA solved later in the same
+            // session. In a finally block (it used to sit at the end of the
+            // try): this instance is reused for every later CAPTCHA on the
+            // same page/keyword engine, so any exception above (OCR failure,
+            // unparseable expression, typing error) used to skip the reset
+            // and leave every subsequent text CAPTCHA restricted to
+            // digits/math symbols — wrong answers with no error pointing here.
+            tesseract.setVariable("tessedit_char_whitelist", textCaptchaCharset);
         }
     }
 
@@ -3819,9 +3828,20 @@ public class CaptchaSolver {
     }
 
     /**
-     * Evaluates simple math expressions like "3 + 5", "12 - 4", "6 * 2"
+     * Evaluates a simple two-operand expression like "3 + 5", "12 - 4", "6 * 2".
+     *
+     * Returns null (not a made-up "0") when the OCR text doesn't hold exactly
+     * two operands and one operator — a lost digit ("5 +"), a lost operator
+     * ("3 5"), or more than two operands ("3+5-2"). The old version had two
+     * problems: {@code parts[1]} on "5 +" threw an uncaught
+     * ArrayIndexOutOfBoundsException (split() drops trailing empty strings),
+     * and every other parse failure returned "0", which the caller then typed
+     * into the field as if it were a real answer.
      */
     private String evaluateMathExpression(String rawText) {
+        if (rawText == null) {
+            return null;
+        }
         // Normalize OCR artifacts
         String expr = rawText
             .replaceAll("[^0-9+\\-*/]", " ")
@@ -3830,30 +3850,25 @@ public class CaptchaSolver {
 
         log.debug("Evaluating math expression: [{}]", expr);
 
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("^(\\d+)\\s*([+\\-*/])\\s*(\\d+)$").matcher(expr);
+        if (!m.matches()) {
+            log.error("Math evaluation failed: [{}] is not '<number> <operator> <number>'", expr);
+            return null;
+        }
         try {
-            String[] parts;
-            if (expr.contains("+")) {
-                parts = expr.split("\\+");
-                return String.valueOf(Integer.parseInt(parts[0].trim())
-                    + Integer.parseInt(parts[1].trim()));
-            } else if (expr.contains("-")) {
-                parts = expr.split("-");
-                return String.valueOf(Integer.parseInt(parts[0].trim())
-                    - Integer.parseInt(parts[1].trim()));
-            } else if (expr.contains("*")) {
-                parts = expr.split("\\*");
-                return String.valueOf(Integer.parseInt(parts[0].trim())
-                    * Integer.parseInt(parts[1].trim()));
-            } else if (expr.contains("/")) {
-                parts = expr.split("/");
-                return String.valueOf(Integer.parseInt(parts[0].trim())
-                    / Integer.parseInt(parts[1].trim()));
+            int left = Integer.parseInt(m.group(1));
+            int right = Integer.parseInt(m.group(3));
+            switch (m.group(2)) {
+                case "+": return String.valueOf(left + right);
+                case "-": return String.valueOf(left - right);
+                case "*": return String.valueOf(left * right);
+                default:  return String.valueOf(left / right);
             }
         } catch (NumberFormatException | ArithmeticException e) {
             log.error("Math evaluation failed for [{}]: {}", expr, e.getMessage());
+            return null;
         }
-
-        return "0"; // safe default
     }
 
     /**
