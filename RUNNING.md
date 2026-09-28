@@ -70,7 +70,8 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml -Dhead
 # saucedemo instead of demoqa
 mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml
 
-# SAHMAT instead of demoqa
+# SAHMAT instead of demoqa (login rows read ${env:SAHMAT_EMAIL} / ${env:SAHMAT_PASSWORD} —
+# export both first, or pass -DSAHMAT_EMAIL=... -DSAHMAT_PASSWORD=...; see KEYWORD_DRIVEN_TESTING.md)
 mvn test -Dsite=SAHMAT -DsuiteXmlFile=testng-suites/SAHMAT-smoke.xml
 
 # SAHMAT — every browser (chrome, firefox, edge), ONE AT A TIME on this

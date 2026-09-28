@@ -22,11 +22,13 @@ public final class SensitiveData {
     /** What a masked value is replaced with in logs and reports. */
     public static final String MASK = "********";
 
-    // password / passwd / passcode / pwd / secret / token / otp / cvv.
+    // password / passwd / passcode / pwd / secret / token / otp / cvv. "otp" is matched as a
+    // standalone word OR at a camelCase boundary (otpInput, sendOtpTrigger) but not inside a
+    // word (hotpot, footpath); lookaheads are case-sensitive so the capital I in otpInput counts.
     // Deliberately NOT a bare "pass" or "pin": "passenger", "passport",
     // "shipping" and "spinner" are ordinary field/class names.
     private static final Pattern SENSITIVE_NAME = Pattern.compile(
-        "(?i)(passw(or)?d|passcode|pwd|secret|token|api[-_ ]?key|cvv|\\botp\\b)");
+        "(?i:passw(or)?d|passcode|pwd|secret|token|api[-_ ]?key|cvv)|(?<![A-Za-z])(?i:otp)(?![a-z])|(?<=[a-z])(?:Otp|OTP)(?![a-z])");
 
     private SensitiveData() {
     }

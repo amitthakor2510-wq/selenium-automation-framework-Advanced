@@ -18,6 +18,7 @@ separate "object repository" properties file, not in the test or the script.
 - [➕ Adding a New Scenario](#-adding-a-new-scenario)
 - [🎯 Adding a New Locator](#-adding-a-new-locator)
 - [⌨️ Keyboard-Only ("Keyboard-Driven") Testing](#️-keyboard-only-keyboard-driven-testing)
+- [🔐 Keeping Credentials Out of Scripts (Placeholders)](#-keeping-credentials-out-of-scripts-placeholders)
 - [🔗 DDT Enhancements Used Alongside This](#-ddt-enhancements-used-alongside-this)
 
 ---
@@ -86,6 +87,40 @@ saucedemo.inventory.addToCartButton=css:[data-test='add-to-cart-sauce-labs-backp
 `TC03_KeyboardOnlyLogin` in the example script logs in using only `Tab` and
 `Enter` — no `CLICK` on the form fields at all — which is the pattern to
 copy for accessibility-style "can this be operated without a mouse" checks.
+
+---
+
+## 🔐 Keeping Credentials Out of Scripts (Placeholders)
+
+`testData` and `expected` cells may contain placeholders, expanded when the step runs
+(see `PlaceholderResolver`), so real usernames/passwords are never committed:
+
+| Placeholder | Reads |
+|---|---|
+| `${env:NAME}` | OS environment variable `NAME`, falling back to `-DNAME=value` |
+| `${sys:NAME}` | JVM system property only |
+| `${config:key}` | ConfigReader key (`-D` → `<site>.properties` → `global.properties`) |
+| `${env:NAME:-fallback}` | any form accepts an inline default after `:-` |
+
+- A placeholder with no value and no default **fails that step** naming the missing variable —
+  it is never silently replaced by an empty string.
+- Only the raw placeholder text is logged; the resolved value never reaches `toString()`, the
+  console, or Allure/Extent step names. `TYPE` into a locator key that looks sensitive
+  (`password`, `token`, `otp`, …) is additionally routed through `typeSecret()`.
+- Text such as `${jndi:...}` (no `env`/`sys`/`config` prefix) is left untouched, so
+  injection-payload test data still works.
+- **CSV tip:** a description or any cell containing a comma must be quoted
+  (`"like, this"`); `CsvDataFileReader` now logs a warning for rows wider than the header.
+
+SAHMAT uses `${env:SAHMAT_EMAIL}` / `${env:SAHMAT_PASSWORD}`:
+
+```bash
+export SAHMAT_EMAIL='...'  SAHMAT_PASSWORD='...'      # or: mvn test -DSAHMAT_EMAIL=... -DSAHMAT_PASSWORD=...
+```
+
+CI: GitHub Actions reads repo secrets `SAHMAT_EMAIL` / `SAHMAT_PASSWORD` (already wired in
+`github-ci.yml`); GitLab CI exports project CI/CD variables of the same names automatically;
+Jenkins needs them in the job/agent environment (e.g. `environment { SAHMAT_EMAIL = credentials('...') }`).
 
 ---
 

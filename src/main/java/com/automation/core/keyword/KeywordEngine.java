@@ -6,6 +6,7 @@ import com.automation.core.selfhealing.SelfHealingEngine;
 import com.automation.core.utils.CaptchaSolver;
 import com.automation.core.utils.ElementUtils;
 import com.automation.core.utils.HumanActions;
+import com.automation.core.utils.SensitiveData;
 import com.automation.core.utils.ScreenshotUtil;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -81,7 +82,7 @@ public class KeywordEngine {
                 autoHandleCaptcha();
             }
             case CLICK -> HumanActions.click(driver, locator(step));
-            case TYPE -> HumanActions.type(driver, locator(step), step.getTestData());
+            case TYPE -> typeInto(step);
             case SET_TEXT -> setText(locator(step), step.getTestData());
             case CLEAR -> waitVisible(locator(step)).clear();
             case SELECT_BY_TEXT -> new Select(waitVisible(locator(step))).selectByVisibleText(step.getTestData());
@@ -125,6 +126,23 @@ public class KeywordEngine {
             }
             driver.get(path.isEmpty() ? baseUrl
                 : baseUrl + (path.startsWith("/") ? path : "/" + path));
+        }
+    }
+
+    /**
+     * TYPE step. HumanActions.type() only masks when the resolved By.toString() names a secret
+     * field, but an object-repository entry can be a bare positional XPath (SAHMAT's password
+     * field is one) whose string never contains "password" - so the typed secret would land in
+     * the Allure step name. The repo KEY (e.g. sahmat.login.password) is the only place the
+     * field's real name survives, so it is checked here and routed to typeSecret() when it looks
+     * sensitive.
+     */
+    private void typeInto(KeywordStep step) {
+        By target = locator(step);
+        if (SensitiveData.isSensitiveName(step.getLocatorKey())) {
+            HumanActions.typeSecret(driver, target, step.getTestData());
+        } else {
+            HumanActions.type(driver, target, step.getTestData());
         }
     }
 

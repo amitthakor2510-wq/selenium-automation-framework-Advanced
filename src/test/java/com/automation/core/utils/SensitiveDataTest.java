@@ -18,6 +18,8 @@ class SensitiveDataTest {
         assertTrue(SensitiveData.isSensitiveName("apiKeyField"));
         assertTrue(SensitiveData.isSensitiveName("auth-token"));
         assertTrue(SensitiveData.isSensitiveName("By.id: otp"));
+        assertTrue(SensitiveData.isSensitiveName("sahmat.login.otpInput"));
+        assertTrue(SensitiveData.isSensitiveName("sahmat.login.sendOtpTrigger"));
     }
 
     @Test
@@ -27,6 +29,7 @@ class SensitiveDataTest {
         assertFalse(SensitiveData.isSensitiveName("passport"));
         assertFalse(SensitiveData.isSensitiveName("shippingAddress"));
         assertFalse(SensitiveData.isSensitiveName("spinner"));
+        assertFalse(SensitiveData.isSensitiveName("hotpot"));
         assertFalse(SensitiveData.isSensitiveName("hotel"));
         assertFalse(SensitiveData.isSensitiveName(""));
         assertFalse(SensitiveData.isSensitiveName(null));

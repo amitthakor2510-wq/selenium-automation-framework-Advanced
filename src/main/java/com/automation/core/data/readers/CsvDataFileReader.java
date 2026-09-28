@@ -51,6 +51,16 @@ public class CsvDataFileReader implements DataFileReader {
                     continue;
                 }
 
+                // A row with MORE non-blank fields than the header has almost always an
+                // unquoted comma inside a text cell (e.g. a description). The extra
+                // fields are dropped below because they have no column, so the cell is
+                // silently truncated at its first comma - warn instead of hiding it.
+                if (rowValues.length > headers.length && hasNonBlankFrom(rowValues, headers.length)) {
+                    logger.warn("[CsvDataFileReader] " + file.getName() + " row " + (i + 1)
+                        + " has " + rowValues.length + " fields but the header has " + headers.length
+                        + " - extra values ignored. Quote any cell that contains a comma.");
+                }
+
                 Map<String, String> rowData = new LinkedHashMap<>();
                 for (int j = 0; j < headers.length; j++) {
                     String value = (j < rowValues.length) ? rowValues[j] : "";
@@ -66,6 +76,15 @@ public class CsvDataFileReader implements DataFileReader {
         }
 
         return rows;
+    }
+
+    private static boolean hasNonBlankFrom(String[] arr, int from) {
+        for (int k = from; k < arr.length; k++) {
+            if (arr[k] != null && !arr[k].trim().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isEmptyArray(String[] arr) {

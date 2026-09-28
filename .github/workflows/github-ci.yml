@@ -71,6 +71,13 @@ env:
   # no CI coverage at all despite the framework fully supporting it (the
   # Jenkins pipeline already covered both via its "Site=ALL" default).
   SUITE_TYPE: ${{ inputs.suite_type || 'regression' }}
+  # SAHMAT's keyword CSV references these as ${env:SAHMAT_EMAIL} / ${env:SAHMAT_PASSWORD}
+  # (see core/keyword/PlaceholderResolver) so the real test-account credentials are no longer
+  # committed. Add both as repo secrets (Settings > Secrets and variables > Actions). If unset
+  # they resolve to blank and only the SAHMAT steps that need them fail, with a message naming
+  # the missing variable - every other site is unaffected.
+  SAHMAT_EMAIL: ${{ secrets.SAHMAT_EMAIL }}
+  SAHMAT_PASSWORD: ${{ secrets.SAHMAT_PASSWORD }}
   BROWSER: ${{ inputs.browser || 'chrome' }}
   # BUG FIX: `inputs.headless == false` looks like it means "default to
   # headless, unless the manual workflow_dispatch form explicitly turns it

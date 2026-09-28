@@ -14,6 +14,11 @@ import com.automation.core.utils.SensitiveData;
  *   locatorKey  - key into the ObjectRepository, e.g. "saucedemo.username" (optional for some keywords)
  *   testData    - input value for the step (text to type, seconds to wait, key to press...)
  *   expected    - expected value for VERIFY_* keywords
+ *
+ * testData and expected may contain ${env:NAME} / ${sys:NAME} / ${config:key} placeholders
+ * (see {@link PlaceholderResolver}) so credentials stay out of committed scripts. They are
+ * expanded lazily, when the step actually runs, and only the raw placeholder text is ever
+ * logged - a resolved secret never reaches toString(), the console or the reports.
  *   description - free-text, shown in logs/reports only
  */
 public class KeywordStep {
@@ -50,8 +55,12 @@ public class KeywordStep {
     public int getStepNo() { return stepNo; }
     public Keyword getKeyword() { return keyword; }
     public String getLocatorKey() { return locatorKey; }
-    public String getTestData() { return testData; }
-    public String getExpected() { return expected; }
+    /** testData with any ${env:...}/${sys:...}/${config:...} placeholders expanded. */
+    public String getTestData() { return PlaceholderResolver.resolve(testData); }
+    /** expected with any placeholders expanded. */
+    public String getExpected() { return PlaceholderResolver.resolve(expected); }
+    /** testData exactly as written in the script (placeholders NOT expanded) - safe to log. */
+    public String getRawTestData() { return testData; }
     public String getDescription() { return description; }
 
     @Override
