@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import com.automation.core.api.ApiClient;
 import com.automation.sites.core.BaseApiTest;
+import com.automation.sites.demoqa.api.DemoQaAccountApi;
 import io.restassured.response.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -60,6 +61,13 @@ public class BookStoreApiNegativeTest extends BaseApiTest {
     @BeforeClass(alwaysRun = true)
     public void logTestStart() {
         logger.info("=== Book Store API Negative Test Started — user: " + API_USERNAME + " ===");
+
+        // Safety net — see BookStoreApiTest.logTestStart() for the reasoning. This class's own
+        // cleanup test (priority 11) depends on the two 401 tests, so any earlier failure that
+        // skips it would otherwise leave the account this class created behind.
+        DemoQaAccountApi api = DemoQaAccountApi.current();
+        cleanupAfterClass("delete leaked account " + API_USERNAME,
+            () -> api.deleteUserByCredentials(API_USERNAME, API_PASSWORD));
     }
 
     // ════════════════════════════════════════════════════════════════════════════

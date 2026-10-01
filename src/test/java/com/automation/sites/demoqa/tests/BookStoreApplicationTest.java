@@ -3,7 +3,7 @@ package com.automation.sites.demoqa.tests;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.automation.sites.core.BaseTest;
+import com.automation.sites.demoqa.core.DemoQaBaseTest;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.sites.demoqa.pages.BookStoreApplicationPage;
@@ -54,6 +54,12 @@ import java.util.UUID;
  *   setUp() and tearDown() from BaseTest are suppressed here
  *   because this test manages its own lifecycle via @BeforeClass/@AfterClass.
  *
+ * CLEANUP:
+ *   The user this class registers through the UI is deleted over the REST API after the
+ *   class (see openBrowser()). Pages that only need a logged-in user with data — not the
+ *   registration form itself — are covered without any UI registration by
+ *   ProfileApiSeededTest, which creates its user through the API instead.
+ *
  * NOTE ON PROFILE:
  *   The /profile page has NO "Add Book" button (confirmed via diagnostics —
  *   only one clickable element exists on that page, a homepage link). The
@@ -65,7 +71,7 @@ import java.util.UUID;
  *   This class now owns that flow end-to-end (previously split out into a
  *   separate ProfileTest class using the same registered session).
  */
-public class BookStoreApplicationTest extends BaseTest {
+public class BookStoreApplicationTest extends DemoQaBaseTest {
 
     private static final Logger logger = LoggerFactory.getLogger(BookStoreApplicationTest.class);
 
@@ -96,6 +102,13 @@ public class BookStoreApplicationTest extends BaseTest {
         bookStorePage    = new BookStoreApplicationPage(getDriver());
         registrationPage = new RegistrationPage(getDriver());
         profilePage      = new ProfilePage(getDriver());
+
+        // This class registers its user through the UI (that IS what Tests 1-3 cover), so the
+        // account only exists on the live DemoQA server if registration succeeded. Scheduling the
+        // delete up front, by credentials, means it is removed after the class even when a middle
+        // test fails — and does nothing if registration never happened. Without this, every run
+        // left one more AutoTest_* user behind. Runs in DemoQaBaseTest/BaseTest's @AfterClass.
+        deleteAccountAfterClass(REGISTERED_USERNAME, REGISTERED_PASSWORD);
 
         logger.info("=== Book Store E2E Test Started ===");
         logger.info("  Username : " + REGISTERED_USERNAME);

@@ -1,7 +1,9 @@
 package com.automation.sites.core;
 
 import com.automation.core.api.ApiClient;
+import com.automation.core.api.CleanupRegistry;
 import com.automation.core.config.ConfigReader;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 /**
@@ -16,9 +18,26 @@ import org.testng.annotations.BeforeClass;
  */
 public abstract class BaseApiTest {
 
+    private final CleanupRegistry classCleanup = new CleanupRegistry("api-class");
+
     @BeforeClass(alwaysRun = true)
     public void setUpApiClient() {
         ConfigReader.reset();
         ApiClient.configure();
+    }
+
+    /**
+     * Registers an undo to run once after every method in the class — the API-test counterpart of
+     * {@code BaseTest.cleanupAfterClass}. Typical use is a safety net for data the test chain is
+     * supposed to delete itself: if an early step fails, the step that would have deleted the
+     * account is skipped or aborted, and this still removes it. See {@link CleanupRegistry}.
+     */
+    protected void cleanupAfterClass(String description, Runnable undo) {
+        classCleanup.add(description, undo);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void runApiClassCleanup() {
+        classCleanup.runAll();
     }
 }

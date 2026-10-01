@@ -110,6 +110,21 @@
          jacoco-prepare-agent execution below for why this defaults off. -->
     <jacoco.jmx>false</jacoco.jmx>
 
+    <!-- WireMock — offline API mocking (see core/mock/WireMockManager.java,
+         src/test/resources/wiremock/, docs/api-mocking.md). Off by default so
+         a plain `mvn test` behaves exactly as before; ApiConfig.baseUri()
+         only calls WireMockManager.start() when mock.enabled=true. Must live
+         here (not just in systemPropertyVariables) so a plain `-Dmock.enabled=true`
+         on the outer `mvn test` invocation actually has a value to substitute
+         from — same missing-forwarding footgun as retry.count/log.level above. -->
+    <mock.enabled>false</mock.enabled>
+    <!-- Record mode: when true (with mock.enabled=true), WireMockManager
+         proxies to mock.record.target and records real responses into
+         src/test/resources/wiremock/{site}/ instead of serving the
+         checked-in stubs. See docs/api-mocking.md's "Recording" section. -->
+    <mock.record>false</mock.record>
+    <mock.record.target></mock.record.target>
+
     <!-- Coverage-map capture mode — forwarded to the forked JVM below the
          same way jacoco.jmx is forwarded to the agent. When true,
          AlterSuiteForCoverageMapListener (auto-registered via
@@ -508,6 +523,23 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- WireMock — offline API mocking (see <mock.enabled> property above,
+         core/mock/WireMockManager.java). "-standalone" is the shaded/fat
+         jar: it relocates its own Jetty/Jackson/Guava internals under
+         wiremock's own package namespace, so it can't collide with this
+         project's own jackson-databind/rest-assured versions above the way
+         the plain "wiremock" artifact's unshaded transitive deps could.
+         Pinned to the latest stable 3.x (4.0.x is still beta as of writing —
+         see https://mvnrepository.com/artifact/org.wiremock/wiremock-standalone).
+         Test-scoped, same as rest-assured itself: this is a test double, never
+         shipped in application code. -->
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock-standalone</artifactId>
+      <version>3.13.2</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- Allure's RestAssured filter — attaches the full request/response
          (headers, body, status, timing) of every API call to the Allure
          report automatically, registered once in ApiClient.configure()
@@ -707,6 +739,12 @@
             <!-- Log4j2 level override — see the <log.level> comment in
                  <properties> above. -->
             <log.level>${log.level}</log.level>
+            <!-- WireMock — see the <mock.enabled>/<mock.record>/<mock.record.target>
+                 comment in <properties> above; same forwarding requirement as
+                 every other flag in this block. -->
+            <mock.enabled>${mock.enabled}</mock.enabled>
+            <mock.record>${mock.record}</mock.record>
+            <mock.record.target>${mock.record.target}</mock.record.target>
           </systemPropertyVariables>
           <testFailureIgnore>true</testFailureIgnore>
           <!-- AspectJ weaver is required for @Step and @Attachment annotations to work.
@@ -1308,6 +1346,7 @@
                    is on ITS classpath, so it has nothing TestNG to find). -->
               <includes>
                 <include>**/core/data/**/*Test.java</include>
+                <include>**/core/mock/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>
                 <include>**/core/utils/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>

@@ -5,8 +5,8 @@
 *Ideas for where this framework could go next, roughly ordered by effort-to-value.*
 
 <p>
-  <img alt="Completed" src="https://img.shields.io/badge/Completed-41-2ea44f?style=flat-square">
-  <img alt="Open" src="https://img.shields.io/badge/Still%20Open-4-D97706?style=flat-square">
+  <img alt="Completed" src="https://img.shields.io/badge/Completed-43-2ea44f?style=flat-square">
+  <img alt="Open" src="https://img.shields.io/badge/Still%20Open-3-D97706?style=flat-square">
 </p>
 
 </div>
@@ -78,6 +78,10 @@
 
 - [x] ~~**Automation Console — copy-run-command, snapshot export/import, accessibility, confirmations, healthcheck**~~ — second follow-up round: a **"Copy run command"** control per site (`Scripts/dashboard/suites.py`) that scans `testng-suites/*.xml`'s own package references to build the site → suite-file mapping (never a hardcoded table, so it can't go stale) and copies the exact matched `-Dsite`/`-DsuiteXmlFile` pair `pom.xml` needs. **Snapshot export/import** (`Scripts/dashboard/snapshot.py`) — download the entire current config (sites/tests/groups/run-only) as one JSON file and hand it to a teammate, or import one back; every entry is validated against the same character allow-list the individual setters use before anything is written, so a corrupted/hand-edited file degrades to "skipped N invalid entries" rather than a crash or a half-applied config. Plus: accessible `aria-label`s on every toggle switch (previously unlabeled for screen readers), a confirmation prompt before a destructive "disable all N tests in this section" or "undo" action, and a Docker healthcheck on the `dashboard` service (`docker-compose.dashboard.yml`) that treats the auth-gated `/api/health` endpoint's expected 401 as "healthy". See [📋 Copy Run Command](dashboard.md#-copy-run-command) onward. Smoke-tested locally end-to-end (suite-mapping against the real `testng-suites/` directory — zero unmapped files, snapshot round-trip including malformed-input rejection, the healthcheck script itself run directly against a live and a killed server process); **still not exercised via `docker compose` itself** or in a real browser (no Docker daemon or browser available where this was built).
 
+- [x] ~~**UI tests consuming the API for setup/teardown**~~ — done: `DemoQaAccountApi` + `CleanupRegistry` + `DemoQaBaseTest`; new `ProfileApiSeededTest` seeds its user/book over REST before the browser opens; `BookStoreApplicationTest` and both Book Store API classes now delete what they create (previously every run leaked a user on the live DemoQA DB). See [🎭 API Mocking & API-Driven Data](api-mocking.md). Not run against live demoqa.com in the environment that wrote it (no network) — run `ProfileApiSeededTest` once for real.
+
+- [x] ~~**API mocking with WireMock**~~ — done: `core/mock/WireMockManager` + stateful `DemoQaBookStoreFake`, opt-in via `-Dmock.enabled=true`, record mode, `api-tests-mocked.xml`, `ApiResilienceMockedTest` (500 / flaky-then-recovering / slow). Verified against the real WireMock 3.13.2 jar over HTTP (32 checks incl. record → playback and 4-thread concurrency) and `DemoQaBookStoreFakeTest`; the RestAssured-based classes were **not compiled here** (no Maven Central access) — run `mvn test-compile` and `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests-mocked.xml -Dmock.enabled=true`. Does not cover browser-side mocking.
+
 ---
 
 ## 🔜 Still Open
@@ -85,7 +89,6 @@
 - [ ] **Coverage-gate parity check** — the merge/check approach (`coverage-gate` job/stage) is now implemented identically across all three pipelines; worth a real run on each to confirm the 50% `com.automation.core.*` threshold is actually achievable with current test coverage rather than immediately marking every build UNSTABLE — tune the threshold in pom.xml if so.
 - [ ] **Cloud/remote grid integration (BrowserStack, Sauce Labs, etc.)** — the only remote execution target today is the self-hosted Docker Selenium Grid (`docker-compose.yml`). Deliberately not pursued for now — both are paid services and not something this project needs. If that changes, `DriverFactory.createRemoteDriver()`'s existing Grid path (a `RemoteWebDriver` built from `provider.buildRemoteOptions(...)`) is the natural place to branch from — a cloud provider only needs its own hub URL/auth plus a vendor-prefixed capability block (`bstack:options`/`sauce:options`) layered onto the same Options object.
 - [ ] **`new-site.sh`-style scaffold script for API-only sites** — `Scripts/new-site.sh` auto-generates all three UI testing styles for a new browser site in one command; adding an API-only site is still a manual checklist (see [🌐 Adding a New API-Only Site](extending.md#-adding-a-new-api-only-site)) since only one example (`jsonplaceholder`) exists so far. Worth scripting once this pattern gets used more than a couple of times.
-- [ ] **UI tests consuming the API for setup/teardown** — the API and UI test layers for demoqa's Book Store still run fully independently (see the first "Completed" item above); seeding data via `ApiClient` before a UI test (or verifying cleanup via API after one) would cut UI-test runtime and flakiness for scenarios that don't need to exercise the seeding/cleanup steps through the browser themselves.
 
 ---
 

@@ -1,5 +1,6 @@
 package com.automation.sites.core;
 
+import com.automation.core.api.CleanupRegistry;
 import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
@@ -49,6 +50,12 @@ public class BaseTest implements DriverProvider {
 
     // Thread-safe driver for parallel execution
     protected static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+
+    // API-created test data awaiting deletion — see cleanupAfterMethod()/cleanupAfterClass().
+    // Plain instance fields, not ThreadLocals: TestNG gives each test class its own instance, and
+    // under parallel="classes" a class's methods run sequentially on one thread.
+    private final CleanupRegistry methodCleanup = new CleanupRegistry("method");
+    private final CleanupRegistry classCleanup = new CleanupRegistry("class");
 
     @BeforeMethod(alwaysRun = true)
     public void setUp(Method testMethod, ITestContext context) {
@@ -243,6 +250,37 @@ public class BaseTest implements DriverProvider {
                 driver.remove();
             }
         }
+    }
+
+    /**
+     * Registers an undo for data a test created through the REST API (see
+     * {@code DemoQaAccountApi}), to run after THIS test method, newest first. Register it right
+     * after the create succeeds so a test that fails halfway still cleans up. A failing cleanup is
+     * logged, never rethrown — see {@link CleanupRegistry}.
+     */
+    protected void cleanupAfterMethod(String description, Runnable undo) {
+        methodCleanup.add(description, undo);
+    }
+
+    /** Same as {@link #cleanupAfterMethod}, but runs once after the whole class (shared data). */
+    protected void cleanupAfterClass(String description, Runnable undo) {
+        classCleanup.add(description, undo);
+    }
+
+    /**
+     * Runs the method-scoped undos. Deliberately a separate @AfterMethod from tearDown(): several
+     * test classes override tearDown() (e.g. to keep one browser session for the whole class), and
+     * API cleanup needs no browser, so it must run regardless of what a subclass does there.
+     */
+    @AfterMethod(alwaysRun = true)
+    public void runMethodCleanup() {
+        methodCleanup.runAll();
+    }
+
+    /** Runs the class-scoped undos once every method in the class has finished. */
+    @AfterClass(alwaysRun = true)
+    public void runClassCleanup() {
+        classCleanup.runAll();
     }
 
     public WebDriver getDriver() {

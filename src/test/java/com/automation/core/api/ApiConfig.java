@@ -1,6 +1,7 @@
 package com.automation.core.api;
 
 import com.automation.core.config.ConfigReader;
+import com.automation.core.mock.WireMockManager;
 
 /**
  * Resolves the base URI an API test class should hit, and a handful of
@@ -40,8 +41,26 @@ public final class ApiConfig {
     private ApiConfig() {
     }
 
-    /** The active site's base URI (its config file's "url" key). */
+    /**
+     * The active site's base URI. Normally its config file's "url" key — but when
+     * {@code -Dmock.enabled=true}, this returns a local WireMock server's base URL instead (see
+     * {@link WireMockManager}), so every existing API test class hits mocked responses with zero
+     * changes to the test class itself: ApiClient.configure() calls this exact method either way.
+     */
     public static String baseUri() {
+        if (WireMockManager.isEnabled()) {
+            return WireMockManager.start();
+        }
+        return ConfigReader.get("url");
+    }
+
+    /**
+     * The active site's real base URI, ignoring {@code -Dmock.enabled}. Use this — not
+     * {@link #baseUri()} — for anything a real browser must also see: test data created for a UI
+     * test has to exist on the real site, because that is where Selenium navigates, even when
+     * API-only test classes in the same run are being served by the mock.
+     */
+    public static String realBaseUri() {
         return ConfigReader.get("url");
     }
 

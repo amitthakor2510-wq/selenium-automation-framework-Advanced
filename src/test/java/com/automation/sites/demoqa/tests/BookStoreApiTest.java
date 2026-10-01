@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import com.automation.core.api.ApiClient;
 import com.automation.sites.core.BaseApiTest;
+import com.automation.sites.demoqa.api.DemoQaAccountApi;
 import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.response.Response;
 import org.testng.Assert;
@@ -79,6 +80,15 @@ public class BookStoreApiTest extends BaseApiTest {
     @BeforeClass(alwaysRun = true)
     public void logTestStart() {
         logger.info("=== Book Store API Test Started — user: " + API_USERNAME + " ===");
+
+        // Safety net for the account Test 1 creates. Test 9 deletes it in the happy path, but if
+        // Tests 1-8 fail partway, Test 9 either doesn't run or runs without a valid token/userId
+        // and the account is left on the server. This runs after the class, by credentials, and
+        // does nothing when Test 9 already removed the account (login is simply rejected).
+        // Uses current(): against the WireMock server when -Dmock.enabled=true, else the real API.
+        DemoQaAccountApi api = DemoQaAccountApi.current();
+        cleanupAfterClass("delete leaked account " + API_USERNAME,
+            () -> api.deleteUserByCredentials(API_USERNAME, API_PASSWORD));
     }
 
     // ════════════════════════════════════════════════════════════════════════════
