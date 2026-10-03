@@ -61,6 +61,8 @@ public class KeywordStep {
     public String getExpected() { return PlaceholderResolver.resolve(expected); }
     /** testData exactly as written in the script (placeholders NOT expanded) - safe to log. */
     public String getRawTestData() { return testData; }
+    /** expected exactly as written in the script (placeholders NOT expanded) - safe to log. */
+    public String getRawExpected() { return expected; }
     public String getDescription() { return description; }
 
     @Override

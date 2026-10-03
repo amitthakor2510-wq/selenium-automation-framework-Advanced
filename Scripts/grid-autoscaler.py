@@ -21,6 +21,9 @@ USAGE:
   # One-shot: check the grid once, scale if needed, exit.
   python3 Scripts/grid-autoscaler.py --once
 
+  # Cron: --once never sees an idle window longer than one invocation, so
+  # add --scale-down-cooldown 0 if cron should be able to scale down too.
+
   # Daemon: poll every 15s (default) until Ctrl-C.
   python3 Scripts/grid-autoscaler.py
 
@@ -183,15 +186,19 @@ def _parse_compose_ps_json(stdout):
 
 
 def get_running_replicas(compose_files, project_dir, timeout=30):
-    """Returns {service_name: running_container_count}. Returns an empty
-    dict (not a crash) on any failure — e.g. Docker daemon not running —
-    same 'skip this poll' posture as fetch_grid_state."""
+    """Returns {service_name: running_container_count}, or None (not a
+    crash, not an empty dict) on any failure — e.g. Docker daemon not
+    running. None means "I don't know the current replica counts": the
+    caller must skip this poll. An empty dict would be indistinguishable
+    from "genuinely zero replicas running", and acting on that would
+    `up --scale x=<small N>` over a pool that is really running more nodes,
+    tearing down containers that may be mid-session."""
     cmd = _compose_cmd(compose_files, project_dir) + ["ps", "--format", "json"]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
         log(f"WARNING: `docker compose ps` failed: {e}")
-        return {}
+        return None
     counts = {}
     for entry in _parse_compose_ps_json(result.stdout):
         service = entry.get("Service")
@@ -202,7 +209,7 @@ def get_running_replicas(compose_files, project_dir, timeout=30):
 
 
 def compute_scale_targets(queued_by_browser, current_replicas, min_replicas, max_replicas,
-                          sessions_per_node, grid_idle):
+                          sessions_per_node, grid_idle, scale_up_blocked=()):
     """Pure decision logic (no I/O) — kept separate from fetch/apply so it
     can be exercised with synthetic fixtures without Docker or a live
     grid. Returns {pool_service: desired_replica_count}.
@@ -215,12 +222,22 @@ def compute_scale_targets(queued_by_browser, current_replicas, min_replicas, max
     only by one replica per call — the caller is expected to call this
     once per cooldown window, so this naturally paces scale-down to one
     step per cooldown rather than an instant drop to min_replicas.
+
+    scale_up_blocked: pool service names that were scaled up too recently
+    (see --scale-up-cooldown). A freshly started node takes tens of seconds
+    to register with the hub, and the queue stays non-empty until it does —
+    without this, EVERY poll in that window would see the same queued
+    requests and add yet more nodes, overshooting straight to max_replicas.
+    A blocked service holds at its current count (it is never scaled DOWN
+    by this rule either — it simply isn't scaled up again yet).
     """
     targets = {}
     for browser, service in POOL_SERVICES.items():
         current = current_replicas.get(service, 0)
         queued = queued_by_browser.get(browser, 0)
-        if queued > 0:
+        if queued > 0 and service in scale_up_blocked:
+            desired = current
+        elif queued > 0:
             additional = -(-queued // sessions_per_node)  # ceil division, no float rounding surprises
             desired = current + additional
         elif grid_idle and current > min_replicas:
@@ -232,26 +249,35 @@ def compute_scale_targets(queued_by_browser, current_replicas, min_replicas, max
 
 
 def apply_scale_targets(targets, compose_files, project_dir, dry_run, timeout=120):
-    changed = {svc: n for svc, n in targets.items()}
-    if not changed:
-        return
+    """`targets` MUST hold the desired count for EVERY pool service, changed
+    or not (run_once passes the full dict). `docker compose up --scale`
+    reconciles every service named on the command line, and a service with
+    no --scale flag is reconciled to Compose's default of 1 replica —
+    so passing flags only for the services that changed would silently
+    start one node of each untouched pool that was at 0, and shrink any
+    untouched pool that was running more than 1 down to 1 (killing
+    containers that may be mid-session)."""
+    if not targets:
+        return True
     if dry_run:
-        log(f"DRY RUN: would scale {changed}")
-        return
+        log(f"DRY RUN: would scale {targets}")
+        return True
     cmd = _compose_cmd(compose_files, project_dir) + ["up", "-d", "--no-recreate"]
-    for service, count in changed.items():
-        cmd += ["--scale", f"{service}={count}"]
+    for service in POOL_SERVICES.values():
+        cmd += ["--scale", f"{service}={targets[service]}"]
     # Only bring up the pool services themselves — omitting explicit
     # service names here would otherwise (re)apply `up` to every service
     # in the merged files, including the debug chrome/firefox/edge nodes
     # and selenium-hub, which this script has no business touching.
     cmd += list(POOL_SERVICES.values())
-    log(f"Scaling: {changed} — running: {' '.join(cmd)}")
+    log(f"Scaling to {targets} — running: {' '.join(cmd)}")
     try:
         subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
         stderr = getattr(e, "stderr", "") or ""
         log(f"WARNING: scaling command failed: {e} {stderr}")
+        return False
+    return True
 
 
 def default_compose_files(project_dir):
@@ -266,7 +292,12 @@ def default_compose_files(project_dir):
     return files
 
 
-def run_once(args, idle_since):
+def run_once(args, idle_since, last_scale_up=None):
+    """One poll. Returns the (possibly updated) idle_since timestamp.
+    `last_scale_up` is a {pool_service: time.monotonic()} dict owned by the
+    caller and mutated here (so it survives across daemon-loop iterations)."""
+    if last_scale_up is None:
+        last_scale_up = {}
     grid_data = fetch_grid_state(args.hub_url)
     queued_by_browser = count_queued_by_browser(grid_data)
     session_count = (grid_data or {}).get("grid", {}).get("sessionCount", None)
@@ -280,19 +311,26 @@ def run_once(args, idle_since):
     grid_idle = idle_since is not None and (now - idle_since) >= args.scale_down_cooldown
 
     current_replicas = get_running_replicas(args.compose_files, args.project_dir)
+    if current_replicas is None:
+        log("Skipping this poll: current replica counts unknown (docker compose ps failed).")
+        return idle_since
+
+    scale_up_blocked = {svc for svc, t in last_scale_up.items()
+                        if (now - t) < args.scale_up_cooldown}
     targets = compute_scale_targets(
         queued_by_browser, current_replicas, args.min_replicas, args.max_replicas,
-        args.sessions_per_node, grid_idle,
+        args.sessions_per_node, grid_idle, scale_up_blocked,
     )
-    to_apply = {svc: n for svc, n in targets.items() if n != current_replicas.get(svc, 0)}
+    changed = {svc: n for svc, n in targets.items() if n != current_replicas.get(svc, 0)}
 
-    total_queued = sum(queued_by_browser.values())
     log(f"queued={queued_by_browser} sessions={session_count} current={current_replicas} "
         f"grid_idle={grid_idle} targets={targets}")
-    if to_apply:
-        apply_scale_targets(to_apply, args.compose_files, args.project_dir, args.dry_run)
-    elif total_queued == 0 and session_count != 0:
-        pass  # nothing queued, grid busy but not idle-cooled-down yet — no action, expected
+    if changed:
+        # Full `targets` (not just `changed`) — see apply_scale_targets' docstring.
+        if apply_scale_targets(targets, args.compose_files, args.project_dir, args.dry_run) and not args.dry_run:
+            for svc, n in changed.items():
+                if n > current_replicas.get(svc, 0):
+                    last_scale_up[svc] = now
     return idle_since
 
 
@@ -304,6 +342,8 @@ def main():
                         help="Seconds between polls in daemon mode (default: 15)")
     parser.add_argument("--scale-down-cooldown", type=float, default=120.0,
                         help="Seconds the whole grid must be continuously idle before scaling any pool down by one replica (default: 120)")
+    parser.add_argument("--scale-up-cooldown", type=float, default=90.0,
+                        help="Seconds after scaling a pool UP before it may be scaled up again (default: 90). A new node needs time to register with the hub; until it does the queue still looks non-empty, and without this every poll would add more nodes.")
     parser.add_argument("--min-replicas", type=int, default=0,
                         help="Floor per browser pool (default: 0 — pool nodes are purely on-demand; the always-on debug chrome/firefox/edge nodes in docker-compose.yml are untouched by this script and still provide a baseline)")
     parser.add_argument("--max-replicas", type=int, default=5,
@@ -314,7 +354,8 @@ def main():
                         help="Passed to `docker compose --project-directory` (default: the repo root, i.e. the parent of this script's Scripts/ directory)")
     parser.add_argument("--compose-files", default=None,
                         help="Comma-separated compose file list, overriding the auto-detected default")
-    parser.add_argument("--once", action="store_true", help="Poll once, apply if needed, then exit (for cron)")
+    parser.add_argument("--once", action="store_true",
+                        help="Poll once, apply if needed, then exit (for cron). Idle time is only tracked inside one process, so with --once the grid can never look idle for the whole --scale-down-cooldown: pass --scale-down-cooldown 0 if cron should also scale down (one replica per invocation, only when the grid has zero active sessions at that moment)")
     parser.add_argument("--dry-run", action="store_true", help="Log what would be scaled without touching containers")
     args = parser.parse_args()
 
@@ -328,13 +369,14 @@ def main():
         f"min={args.min_replicas} max={args.max_replicas} dry_run={args.dry_run}")
 
     idle_since = None
+    last_scale_up = {}
     if args.once:
-        run_once(args, idle_since)
+        run_once(args, idle_since, last_scale_up)
         return 0
 
     try:
         while True:
-            idle_since = run_once(args, idle_since)
+            idle_since = run_once(args, idle_since, last_scale_up)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         log("Stopping (Ctrl-C).")

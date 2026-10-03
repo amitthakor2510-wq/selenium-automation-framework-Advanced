@@ -50,13 +50,22 @@ def build(sites, test_config):
     }
 
 
-def validate(snapshot):
+def validate(snapshot, known_sites=None, known_tests=None):
     """
     Returns (clean, problems) — `clean` is the snapshot with anything
     malformed removed, `problems` is a list of human-readable strings
     describing what was dropped and why. Never raises on bad input: a
     hand-edited or corrupted snapshot file should produce a clear
     "here's what I ignored" response, not a 500.
+
+    known_sites / known_tests (optional iterables of names present in THIS
+    checkout's config files): entries naming something this checkout doesn't
+    have are dropped with a problem message instead of being appended to the
+    file as stray lines — for sites that matters, because an unknown
+    `site.X.enabled=true` line would make CI try to run a site that doesn't
+    exist. Groups are deliberately not filtered: group.<name>.enabled keys
+    are optional by design (commented out until wanted), so a snapshot may
+    legitimately introduce one.
     """
     if not isinstance(snapshot, dict):
         return None, ["not a JSON object"]
@@ -70,12 +79,18 @@ def validate(snapshot):
 
     for name, enabled in (snapshot.get("sites") or {}).items():
         if isinstance(name, str) and _SITE_NAME_RE.fullmatch(name) and isinstance(enabled, bool):
+            if known_sites is not None and name not in known_sites:
+                problems.append(f"skipped unknown site (not in this checkout's pipeline-config.properties): {name!r}")
+                continue
             clean["sites"][name] = enabled
         else:
             problems.append(f"skipped invalid site entry: {name!r}")
 
     for name, enabled in (snapshot.get("tests") or {}).items():
         if isinstance(name, str) and _TEST_NAME_RE.fullmatch(name) and isinstance(enabled, bool):
+            if known_tests is not None and name not in known_tests:
+                problems.append(f"skipped unknown test (not in this checkout's test-config.properties): {name!r}")
+                continue
             clean["tests"][name] = enabled
         else:
             problems.append(f"skipped invalid test entry: {name!r}")
@@ -87,7 +102,7 @@ def validate(snapshot):
             problems.append(f"skipped invalid group entry: {name!r}")
 
     run_only = snapshot.get("run_only", "")
-    if isinstance(run_only, str) and re.fullmatch(r"[A-Za-z0-9_.,*\s]*", run_only):
+    if isinstance(run_only, str) and re.fullmatch(r"[A-Za-z0-9_.,* ]*", run_only):
         clean["run_only"] = run_only
     elif run_only not in ("", None):
         problems.append(f"skipped invalid run_only value: {run_only!r}")

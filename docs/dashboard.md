@@ -74,6 +74,10 @@ The dashboard listens on `0.0.0.0` by default so it's reachable from other machi
 - **SSH tunnel** (no public exposure at all): `ssh -L 5057:localhost:5057 user@the-box`, then open `http://localhost:5057` on your own machine.
 - **LAN:** anyone on the same network can already reach `http://<that-machine's-IP>:5057` — same auth applies.
 
+Write requests (every toggle, preset, undo and snapshot import) must be same-origin `application/json` POSTs — the dashboard's own page already sends them that way. A request with any other content type, or with an `Origin` header whose host differs from the `Host` header, is answered `403`; this stops an unrelated web page you have open in the same browser from silently flipping your test switches using the credentials the browser has cached for this site. Plain `curl` calls (no `Origin` header) still work as long as they send `-H 'Content-Type: application/json'`. If you put the dashboard behind a reverse proxy, make sure it forwards the original `Host` header. Only requests that actually send a wrong password count towards the 10-per-minute lockout; the browser's initial no-credentials request and the Docker healthcheck do not.
+
+Edits keep the properties files' existing permissions and owner (including when the dashboard runs as root in Docker against the bind-mounted repo), so your host `mvn test` can still read and write them afterwards. Startup prints a warning if `DASHBOARD_PASSWORD` is shorter than 8 characters.
+
 It is deliberately not HTTPS (plain HTTP, stdlib `http.server`) — fine on `localhost` or over an SSH tunnel, but a Basic-Auth password sent over plain LAN or ngrok's HTTP is only as private as that network. ngrok's own tunnel is TLS-terminated at ngrok's edge, which covers the public leg; prefer HTTPS everywhere it's an option for anything beyond a quick local look.
 
 ---

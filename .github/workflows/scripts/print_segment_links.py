@@ -1,6 +1,6 @@
 """
 Prints one markdown table row per generated segmented Allure report (see
-Scripts/generate_segmented_reports.py), for the "Publish report links to
+.github/workflows/scripts/generate_segmented_reports.py), for the "Publish report links to
 job summary" step in github-ci.yml. Kept as its own small script — rather
 than an inline heredoc in the workflow YAML — for the same reason every
 other step in that job already delegates to a script here: a YAML block

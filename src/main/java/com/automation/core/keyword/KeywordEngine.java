@@ -196,7 +196,7 @@ public class KeywordEngine {
         String actual = waitVisible(locator(step)).getText().trim();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                + ": expected text to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected text to contain '" + step.getRawExpected() + "' but was '" + actual + "'");
         }
     }
 
@@ -213,7 +213,7 @@ public class KeywordEngine {
         String actual = driver.getCurrentUrl();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                + ": expected URL to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected URL to contain '" + step.getRawExpected() + "' but was '" + actual + "'");
         }
     }
 
@@ -221,7 +221,7 @@ public class KeywordEngine {
         String actual = driver.getTitle();
         if (!actual.contains(step.getExpected())) {
             throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
-                + ": expected title to contain '" + step.getExpected() + "' but was '" + actual + "'");
+                + ": expected title to contain '" + step.getRawExpected() + "' but was '" + actual + "'");
         }
     }
 

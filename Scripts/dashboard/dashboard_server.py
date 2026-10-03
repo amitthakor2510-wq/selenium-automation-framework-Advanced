@@ -113,8 +113,14 @@ def make_handler(password):
             given = self.headers.get("Authorization", "")
             # hmac.compare_digest: constant-time, avoids leaking the
             # password's length/prefix through response-timing.
-            ok = hmac.compare_digest(given, expected_header)
-            if not ok:
+            ok = hmac.compare_digest(given.encode("utf-8"), expected_header.encode("utf-8"))
+            # Only a request that actually SENT credentials counts as a failed
+            # attempt. Every browser's first request, and the Docker
+            # healthcheck, arrive with no Authorization header at all (that is
+            # how Basic auth's challenge round works) — counting those would
+            # burn the 10-per-minute budget on ordinary page loads and lock
+            # out the real user (all ngrok/ssh-tunnel traffic shares one IP).
+            if not ok and given:
                 _record_failed_auth(self.client_address[0])
             return ok
 
@@ -144,9 +150,12 @@ def make_handler(password):
                 return {}
             raw = self.rfile.read(length)
             try:
-                return json.loads(raw)
-            except json.JSONDecodeError:
+                parsed = json.loads(raw)
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 return {}
+            # Handlers call body.get(...) — a JSON array/string/number would
+            # raise AttributeError and surface as a confusing 500.
+            return parsed if isinstance(parsed, dict) else {}
 
         def _serve_static(self, path):
             if path == "/":
@@ -223,8 +232,35 @@ def make_handler(password):
                 # reported back as if the actual change failed.
                 print(f"[dashboard] audit log write failed (change itself still applied): {e}")
 
+        def _csrf_ok(self):
+            """
+            Browsers attach cached Basic-auth credentials to ANY request to
+            this origin, including a cross-site form/fetch fired from an
+            unrelated web page the user happens to have open. Two cheap,
+            standard defences, both required:
+              * Content-Type must be application/json. A cross-site page
+                cannot send that without a CORS preflight (which this server
+                never answers), so a plain <form> or text/plain fetch is
+                rejected here.
+              * If the browser sent an Origin header, its host must equal the
+                Host header (same-origin). Requests without Origin (curl,
+                scripts) are not browser cross-site requests and pass.
+            """
+            content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+            if content_type != "application/json":
+                return False
+            origin = self.headers.get("Origin")
+            if origin:
+                origin_host = urlparse(origin).netloc
+                if not origin_host or origin_host != (self.headers.get("Host") or ""):
+                    return False
+            return True
+
         def do_POST(self):
             if not self._require_auth():
+                return
+            if not self._csrf_ok():
+                self._send_json(403, {"error": "POST requests must be same-origin with Content-Type: application/json"})
                 return
             path = urlparse(self.path).path
             body = self._read_json_body()
@@ -281,7 +317,11 @@ def make_handler(password):
                     self._send_json(200, cf.read_test_config(TEST_CONFIG))
 
                 elif path == "/api/snapshot/import":
-                    clean, problems = snap.validate(body)
+                    clean, problems = snap.validate(
+                        body,
+                        known_sites={x["name"] for x in cf.read_sites(PIPELINE_CONFIG)},
+                        known_tests={t["name"] for sec in cf.read_test_config(TEST_CONFIG)["sections"]
+                                     for t in sec["tests"]})
                     if clean is None:
                         self._send_json(400, {"error": "; ".join(problems) or "invalid snapshot"})
                         return
@@ -299,11 +339,15 @@ def make_handler(password):
                     })
 
                 elif path == "/api/audit/undo":
-                    entry = audit.pop_last(REPO_ROOT)
+                    entry = audit.peek_last(REPO_ROOT)
                     if entry is None:
                         self._send_json(404, {"error": "nothing to undo"})
                         return
+                    # Revert FIRST, drop the log line only once that worked —
+                    # a revert that raises (e.g. a preset/bulk entry that has
+                    # no single old value) must leave the entry in the log.
                     self._revert(entry)
+                    audit.discard_last(REPO_ROOT)
                     self._send_json(200, {
                         "reverted": entry,
                         "sites": cf.read_sites(PIPELINE_CONFIG),
@@ -375,6 +419,12 @@ def main():
         ]
     else:
         banner_lines.append("  Password  : (from DASHBOARD_PASSWORD)")
+        if len(password) < 8:
+            banner_lines += [
+                "  WARNING   : DASHBOARD_PASSWORD is shorter than 8 characters. This port",
+                "              can edit your test config and listens on every interface —",
+                "              use a longer password, especially before tunnelling it.",
+            ]
     width = max(len(line) for line in banner_lines) + 4
     print("=" * width)
     for line in banner_lines:

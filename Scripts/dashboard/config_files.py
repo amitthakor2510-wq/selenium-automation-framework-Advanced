@@ -17,6 +17,7 @@ key-matching logic (and its edge cases: trailing comments, inline
 whitespace, a key that doesn't exist yet) is only written once.
 """
 import re
+import stat
 import tempfile
 import os
 import threading
@@ -35,6 +36,33 @@ def _lock_for(path):
             lock = threading.Lock()
             _locks[path] = lock
         return lock
+
+
+def _copy_permissions(original_path, tmp_path):
+    """
+    tempfile.mkstemp() creates the temp file 0600 and owned by whoever runs
+    this process; os.replace() then swaps that inode in, so without this the
+    properties file silently becomes 0600 (and, when the dashboard runs as
+    root inside Docker against the bind-mounted repo, root-owned) after the
+    first dashboard edit — and the host user's next `mvn test` can no longer
+    read or write pipeline-config.properties / test-config.properties.
+    Copies the original's mode and, when permitted (running as root), its
+    owner/group onto the temp file BEFORE the swap. Ownership is best-effort:
+    a non-root process cannot chown to another user, and in that case it is
+    already the owner of the file it is replacing anyway.
+    """
+    try:
+        st = os.stat(original_path)
+    except OSError:
+        return  # original vanished — nothing to preserve
+    try:
+        os.chmod(tmp_path, stat.S_IMODE(st.st_mode))
+    except OSError:
+        pass
+    try:
+        os.chown(tmp_path, st.st_uid, st.st_gid)
+    except (OSError, AttributeError):  # AttributeError: no os.chown on Windows
+        pass
 
 
 class PropertiesFile:
@@ -95,6 +123,7 @@ class PropertiesFile:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(text)
+            _copy_permissions(self.path, tmp_path)
             os.replace(tmp_path, self.path)
         except Exception:
             if os.path.exists(tmp_path):
@@ -220,9 +249,15 @@ def set_group_enabled(path, group_name, enabled):
     PropertiesFile(path).set(f"group.{group_name}.enabled", "true" if enabled else "false")
 
 
+RUN_ONLY_RE = re.compile(r"[A-Za-z0-9_.,* ]*")
+
+
 def set_run_only(path, value):
     # Comma-separated class names / package wildcards only — see TestSelection.matchesClass.
-    if not re.fullmatch(r"[A-Za-z0-9_.,*\s]*", value or ""):
+    # Plain spaces only — NOT \s, which also matches \n/\r/\t. A newline here
+    # would let a request append arbitrary extra "key=value" lines to
+    # test-config.properties (properties-file injection).
+    if not RUN_ONLY_RE.fullmatch(value or ""):
         raise ValueError("run.only may only contain letters, digits, '.', '_', '*', ',' and spaces")
     cleaned = ",".join(p.strip() for p in (value or "").split(",") if p.strip())
     PropertiesFile(path).set("run.only", cleaned)

@@ -79,27 +79,58 @@ def recent(repo_root, limit=50):
     return entries
 
 
-def pop_last(repo_root):
-    """
-    Removes and returns the most recent entry (used by Undo), or None if
-    the log is empty. The caller is responsible for actually reverting
-    the config file — this only manages the log itself, so a failed
-    revert doesn't leave a phantom "undone" entry removed for nothing.
-    """
+def peek_last(repo_root):
+    """The most recent entry WITHOUT removing it, or None if the log is empty.
+    Undo reads this first, reverts the config, and only then calls
+    discard_last() — so a revert that fails leaves the entry in the log
+    instead of losing it. Unparseable trailing lines (a hand-edited or
+    truncated log) are dropped here so they can't wedge Undo on
+    "nothing to undo" forever."""
     path = _log_path(repo_root)
     with _lock:
         if not os.path.exists(path):
             return None
         with open(path, encoding="utf-8") as f:
             lines = [line for line in f.read().splitlines() if line.strip()]
+        dropped = False
+        entry = None
+        while lines:
+            try:
+                entry = json.loads(lines[-1])
+                break
+            except json.JSONDecodeError:
+                lines.pop()
+                dropped = True
+        if dropped:
+            _atomic_write(path, ("\n".join(lines) + "\n") if lines else "")
+        return entry
+
+
+def discard_last(repo_root):
+    """Drops the most recent log line (call only after its revert succeeded)."""
+    path = _log_path(repo_root)
+    with _lock:
+        if not os.path.exists(path):
+            return
+        with open(path, encoding="utf-8") as f:
+            lines = [line for line in f.read().splitlines() if line.strip()]
         if not lines:
-            return None
-        last_line = lines.pop()
+            return
+        lines.pop()
         _atomic_write(path, ("\n".join(lines) + "\n") if lines else "")
-    try:
-        return json.loads(last_line)
-    except json.JSONDecodeError:
-        return None
+
+
+def pop_last(repo_root):
+    """
+    Removes and returns the most recent entry, or None if the log is empty.
+    Kept for callers that want the old one-step behavior; the dashboard's
+    Undo uses peek_last() + discard_last() so a failed revert doesn't lose
+    the entry.
+    """
+    entry = peek_last(repo_root)
+    if entry is not None:
+        discard_last(repo_root)
+    return entry
 
 
 def _atomic_write(path, text):
@@ -108,6 +139,16 @@ def _atomic_write(path, text):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
+        # mkstemp() makes the file 0600 and owned by this process (root, when
+        # the dashboard runs in Docker against the bind-mounted repo). Give it
+        # normal readable permissions and the owner of its directory so the
+        # host user's own `mvn clean` / tooling can still read and delete it.
+        try:
+            os.chmod(tmp_path, 0o644)
+            dir_stat = os.stat(directory)
+            os.chown(tmp_path, dir_stat.st_uid, dir_stat.st_gid)
+        except (OSError, AttributeError):
+            pass
         os.replace(tmp_path, path)
     except Exception:
         if os.path.exists(tmp_path):

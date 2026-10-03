@@ -165,7 +165,20 @@ count across every browser has been zero for a full
 `--scale-down-cooldown` window (default 120s) — see the script's own
 module docstring for why scale-down is necessarily grid-wide rather than
 per-node. `--min-replicas` (default 0) and `--max-replicas` (default 5)
-bound every pool.
+bound every pool. A pool that was just scaled up is not scaled up again
+for `--scale-up-cooldown` seconds (default 90): a new node takes a while
+to register with the hub and the queue looks non-empty until it does, so
+without the cooldown every poll would add yet more nodes. If
+`docker compose ps` fails (daemon busy/restarting) that poll is skipped
+rather than guessing replica counts. Every scale command passes
+`--scale` for all three pools, so pools that didn't change keep their
+current replica count.
+
+With `--once` (cron) the grid is only ever observed for a single poll, so
+it can never look idle for the whole `--scale-down-cooldown` window —
+pass `--scale-down-cooldown 0` if cron should scale down too (one replica
+per invocation, and only when the grid has zero active sessions at that
+moment).
 
 > [!NOTE]
 > The pool services start at 0 replicas. Only launch/manage them through
