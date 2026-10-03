@@ -21,6 +21,7 @@ Writes: target/coverage-summary.json
 """
 import json
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -28,7 +29,35 @@ from datetime import datetime, timezone
 JACOCO_XML_PATH = "target/site/jacoco/jacoco.xml"
 OUTPUT_PATH = "target/coverage-summary.json"
 CORE_PACKAGE_PREFIX = "com/automation/core"
-THRESHOLD_PCT = 50.0
+POM_PATH = "pom.xml"
+DEFAULT_THRESHOLD_PCT = 50.0
+
+
+def read_threshold_pct():
+    """
+    The gate's threshold lives in pom.xml's <jacoco.core.minLineCoverage>
+    property (a 0-1 ratio). Reading it here keeps this summary's PASS/FAIL
+    identical to jacoco:check's. -Djacoco.core.minLineCoverage can't be seen
+    from a standalone script, so COVERAGE_THRESHOLD_PCT (percent) is honoured
+    as an explicit override for that case.
+    """
+    override = os.environ.get("COVERAGE_THRESHOLD_PCT")
+    if override:
+        try:
+            return float(override)
+        except ValueError:
+            print(f"::warning::Ignoring non-numeric COVERAGE_THRESHOLD_PCT={override!r}")
+    try:
+        ns_free = open(POM_PATH, encoding="utf-8").read()
+        m = re.search(r"<jacoco\.core\.minLineCoverage>\s*([0-9.]+)\s*</jacoco\.core\.minLineCoverage>", ns_free)
+        if m:
+            return round(float(m.group(1)) * 100.0, 2)
+    except OSError:
+        pass
+    return DEFAULT_THRESHOLD_PCT
+
+
+THRESHOLD_PCT = read_threshold_pct()
 
 
 def main():

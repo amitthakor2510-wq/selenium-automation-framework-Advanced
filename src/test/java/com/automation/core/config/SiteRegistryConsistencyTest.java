@@ -24,12 +24,19 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class SiteRegistryConsistencyTest {
 
+    // A committed "<site>.properties.example" also satisfies the config check:
+    // config/mobile.properties is deliberately gitignored (it holds a real device
+    // serial/IP — see .gitignore), so a fresh CI checkout only has the .example
+    // template. A site with neither file is the real drift this test is for.
+
     @Test
     void everyRegisteredSiteHasAConfigFile() {
         assertAll(SiteRegistry.knownSiteKeys().stream().sorted().map(site -> () ->
-            assertTrue(Files.exists(Path.of("src/test/resources/config/" + site + ".properties")),
-                "Site '" + site + "' is in SiteRegistry.KNOWN_SITES but "
-                    + "src/test/resources/config/" + site + ".properties does not exist")));
+            assertTrue(Files.exists(Path.of("src/test/resources/config/" + site + ".properties"))
+                    || Files.exists(Path.of("src/test/resources/config/" + site + ".properties.example")),
+                "Site '" + site + "' is in SiteRegistry.KNOWN_SITES but neither "
+                    + "src/test/resources/config/" + site + ".properties nor a committed "
+                    + ".properties.example template exists")));
     }
 
     @Test

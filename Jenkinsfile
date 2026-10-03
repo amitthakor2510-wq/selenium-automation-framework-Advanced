@@ -368,8 +368,14 @@ pipeline {
             // posture above.
             steps {
                 script {
+                    // -Djacoco.destFile: the JUnit 5 classes cover core/tia,
+                    // core/data, core/keyword and part of core/utils — code no
+                    // browser/API stage touches — so their .exec goes into
+                    // target/jacoco-artifacts/ for 'Coverage Gate' to merge,
+                    // same convention as every other stage's <key>.exec.
+                    sh 'mkdir -p target/jacoco-artifacts'
                     int exitCode = sh(
-                            script: 'mvn -B -ntp verify -Punit-tests',
+                            script: 'mvn -B -ntp verify -Punit-tests -Djacoco.destFile=target/jacoco-artifacts/unit.exec',
                             returnStatus: true
                     )
                     if (exitCode != 0) {

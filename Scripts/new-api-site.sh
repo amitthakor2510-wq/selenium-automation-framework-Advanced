@@ -268,16 +268,53 @@ else
   echo "          suiteFile: testng-suites/api-tests-${SITE}.xml"
 fi
 
-echo ""
-echo "[i] GitLab CI and Jenkins wiring is left for you (each builds its suite"
-echo "    file from a per-site case/map, not a flat list — hand-editing is"
-echo "    safer than a scripted patch there). Add, matching the jsonplaceholder"
-echo "    entries already in each file:"
-echo "      .gitlab-ci.yml   — api-tests job: add '${SITE}' to 'SITE: [ ... ]',"
-echo "                         a matching rules: gate, and a case arm mapping"
-echo "                         ${SITE} -> testng-suites/api-tests-${SITE}.xml"
-echo "      Jenkinsfile      — the API Tests stage's per-site suiteFile map,"
-echo "                         plus resultDirs += ['${SITE}-api']"
+# =========================================================================
+# 8b. GitLab CI + Jenkins wiring. Anchored inserts, each placed BEFORE the
+#     existing jsonplaceholder entry (not after it) so the anchor line is
+#     never altered and re-running for further sites keeps working. Every
+#     patch is skipped with a printed hand-edit hint if its anchor is gone.
+#     The GitLab edits are awk-scoped to the `api-tests:` job only, because
+#     the perf-tests job below it repeats the same SITE matrix / rules lines.
+# =========================================================================
+SITE_UPPER="${SITE^^}"
+GITLAB_CI=".gitlab-ci.yml"
+JENKINSFILE="Jenkinsfile"
+
+if [[ -f "$GITLAB_CI" ]] && grep -q '^api-tests:' "$GITLAB_CI"; then
+  awk -v site="$SITE" -v up="$SITE_UPPER" '
+    /^api-tests:/ { in_job = 1; print; next }
+    in_job && /^[A-Za-z0-9_.-]+:/ { in_job = 0 }
+    in_job && /^    - if: .\$SITE == "jsonplaceholder" && \$SITE_JSONPLACEHOLDER_ENABLED == "false"./ && !rule_done {
+      print "    - if: '"'"'$SITE == \"" site "\" && $SITE_" up "_ENABLED == \"false\"'"'"'"
+      print "      when: never"
+      rule_done = 1
+    }
+    in_job && /^      - SITE: \[ .*jsonplaceholder.* \]/ && !matrix_done {
+      sub(/jsonplaceholder/, "jsonplaceholder, " site); matrix_done = 1
+    }
+    in_job && /^        jsonplaceholder\) SUITE_FILE=/ && !case_done {
+      print "        " site ") SUITE_FILE=\"testng-suites/api-tests-" site ".xml\" ;;"
+      case_done = 1
+    }
+    { print }
+    END { if (!(rule_done && matrix_done && case_done)) exit 3 }
+  ' "$GITLAB_CI" > "${GITLAB_CI}.tmp" && mv "${GITLAB_CI}.tmp" "$GITLAB_CI" \
+    && echo "[✓] Added '${SITE}' to .gitlab-ci.yml's api-tests job (matrix, rules gate, suite case arm)" \
+    || { rm -f "${GITLAB_CI}.tmp"; echo "[✗] .gitlab-ci.yml: api-tests anchors not found — add '${SITE}' by hand (SITE matrix, rules gate, case arm -> testng-suites/api-tests-${SITE}.xml)"; }
+else
+  echo "[✗] .gitlab-ci.yml has no api-tests job — add '${SITE}' by hand if you use GitLab CI."
+fi
+
+if [[ -f "$JENKINSFILE" ]] && grep -q "jsonplaceholder: 'testng-suites/api-tests-jsonplaceholder.xml'" "$JENKINSFILE" \
+   && grep -q "resultDirs += \['demoqa-api', 'jsonplaceholder-api'" "$JENKINSFILE"; then
+  sed -i \
+    -e "s|^\( *\)jsonplaceholder: 'testng-suites/api-tests-jsonplaceholder.xml'|\1${SITE}: 'testng-suites/api-tests-${SITE}.xml',\n&|" \
+    -e "s|\(resultDirs += \['demoqa-api', 'jsonplaceholder-api'\)|\1, '${SITE}-api'|" \
+    "$JENKINSFILE" \
+    && echo "[✓] Added '${SITE}' to Jenkinsfile's API Tests suite map and Allure resultDirs"
+else
+  echo "[✗] Jenkinsfile: API Tests anchors not found — add '${SITE}: 'testng-suites/api-tests-${SITE}.xml'' to apiSuites and '${SITE}-api' to resultDirs by hand."
+fi
 
 echo ""
 echo "✅ New API-only site '${SITE}' scaffolded and registered everywhere a"

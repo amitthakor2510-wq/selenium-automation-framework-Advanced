@@ -413,14 +413,19 @@ fi
 # rather than leaving that edit for a human to remember.
 GITLAB_CI=".gitlab-ci.yml"
 if [[ -f "$GITLAB_CI" ]] && grep -q "AUTO-GENERATED-SITE-LIST" "$GITLAB_CI"; then
-  if grep -qE "SITE: \[ [^]]*\b${SITE}\b" "$GITLAB_CI"; then
+  # Both the already-present check and the append are scoped to the range
+  # from the AUTO-GENERATED-SITE-LIST marker to the first "SITE: [" line after
+  # it (the `test` job's matrix). An unscoped match also hit the api-tests and
+  # perf-tests jobs' own "SITE: [ ... ]" lines further down and appended a
+  # browser site to them (api-tests then ran with no suite-file case arm).
+  if sed -n '/AUTO-GENERATED-SITE-LIST/,/SITE: \[/p' "$GITLAB_CI" | grep -qE "SITE: \[ [^]]*\b${SITE}\b"; then
     echo "[i] '${SITE}' already in .gitlab-ci.yml's SITE: [ ... ] list — left as-is."
   else
     UPPER_SITE=$(echo "$SITE" | tr '[:lower:]-' '[:upper:]_')
     # Append the site into "SITE: [ demoqa, saucedemo, ... ]" — matches
     # regardless of how many sites are already listed, so this stays
     # correct no matter how many times new-site.sh has run before.
-    sed -i -E "s/(SITE: \[ [^]]*)\]/\1, ${SITE} ]/" "$GITLAB_CI"
+    sed -i -E "/AUTO-GENERATED-SITE-LIST/,/SITE: \[/ s/(SITE: \[ [^]]*[^] ]) *\]/\1, ${SITE} ]/" "$GITLAB_CI"
     # Insert a matching rules: gate right after the START marker so a
     # disabled site is skipped the same way demoqa/saucedemo already are.
     sed -i "/# AUTO-GENERATED-SITE-RULES-START/a\\    - if: '\$SITE == \"${SITE}\" \&\& \$SITE_${UPPER_SITE}_ENABLED == \"false\"'\\n      when: never" "$GITLAB_CI"

@@ -89,9 +89,7 @@ For a site that's nothing but an API — no browser, no page objects at all. `js
 > `pipeline-config.properties`, the `*ApiTest.java` stub, the suite file, and an empty
 > schema folder) plus GitHub Actions' `api-tests` matrix entry from step 8. It refuses to
 > run against a site that's already scaffolded, the same safeguard `Scripts/new-site.sh`
-> uses. GitLab CI and Jenkins (also part of step 8) build their suite file from a per-site
-> case/map rather than a flat list, so the script prints the exact lines to add there by
-> hand instead of patching either file unattended. The manual checklist below still applies
+> uses. GitLab CI (`api-tests` job: SITE matrix, `rules:` gate, suite case arm) and the Jenkinsfile (API Tests suite map + Allure `resultDirs`) are patched too, via anchored inserts that print a hand-edit hint instead if an anchor has moved. The manual checklist below still applies
 > if you'd rather do it by hand, or need to see exactly what the script does.
 
 1. **Register the site** — add one line to `SiteRegistry.KNOWN_SITES` (`src/main/java/com/automation/core/config/SiteRegistry.java`):

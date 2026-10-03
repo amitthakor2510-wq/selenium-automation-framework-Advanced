@@ -226,6 +226,20 @@ jobs:
       - name: Run CI helper-script tests (Python)
         run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py' -v
 
+      # Feeds coverage-gate: these JUnit classes cover core/tia, core/data,
+      # core/keyword and part of core/utils, which no browser/API suite
+      # touches. Written to the default target/jacoco.exec by the
+      # -Punit-tests Failsafe run above. Named jacoco-exec-unit so the
+      # gate's `jacoco-exec-*` download pattern picks it up.
+      - name: Upload JaCoCo exec (unit tests)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-exec-unit
+          path: target/jacoco.exec
+          retention-days: 7
+          if-no-files-found: warn
+
   # ================================================================
   # STAGE 1c - Test Impact Analysis (informational, PRs only)
   # ================================================================
@@ -912,12 +926,19 @@ jobs:
   # AccessibilityUtils. This downloads every job's jacoco-exec-* artifact,
   # merges them into one target/jacoco.exec via jacoco:merge@jacoco-merge,
   # then runs the report + the real gate against that union.
+  # unit-tests is in `needs:` so the JUnit 5 classes' coverage (core/tia,
+  # core/data, core/keyword, part of core/utils) counts toward the union.
+  # api-tests and perf-tests are in `needs:` (parity with GitLab's
+  # `dependencies:` and Jenkins' on-disk .exec files) so core/api and
+  # core/perf coverage counts toward the union. perf-tests is nightly-only
+  # and simply skipped on push/PR runs — harmless here because this job is
+  # `if: always()`, so a skipped dependency doesn't skip the gate.
   # accessibility-visual-test is deliberately excluded from `needs:` for
   # the same reason it's excluded from pr-comment above — it's nightly-only
   # and would otherwise be a permanently-skipped dependency on every
   # ordinary push/PR run.
   coverage-gate:
-    needs: [ test, mobile-test ]
+    needs: [ unit-tests, test, mobile-test, api-tests, perf-tests ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -1178,6 +1199,20 @@ jobs:
             target/surefire-reports/
           retention-days: 7
 
+      # Feeds coverage-gate (same as Jenkins' <site>-api.exec and GitLab's
+      # target/jacoco-artifacts/$SITE-api.exec) so the core/api classes this
+      # suite exercises count toward the merged 50% threshold on all three
+      # pipelines, not just two of them. Named jacoco-exec-<site>-api so
+      # coverage-gate's `jacoco-exec-*` download pattern picks it up.
+      - name: Upload JaCoCo exec
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-exec-${{ matrix.site }}-api
+          path: target/jacoco.exec
+          retention-days: 7
+          if-no-files-found: warn
+
   # ================================================================
   # Performance Tests — Java DSL load tests (core/perf, testng-suites/*-perf.xml)
   # ================================================================
@@ -1250,6 +1285,18 @@ jobs:
             target/perf-reports/
             target/surefire-reports/
           retention-days: 14
+
+      # Same reasoning as api-tests' exec upload above — nightly-only, so
+      # it only reaches coverage-gate on scheduled runs (GitLab/Jenkins
+      # behave identically: perf .exec files only exist when perf ran).
+      - name: Upload JaCoCo exec
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-exec-${{ matrix.site }}-perf
+          path: target/jacoco.exec
+          retention-days: 7
+          if-no-files-found: warn
 
   # ================================================================
   # Security — OWASP Dependency-Check (mvn verify -Psecurity, see pom.xml)

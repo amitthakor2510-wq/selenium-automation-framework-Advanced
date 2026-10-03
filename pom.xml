@@ -109,6 +109,13 @@
     <!-- JaCoCo JMX agent option — see the <jmx> element on the
          jacoco-prepare-agent execution below for why this defaults off. -->
     <jacoco.jmx>false</jacoco.jmx>
+    <!-- Minimum merged LINE coverage ratio for com.automation.core.* — the single
+         place the threshold lives (jacoco-check below reads it;
+         .github/workflows/scripts/compute_coverage_summary.py and
+         Scripts/coverage-headroom.py parse it from here, so the dashboard tile
+         and the gate can never disagree). Override one-off without editing:
+         -Djacoco.core.minLineCoverage=0.40 -->
+    <jacoco.core.minLineCoverage>0.50</jacoco.core.minLineCoverage>
 
     <!-- WireMock — offline API mocking (see core/mock/WireMockManager.java,
          src/test/resources/wiremock/, docs/api-mocking.md). Off by default so
@@ -938,7 +945,7 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>0.50</minimum>
+                      <minimum>${jacoco.core.minLineCoverage}</minimum>
                     </limit>
                   </limits>
                 </rule>
@@ -1317,8 +1324,53 @@
          failure should actually fail `mvn verify -Punit-tests`. -->
     <profile>
       <id>unit-tests</id>
+      <!-- FIX (unit-tests CI stage failing): `mvn verify -Punit-tests` walks the
+           WHOLE default lifecycle, not just Failsafe's two goals. Before this
+           block it therefore also (1) ran Surefire's `test` phase — i.e. the full
+           browser TestNG suite named by the default ${suiteXmlFile} — inside a
+           job meant to be browser-free, (2) ran checkstyle:check@checkstyle-check
+           (bound to `verify`, failsOnError=true, violationSeverity=warning), so any
+           style warning hard-failed this job even though the dedicated checkstyle
+           job/stage is deliberately soft, and (3) ran jacoco:check@jacoco-check
+           against whatever that browser run produced. None of those are unit
+           tests; each has its own job. Skipped here so this profile does exactly
+           one thing. A plain `mvn test` / `mvn verify` without this profile is
+           unchanged.
+
+           COVERAGE: jacoco.skip is deliberately NOT set any more. The JUnit 5
+           classes this profile runs exercise core/tia, core/data, core/keyword
+           and parts of core/utils — code no browser suite touches — so their
+           coverage must reach the merged coverage-gate or it can never count.
+           Instead: (1) Failsafe below gets the JaCoCo agent via
+           @{jacocoArgLine}, writing to -Djacoco.destFile (CI points that at
+           target/jacoco-artifacts/unit.exec, same convention as every other
+           job), and (2) only the per-job `jacoco-check` execution is skipped,
+           because the 50% threshold applies to the MERGED union, never to the
+           unit-test slice alone. -->
+      <properties>
+        <checkstyle.skip>true</checkstyle.skip>
+      </properties>
       <build>
         <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>jacoco-check</id>
+                <configuration>
+                  <skip>true</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <skipTests>true</skipTests>
+            </configuration>
+          </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
@@ -1336,6 +1388,10 @@
               </dependency>
             </dependencies>
             <configuration>
+              <!-- JaCoCo agent for the unit-test JVM — same property surefire's
+                   <argLine> uses (see the comment there). Empty string when
+                   jacoco.skip=true is passed, so this stays safe either way. -->
+              <argLine>@{jacocoArgLine}</argLine>
               <!-- Overrides Failsafe's default **/IT*.java / **/*IT.java /
                    **/*ITCase.java naming convention — this project's JUnit 5
                    classes follow the same *Test.java convention as
@@ -1347,6 +1403,7 @@
               <includes>
                 <include>**/core/config/**/*Test.java</include>
                 <include>**/core/data/**/*Test.java</include>
+                <include>**/core/keyword/**/*Test.java</include>
                 <include>**/core/mock/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>
                 <include>**/core/utils/**/*Test.java</include>

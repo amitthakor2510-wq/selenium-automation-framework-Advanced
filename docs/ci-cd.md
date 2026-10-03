@@ -233,7 +233,7 @@ mobile-test                 → separate job: enables KVM, installs Appium + uia
                               this action does not execute a `\`-continued multi-line
                               script as one shell command). Also uploads its own
                               jacoco.exec artifact
-coverage-gate                → downloads every jacoco-exec-* artifact from test/mobile-test,
+coverage-gate                → downloads every jacoco-exec-* artifact from unit-tests/test/mobile-test/api-tests/perf-tests,
                               merges them (jacoco:merge@jacoco-merge — no single job
                               exercises all of core/ alone), then jacoco:check@jacoco-check
                               enforces 50% line coverage on com.automation.core.* against
@@ -375,7 +375,7 @@ security-scan                → scheduled pipelines only: mvn verify -Psecurity
 secret-scan                  → runs on every push/MR: gitleaks against the working tree.
                               allow_failure: true for now — report-only until an initial
                               pass across history/fixtures is triaged
-coverage-gate                → stage: report, dependencies: [test, mobile-test] — merges
+coverage-gate                → stage: report, dependencies: [unit-tests, test, mobile-test, api-tests, perf-tests] — merges
                               every target/jacoco-artifacts/*.exec (jacoco:merge@jacoco-
                               merge), then jacoco:check@jacoco-check enforces 50% line
                               coverage on com.automation.core.* against the union. Merged

@@ -248,9 +248,24 @@ open target/site/jacoco/index.html   # macOS
 
 | Pipeline | Where it runs | On breach |
 |---|---|---|
-| GitHub Actions | `coverage-gate` job, `needs: [test, mobile-test]` | Job fails |
-| GitLab CI | `coverage-gate` job, `stage: report`, `dependencies: [test, mobile-test]` | Job fails |
+| GitHub Actions | `coverage-gate` job, `needs: [unit-tests, test, mobile-test, api-tests, perf-tests]` | Job fails |
+| GitLab CI | `coverage-gate` job, `stage: report`, `dependencies: [unit-tests, test, mobile-test, api-tests, perf-tests]` | Job fails |
 | Jenkins | `Coverage Gate` stage, after `Mobile Test` | Build marked `UNSTABLE` |
+
+All three merge the same set of inputs — the JUnit 5 `unit.exec`, every UI site's `.exec`, the mobile `.exec`, each `<site>-api.exec`, and (nightly only) each `<site>-perf.exec` — so the union, and therefore the pass/fail result, is the same on every pipeline.
+
+The `unit.exec` input comes from `mvn verify -Punit-tests`: that profile attaches the JaCoCo agent to Failsafe (it only skips the per-job `jacoco-check`, since the 50% threshold applies to the merged union, never to one slice). The JUnit 5 classes cover `core/tia`, `core/data`, `core/keyword` and part of `core/utils` — code no browser or API suite touches. Run it locally with `mvn -B verify -Punit-tests -Djacoco.destFile=target/jacoco-raw/unit.exec`.
+
+The threshold is a single Maven property, `<jacoco.core.minLineCoverage>` in `pom.xml` (default `0.50`); the gate, the dashboard's coverage tile and the helper below all read it. Override once without editing with `-Djacoco.core.minLineCoverage=0.40`.
+
+To check how much headroom you have before CI tells you, after a merge + report (`mvn jacoco:merge@jacoco-merge jacoco:report@jacoco-report`) run:
+
+```bash
+python3 Scripts/coverage-headroom.py            # per-package table, headroom vs pom.xml threshold
+python3 Scripts/coverage-headroom.py --threshold 45   # try a hypothetical value
+```
+
+It exits 1 when below the threshold and prints the packages with the most missed lines (the cheapest places to add coverage).
 
 The merged HTML report (`target/site/jacoco/index.html`) is published as a build artifact on all three (GitHub Actions: `jacoco-merged-report` artifact; GitLab: part of the `coverage-gate` job's artifacts; Jenkins: `JaCoCo Coverage Report (merged)` via HTML Publisher).
 

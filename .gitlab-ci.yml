@@ -183,7 +183,17 @@ unit-tests:
   interruptible: true
   script:
     - echo "======= Running JUnit 5 unit tests (-Punit-tests) ======="
-    - mvn -B verify -Punit-tests
+    - mkdir -p target/jacoco-artifacts
+    # JUnit 5 classes cover core/tia, core/data, core/keyword and part of
+    # core/utils — code no browser/API job touches — so their .exec feeds
+    # coverage-gate like every other job's (see its `dependencies:`).
+    - mvn -B verify -Punit-tests -Djacoco.destFile=target/jacoco-artifacts/unit.exec
+  artifacts:
+    name: "jacoco-unit-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/jacoco-artifacts/
   only:
     - branches
     - merge_requests
@@ -1072,7 +1082,7 @@ perf-smoke:
 # Each test/mobile-test/api-tests instance only exercises the slice of
 # core/ its own suite touches, so checking any single instance's
 # jacoco.exec against the 50% core/ threshold in pom.xml would fail
-# unfairly. Merges every SITE.exec + mobile.exec + SITE-api.exec captured
+# unfairly. Merges every SITE.exec + mobile.exec + SITE-api.exec + unit.exec captured
 # above into one target/jacoco.exec, then runs the real gate against that
 # union — same approach as the GitHub Actions pipeline's coverage-gate
 # job. perf-tests' SITE-perf.exec artifacts are listed in dependencies:
@@ -1105,6 +1115,7 @@ coverage-gate:
     paths:
       - target/site/jacoco/
   dependencies:
+    - unit-tests
     - test
     - mobile-test
     - api-tests

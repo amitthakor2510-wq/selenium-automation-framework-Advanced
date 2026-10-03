@@ -386,6 +386,12 @@ Scripts/enabled-sites.sh --dotenv               # SITE_<NAME>_ENABLED=true|false
 mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-regression.xml
 mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/api-tests-mysite.xml
 mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/mysite-perf.xml -Dgroups=perf
+
+# API-only site (no browser/page objects) — registers it in SiteRegistry, SiteMapper,
+# pipeline-config.properties (type=api), and the GitHub Actions / GitLab CI / Jenkins api-tests wiring
+./Scripts/new-api-site.sh <sitename> <base-url>
+./Scripts/new-api-site.sh mysite https://api.mysite.com
+mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/api-tests-mysite.xml
 ```
 
 ---
@@ -449,6 +455,99 @@ git clone <repo-url> && cd selenium-automation-framework
 ```bash
 # GitHub Actions / GitLab CI security-scan job
 mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
+```
+
+---
+
+## 26. Automation Console (dashboard) — toggle sites/tests, view last local run
+
+Standalone Python script (stdlib only — no `pip install`, no build step). Edits
+`pipeline-config.properties` / `test-config.properties` and reads `target/`. Full guide: `docs/dashboard.md`.
+
+```bash
+# Without Docker — then open http://localhost:5057 (login: dashboard / <your password>)
+DASHBOARD_PASSWORD=choose-a-password python3 Scripts/dashboard/dashboard_server.py
+
+# Windows (cmd)
+set DASHBOARD_PASSWORD=choose-a-password
+python Scripts\dashboard\dashboard_server.py
+
+# Windows (PowerShell)
+$env:DASHBOARD_PASSWORD="choose-a-password"; python Scripts\dashboard\dashboard_server.py
+
+# No password set -> a random one is generated and printed in a banner at startup
+python3 Scripts/dashboard/dashboard_server.py
+
+# Different port / host (or DASHBOARD_PORT / DASHBOARD_HOST env vars)
+DASHBOARD_PASSWORD=choose-a-password python3 Scripts/dashboard/dashboard_server.py --port 8080
+DASHBOARD_PASSWORD=choose-a-password python3 Scripts/dashboard/dashboard_server.py --host 127.0.0.1
+
+# With Docker (DASHBOARD_PASSWORD is REQUIRED; opt-in profile, not started by plain `docker compose up`)
+DASHBOARD_PASSWORD=choose-a-password \
+  docker compose -f docker-compose.yml -f docker-compose.dashboard.yml \
+  --profile dashboard up dashboard
+
+# Docker — different host port (container always listens on 5057 internally)
+DASHBOARD_HOST_PORT=8080 DASHBOARD_PASSWORD=choose-a-password \
+  docker compose -f docker-compose.yml -f docker-compose.dashboard.yml \
+  --profile dashboard up dashboard
+
+# Stop the Docker dashboard
+docker compose -f docker-compose.yml -f docker-compose.dashboard.yml --profile dashboard down
+
+# Sharing: SSH tunnel (no public exposure), then open http://localhost:5057 on your own machine
+ssh -L 5057:localhost:5057 user@the-box
+
+# Sharing: ngrok (set a real DASHBOARD_PASSWORD first)
+ngrok http 5057
+
+# Populate the Results panel (it reads target/surefire-reports from the last local run)
+mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+```
+
+---
+
+## 27. Grid Autoscaling (Docker Selenium Grid)
+
+```bash
+# 1. Bring the hub up as usual (fixed chrome/firefox/edge nodes are optional)
+docker compose up -d selenium-hub
+
+# 2. One-shot: check the queue once, scale if needed, exit — good for cron
+python3 Scripts/grid-autoscaler.py --once
+
+# 2b. See what it would do without touching any containers
+python3 Scripts/grid-autoscaler.py --once --dry-run
+
+# 3. Run as a daemon, polling every 15s until Ctrl-C
+python3 Scripts/grid-autoscaler.py
+
+# 3b. Tune bounds / cooldowns
+python3 Scripts/grid-autoscaler.py --min-replicas 0 --max-replicas 5 --sessions-per-node 3 \
+  --interval 15 --scale-up-cooldown 90 --scale-down-cooldown 120
+
+# 4. Tear the pool down along with everything else
+docker compose -f docker-compose.yml -f docker-compose.autoscale.yml down -v
+```
+
+---
+
+## 28. AI Bug Crawlers (web + mobile) — opt-in
+
+See `docs/AI_FEATURES.md`.
+
+```bash
+# Web crawler
+mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com
+mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com \
+    -Dcrawler.maxPages=20 -Dcrawler.ai.enabled=true -Dsite=demoqa
+mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com \
+    -Dcrawler.checklistFile=my-bug-checklist.txt -Dsite=demoqa
+
+# Mobile crawler (taps real elements — review crawler.mobile.avoidTextContains first)
+mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler -Dsite=<your-mobile-site>
+mvn -q exec:java@mobile-bug-crawler -Pmobile-bug-crawler \
+    -Dcrawler.mobile.maxScreens=15 -Dcrawler.mobile.ai.enabled=true
 ```
 
 ---
