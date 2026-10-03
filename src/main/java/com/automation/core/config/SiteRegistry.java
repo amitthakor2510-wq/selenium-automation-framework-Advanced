@@ -52,24 +52,28 @@ public final class SiteRegistry {
     private record SiteDefinition(boolean requiresObjectRepository) {
     }
 
-    private static final Map<String, SiteDefinition> KNOWN_SITES = Map.of(
-        "demoqa", new SiteDefinition(true),
-        "saucedemo", new SiteDefinition(true),
-        "mobile", new SiteDefinition(false),
+    // Map.ofEntries (not Map.of): Map.of has overloads for at most 10 pairs, so the
+    // 11th site added by Scripts/new-site.sh / new-api-site.sh would otherwise be a
+    // compile error. The scaffold scripts insert a Map.entry(...) line right after the
+    // "Map.ofEntries(" opener below, so keep that opener on one line.
+    private static final Map<String, SiteDefinition> KNOWN_SITES = Map.ofEntries(
+        Map.entry("demoqa", new SiteDefinition(true)),
+        Map.entry("saucedemo", new SiteDefinition(true)),
+        Map.entry("mobile", new SiteDefinition(false)),
         // Entirely keyword-driven (login + forgot-password) — every
         // scenario is a CSV row resolved against objectrepository/
         // SAHMAT.properties, so this one does need the repo file.
         // (Site key is "SAHMAT" — matches config/SAHMAT.properties,
         // objectrepository/SAHMAT.properties, and the
         // com.automation.sites.sahmat Java package, all case-consistently.)
-        "SAHMAT", new SiteDefinition(true),
+        Map.entry("SAHMAT", new SiteDefinition(true)),
         // API-only — no page objects, no browser, no keyword engine. Proves
         // the same site-registration mechanism used for UI sites scales to
         // a pure-HTTP site with zero extra machinery: just a config file
         // (config/jsonplaceholder.properties, "url" pointing at the public
         // JSONPlaceholder test API) and this one line. See ApiConfig's
         // javadoc and sites/jsonplaceholder/tests/JsonPlaceholderApiTest.java.
-        "jsonplaceholder", new SiteDefinition(false)
+        Map.entry("jsonplaceholder", new SiteDefinition(false))
     );
 
     private SiteRegistry() {

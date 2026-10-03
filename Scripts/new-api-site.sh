@@ -68,12 +68,12 @@ CLASS="${SITE^}ApiTest"
 #    correct for every API-only site (no locators, no DOM).
 # =========================================================================
 SITE_REGISTRY="src/main/java/com/automation/core/config/SiteRegistry.java"
-if [[ -f "$SITE_REGISTRY" ]] && grep -q "KNOWN_SITES = Map.of(" "$SITE_REGISTRY"; then
-  sed -i "s/KNOWN_SITES = Map.of(/KNOWN_SITES = Map.of(\n        \"${SITE}\", new SiteDefinition(false),/" "$SITE_REGISTRY"
+if [[ -f "$SITE_REGISTRY" ]] && grep -q "KNOWN_SITES = Map.ofEntries(" "$SITE_REGISTRY"; then
+  sed -i "s/KNOWN_SITES = Map.ofEntries(/KNOWN_SITES = Map.ofEntries(\n        Map.entry(\"${SITE}\", new SiteDefinition(false)),/" "$SITE_REGISTRY"
   echo "[✓] Registered '${SITE}' in SiteRegistry.KNOWN_SITES (requiresObjectRepository=false)"
 else
   echo "[✗] Could not find KNOWN_SITES in ${SITE_REGISTRY} — register '${SITE}' there by hand before running any test:"
-  echo "        \"${SITE}\", new SiteDefinition(false),"
+  echo "        Map.entry(\"${SITE}\", new SiteDefinition(false)),"
 fi
 
 SITE_MAPPER="src/main/java/com/automation/core/tia/SiteMapper.java"

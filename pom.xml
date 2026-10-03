@@ -1345,6 +1345,7 @@
                    plugin's radar in the first place (only junit-jupiter-engine
                    is on ITS classpath, so it has nothing TestNG to find). -->
               <includes>
+                <include>**/core/config/**/*Test.java</include>
                 <include>**/core/data/**/*Test.java</include>
                 <include>**/core/mock/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>

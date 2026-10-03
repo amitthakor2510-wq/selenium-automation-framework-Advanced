@@ -96,7 +96,7 @@ For a site that's nothing but an API — no browser, no page objects at all. `js
 
 1. **Register the site** — add one line to `SiteRegistry.KNOWN_SITES` (`src/main/java/com/automation/core/config/SiteRegistry.java`):
    ```java
-   "mysite", new SiteDefinition(false)   // false = no object repository required
+   Map.entry("mysite", new SiteDefinition(false)),   // false = no object repository required
    ```
 1b. **Register it with Test Impact Analysis too** — add one line to `SiteMapper.SITE_TEST_PACKAGE` (`src/main/java/com/automation/core/tia/SiteMapper.java`):
    ```java

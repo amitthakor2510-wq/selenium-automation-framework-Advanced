@@ -5,8 +5,8 @@
 *Ideas for where this framework could go next, roughly ordered by effort-to-value.*
 
 <p>
-  <img alt="Completed" src="https://img.shields.io/badge/Completed-43-2ea44f?style=flat-square">
-  <img alt="Open" src="https://img.shields.io/badge/Still%20Open-3-D97706?style=flat-square">
+  <img alt="Completed" src="https://img.shields.io/badge/Completed-45-2ea44f?style=flat-square">
+  <img alt="Open" src="https://img.shields.io/badge/Still%20Open-2-D97706?style=flat-square">
 </p>
 
 </div>
@@ -82,13 +82,16 @@
 
 - [x] ~~**API mocking with WireMock**~~ — done: `core/mock/WireMockManager` + stateful `DemoQaBookStoreFake`, opt-in via `-Dmock.enabled=true`, record mode, `api-tests-mocked.xml`, `ApiResilienceMockedTest` (500 / flaky-then-recovering / slow). Verified against the real WireMock 3.13.2 jar over HTTP (32 checks incl. record → playback and 4-thread concurrency) and `DemoQaBookStoreFakeTest`; the RestAssured-based classes were **not compiled here** (no Maven Central access) — run `mvn test-compile` and `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests-mocked.xml -Dmock.enabled=true`. Does not cover browser-side mocking.
 
+- [x] ~~**`new-api-site.sh` scaffold script for API-only sites**~~ — done: `Scripts/new-api-site.sh <site> <url>` registers the site in `SiteRegistry`/`SiteMapper`, writes the config, `pipeline-config.properties` entry (`type=api`), a `*ApiTest` stub, the suite file and GitHub Actions' `api-tests` matrix entry; GitLab/Jenkins lines are printed for hand-editing. This roadmap entry had been left open after the script shipped. Dry-run verified (scaffold + re-run guard).
+
+- [x] ~~**Site registry capped at 10 sites**~~ — fixed: `SiteRegistry.KNOWN_SITES` used `Map.of(...)`, which only has overloads up to 10 key/value pairs, and both scaffold scripts insert one more pair per site — so the 11th scaffolded site would have been a compile error. Now `Map.ofEntries(Map.entry(...))` (no limit); both scripts' `sed` anchors and the `extending.md` snippet updated. Verified by scaffolding 9 extra sites and compiling `SiteRegistry`/`SiteMapper` with `javac`; the full project still can't be built in this sandbox (no Maven Central access).
+
 ---
 
 ## 🔜 Still Open
 
 - [ ] **Coverage-gate parity check** — the merge/check approach (`coverage-gate` job/stage) is now implemented identically across all three pipelines; worth a real run on each to confirm the 50% `com.automation.core.*` threshold is actually achievable with current test coverage rather than immediately marking every build UNSTABLE — tune the threshold in pom.xml if so.
 - [ ] **Cloud/remote grid integration (BrowserStack, Sauce Labs, etc.)** — the only remote execution target today is the self-hosted Docker Selenium Grid (`docker-compose.yml`). Deliberately not pursued for now — both are paid services and not something this project needs. If that changes, `DriverFactory.createRemoteDriver()`'s existing Grid path (a `RemoteWebDriver` built from `provider.buildRemoteOptions(...)`) is the natural place to branch from — a cloud provider only needs its own hub URL/auth plus a vendor-prefixed capability block (`bstack:options`/`sauce:options`) layered onto the same Options object.
-- [ ] **`new-site.sh`-style scaffold script for API-only sites** — `Scripts/new-site.sh` auto-generates all three UI testing styles for a new browser site in one command; adding an API-only site is still a manual checklist (see [🌐 Adding a New API-Only Site](extending.md#-adding-a-new-api-only-site)) since only one example (`jsonplaceholder`) exists so far. Worth scripting once this pattern gets used more than a couple of times.
 
 ---
 
