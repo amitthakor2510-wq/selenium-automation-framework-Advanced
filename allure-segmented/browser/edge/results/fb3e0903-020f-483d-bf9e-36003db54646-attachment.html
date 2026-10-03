@@ -1,0 +1,36 @@
+<div>POST to https://demoqa.com/BookStore/v1/Books</div>
+
+    <h4>Body</h4>
+    <div>
+    <pre class="preformated-text">
+{
+    &quot;userId&quot;: &quot;520210b9-8c88-4781-98f2-4edcb09f37f5&quot;,
+    &quot;collectionOfIsbns&quot;: [
+        {
+            &quot;isbn&quot;: &quot;0000000000000&quot;
+        }
+    ]
+}    </pre>
+    </div>
+
+    <h4>Headers</h4>
+    <div>
+            <div>Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6IkFwaU5lZ1Rlc3RfMTFiYmQ3YTQiLCJwYXNzd29yZCI6IlBhc3N3b3JkMTIzIUAiLCJpYXQiOjE3OTEwMTc4MjN9.LI2nsazatZj8uYfSzveeUT66hvE-CzQjhokgU2zY2o4</div>
+            <div>Accept: */*</div>
+            <div>Content-Type: application/json</div>
+    </div>
+
+
+
+    <h4>Curl</h4>
+    <div>
+        curl -v -X POST &#39;https://demoqa.com/BookStore/v1/Books&#39; -H &#39;Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyTmFtZSI6IkFwaU5lZ1Rlc3RfMTFiYmQ3YTQiLCJwYXNzd29yZCI6IlBhc3N3b3JkMTIzIUAiLCJpYXQiOjE3OTEwMTc4MjN9.LI2nsazatZj8uYfSzveeUT66hvE-CzQjhokgU2zY2o4&#39; -H &#39;Accept: */*&#39; -H &#39;Content-Type: application/json&#39; -d &#39;{
+    &quot;userId&quot;: &quot;520210b9-8c88-4781-98f2-4edcb09f37f5&quot;,
+    &quot;collectionOfIsbns&quot;: [
+        {
+            &quot;isbn&quot;: &quot;0000000000000&quot;
+        }
+    ]
+}&#39;
+    </div>
+
