@@ -102,3 +102,5 @@ __pycache__/
 *.pyo
 *.pyd
 *.env
+docs/obsidian-vault/.obsidian/
+docs/obsidian-vault/.obsidian/
