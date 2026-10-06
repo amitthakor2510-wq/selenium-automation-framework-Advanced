@@ -1,0 +1,1368 @@
+{
+  "title": "Selenium Automation Framework",
+  "subtitle": "Java 17 · Selenium 4.21 · TestNG 7.9 · Maven · Docker Grid · Allure + Extent",
+  "layers": [
+    {
+      "id": "execution",
+      "name": "Layer 1 — Execution / Infrastructure",
+      "question": "WHEN and WHERE does a run happen?",
+      "color": "#f97316",
+      "nodes": [
+        "CICDPipeline",
+        "BuildTool",
+        "GridInfrastructure"
+      ]
+    },
+    {
+      "id": "test-management",
+      "name": "Layer 2 — Test Management",
+      "question": "WHAT runs, in which order, with which data?",
+      "color": "#22c55e",
+      "nodes": [
+        "TestRunner",
+        "BaseTestClass",
+        "DataDrivenEngine"
+      ]
+    },
+    {
+      "id": "core-brain",
+      "name": "Layer 3 — Core Brain / POM",
+      "question": "HOW does the framework drive the browser?",
+      "color": "#3b82f6",
+      "nodes": [
+        "PageObjects",
+        "BasePageWrapper",
+        "DriverManager"
+      ]
+    },
+    {
+      "id": "reporting",
+      "name": "Layer 4 — Reporting & Evidence",
+      "question": "WHAT happened, and what is the proof?",
+      "color": "#a855f7",
+      "nodes": [
+        "TestListeners",
+        "MediaCapture",
+        "ReportingEngine"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "CICDPipeline",
+      "label": "CI CD Pipeline",
+      "layer": "execution",
+      "source": ".gitlab-ci.yml · Jenkinsfile · .github/workflows/github-ci.yml",
+      "summary": "The trigger and orchestrator of the whole framework. On every push, merge request or schedule it decides which jobs run, in which stage, on which runner, and where the evidence is published. Three equivalent pipelines exist (GitLab CI, Jenkins, GitHub Actions) so the framework is not tied to one CI vendor.",
+      "features": [
+        "GitLab stages: `config → build → test → report → pages`",
+        "`generate-pipeline-config` job reads `pipeline-config.properties` to decide which sites are enabled (fail closed for sites)",
+        "Quality jobs: `checkstyle`, `unit-tests`, `security-scan` (OWASP), `secret-scan` (gitleaks), `coverage-gate`",
+        "Test jobs: `test` (web, parallel), `mobile-test` (Appium), `api-tests`, `accessibility-visual-test`, `perf-tests`, `perf-smoke`",
+        "`test-impact-analysis` job selects only the tests affected by the change",
+        "`report` job merges Allure/Extent output; `pages` publishes it; `notify` posts to chat",
+        "Same flow mirrored in `Jenkinsfile` and GitHub Actions (`github-ci.yml`, `gh-pages-retention.yml`)",
+        "Python helper scripts compute flaky trend, coverage summary, dashboard history, PR comments"
+      ],
+      "stack": [
+        "GitLab CI/CD (`.gitlab-ci.yml`)",
+        "Jenkins Declarative Pipeline",
+        "GitHub Actions",
+        "Docker executor / runner",
+        "Python 3 helper scripts",
+        "gitleaks · OWASP Dependency-Check"
+      ],
+      "neighbours": [
+        "BuildTool",
+        "GridInfrastructure",
+        "TestRunner",
+        "ReportingEngine"
+      ],
+      "tagline": "Triggers and orchestrates every run",
+      "short": "Starts every test run automatically when code changes.",
+      "bullets": [
+        "Runs on GitLab, Jenkins or GitHub",
+        "Checks code quality and security first",
+        "Runs web, mobile, API and speed tests",
+        "Publishes the report and notifies chat"
+      ]
+    },
+    {
+      "id": "BuildTool",
+      "label": "Build Tool",
+      "layer": "execution",
+      "source": "pom.xml · mvnw / mvnw.cmd · .mvn/wrapper",
+      "summary": "The single entry point that compiles the framework and launches tests. Every CI job and every developer command is just `mvn …` with different properties and profiles, so local runs and CI runs behave identically.",
+      "features": [
+        "Maven 3.9+ with the Maven Wrapper (`mvnw`) — no global install needed",
+        "`maven-surefire-plugin` reads `-DsuiteXmlFile=testng-suites/<suite>.xml` and forks a JVM (`-Xmx2048m`)",
+        "Properties forwarded to the forked JVM: `-Dsite`, `-Dbrowser`, `-Dgrid.enabled`, `-Dcoverage.map.enabled`, `-Dreportportal.enable`",
+        "Opt-in profiles: `perf`, `security`, `mutation`, `unit-tests`, `tia`, `bug-crawler`, `mobile-bug-crawler`, `prune-artifacts`, `coverage-map`, `reportportal`",
+        "Quality plugins: Checkstyle gate, JaCoCo (prepare-agent / report / merge / check), OWASP dependency-check, JMeter",
+        "`allure-maven` generates the Allure report from `target/allure-results`",
+        "Dependency management for Selenium 4.21, TestNG 7.9, Rest-Assured, Appium, DataFaker, AShot, axe-core"
+      ],
+      "stack": [
+        "Maven 3.9 · Maven Wrapper",
+        "maven-surefire-plugin + surefire-testng",
+        "JaCoCo 0.8.12 · Checkstyle",
+        "OWASP Dependency-Check",
+        "jmeter-maven-plugin",
+        "allure-maven"
+      ],
+      "neighbours": [
+        "CICDPipeline",
+        "TestRunner",
+        "ReportingEngine",
+        "GridInfrastructure"
+      ],
+      "tagline": "Maven + Surefire launch the suite",
+      "short": "Compiles the code and launches the tests with one command.",
+      "bullets": [
+        "One command: mvn test",
+        "Same on a laptop and in CI",
+        "Options pick site and browser",
+        "Extras: coverage, security, speed"
+      ]
+    },
+    {
+      "id": "GridInfrastructure",
+      "label": "Grid Infrastructure",
+      "layer": "execution",
+      "source": "docker-compose.yml · docker-compose.autoscale.yml · docker-compose.dashboard.yml · Scripts/grid-autoscaler.py",
+      "summary": "The execution fabric. Instead of launching browsers on the CI host, tests open `RemoteWebDriver` sessions against a Dockerized Selenium Grid, so browsers are isolated, parallel and reproducible. The same compose files run on a laptop or a CI server.",
+      "features": [
+        "Selenium Hub 4.21.0 with event bus on ports 4442 / 4443",
+        "Browser nodes: `node-chrome`, `node-firefox`, `node-edge` (4.21.0), each `SE_NODE_MAX_SESSIONS=3`, `shm_size: 3gb`",
+        "Live viewing through noVNC on each node",
+        "`tests` container runs the suite inside the same Docker network",
+        "Autoscale override (`docker-compose.autoscale.yml`) + `grid-autoscaler.py` adds/removes nodes with queue depth",
+        "Automation Console dashboard (`docker-compose.dashboard.yml`, `Dockerfile.dashboard`)",
+        "Switched on with `-Dgrid.enabled=true`; hub address from `grid.url` (default `http://localhost:4444/wd/hub`)",
+        "Thread-count 3 in suite XML is deliberately aligned with `SE_NODE_MAX_SESSIONS=3`"
+      ],
+      "stack": [
+        "Docker · Docker Compose",
+        "Selenium Grid 4.21 (Hub + Nodes)",
+        "noVNC",
+        "RemoteWebDriver",
+        "Python autoscaler script"
+      ],
+      "neighbours": [
+        "DriverManager",
+        "CICDPipeline",
+        "BuildTool",
+        "MediaCapture"
+      ],
+      "tagline": "Dockerized Selenium Grid 4",
+      "short": "A farm of ready-made browsers running in Docker.",
+      "bullets": [
+        "Chrome, Firefox and Edge on demand",
+        "Many tests at the same time",
+        "Watch tests live in the browser",
+        "Adds browsers automatically when busy"
+      ]
+    },
+    {
+      "id": "TestRunner",
+      "label": "Test Runner",
+      "layer": "test-management",
+      "source": "testng-suites/*.xml · pom.xml (surefire) · META-INF/services/org.testng.ITestNGListener",
+      "summary": "Decides what runs and how in parallel. TestNG suite XML files select groups and classes; test-config.properties can switch individual tests off without touching code; retry and selection logic are plugged in through listeners.",
+      "features": [
+        "TestNG 7.9.0 suites in `testng-suites/` (22 XMLs): smoke, regression, api, accessibility, perf, mobile, safari …",
+        "`parallel=\"classes\" thread-count=\"3\"` — one thread, one driver per class; methods stay sequential",
+        "Group-driven selection: `smoke`, `regression`, `api`, `perf`, `accessibility`, `visual`, `keyword-driven`, `data-driven`, `synthetic-data`",
+        "`RetryListener` (IAnnotationTransformer) attaches `RetryAnalyzer` to every `@Test` — registered in suite XML",
+        "`TestSelectionListener` applies `test-config.properties` (fail open: never silently drops a test)",
+        "ServiceLoader auto-registration: coverage-map listeners and ReportPortal agent",
+        "Safari suites are separate (macOS only, no headless, one session per machine)"
+      ],
+      "stack": [
+        "TestNG 7.9.0",
+        "ServiceLoader (`META-INF/services`)",
+        "IAnnotationTransformer · IRetryAnalyzer",
+        "Surefire `suiteXmlFiles`",
+        "`test-config.properties`"
+      ],
+      "neighbours": [
+        "BuildTool",
+        "BaseTestClass",
+        "DataDrivenEngine",
+        "TestListeners"
+      ],
+      "tagline": "TestNG suites, groups, parallelism",
+      "short": "Chooses which tests run and runs them in parallel.",
+      "bullets": [
+        "22 ready-made test suites",
+        "Pick tests by label: smoke, regression…",
+        "Three tests run side by side",
+        "Flaky tests are retried automatically"
+      ]
+    },
+    {
+      "id": "BaseTestClass",
+      "label": "Base Test Class",
+      "layer": "test-management",
+      "source": "src/test/java/com/automation/sites/core/BaseTest.java (+ KeywordTestBase, BaseApiTest, MobileBaseTest, DemoQaBaseTest)",
+      "summary": "The lifecycle parent of every test. It creates a driver per thread before each method, hands it to page objects, cleans up afterwards, and guarantees teardown even when a test fails. Specialised bases reuse the same idea for keyword, API and mobile tests.",
+      "features": [
+        "`protected static final ThreadLocal<WebDriver> driver` — safe parallel execution",
+        "`@BeforeMethod(alwaysRun = true)` → `DriverFactory.createDriver()` → `driver.set(...)`",
+        "`@AfterMethod` / `@AfterClass(alwaysRun = true)` → `DriverFactory.quitDriver(...)` and orphan-process cleanup",
+        "`@Listeners({TestListener.class})` wires reporting/evidence callbacks",
+        "MDC tagging so every log line carries the test name",
+        "Method-scoped and class-scoped cleanup (`CleanupRegistry`) for API-seeded data",
+        "Variants: `KeywordTestBase` (CSV-driven), `BaseApiTest` (Rest-Assured), `MobileBaseTest` (Appium), `DemoQaBaseTest` (site-level)"
+      ],
+      "stack": [
+        "TestNG `@BeforeMethod` / `@AfterMethod`",
+        "`ThreadLocal<WebDriver>`",
+        "SLF4J / Log4j2 MDC",
+        "Rest-Assured (BaseApiTest)",
+        "Appium (MobileBaseTest)"
+      ],
+      "neighbours": [
+        "TestRunner",
+        "DataDrivenEngine",
+        "DriverManager",
+        "PageObjects",
+        "TestListeners"
+      ],
+      "tagline": "Per-thread test lifecycle",
+      "short": "Gives every test its own fresh browser and cleans up after.",
+      "bullets": [
+        "New browser for every test",
+        "Safe for parallel runs",
+        "Always closes the browser",
+        "Logs tagged with the test name"
+      ]
+    },
+    {
+      "id": "DataDrivenEngine",
+      "label": "Data Driven Engine",
+      "layer": "test-management",
+      "source": "src/main/java/com/automation/core/data/** · core/keyword/**",
+      "summary": "Separates test logic from test data. One `DataRow` shape is produced from five file formats plus a synthetic generator, and a keyword engine lets whole scenarios be written as CSV rows with no Java at all.",
+      "features": [
+        "`DataProviderFactory.fromFile / fromSheet / fromFileWithTags / fromFileUnfiltered`",
+        "Readers for CSV, Excel (`.xlsx`), JSON, YAML and ZIP behind one `DataFileReader` interface and `DataFileReaderRegistry`",
+        "Unified `DataRow` model — same shape from every format",
+        "Synthetic data: `SyntheticDataGenerator` / `syntheticRegistrations()` and edge-case sets (DataFaker)",
+        "Keyword-driven: `KeywordReader` → `KeywordStep` → `KeywordEngine` (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_*` …)",
+        "`ObjectRepository` maps logical names to locators; `PlaceholderResolver` injects values",
+        "Errors surface as `DataFileException` / `KeywordExecutionException`"
+      ],
+      "stack": [
+        "TestNG `@DataProvider`",
+        "Apache POI · opencsv · Jackson · SnakeYAML readers",
+        "DataFaker 2.4.2",
+        "Keyword CSV scripts",
+        "Object Repository (`.properties`)"
+      ],
+      "neighbours": [
+        "TestRunner",
+        "BaseTestClass",
+        "PageObjects"
+      ],
+      "tagline": "CSV · Excel · JSON · YAML · keyword",
+      "short": "Runs the same test with many sets of data.",
+      "bullets": [
+        "Reads CSV, Excel, JSON, YAML, ZIP",
+        "Creates realistic fake data",
+        "Write tests as spreadsheet rows",
+        "Keeps data apart from test logic"
+      ]
+    },
+    {
+      "id": "PageObjects",
+      "label": "Page Objects",
+      "layer": "core-brain",
+      "source": "src/main/java/com/automation/sites/*/pages · mobile/sites/*/pages · template/TemplatePage.java",
+      "summary": "The Page Object Model layer: one class per page, exposing business actions (`login()`, `fillForm()`) while hiding locators and waits. Adding a new site means adding page classes — nothing else in the framework changes.",
+      "features": [
+        "34 page classes — DemoQA (Elements, Forms, Widgets, Interactions, Book Store), SauceDemo `LoginPage`, Android `SettingsHomePage`",
+        "Each page extends `BasePage` (or `BaseMobilePage`) and receives the driver in its constructor",
+        "Reusable components: `ReactDatePickerComponent`, `BootstrapModalComponent`",
+        "`TemplatePage` + `Scripts/new-site.sh` / `new-api-site.sh` scaffold a new site",
+        "Locators for keyword tests live in `objectrepository/<site>.properties`",
+        "Per-site config: `config/<site>.properties` selected by `-Dsite=<name>`"
+      ],
+      "stack": [
+        "Selenium 4.21 `By` / `WebElement`",
+        "Page Object Model",
+        "`ObjectRepository` properties",
+        "`SiteRegistry` (site → base URL)"
+      ],
+      "neighbours": [
+        "BasePageWrapper",
+        "BaseTestClass",
+        "DataDrivenEngine"
+      ],
+      "tagline": "One class per page, no locators in tests",
+      "short": "One class per web page, so tests read like plain steps.",
+      "bullets": [
+        "34 ready-made page classes",
+        "Locators hidden from tests",
+        "Reusable widgets: date picker, modal",
+        "New site = new page classes only"
+      ]
+    },
+    {
+      "id": "BasePageWrapper",
+      "label": "Base Page Wrapper",
+      "layer": "core-brain",
+      "source": "src/main/java/com/automation/core/base/BasePage.java · mobile/core/BaseMobilePage.java",
+      "summary": "The wrapper around raw Selenium. Every page object inherits explicit waits, safe clicks, healing and human-like pacing from this one class — the \"one chokepoint per concern\" principle — so tests never call `driver.findElement` directly.",
+      "features": [
+        "`abstract class BasePage` with `driver`, `WebDriverWait`, `JavascriptExecutor`",
+        "Helpers: `waitVisible`, `waitClickable`, `getText`, `isDisplayed`, `scrollAndJsClick`, `navigateTo`",
+        "`SelfHealingEngine` — DOM-similarity recovery when a locator breaks (opt-in visual and AI fallbacks)",
+        "`SmartLocator` — explicit hand-picked fallback locators",
+        "`HumanActions` — human-like typing/click pacing",
+        "`handleCaptchaIfPresent()` → `CaptchaSolver` (auto-solve inside keyword tests)",
+        "`dumpPageForDebugging()` page-source dump on locator failure",
+        "`BaseMobilePage` provides the same contract for Appium"
+      ],
+      "stack": [
+        "Selenium `WebDriverWait` + `ExpectedConditions`",
+        "`JavascriptExecutor`",
+        "Self-healing (fingerprint + locator repository)",
+        "Tess4J / OCR pipeline (CaptchaSolver)",
+        "Ollama (opt-in AI healing)"
+      ],
+      "neighbours": [
+        "DriverManager",
+        "PageObjects",
+        "MediaCapture"
+      ],
+      "tagline": "Waits, healing and safe actions",
+      "short": "Safe building blocks: wait, click, type — and self-repair.",
+      "bullets": [
+        "Waits for elements automatically",
+        "Finds elements again if the page changes",
+        "Types and clicks like a human",
+        "Can solve CAPTCHAs (optional)"
+      ]
+    },
+    {
+      "id": "DriverManager",
+      "label": "Driver Manager",
+      "layer": "core-brain",
+      "source": "src/main/java/com/automation/core/driver/DriverFactory.java · BrowserProvider.java · config/ConfigReader.java · mobile/core/AppiumDriverFactory.java",
+      "summary": "The single place where browsers are born and die. It reads configuration, builds options for the requested browser, decides between a local driver and a Grid `RemoteWebDriver`, and guarantees cleanup — including killing orphaned driver processes.",
+      "features": [
+        "Browsers: Chrome, Firefox, Edge, Brave, Safari (macOS only) — headless where supported",
+        "`DriverFactory.createDriver()` chooses local vs `RemoteWebDriver` via `grid.enabled` / `grid.url`",
+        "Per-thread state: `ThreadLocal<DriverService>`, per-thread port slot, `ThreadLocal<Properties>` in `ConfigReader`",
+        "Three-layer config: `global.properties` → `<site>.properties` → `-Dkey=value`",
+        "`SiteRegistry` resolves the active site and base URL",
+        "`quitDriver()` and `forceKillOrphanedDriverProcess()` prevent leaked chromedriver/browser processes",
+        "Download directory management for upload/download tests",
+        "`AppiumDriverFactory` builds `AndroidDriver` / `IOSDriver` for the mobile module",
+        "Typed failures: `DriverInitializationException`, `ConfigException`"
+      ],
+      "stack": [
+        "`ThreadLocal`",
+        "Selenium `RemoteWebDriver` · `ChromeOptions` / `FirefoxOptions` / `EdgeOptions`",
+        "WebDriverManager",
+        "Appium Java client",
+        "Java `Properties`"
+      ],
+      "neighbours": [
+        "BaseTestClass",
+        "BasePageWrapper",
+        "GridInfrastructure",
+        "MediaCapture"
+      ],
+      "tagline": "Browser factory and configuration",
+      "short": "Creates the browser and decides where it runs.",
+      "bullets": [
+        "Chrome, Firefox, Edge, Brave, Safari",
+        "Local browser or Grid with one switch",
+        "Mobile apps through Appium",
+        "Cleans up leftover processes"
+      ]
+    },
+    {
+      "id": "TestListeners",
+      "label": "Test Listeners",
+      "layer": "reporting",
+      "source": "src/test/java/com/automation/sites/listeners/** · META-INF/services/org.testng.ITestNGListener",
+      "summary": "The nervous system of the run. TestNG calls these listeners at every test event, and they turn raw pass/fail results into evidence, retries, report entries and coverage data — without any test class having to ask for it.",
+      "features": [
+        "`TestListener` implements `ITestListener` + `IInvokedMethodListener`: `onStart`, `onTestStart`, `onTestSuccess`, `onTestFailure`, `onTestSkipped`, `onTestFailedWithTimeout`, `onFinish`",
+        "On failure: triggers screenshot, page dump, video decision and optional AI failure analysis",
+        "`RetryListener` + `RetryAnalyzer` re-run flaky tests; skips retry when the failure is not retryable",
+        "`TestSelectionListener` disables tests switched off in `test-config.properties`",
+        "`JacocoPerTestCoverageListener` + `AlterSuiteForCoverageMapListener` build the per-test coverage map for TIA",
+        "Registered via `@Listeners` (BaseTest), suite XML (`RetryListener`) and ServiceLoader (the rest)",
+        "Never lets diagnostics break the test — helpers swallow their own exceptions"
+      ],
+      "stack": [
+        "TestNG `ITestListener` · `IInvokedMethodListener` · `IAnnotationTransformer` · `IRetryAnalyzer`",
+        "ServiceLoader",
+        "JaCoCo JMX",
+        "SLF4J MDC",
+        "Ollama (AiExceptionAnalyzer, opt-in)"
+      ],
+      "neighbours": [
+        "TestRunner",
+        "BaseTestClass",
+        "MediaCapture",
+        "ReportingEngine"
+      ],
+      "tagline": "Hooks on every test event",
+      "short": "Watches every test and reacts when something happens.",
+      "bullets": [
+        "Reacts to pass, fail and skip",
+        "Takes proof when a test fails",
+        "Retries flaky tests",
+        "Optional AI explains failures"
+      ]
+    },
+    {
+      "id": "MediaCapture",
+      "label": "Media Capture",
+      "layer": "reporting",
+      "source": "src/main/java/com/automation/core/utils/ScreenshotUtil.java · VideoRecorder.java · FailureDiagnostics.java · DebugDumpUtils.java",
+      "summary": "Produces the visual proof for every result: screenshots, video, page-source dumps and visual diffs. Capture is centralised so every report format receives the same artifacts, and sensitive values are masked before anything is written.",
+      "features": [
+        "`ScreenshotUtil.captureScreenshot / captureScreenshotAsBase64 / captureScreenshotAsBytes`",
+        "`VideoRecorder.start / stop / discard` — opt-in (`video.enabled`), one recorder per test attempt, no-op in headless runs by design",
+        "`FailureDiagnostics` collects page source and browser console logs on failure (best-effort, never fails the test)",
+        "`DebugDumpUtils` page-source dumps for locator failures",
+        "`VisualRegressionUtils` — AShot pixel diff against `visual-baselines/`",
+        "`AccessibilityUtils` — axe-core WCAG scans attached as evidence",
+        "`SensitiveData` masks passwords/tokens in logs and artifacts",
+        "`ArtifactRetentionCleaner` prunes old artifacts (retention policy)"
+      ],
+      "stack": [
+        "Selenium `TakesScreenshot`",
+        "Monte Screen Recorder",
+        "AShot",
+        "axe-core",
+        "Base64 embedding for Extent"
+      ],
+      "neighbours": [
+        "TestListeners",
+        "ReportingEngine",
+        "DriverManager",
+        "BasePageWrapper"
+      ],
+      "tagline": "Screenshots, video, page dumps",
+      "short": "Collects the proof: screenshots, video and page copies.",
+      "bullets": [
+        "Screenshot on every failure",
+        "Optional video recording",
+        "Visual comparison with baselines",
+        "Accessibility scan; passwords masked"
+      ]
+    },
+    {
+      "id": "ReportingEngine",
+      "label": "Reporting Engine",
+      "layer": "reporting",
+      "source": "src/main/java/com/automation/core/report/ExtentManager.java · AllureEnvironmentWriter.java · reportportal.properties · allure.properties",
+      "summary": "Turns raw events and evidence into reports people actually read. Two reports are always produced (Allure interactive, Extent self-contained), with optional live streaming to ReportPortal and extra summaries for coverage, self-healing and impact analysis.",
+      "features": [
+        "`ExtentManager` — thread-safe singleton (`getInstance`, `setActiveSuiteName`, `reset`), HTML at `target/extent-reports/<site>-report.html`",
+        "Allure results + `AllureEnvironmentWriter` (environment panel) + history trend via `allure-maven`",
+        "ReportPortal live stream through `ReportPortalTestNGListener`, switched by `-Dreportportal.enable=true`",
+        "JaCoCo HTML coverage at `target/site/jacoco/index.html`",
+        "Segmented reports per site/suite and a generated landing page",
+        "Self-healing report (`HealingEvent`, `SelfHealingReportWriter`) and TIA / crawler reports",
+        "Published by the `report` and `pages` CI jobs; chat notification summarises results"
+      ],
+      "stack": [
+        "ExtentReports 5.1.2",
+        "Allure 2.27.0",
+        "ReportPortal (agent-java-testng)",
+        "JaCoCo 0.8.12",
+        "GitLab Pages / GitHub Pages"
+      ],
+      "neighbours": [
+        "MediaCapture",
+        "TestListeners",
+        "CICDPipeline",
+        "BuildTool"
+      ],
+      "tagline": "Extent · Allure · ReportPortal",
+      "short": "Turns results into reports anyone can open.",
+      "bullets": [
+        "Extent: one self-contained HTML file",
+        "Allure: interactive, with history",
+        "ReportPortal: live dashboard (optional)",
+        "Coverage and self-healing summaries"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "step": "①",
+      "from": "CICDPipeline",
+      "to": "BuildTool",
+      "label": "CI job runs mvn",
+      "text": "A push, merge request or schedule starts the pipeline; each job calls `mvn` (or `./mvnw`) with properties such as `-Dsite`, `-Dbrowser`, `-DsuiteXmlFile`.",
+      "plain": "A code change starts the pipeline."
+    },
+    {
+      "step": "②",
+      "from": "BuildTool",
+      "to": "TestRunner",
+      "label": "surefire + suiteXmlFile",
+      "text": "Surefire forks a JVM and hands the chosen `testng-suites/*.xml` to TestNG, forwarding the `-D` properties.",
+      "plain": "Maven launches the chosen test suite."
+    },
+    {
+      "step": "③",
+      "from": "TestRunner",
+      "to": "BaseTestClass",
+      "label": "run test classes (parallel)",
+      "text": "TestNG runs the selected groups with `parallel=\"classes\"`, `thread-count=3`; data rows come from the Data Driven Engine.",
+      "plain": "Tests start, three at a time."
+    },
+    {
+      "step": "③",
+      "from": "DataDrivenEngine",
+      "to": "BaseTestClass",
+      "label": "data rows",
+      "text": "TestNG calls the `@DataProvider` backed by the Data Driven Engine; every row (CSV, Excel, JSON, YAML, ZIP or synthetic) becomes one test invocation of the Base Test Class.",
+      "plain": "Each data row becomes one test."
+    },
+    {
+      "step": "④",
+      "from": "BaseTestClass",
+      "to": "PageObjects",
+      "label": "new Page(driver)",
+      "text": "The test method builds its Page Objects with the per-thread driver created in `setUp()`.",
+      "plain": "The test gets its pages ready to use."
+    },
+    {
+      "step": "④",
+      "from": "BaseTestClass",
+      "to": "DriverManager",
+      "label": "createDriver()",
+      "text": "`@BeforeMethod` calls `DriverFactory.createDriver()` and stores the driver in a `ThreadLocal`; the test then builds its Page Objects with that driver.",
+      "plain": "A fresh browser is requested."
+    },
+    {
+      "step": "⑤",
+      "from": "PageObjects",
+      "to": "BasePageWrapper",
+      "label": "extends",
+      "text": "Page classes extend `BasePage`, inheriting waits, healing, human pacing and CAPTCHA handling.",
+      "plain": "Pages reuse safe click and wait helpers."
+    },
+    {
+      "step": "⑥",
+      "from": "BasePageWrapper",
+      "to": "DriverManager",
+      "label": "uses WebDriver",
+      "text": "Every click/type goes through the wrapper to the one `WebDriver` owned by the Driver Manager.",
+      "plain": "Every action goes through one browser."
+    },
+    {
+      "step": "⑦",
+      "from": "DriverManager",
+      "to": "GridInfrastructure",
+      "label": "RemoteWebDriver session",
+      "text": "With `grid.enabled=true` the driver is a `RemoteWebDriver` against the Dockerized Selenium Hub; otherwise a local browser.",
+      "plain": "The browser runs in Docker, or locally."
+    },
+    {
+      "step": "⑧",
+      "from": "TestRunner",
+      "to": "TestListeners",
+      "label": "ITestListener events",
+      "text": "TestNG fires start / success / failure / skip / finish events; listeners are registered by annotation, suite XML and ServiceLoader.",
+      "plain": "Listeners hear about every result."
+    },
+    {
+      "step": "⑨",
+      "from": "TestListeners",
+      "to": "MediaCapture",
+      "label": "on failure / finish",
+      "text": "On failure (and optionally always) listeners ask Media Capture for screenshots, page source, console logs and video.",
+      "plain": "On failure, grab screenshots and logs."
+    },
+    {
+      "step": "⑩",
+      "from": "MediaCapture",
+      "to": "ReportingEngine",
+      "label": "attach evidence",
+      "text": "Evidence is embedded in Extent, attached to Allure and optionally streamed to ReportPortal.",
+      "plain": "Proof is attached to the report."
+    },
+    {
+      "step": "⑪",
+      "from": "ReportingEngine",
+      "to": "CICDPipeline",
+      "label": "publish → next run",
+      "text": "The `report` and `pages` jobs publish the reports and history; chat gets a summary and the next run starts from the new baseline.",
+      "plain": "The report is published; the next run starts."
+    }
+  ],
+  "stepTitles": {
+    "①": "Start",
+    "②": "Launch",
+    "③": "Run tests",
+    "④": "Open browser",
+    "⑤": "Use pages",
+    "⑥": "Drive browser",
+    "⑦": "Run on Grid",
+    "⑧": "Watch results",
+    "⑨": "Collect proof",
+    "⑩": "Build report",
+    "⑪": "Publish"
+  },
+  "overview": {
+    "headline": "A robot tester for websites, mobile apps and APIs",
+    "text": "Write a test once. The framework opens a real browser, clicks like a user, checks the result, takes proof and publishes a report — automatically, on every code change.",
+    "moves": [
+      {
+        "icon": "🚦",
+        "t": "Trigger",
+        "d": "Code changes start the pipeline."
+      },
+      {
+        "icon": "🤖",
+        "t": "Run",
+        "d": "Tests drive real browsers in parallel."
+      },
+      {
+        "icon": "📸",
+        "t": "Capture",
+        "d": "Screenshots, logs and video as proof."
+      },
+      {
+        "icon": "📊",
+        "t": "Report",
+        "d": "Dashboards with history, shared by link."
+      }
+    ],
+    "values": [
+      {
+        "icon": "🌐",
+        "t": "Real browsers",
+        "d": "Chrome, Firefox, Edge, Safari and mobile apps."
+      },
+      {
+        "icon": "⚡",
+        "t": "Fast and parallel",
+        "d": "Many tests run at once on a Docker Grid."
+      },
+      {
+        "icon": "🩹",
+        "t": "Self-healing",
+        "d": "Finds buttons again when the page changes."
+      },
+      {
+        "icon": "📸",
+        "t": "Proof on failure",
+        "d": "Screenshot, logs and video for every failure."
+      },
+      {
+        "icon": "🧩",
+        "t": "Many test types",
+        "d": "UI, API, mobile, visual, accessibility, speed."
+      },
+      {
+        "icon": "🔁",
+        "t": "CI/CD ready",
+        "d": "GitLab, Jenkins and GitHub Actions included."
+      },
+      {
+        "icon": "🗂️",
+        "t": "Tests without code",
+        "d": "Write scenarios as CSV or Excel rows."
+      },
+      {
+        "icon": "🔒",
+        "t": "Safe and checked",
+        "d": "Security scans, coverage gate, masked secrets."
+      }
+    ],
+    "terms": [
+      {
+        "t": "Selenium",
+        "d": "Drives a real browser like a person."
+      },
+      {
+        "t": "TestNG",
+        "d": "Decides which tests run, and when."
+      },
+      {
+        "t": "Page Object",
+        "d": "One class per page; keeps tests tidy."
+      },
+      {
+        "t": "Grid",
+        "d": "Many browsers ready in Docker."
+      },
+      {
+        "t": "Allure / Extent",
+        "d": "The two test report styles."
+      },
+      {
+        "t": "CI/CD",
+        "d": "Runs everything automatically on every change."
+      }
+    ]
+  },
+  "categories": [
+    {
+      "id": "UI",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "Data",
+      "color": "#22c55e"
+    },
+    {
+      "id": "API",
+      "color": "#f97316"
+    },
+    {
+      "id": "Mobile",
+      "color": "#a855f7"
+    },
+    {
+      "id": "Non-functional",
+      "color": "#ec4899"
+    },
+    {
+      "id": "Quality",
+      "color": "#14b8a6"
+    }
+  ],
+  "testTypes": [
+    {
+      "id": "smoke",
+      "icon": "⚡",
+      "name": "Smoke test",
+      "category": "UI",
+      "tagline": "Quick check that key pages work.",
+      "what": "A fast safety net that gates every pull request.",
+      "label": "smoke",
+      "suite": "demoqa-smoke.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml",
+      "tools": [
+        "TestNG",
+        "Selenium",
+        "Grid"
+      ],
+      "steps": [
+        {
+          "t": "Trigger",
+          "d": "Pull request starts the pipeline"
+        },
+        {
+          "t": "Select",
+          "d": "Only tests labelled smoke are chosen"
+        },
+        {
+          "t": "Launch",
+          "d": "Browsers start, 3 tests in parallel"
+        },
+        {
+          "t": "Run",
+          "d": "Key user journeys are clicked through"
+        },
+        {
+          "t": "Proof",
+          "d": "Screenshot and logs on any failure"
+        },
+        {
+          "t": "Report",
+          "d": "Extent and Allure reports published"
+        }
+      ]
+    },
+    {
+      "id": "regression",
+      "icon": "🧪",
+      "name": "Regression test",
+      "category": "UI",
+      "tagline": "Full check of everything, usually nightly.",
+      "what": "Makes sure old features still work after changes.",
+      "label": "regression",
+      "suite": "demoqa-regression.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-regression.xml",
+      "tools": [
+        "TestNG",
+        "Selenium",
+        "Grid"
+      ],
+      "steps": [
+        {
+          "t": "Schedule",
+          "d": "Nightly job starts the full suite"
+        },
+        {
+          "t": "Select",
+          "d": "All regression tests are chosen"
+        },
+        {
+          "t": "Launch",
+          "d": "Grid runs them in parallel"
+        },
+        {
+          "t": "Run",
+          "d": "Every feature is exercised"
+        },
+        {
+          "t": "Retry",
+          "d": "Flaky failures are retried automatically"
+        },
+        {
+          "t": "Report",
+          "d": "Full report with history trends"
+        }
+      ]
+    },
+    {
+      "id": "crossbrowser",
+      "icon": "🌍",
+      "name": "Cross-browser",
+      "category": "UI",
+      "tagline": "Same tests on many browsers.",
+      "what": "Proves the site works in Chrome, Firefox, Edge and Safari.",
+      "label": "smoke / regression",
+      "suite": "any suite",
+      "cmd": "mvn test -Dsite=demoqa -Dbrowser=firefox -Dgrid.enabled=true -DsuiteXmlFile=testng-suites/demoqa-smoke.xml",
+      "tools": [
+        "Selenium Grid",
+        "RemoteWebDriver",
+        "Docker"
+      ],
+      "steps": [
+        {
+          "t": "Choose",
+          "d": "Pick the browser with -Dbrowser"
+        },
+        {
+          "t": "Request",
+          "d": "Driver Manager asks the Grid"
+        },
+        {
+          "t": "Assign",
+          "d": "Grid hands out a free node"
+        },
+        {
+          "t": "Run",
+          "d": "3 sessions per node, in parallel"
+        },
+        {
+          "t": "Safari",
+          "d": "Safari runs one at a time (macOS)"
+        },
+        {
+          "t": "Report",
+          "d": "Results merged into one report"
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "icon": "📑",
+      "name": "Data-driven test",
+      "category": "Data",
+      "tagline": "One test, many data rows.",
+      "what": "Repeats the same steps for every row of a data file.",
+      "label": "data-driven",
+      "suite": "saucedemo-regression.xml",
+      "cmd": "mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-regression.xml",
+      "tools": [
+        "DataProviderFactory",
+        "CSV / Excel / JSON / YAML",
+        "TestNG"
+      ],
+      "steps": [
+        {
+          "t": "Prepare",
+          "d": "Put rows in CSV, Excel, JSON or YAML"
+        },
+        {
+          "t": "Load",
+          "d": "DataProviderFactory reads the file"
+        },
+        {
+          "t": "Expand",
+          "d": "Each row becomes its own test"
+        },
+        {
+          "t": "Run",
+          "d": "Rows run in parallel"
+        },
+        {
+          "t": "Check",
+          "d": "Each row passes or fails alone"
+        },
+        {
+          "t": "Report",
+          "d": "Per-row results in the report"
+        }
+      ]
+    },
+    {
+      "id": "keyword",
+      "icon": "🗂️",
+      "name": "Keyword-driven test",
+      "category": "Data",
+      "tagline": "Write tests as spreadsheet rows — no code.",
+      "what": "Anyone can add a scenario by adding rows to a CSV.",
+      "label": "keyword-driven",
+      "suite": "saucedemo-regression.xml",
+      "cmd": "mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/saucedemo-regression.xml",
+      "tools": [
+        "KeywordEngine",
+        "Object Repository",
+        "Self-healing"
+      ],
+      "steps": [
+        {
+          "t": "Write",
+          "d": "Add rows: keyword, locator, data"
+        },
+        {
+          "t": "Read",
+          "d": "KeywordReader turns rows into steps"
+        },
+        {
+          "t": "Locate",
+          "d": "Object Repository finds each element"
+        },
+        {
+          "t": "Act",
+          "d": "Engine clicks, types and verifies"
+        },
+        {
+          "t": "Heal",
+          "d": "Self-healing and CAPTCHA help if needed"
+        },
+        {
+          "t": "Report",
+          "d": "Steps and proof land in the report"
+        }
+      ]
+    },
+    {
+      "id": "synthetic",
+      "icon": "🎲",
+      "name": "Synthetic data",
+      "category": "Data",
+      "tagline": "Realistic fake data, generated on the fly.",
+      "what": "Creates names, emails and edge cases so no real data is needed.",
+      "label": "synthetic-data",
+      "suite": "demoqa-synthetic-data.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-synthetic-data.xml",
+      "tools": [
+        "DataFaker",
+        "DataProvider"
+      ],
+      "steps": [
+        {
+          "t": "Configure",
+          "d": "Set the count and an optional seed"
+        },
+        {
+          "t": "Generate",
+          "d": "DataFaker creates names, emails, passwords"
+        },
+        {
+          "t": "Edge cases",
+          "d": "Boundary values are added"
+        },
+        {
+          "t": "Run",
+          "d": "Each record drives one test"
+        },
+        {
+          "t": "Replay",
+          "d": "Reuse the seed to reproduce a failure"
+        },
+        {
+          "t": "Report",
+          "d": "Results and data in the report"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "icon": "🔌",
+      "name": "API test",
+      "category": "API",
+      "tagline": "Test services directly — no browser.",
+      "what": "Checks status, data and structure of REST calls.",
+      "label": "api",
+      "suite": "api-tests.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests.xml",
+      "tools": [
+        "Rest-Assured",
+        "JSON Schema",
+        "Allure"
+      ],
+      "steps": [
+        {
+          "t": "Configure",
+          "d": "Base URL, auth and timeouts set"
+        },
+        {
+          "t": "Call",
+          "d": "Send create, read, update, delete requests"
+        },
+        {
+          "t": "Assert",
+          "d": "Check status, body and JSON schema"
+        },
+        {
+          "t": "Retry",
+          "d": "Transient errors retried safely"
+        },
+        {
+          "t": "Clean up",
+          "d": "Created data is deleted afterwards"
+        },
+        {
+          "t": "Report",
+          "d": "Every request and response attached"
+        }
+      ]
+    },
+    {
+      "id": "mock",
+      "icon": "🎭",
+      "name": "Mocked API test",
+      "category": "API",
+      "tagline": "Fake the server to test failures.",
+      "what": "Proves the client copes with errors and slow replies.",
+      "label": "api",
+      "suite": "api-tests-mocked.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests-mocked.xml",
+      "tools": [
+        "WireMock",
+        "Rest-Assured"
+      ],
+      "steps": [
+        {
+          "t": "Start fake",
+          "d": "WireMock imitates the server"
+        },
+        {
+          "t": "Point",
+          "d": "The client is aimed at the fake"
+        },
+        {
+          "t": "Simulate",
+          "d": "Return 500, 503 or slow replies"
+        },
+        {
+          "t": "Assert",
+          "d": "Retries and timeouts behave"
+        },
+        {
+          "t": "Stop",
+          "d": "The fake shuts down cleanly"
+        },
+        {
+          "t": "Report",
+          "d": "Outcome attached to the report"
+        }
+      ]
+    },
+    {
+      "id": "mobile",
+      "icon": "📱",
+      "name": "Mobile test",
+      "category": "Mobile",
+      "tagline": "Android apps through Appium.",
+      "what": "Same style of tests, but for a real app on an emulator.",
+      "label": "(mobile suites)",
+      "suite": "mobile-smoke.xml",
+      "cmd": "mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml",
+      "tools": [
+        "Appium",
+        "UiAutomator2",
+        "Android emulator"
+      ],
+      "steps": [
+        {
+          "t": "Start",
+          "d": "Appium server and emulator boot"
+        },
+        {
+          "t": "Connect",
+          "d": "AppiumDriverFactory opens a session"
+        },
+        {
+          "t": "Interact",
+          "d": "Mobile pages tap and type"
+        },
+        {
+          "t": "Verify",
+          "d": "Screens are checked"
+        },
+        {
+          "t": "Proof",
+          "d": "Screenshots captured on failure"
+        },
+        {
+          "t": "Report",
+          "d": "Same reports as web tests"
+        }
+      ]
+    },
+    {
+      "id": "a11y",
+      "icon": "♿",
+      "name": "Accessibility test",
+      "category": "Non-functional",
+      "tagline": "Finds accessibility problems (WCAG).",
+      "what": "Checks pages against accessibility rules.",
+      "label": "accessibility",
+      "suite": "demoqa-accessibility.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml",
+      "tools": [
+        "axe-core",
+        "WCAG"
+      ],
+      "steps": [
+        {
+          "t": "Open",
+          "d": "Navigate to the page"
+        },
+        {
+          "t": "Scan",
+          "d": "axe-core checks WCAG rules"
+        },
+        {
+          "t": "Rank",
+          "d": "Issues sorted: critical to minor"
+        },
+        {
+          "t": "Decide",
+          "d": "Critical and serious ones fail the test"
+        },
+        {
+          "t": "Evidence",
+          "d": "Violations attached to the report"
+        },
+        {
+          "t": "Report",
+          "d": "Shown with the other results"
+        }
+      ]
+    },
+    {
+      "id": "visual",
+      "icon": "👁️",
+      "name": "Visual regression",
+      "category": "Non-functional",
+      "tagline": "Spots layout changes pixel by pixel.",
+      "what": "Catches look-and-feel bugs that locators cannot see.",
+      "label": "visual",
+      "suite": "demoqa-visual.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-visual.xml",
+      "tools": [
+        "AShot",
+        "Baseline images"
+      ],
+      "steps": [
+        {
+          "t": "Capture",
+          "d": "Screenshot of the page"
+        },
+        {
+          "t": "Compare",
+          "d": "Diff against the saved baseline"
+        },
+        {
+          "t": "First run",
+          "d": "No baseline? It is saved and passes"
+        },
+        {
+          "t": "Decide",
+          "d": "Differences above the threshold fail"
+        },
+        {
+          "t": "Evidence",
+          "d": "Diff image attached"
+        },
+        {
+          "t": "Report",
+          "d": "Shown with the other results"
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "icon": "🚀",
+      "name": "Performance test",
+      "category": "Non-functional",
+      "tagline": "Load test with clear budgets.",
+      "what": "Checks speed and error rate under many users.",
+      "label": "perf",
+      "suite": "demoqa-perf.xml",
+      "cmd": "mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-perf.xml -Dgroups=perf",
+      "tools": [
+        "JMeter Java DSL",
+        "TestNG",
+        "Allure"
+      ],
+      "steps": [
+        {
+          "t": "Budget",
+          "d": "Set max response time and error rate"
+        },
+        {
+          "t": "Ramp up",
+          "d": "Virtual users increase gradually"
+        },
+        {
+          "t": "Hit",
+          "d": "Requests are sent to the service"
+        },
+        {
+          "t": "Measure",
+          "d": "p99 and errors are collected"
+        },
+        {
+          "t": "Compare",
+          "d": "Results checked against the budget"
+        },
+        {
+          "t": "Report",
+          "d": "Allure plus a perf report folder"
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "icon": "🛡️",
+      "name": "Quality and security gates",
+      "category": "Quality",
+      "tagline": "Code, security and coverage checks.",
+      "what": "Stops risky or sloppy changes before they merge.",
+      "label": "(maven profiles)",
+      "suite": "—",
+      "cmd": "mvn verify -Punit-tests",
+      "tools": [
+        "Checkstyle",
+        "JaCoCo",
+        "OWASP",
+        "gitleaks"
+      ],
+      "steps": [
+        {
+          "t": "Style",
+          "d": "Checkstyle checks the code rules"
+        },
+        {
+          "t": "Unit",
+          "d": "Unit tests check pure logic"
+        },
+        {
+          "t": "Libraries",
+          "d": "OWASP scans dependencies (nightly)"
+        },
+        {
+          "t": "Secrets",
+          "d": "gitleaks looks for leaked keys"
+        },
+        {
+          "t": "Coverage",
+          "d": "JaCoCo needs 50% core coverage"
+        },
+        {
+          "t": "Report",
+          "d": "Gate results shown in CI"
+        }
+      ]
+    },
+    {
+      "id": "tia",
+      "icon": "🎯",
+      "name": "Test impact analysis",
+      "category": "Quality",
+      "tagline": "Run only the tests a change affects.",
+      "what": "Saves time by skipping tests that cannot be affected.",
+      "label": "(selected automatically)",
+      "suite": "generated per site",
+      "cmd": "./Scripts/test-impact-analysis.sh --base origin/main --run",
+      "tools": [
+        "git diff",
+        "Dependency graph",
+        "JaCoCo coverage map"
+      ],
+      "steps": [
+        {
+          "t": "Diff",
+          "d": "git diff lists the changed files"
+        },
+        {
+          "t": "Map",
+          "d": "A dependency graph finds affected classes"
+        },
+        {
+          "t": "Safety",
+          "d": "Risky change? Fall back to a full run"
+        },
+        {
+          "t": "Select",
+          "d": "Only impacted tests are chosen"
+        },
+        {
+          "t": "Run",
+          "d": "Just those tests execute"
+        },
+        {
+          "t": "Report",
+          "d": "An impact report explains the choice"
+        }
+      ]
+    },
+    {
+      "id": "crawler",
+      "icon": "🕷️",
+      "name": "Bug crawler",
+      "category": "Quality",
+      "tagline": "Explores a site and lists problems (opt-in).",
+      "what": "Finds broken links, console errors and a11y issues by itself.",
+      "label": "(CLI tool)",
+      "suite": "—",
+      "cmd": "mvn -q exec:java@bug-crawler -Pbug-crawler -Dcrawler.startUrl=https://example.com",
+      "tools": [
+        "SiteCrawler",
+        "axe-core",
+        "Optional AI review"
+      ],
+      "steps": [
+        {
+          "t": "Start",
+          "d": "Begin at one URL"
+        },
+        {
+          "t": "Crawl",
+          "d": "Visit same-site pages (up to 50)"
+        },
+        {
+          "t": "Check",
+          "d": "Broken links, console errors, a11y"
+        },
+        {
+          "t": "Review",
+          "d": "Optional AI reviews each page"
+        },
+        {
+          "t": "Write",
+          "d": "JSON and text report saved"
+        },
+        {
+          "t": "Note",
+          "d": "Report-only: never fails the build"
+        }
+      ]
+    }
+  ]
+}

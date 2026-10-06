@@ -4,6 +4,7 @@ import com.automation.core.base.DriverProvider;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
+import com.automation.core.utils.LanguageUtils;
 import com.automation.sites.listeners.TestListener;
 import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.MDC;
@@ -97,6 +98,8 @@ public class MobileBaseTest implements DriverProvider {
             }
         } finally {
             MDC.remove("test");
+            // Per-thread language override (LanguageUtils.setLocale) must not leak to the next test.
+            LanguageUtils.clearLocale();
         }
     }
 

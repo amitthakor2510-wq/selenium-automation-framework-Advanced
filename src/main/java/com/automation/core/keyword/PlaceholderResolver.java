@@ -2,6 +2,7 @@ package com.automation.core.keyword;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.KeywordExecutionException;
+import com.automation.core.utils.LanguageUtils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,11 +20,14 @@ import java.util.regex.Pattern;
  *   <li>{@code ${sys:NAME}} - JVM system property only.</li>
  *   <li>{@code ${config:key}} - a key from the layered ConfigReader (system property, then
  *       site.properties, then global.properties).</li>
+ *   <li>{@code ${i18n:key}} - translated text for {@code key} in the active language (see
+ *       {@link LanguageUtils}), so one keyword script can run against the English, Hindi,
+ *       Gujarati ... build of an app.</li>
  *   <li>Any form accepts an inline default: {@code ${env:NAME:-fallback}} (the default may be
  *       empty: {@code ${env:NAME:-}}).</li>
  * </ul>
  *
- * <p>Only the three prefixes above are recognised, so ordinary test data that happens to contain
+ * <p>Only the four prefixes above are recognised, so ordinary test data that happens to contain
  * {@code ${...}} (e.g. a template-injection payload such as {@code ${jndi:ldap://x}}) is passed
  * through untouched.
  *
@@ -34,7 +38,7 @@ import java.util.regex.Pattern;
 public final class PlaceholderResolver {
 
     private static final Pattern PLACEHOLDER =
-        Pattern.compile("\\$\\{(env|sys|config):([^}:]+?)(?::-([^}]*))?}");
+        Pattern.compile("\\$\\{(env|sys|config|i18n):([^}:]+?)(?::-([^}]*))?}");
 
     private PlaceholderResolver() {
     }
@@ -68,6 +72,7 @@ public final class PlaceholderResolver {
         String value = switch (source) {
             case "env" -> firstNonBlank(System.getenv(name), System.getProperty(name));
             case "sys" -> firstNonBlank(System.getProperty(name), null);
+            case "i18n" -> firstNonBlank(LanguageUtils.getOrDefault(name, null), null);
             default -> firstNonBlank(ConfigReader.get(name, null), null);
         };
         if (value != null) {
@@ -85,6 +90,7 @@ public final class PlaceholderResolver {
         return switch (source) {
             case "env" -> "environment variable (or -D system property) '" + name + "'";
             case "sys" -> "JVM system property '" + name + "' (-D" + name + "=...)";
+            case "i18n" -> "i18n key '" + name + "' in the active language's bundle (or the base messages file)";
             default -> "config key '" + name + "'";
         };
     }

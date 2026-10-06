@@ -216,6 +216,12 @@ unit-tests                  → mvn verify -Punit-tests, parallel with test/mobi
                               untouched — see pom.xml's "unit-tests" profile comment). A
                               real failure fails this job, surfaced on PRs via the
                               pr-comment job below, same as checkstyle
+windows-unit-tests          → windows-latest: `mvn clean verify -Punit-tests` (compile + the same JUnit 5
+                              classes as unit-tests) to prove the project builds and its pure-logic
+                              tests pass on Windows (path separators, CRLF, charset). continue-on-error
+                              until its first green real run — then remove that line to make it a gate.
+                              Not in any other job's `needs:`; uploads no JaCoCo data, so it cannot
+                              affect coverage-gate; uploads surefire/failsafe reports only on failure
 test                        → matrix job: site (demoqa, saucedemo) x browser (chrome,
                               firefox, edge, + safari on push) = 8 parallel instances on
                               a push run (6 on PR/schedule, which exclude safari), or just

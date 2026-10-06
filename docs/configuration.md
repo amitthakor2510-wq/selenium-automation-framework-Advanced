@@ -117,6 +117,14 @@ video.enabled=false                 # true = record each test's screen (needs he
 video.fps=10                        # capture rate
 video.keep.on.pass=false            # true = keep a passing test's recording instead of deleting it after the run
 video.output.dir=target/videos      # where raw per-test videos land before being attached to Allure/Extent
+
+# ── Internationalisation (see core/utils/LanguageUtils.java) ──────
+i18n.language=en                    # active language: en, hi, gu, hi-IN ... (override: -Di18n.language=hi, or LanguageUtils.setLocale("hi") per test)
+i18n.bundle=i18n/messages           # classpath base name of the bundles: messages.properties (base/English), messages_hi.properties, ...
+
+# ── Report zip (see core/utils/ZipUtils.java, TestListener) ───────
+report.zip.enabled=false            # true = after each suite flush, zip target/extent-reports into one file (email / chat / single CI artifact)
+report.zip.output=target/report-archives/extent-reports.zip   # where that zip is written
 ```
 
 Any key can be overridden at runtime:

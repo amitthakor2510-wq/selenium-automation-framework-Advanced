@@ -100,6 +100,7 @@ copy for accessibility-style "can this be operated without a mouse" checks.
 | `${env:NAME}` | OS environment variable `NAME`, falling back to `-DNAME=value` |
 | `${sys:NAME}` | JVM system property only |
 | `${config:key}` | ConfigReader key (`-D` → `<site>.properties` → `global.properties`) |
+| `${i18n:key}` | translated text for `key` in the active language (`-Di18n.language=hi`, see `LanguageUtils`), so one script runs against the English/Hindi/Gujarati build of an app |
 | `${env:NAME:-fallback}` | any form accepts an inline default after `:-` |
 
 - A placeholder with no value and no default **fails that step** naming the missing variable —
@@ -107,7 +108,7 @@ copy for accessibility-style "can this be operated without a mouse" checks.
 - Only the raw placeholder text is logged; the resolved value never reaches `toString()`, the
   console, or Allure/Extent step names. `TYPE` into a locator key that looks sensitive
   (`password`, `token`, `otp`, …) is additionally routed through `typeSecret()`.
-- Text such as `${jndi:...}` (no `env`/`sys`/`config` prefix) is left untouched, so
+- Text such as `${jndi:...}` (no `env`/`sys`/`config`/`i18n` prefix) is left untouched, so
   injection-payload test data still works.
 - **CSV tip:** a description or any cell containing a comma must be quoted
   (`"like, this"`); `CsvDataFileReader` now logs a warning for rows wider than the header.

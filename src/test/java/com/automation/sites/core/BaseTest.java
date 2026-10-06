@@ -7,8 +7,9 @@ import com.automation.core.driver.DriverFactory;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
 import com.automation.core.utils.HumanActions;
+import com.automation.core.utils.LanguageUtils;
+import com.automation.core.utils.LocalStorageUtils;
 import com.automation.sites.listeners.TestListener;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.slf4j.MDC;
 import org.testng.ITestContext;
@@ -170,8 +171,7 @@ public class BaseTest implements DriverProvider {
                 // non-fatal — worst case a stray cookie survives one run
             }
             try {
-                ((JavascriptExecutor) existing).executeScript(
-                    "window.localStorage.clear(); window.sessionStorage.clear();");
+                LocalStorageUtils.clearAll(existing);
             } catch (Exception e) {
                 // non-fatal (e.g. thrown on about:blank before first navigation)
             }
@@ -229,6 +229,9 @@ public class BaseTest implements DriverProvider {
             }
         } finally {
             MDC.remove("test");
+            // A language picked with LanguageUtils.setLocale(...) is per-thread; clear it so it
+            // cannot leak into the next test that reuses this TestNG worker thread.
+            LanguageUtils.clearLocale();
         }
     }
 

@@ -10,6 +10,7 @@ import com.automation.core.utils.FailureDiagnostics;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
 import com.automation.core.utils.VideoRecorder;
+import com.automation.core.utils.ZipUtils;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.epam.reportportal.message.ReportPortalMessage;
@@ -30,6 +31,9 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 /**
@@ -600,11 +604,37 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
     @Override
     public void onFinish(ITestContext context) {
         extent().flush();
+        archiveExtentReports();
         // Reset the ExtentManager singleton after each suite finishes.
         // Without this, if two sites run sequentially in the same JVM (e.g. a
         // future single-mvn multi-site run), the second site inherits the first
         // site's report name, system info, and output path — corrupting both reports.
         ExtentManager.reset();
         AllureEnvironmentWriter.reset();
+    }
+
+    /**
+     * Opt-in ({@code report.zip.enabled=true}): packs everything under {@code target/extent-reports}
+     * into one zip ({@code report.zip.output}, default
+     * {@code target/report-archives/extent-reports.zip}) so it can be attached to an email, posted
+     * to a chat or kept as a single CI artifact. Runs after each flush, so the zip always holds
+     * the newest report. Synchronized because parallel suites can finish at the same moment.
+     * Never fails the run - a zip problem is only logged.
+     */
+    private static synchronized void archiveExtentReports() {
+        if (!ConfigReader.getBoolean("report.zip.enabled", false)) {
+            return;
+        }
+        try {
+            Path source = Paths.get("target", "extent-reports");
+            if (!Files.isDirectory(source)) {
+                logger.info("[TestListener] report.zip.enabled=true but {} does not exist yet - nothing to zip", source);
+                return;
+            }
+            Path zip = Paths.get(ConfigReader.get("report.zip.output", "target/report-archives/extent-reports.zip"));
+            ZipUtils.zipDirectory(source, zip);
+        } catch (Exception e) {
+            logger.warn("[TestListener] Could not zip the Extent reports: " + e.getMessage());
+        }
     }
 }

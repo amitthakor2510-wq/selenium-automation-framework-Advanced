@@ -1,0 +1,32 @@
+name: Publish architecture diagram
+
+# Publishes docs/architecture-site/ into the existing gh-pages branch under /architecture/,
+# next to the Allure/Extent reports. keep_files keeps everything else on the branch untouched.
+on:
+  push:
+    branches: [main]
+    paths: ["docs/architecture-site/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: architecture-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate architecture.json
+        run: python3 -c "import json;json.load(open('docs/architecture-site/architecture.json'))"
+      - name: Deploy to gh-pages/architecture
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/architecture-site
+          destination_dir: architecture
+          keep_files: true
+          exclude_assets: "architecture-pages.yml,.github-workflow"

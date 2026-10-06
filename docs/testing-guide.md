@@ -14,6 +14,7 @@
 - [♿🖼️ Specialized Testing — Accessibility & Visual Regression](#️️-specialized-testing--accessibility--visual-regression)
 - [⚡ Performance Testing](#-performance-testing)
 - [🧬 Synthetic/Generated Test Data](#-syntheticgenerated-test-data)
+- [🧰 Helpers — i18n, Web Storage & Zip](#-helpers--i18n-web-storage--zip)
 - [📱 Mobile Testing (Appium)](#-mobile-testing-appium)
 - [🚦 Smoke vs Regression](#-smoke-vs-regression)
 
@@ -347,6 +348,45 @@ mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-synthetic-data.xml -D
 > **Opt-in and sequential, not part of `demoqa-smoke.xml`/`demoqa-regression.xml` or CI** — DemoQA's real registration endpoint is ReCaptcha rate-limited (see `RegistrationPage.isRegistrationSuccessful`'s javadoc), so this deliberately stays a small, explicit, non-parallel run rather than something that fires on every push. A row that hits the rate limit is skipped, not failed — that's a known site-side limit, not a defect.
 
 Reusable outside this one test class via `DataProviderFactory.syntheticRegistrations(count)` / `.syntheticRegistrations()` (count from `synthetic.data.count`) / `.syntheticRegistrationEdgeCases()` — or `SyntheticDataGenerator` directly for a one-off value (`new SyntheticDataGenerator().email()`, `.strongPassword()`, etc.) in a new test of your own. See `synthetic.data.count` / `synthetic.data.seed` in [Configuration](configuration.md).
+
+---
+
+## 🧰 Helpers — i18n, Web Storage & Zip
+
+Three small, browser-independent helpers in `core/utils/`, each with JUnit 5 tests (`*Test.java`, run by `mvn verify -Punit-tests`).
+
+### 🌍 `LanguageUtils` — expected text per language
+Look up UI text by key instead of hard-coding it, so the same test can run against the English, Hindi or Gujarati build of an app.
+
+```java
+LanguageUtils.get("login.title");                 // "Login"  (active language)
+LanguageUtils.get("common.welcome", "Amit");      // "Welcome, Amit!"  ({0} filled in)
+LanguageUtils.setLocale("hi");                    // this test thread only — BaseTest/MobileBaseTest clear it afterwards
+LanguageUtils.get("login.title");                 // "लॉगिन"
+```
+```bash
+mvn test -Di18n.language=gu                       # whole run in Gujarati
+```
+- Bundles are UTF-8 files under `src/test/resources/i18n/` (`messages.properties` = base/English, `messages_hi.properties`, `messages_gu.properties`). Add a language by adding `messages_<lang>.properties`; the shipped sample keys are placeholders — replace them with your applications' real strings. A unit test fails the build if one language has keys another lacks.
+- A missing language file or key falls back to the **base** file only (never to the machine's own locale); a key missing from the base file throws with the key and bundle named, instead of returning a placeholder a test could then assert on. In messages used **with** arguments a literal apostrophe is written `''` (`MessageFormat`).
+- Keyword/data-driven scripts can use `${i18n:login.button}` in `testData`/`expected` — see [Keeping Credentials Out of Scripts](../KEYWORD_DRIVEN_TESTING.md#-keeping-credentials-out-of-scripts-placeholders).
+
+### 🗄️ `LocalStorageUtils` — `localStorage` / `sessionStorage`
+```java
+LocalStorageUtils.setItem(driver, "cookieBanner", "dismissed");          // seed before the page needs it
+String token = LocalStorageUtils.waitForItem(driver, "authToken", Duration.ofSeconds(5));
+LocalStorageUtils.getAll(driver, LocalStorageUtils.Area.SESSION);        // sessionStorage variants take an Area
+LocalStorageUtils.clearAll(driver);                                      // both areas — what BaseTest uses between scenarios
+```
+Acts on the origin the driver is currently on (navigate first — `about:blank` rejects storage access). Keys/values are passed as script arguments, never concatenated, and values are masked in logs when the key looks sensitive (`token`, `password`, …).
+
+### 🗜️ `ZipUtils` — package a report as one file
+```java
+ZipUtils.zipDirectory(Paths.get("target/extent-reports"), Paths.get("target/report-archives/extent-reports.zip"));
+ZipUtils.zipFiles(List.of(htmlReport, summaryJson), zipPath);   // flat, by file name
+ZipUtils.unzip(zipPath, destDir);                               // blocks entries that escape destDir (Zip-Slip)
+```
+JDK-only. Entry names always use `/` (a zip made on Windows opens everywhere), a zip written inside the folder being zipped is skipped rather than swallowed, and the file is moved into place only after it is complete. Opt-in automatic use: set `report.zip.enabled=true` and `TestListener` zips `target/extent-reports` after each suite flush into `report.zip.output`.
 
 ---
 

@@ -241,6 +241,59 @@ jobs:
           if-no-files-found: warn
 
   # ================================================================
+  # STAGE 1b3 - Windows portability check (compile + JUnit 5 unit tests)
+  # ================================================================
+  # Every other job runs on ubuntu-latest (or macos-latest for Safari), so
+  # nothing in this pipeline ever proved the project builds and its pure-logic
+  # tests pass on WINDOWS - where most people clone it: backslash paths, CRLF
+  # line endings, a different default charset, file-locking on delete. This
+  # job runs the same two cheap, browser-free steps the Linux jobs do
+  # (compile everything, then `mvn verify -Punit-tests`) on windows-latest so a
+  # path-separator or line-ending assumption shows up here instead of on a
+  # teammate's machine. Deliberately NOT a browser run: a full Windows
+  # browser matrix would double the runner cost for little extra signal.
+  #
+  # continue-on-error: true because this job has never run on a real
+  # Windows runner yet - it reports without turning the pipeline red. After
+  # its first green run, delete that line to make it a real gate. It is not
+  # in any other job's `needs:` and uploads NO jacoco exec (coverage-gate only
+  # merges the Linux unit-tests job's exec, so Windows can't skew the numbers).
+  windows-unit-tests:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # bash (Git for Windows) rather than the default PowerShell so the exact
+      # same command line works unchanged on every runner OS.
+      - name: Compile + JUnit 5 unit tests on Windows
+        shell: bash
+        run: |
+          echo "======= Windows: mvn clean verify -Punit-tests ======="
+          mvn -B clean verify -Punit-tests
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unit-test-reports
+          path: |
+            target/failsafe-reports
+            target/surefire-reports
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # ================================================================
   # STAGE 1c - Test Impact Analysis (informational, PRs only)
   # ================================================================
   # Deliberately does NOT replace or gate the full `test`/`mobile-test`

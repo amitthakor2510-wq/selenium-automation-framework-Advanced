@@ -5,7 +5,7 @@
 *Ideas for where this framework could go next, roughly ordered by effort-to-value.*
 
 <p>
-  <img alt="Completed" src="https://img.shields.io/badge/Completed-47-2ea44f?style=flat-square">
+  <img alt="Completed" src="https://img.shields.io/badge/Completed-49-2ea44f?style=flat-square">
   <img alt="Open" src="https://img.shields.io/badge/Still%20Open-2-D97706?style=flat-square">
 </p>
 
@@ -91,6 +91,8 @@
 - [x] ~~**`new-site.sh` polluted GitLab's API and perf matrices**~~ — fixed: its `sed` for appending a browser site to `.gitlab-ci.yml` matched *every* `SITE: [ ... ]` line, not just the `test` job's, so scaffolding a UI site also added it to the `api-tests` and `perf-tests` matrices — where `api-tests` then ran it with no suite-file `case` arm (empty `-DsuiteXmlFile`). Both the already-present check and the append are now scoped to the range starting at the `AUTO-GENERATED-SITE-LIST` marker; also stops writing `SAHMAT , site` (stray space before the comma). Verified by scaffolding two UI sites in a scratch copy and re-parsing the YAML.
 
 - [x] ~~**`unit-tests` CI stage failure + redundant lifecycle phases**~~ — the failure in run #263 was `SiteRegistryConsistencyTest` (added in this project) asserting `config/mobile.properties` exists: that file is deliberately gitignored (real device serial/IP), so a CI checkout only has `mobile.properties.example`. The test now accepts either. Separately, `mvn verify -Punit-tests` was walking the whole lifecycle — the log showed Surefire's browser suite, `jacoco:check` and `checkstyle:check` all running inside this job (they happened to pass: coverage met, 0 violations, so they were not the cause). The profile now sets `skipTests` on Surefire only (Failsafe unaffected) plus `checkstyle.skip`/`jacoco.skip`, so it runs just the JUnit 5 classes and finishes faster. Plain `mvn test`/`mvn verify` are unchanged.
+
+- [x] ~~**Small helpers from the anhtester/AutomationFrameworkSelenium comparison**~~ — done: `core/utils/LanguageUtils.java` (i18n bundles, per-thread language, `${i18n:key}` keyword placeholder), `core/utils/LocalStorageUtils.java` (local/session storage get/set/wait/clear; `BaseTest` now uses it instead of an inline script), `core/utils/ZipUtils.java` (zip a report folder; opt-in `report.zip.enabled` hook in `TestListener`), and a `windows-unit-tests` job in `github-ci.yml` — see [🧰 Helpers](testing-guide.md#-helpers--i18n-web-storage--zip). Still open: the Windows job has never run on a real runner (it is `continue-on-error` until it does), and only the Extent report folder is zipped automatically — Allure is generated after the run, so zip it with `ZipUtils` in whatever step produces it.
 
 ---
 
