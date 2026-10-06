@@ -3226,6 +3226,13 @@ public class CaptchaSolver {
      */
     private BufferedImage preprocessImage(File imageFile) throws IOException {
         BufferedImage original = ImageIO.read(imageFile);
+        if (original == null) {
+            // ImageIO.read returns null (not an exception) for a file it has no decoder for -
+            // an empty/truncated screenshot, an HTML error page saved as .png, etc. Fail with a
+            // clear message instead of a bare NullPointerException on original.getWidth() below.
+            throw new IOException("[CaptchaSolver] CAPTCHA image could not be decoded (unsupported, empty or corrupt file): "
+                + imageFile);
+        }
 
         // 1. Upscale x2 (Tesseract performs better on larger images)
         int newW = original.getWidth()  * 2;

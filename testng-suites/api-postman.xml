@@ -1,0 +1,10 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Runs exported Postman collections through Newman (see PostmanCollectionRunner for the postman.* keys).
+     Run: mvn test -Dsite=<yoursite> -DsuiteXmlFile=testng-suites/api-postman.xml -->
+<suite name="Postman Collections" parallel="none">
+  <test name="Postman Collections" preserve-order="false">
+    <classes>
+      <class name="com.automation.core.api.generic.PostmanCollectionRunner"/>
+    </classes>
+  </test>
+</suite>

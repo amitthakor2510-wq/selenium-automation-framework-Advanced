@@ -17,6 +17,18 @@
 
 set -e
 
+# The generators below use bash 4+ expansions (${SITE^}) and GNU-only `sed -i` with `\n` in the
+# replacement. macOS ships bash 3.2 + BSD sed, where they die halfway through with a confusing
+# "bad substitution" AFTER some files were already written - refuse up front instead.
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "[✗] bash ${BASH_VERSION} is too old - this script needs bash 4+ (macOS: brew install bash, then re-run with it)."
+  exit 1
+fi
+if ! sed --version >/dev/null 2>&1; then
+  echo "[✗] GNU sed required (BSD/macOS sed can't do the in-place edits below). macOS: brew install gnu-sed and put its gnubin on PATH."
+  exit 1
+fi
+
 SITE="$1"
 URL="$2"
 

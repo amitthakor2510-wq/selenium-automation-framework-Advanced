@@ -1,0 +1,10 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Config-driven API security checks (see GenericApiSecurityChecks for the api.security.* keys).
+     Run: mvn test -Dsite=<yoursite> -DsuiteXmlFile=testng-suites/api-security.xml -->
+<suite name="API Security Checks" parallel="none">
+  <test name="API Security Checks" preserve-order="false">
+    <classes>
+      <class name="com.automation.core.api.generic.GenericApiSecurityChecks"/>
+    </classes>
+  </test>
+</suite>

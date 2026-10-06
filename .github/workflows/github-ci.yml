@@ -1,5 +1,12 @@
 name: GitHub Actions Pipeline - Selenium Automation Framework
 
+# Least-privilege default for every job (GitHub's default token can be read/write). pull-requests: read
+# is for gitleaks-action's PR commit scan; jobs that need more (PR comment, gh-pages publish)
+# declare their own `permissions:` below.
+permissions:
+  contents: read
+  pull-requests: read
+
 on:
   push:
     branches: [ "main", "master" ]
@@ -137,6 +144,7 @@ jobs:
   # ================================================================
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -168,6 +176,7 @@ jobs:
   checkstyle:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -205,6 +214,7 @@ jobs:
   unit-tests:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -311,6 +321,7 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -367,6 +378,7 @@ jobs:
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
       && needs.matrix-setup.outputs.sites != '[]'
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     strategy:
       fail-fast: false
       # Was a hardcoded `[demoqa, saucedemo]` — now the same enabled-site
@@ -436,6 +448,7 @@ jobs:
   # `fromJSON(needs.matrix-setup.outputs.matrix)`.
   matrix-setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 5   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     outputs:
       matrix: ${{ steps.build.outputs.matrix }}
       # Plain JSON array of enabled non-mobile sites, e.g. ["demoqa"] —
@@ -536,6 +549,7 @@ jobs:
     # "test (demoqa, safari)" / "test (saucedemo, safari)" next to the
     # other browsers) instead of a separately-named job in the run graph.
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     # RP_API_KEY as a job-level env var (not a -D flag on the `mvn test`
     # command line below) so it's just an ordinary OS environment variable
     # the forked surefire JVM inherits like any child process — never
@@ -841,6 +855,7 @@ jobs:
     # other site.
     if: needs.matrix-setup.outputs.mobile-enabled == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 90   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     # See the `test` job's identical env block above for why RP_API_KEY is
     # a job-level env var rather than a -D flag.
     env:
@@ -994,6 +1009,7 @@ jobs:
     needs: [ unit-tests, test, mobile-test, api-tests, perf-tests ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -1095,6 +1111,7 @@ jobs:
     # schedule gate.
     if: github.event_name == 'schedule' && needs.matrix-setup.outputs.demoqa-enabled == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     # See the `test` job's identical env block above for why RP_API_KEY is
     # a job-level env var rather than a -D flag.
     env:
@@ -1195,6 +1212,7 @@ jobs:
   api-tests:
     needs: [ build, matrix-setup ]
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     env:
       RP_API_KEY: ${{ secrets.RP_API_KEY }}
     strategy:
@@ -1282,6 +1300,7 @@ jobs:
     needs: [ build, matrix-setup ]
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     env:
       RP_API_KEY: ${{ secrets.RP_API_KEY }}
     strategy:
@@ -1375,6 +1394,7 @@ jobs:
     # for the nightly schedule.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -1466,6 +1486,7 @@ jobs:
     needs: build
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -1493,6 +1514,7 @@ jobs:
     needs: build
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -1525,7 +1547,11 @@ jobs:
     needs: [ test, mobile-test, checkstyle, unit-tests ]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     permissions:
+      # contents: read is needed too - a job-level block REPLACES the defaults, so without it
+      # actions/checkout fails on private repos.
+      contents: read
       pull-requests: write
     steps:
       - name: Checkout Code
@@ -1576,6 +1602,7 @@ jobs:
     # runs on every trigger even though one or both may show as skipped.
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     permissions:
       contents: write
     steps:
@@ -2005,6 +2032,7 @@ jobs:
     needs: [ build, checkstyle, unit-tests, test, mobile-test, allure-report ]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

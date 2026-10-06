@@ -1,0 +1,10 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Config-driven rate-limit checks (see GenericApiRateLimitChecks for the api.ratelimit.* keys).
+     Run: mvn test -Dsite=<yoursite> -DsuiteXmlFile=testng-suites/api-rate-limit.xml -->
+<suite name="API Rate Limit Checks" parallel="none">
+  <test name="API Rate Limit Checks" preserve-order="false">
+    <classes>
+      <class name="com.automation.core.api.generic.GenericApiRateLimitChecks"/>
+    </classes>
+  </test>
+</suite>

@@ -307,7 +307,7 @@ different URL. No API key needed.
 ```properties
 captcha.ai.enabled=true
 captcha.ai.provider=ollama
-captcha.ai.endpoint=http://192.168.2.17:11434/api/generate   # your Ollama host:port
+captcha.ai.endpoint=http://<your-ollama-host>:11434/api/generate   # your Ollama host:port
 captcha.ai.model=llava
 ```
 

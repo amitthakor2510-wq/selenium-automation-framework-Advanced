@@ -48,11 +48,18 @@ fi
 # the verify phase (see pom.xml) — this just moves the same check earlier.
 if [ -n "$STAGED_JAVA" ]; then
   echo "[pre-commit] Staged .java files changed — running Checkstyle..."
-  if ! mvn -q checkstyle:check 2> /tmp/pre-commit-checkstyle.log; then
+  # Prefer the pinned Maven wrapper (README: "run ./mvnw instead of a bare mvn"), fall back to
+  # a PATH mvn. Capture stdout AND stderr: Checkstyle prints its violations on stdout, so the
+  # old `2> log` left the "Checkstyle failed:" message with nothing under it.
+  MVN_CMD="mvn"
+  [ -x "./mvnw" ] && MVN_CMD="./mvnw"
+  CHECKSTYLE_LOG=$(mktemp "${TMPDIR:-/tmp}/pre-commit-checkstyle.XXXXXX")
+  if ! "$MVN_CMD" -q checkstyle:check > "$CHECKSTYLE_LOG" 2>&1; then
     echo "[pre-commit] Checkstyle failed:"
-    cat /tmp/pre-commit-checkstyle.log
+    cat "$CHECKSTYLE_LOG"
     FAILED=1
   fi
+  rm -f "$CHECKSTYLE_LOG"
 else
   echo "[pre-commit] No staged .java files — skipping Checkstyle."
 fi

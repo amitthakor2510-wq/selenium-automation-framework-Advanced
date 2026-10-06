@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.zip.ZipEntry;
@@ -46,10 +47,15 @@ public class ZipDataFileReader implements DataFileReader {
             int runningIndex = 0;
 
             while ((entry = zis.getNextEntry()) != null) {
-                String entryName = entry.getName().toLowerCase();
+                // Locale.ROOT: default-locale lower-casing mangles "I" under e.g. tr_TR
+                String entryName = entry.getName().toLowerCase(Locale.ROOT);
 
-                // Skip directories and unsupported files
+                // Skip directories, macOS resource-fork junk and unsupported files.
+                // Zips made with Finder/`zip` on a Mac carry "__MACOSX/._login.csv"
+                // shadow entries that end in a supported extension but are binary
+                // metadata, not data - parsing them throws or yields garbage rows.
                 if (entry.isDirectory()
+                    || isMacOsMetadata(entryName)
                     || (!entryName.endsWith(".xlsx")
                     && !entryName.endsWith(".xls")
                     && !entryName.endsWith(".csv")
@@ -62,14 +68,21 @@ public class ZipDataFileReader implements DataFileReader {
 
                 // Extract entry to a temp file
                 File tempFile = extractToTemp(zis, entry.getName());
-                List<DataRow> rows = registry.readAll(tempFile);
+                try {
+                    List<DataRow> rows = registry.readAll(tempFile);
 
-                for (DataRow row : rows) {
-                    runningIndex++;
-                    allRows.add(new DataRow(row.toMap(), runningIndex));
+                    for (DataRow row : rows) {
+                        runningIndex++;
+                        allRows.add(new DataRow(row.toMap(), runningIndex));
+                    }
+                } finally {
+                    // Delete right away (also when parsing throws) instead of only
+                    // deleteOnExit(), which leaked the temp file on failure and keeps
+                    // every path pinned in memory for the life of the JVM.
+                    if (!tempFile.delete()) {
+                        tempFile.deleteOnExit();
+                    }
                 }
-
-                tempFile.deleteOnExit();
                 zis.closeEntry();
             }
 
@@ -79,6 +92,15 @@ public class ZipDataFileReader implements DataFileReader {
 
         logger.info("[ZipDataFileReader] Total rows read from ZIP: " + allRows.size());
         return allRows;
+    }
+
+    private static boolean isMacOsMetadata(String lowerCaseEntryName) {
+        String normalized = lowerCaseEntryName.replace('\\', '/');
+        if (normalized.startsWith("__macosx/") || normalized.contains("/__macosx/")) {
+            return true;
+        }
+        String base = normalized.substring(normalized.lastIndexOf('/') + 1);
+        return base.startsWith("._");
     }
 
     private static File extractToTemp(ZipInputStream zis, String entryName) throws IOException {
