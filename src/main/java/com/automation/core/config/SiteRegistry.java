@@ -73,7 +73,11 @@ public final class SiteRegistry {
         // (config/jsonplaceholder.properties, "url" pointing at the public
         // JSONPlaceholder test API) and this one line. See ApiConfig's
         // javadoc and sites/jsonplaceholder/tests/JsonPlaceholderApiTest.java.
-        Map.entry("jsonplaceholder", new SiteDefinition(false))
+        Map.entry("jsonplaceholder", new SiteDefinition(false)),
+        // No-code API testing: requests are described in spec files (YAML/JSON/CSV) or an OpenAPI
+        // document and run by sites/apitest/tests/ApiSpecRunner - nothing to write per API.
+        // See docs/API_NO_CODE_GUIDE.md and Scripts/api-test.sh.
+        Map.entry("apitest", new SiteDefinition(false))
     );
 
     private SiteRegistry() {

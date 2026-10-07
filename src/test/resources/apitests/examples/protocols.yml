@@ -1,0 +1,33 @@
+# DEMO: GraphQL and SOAP with the same runner (public demo services - they can be slow or offline).
+# Run it:   ./Scripts/api-test.sh --spec src/test/resources/apitests/examples/protocols.yml
+# A case can set its own `baseUrl:` (used here to call two different hosts from one file).
+name: GraphQL and SOAP demo
+defaults:
+  retry: { count: 2, delayMs: 1000 }
+
+tests:
+  - name: GraphQL - look up a country
+    baseUrl: https://countries.trevorblades.com
+    graphql:                                   # POSTs to /graphql; any "errors" in the reply fails the test
+      query: "query($code: ID!) { country(code: $code) { name capital } }"
+      variables: { code: IN }
+    expect:
+      status: 200
+      body:
+        data.country.name: India
+        data.country.capital: New Delhi
+
+  - name: SOAP - add two numbers
+    post: http://www.dneonline.com/calculator.asmx      # a full URL is used as-is
+    soapAction: http://tempuri.org/Add
+    bodyText: |
+      <?xml version="1.0" encoding="utf-8"?>
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body>
+          <Add xmlns="http://tempuri.org/"><intA>2</intA><intB>3</intB></Add>
+        </soap:Body>
+      </soap:Envelope>
+    expect:
+      status: 200
+      xml:
+        Envelope.Body.AddResponse.AddResult: 5

@@ -1,5 +1,7 @@
 # API Testing: Simple Steps
 
+> **Looking for the fastest way?** For plain request/response tests with no code, one command and one HTML report, see [API_NO_CODE_GUIDE.md](API_NO_CODE_GUIDE.md) (`./Scripts/api-test.sh`). This page covers the Postman, security and rate-limit suites.
+
 You will test your project's API with the framework, using the Postman collection from the developer.
 
 Run every command in the project folder (the folder that contains `pom.xml`).

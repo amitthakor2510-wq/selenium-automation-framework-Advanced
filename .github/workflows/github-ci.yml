@@ -774,6 +774,17 @@ jobs:
               -Dmaven.test.failure.ignore=true
           fi
 
+      # Test gate marker. -Dmaven.test.failure.ignore=true above keeps this job
+      # green so reports still upload, which also means a failing test no
+      # longer fails the job. Record this leg's pass/fail counts here; the
+      # `test-gate` job at the bottom of this workflow downloads every leg's
+      # marker and fails the run if any leg has failures. if: always() so a
+      # leg that produced no results at all is recorded as "missing" and also
+      # trips the gate. See Scripts/test-gate.sh.
+      - name: Record test gate result
+        if: always()
+        run: bash Scripts/test-gate.sh record "${{ matrix.site }}-${{ matrix.browser }}"
+
       # Each matrix job's own runner/filesystem is already isolated from
       # the others, so there's no risk of two sites' results overwriting
       # each other here the way there would be if they ran in the same
@@ -822,6 +833,15 @@ jobs:
             target/videos/
             target/self-healing/
           retention-days: 7
+
+      - name: Upload test gate marker
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-${{ matrix.site }}-${{ matrix.browser }}
+          path: target/gate/
+          retention-days: 7
+          if-no-files-found: warn
 
       # Feeds the coverage-gate job below. Only uploaded from the
       # matrix.browser == 'chrome' leg once the browser matrix is enabled —
@@ -1250,6 +1270,23 @@ jobs:
             -Dreportportal.project=${{ secrets.RP_PROJECT }} \
             -Dreportportal.attributes="site:${{ matrix.site }};suite:api;ci:github-actions;run:${{ github.run_id }}" \
             -Dmaven.test.failure.ignore=true
+
+      # Test gate marker (see the `test` job and Scripts/test-gate.sh). Only
+      # recorded when this run actually produced results, so a site that was
+      # skipped above via `exit 0` (disabled in pipeline-config.properties)
+      # is not counted as a missing result.
+      - name: Record test gate result
+        if: always() && hashFiles('target/surefire-reports/testng-results.xml') != ''
+        run: bash Scripts/test-gate.sh record "${{ matrix.site }}-api"
+
+      - name: Upload test gate marker
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-${{ matrix.site }}-api
+          path: target/gate/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Upload Allure Results
         if: always()
@@ -2029,7 +2066,7 @@ jobs:
   # module docstring. Secrets aren't available to fork PRs; the script
   # treats an empty value as "not configured" and exits 0.
   notify:
-    needs: [ build, checkstyle, unit-tests, test, mobile-test, allure-report ]
+    needs: [ build, checkstyle, unit-tests, test, mobile-test, allure-report, test-gate ]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10   # default is 360; a hung browser/emulator would otherwise burn 6h of runner time
@@ -2055,3 +2092,39 @@ jobs:
           # cancellation -> cancelled, else success (skipped legs don't count).
           PIPELINE_RESULT: ${{ contains(needs.*.result, 'failure') && 'failure' || (contains(needs.*.result, 'cancelled') && 'cancelled' || 'success') }}
         run: python3 .github/workflows/scripts/notify_chat.py
+
+  # ================================================================
+  # FINAL JOB - Test gate
+  # ================================================================
+  # Every test job passes -Dmaven.test.failure.ignore=true so reports still
+  # build after a failing test, which also means mvn exits 0 and the run used
+  # to go green with failing tests. Each test/api-tests leg uploads a small
+  # gate-<leg> marker (see "Record test gate result" above); this job
+  # downloads all of them and fails the run if any leg has failures, no
+  # results, zero tests, or nothing passed. It is a separate job, so it can
+  # never block allure-report or the Pages deploy. mobile-test and perf-tests
+  # stay report-only by design.
+  # Tunables via `env:` on the step: GATE_FAIL_ON_SKIPPED=true.
+  test-gate:
+    needs: [ test, api-tests ]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download gate markers
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: gate-*
+          path: target/gate
+          merge-multiple: true
+
+      - name: Enforce test gate
+        env:
+          # Nothing to check is only legitimate when both upstream jobs were
+          # skipped (e.g. every site disabled in pipeline-config.properties).
+          GATE_ALLOW_EMPTY: ${{ needs.test.result == 'skipped' && needs.api-tests.result == 'skipped' }}
+        run: bash Scripts/test-gate.sh check

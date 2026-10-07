@@ -1,0 +1,119 @@
+# =====================================================================================
+#  TEMPLATE / CHEAT-SHEET  (files starting with "_" are never run)
+#  Copy to  src/test/resources/apitests/my-api.yml  and edit.  Everything is optional
+#  except `tests:`.  Full guide: docs/API_NO_CODE_GUIDE.md
+# =====================================================================================
+name: My API                         # shown in the report
+baseUrl: https://dev-api.company.com   # or leave out and pass --base-url / -Dapi.base.url
+                                       # (the command line always wins over this value)
+
+# Pick with  --env staging  (sets baseUrl / vars / headers on top of the values above)
+environments:
+  staging: { baseUrl: "https://stg-api.company.com", vars: { userId: 5 } }
+
+vars:                                  # ${name} anywhere below. ${env:X} = environment variable
+  userId: 1
+  password: ${env:API_PASSWORD}
+
+headers:                               # sent with every request
+  Accept: application/json
+
+auth:                                  # how requests log in (a case can override with its own `auth:`; `auth: none` = anonymous)
+  type: bearer                         # bearer | basic | apiKey | login | config | none
+  token: ${env:API_TOKEN}
+  # --- other types ---
+  # type: basic     { username: tester, password: "${password}" }
+  # type: apiKey    { name: x-api-key, in: header, value: "${env:API_KEY}" }     # in: header | query
+  # type: login     # sends a login request ONCE, reuses the token for every case
+  #   request: { method: POST, path: /auth/login, body: { user: tester, password: "${password}" } }
+  #   tokenPath: data.token
+
+defaults:
+  maxTimeMs: 3000                      # fail any response slower than this
+  timeoutMs: 30000                     # connect / read timeout
+  retry: { count: 1, delayMs: 500, onStatus: [502, 503, 504] }
+  insecure: false                      # true = accept self-signed HTTPS certificates
+  followRedirects: true
+
+tests:
+  - name: Health check
+    get: /health                       # get / post / put / patch / delete / head / options
+    tags: [smoke]
+    expect: 200                        # shorthand for { status: 200 }
+
+  - name: Create user
+    post: /users
+    headers: { X-Trace: "${uuid}" }
+    query: { notify: "false" }
+    body:                              # JSON. Numbers/booleans keep their type.
+      name: Test ${randomString:5}
+      email: ${randomEmail}
+      age: ${randomInt:18:60}
+    expect:
+      status: [200, 201]               # 201 | [200,201] | "2xx" | "200-299" | any
+      maxTimeMs: 2000
+      contentType: json
+      headers: { Location: { startsWith: /users/ } }
+      body:                            # JSON path -> expected value or operator
+        id: notNull
+        name: { startsWith: Test }
+        age: { between: [18, 60] }
+        roles: { contains: user }
+        "address.city": notEmpty
+        "items.size()": { gt: 0 }
+        deletedAt: absent
+      bodyContains: ["created"]
+      bodyNotContains: ["stack trace"]
+      schema: schemas/user.json        # JSON Schema file (next to this spec, in the project, or on the classpath)
+    extract:                           # remember values for later cases
+      userId: id
+      etag: "header:ETag"              # also: status | body | regex:<pattern> | xml:<path>
+    cleanup:                           # runs at the end of the run if this case succeeded
+      method: DELETE
+      path: /users/${userId}
+
+  - name: Read the user back
+    get: /users/${userId}
+    expect: { status: 200, body: { id: "${userId}" } }
+
+  - name: Update
+    put: /users/${userId}
+    bodyFile: payloads/update-user.json      # file with ${vars} inside, relative to this spec
+    expect: 200
+
+  - name: Upload a file
+    post: /files
+    multipart: { file: "file:payloads/sample.pdf", description: "hello" }   # "file:" = upload that file
+    expect: 201
+
+  - name: Login form
+    post: /login
+    form: { username: tester, password: "${password}" }                      # x-www-form-urlencoded
+    expect: { status: 200, body: { token: notEmpty } }
+
+  - name: Anonymous call is rejected
+    get: /users/me
+    auth: none
+    expect: { status: [401, 403] }
+
+  - name: "Row ${row.id}"                  # data-driven: one test per row (inline `data:` or `dataFile: users.csv|json|yml`)
+    get: /users/${id}
+    expect: { status: "${expected}" }
+    data:
+      - { id: 1, expected: 200 }
+      - { id: 99999, expected: 404 }
+
+  - name: Look up a country (GraphQL)       # POST to /graphql by default; "errors" in the reply fail the test
+    graphql:
+      query: "{ country(code: \"IN\") { name } }"
+    expect: { status: 200, body: { data.country.name: India } }
+
+  - name: Add (SOAP / XML)
+    post: /calculator.asmx
+    soapAction: http://tempuri.org/Add
+    bodyFile: payloads/add.xml
+    expect: { status: 200, xml: { Envelope.Body.AddResponse.AddResult: 5 } }
+
+  - name: Not ready yet
+    get: /beta
+    skip: "waiting for backend ticket 123"     # skip: true | "reason"

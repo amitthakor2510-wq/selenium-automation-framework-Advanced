@@ -718,6 +718,12 @@ pipeline {
                                         returnStatus: true
                                 )
                                 testResults[key] = exitCode
+                                // Test gate marker: -Dmaven.test.failure.ignore=true makes mvn
+                                // exit 0 even when tests fail, so exitCode above only catches
+                                // build/JVM crashes. Record this branch's real pass/fail counts
+                                // (unique file per site-browser); the final 'Test Gate' stage
+                                // fails the build on any failing leg. See Scripts/test-gate.sh.
+                                sh(script: "bash Scripts/test-gate.sh record ${key} target/surefire-reports/${key}", returnStatus: true)
                             }
                         }
                     }
@@ -796,6 +802,8 @@ pipeline {
                                     returnStatus: true
                             )
                             apiResults[site] = exitCode
+                            // Test gate marker, same as the per-site stage above.
+                            sh(script: "bash Scripts/test-gate.sh record ${site}-api target/surefire-reports/${site}-api", returnStatus: true)
                         }
                     }
                     if (params.REPORTPORTAL_ENABLE) {
@@ -1755,6 +1763,33 @@ pipeline {
                 }
             }
         }
+
+        // Final gate. Every mvn test run above passes
+        // -Dmaven.test.failure.ignore=true so reports still get built, which
+        // meant a failing test could never fail the build. Each branch now
+        // records its own counts under target/gate/, and this stage fails the
+        // build when any leg has failures, no results, zero tests, or nothing
+        // passed. It is the LAST stage on purpose: Allure/JUnit publishing in
+        // post{} still runs because post{always{}} executes regardless.
+        // Mobile/perf/security stay report-only (UNSTABLE) by design.
+        // Knob: GATE_FAIL_ON_SKIPPED=true on the sh line makes skips fail too.
+        stage('Test Gate') {
+            steps {
+                script {
+                    // No sites to run (every site disabled) is the only case
+                    // where "no gate files" is legitimate; API legs, if any
+                    // ran, still get checked.
+                    def allowEmpty = env.SITES_TO_RUN?.trim() ? 'false' : 'true'
+                    int gateExit = sh(
+                            script: "GATE_ALLOW_EMPTY=${allowEmpty} bash Scripts/test-gate.sh check",
+                            returnStatus: true
+                    )
+                    if (gateExit != 0) {
+                        error('Test gate failed: one or more test legs have failures or no results (see the Test Gate output above).')
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -2149,7 +2184,7 @@ for seg in segs:
             echo 'UNSTABLE: one or more sites had test failures. Check Allure and Extent reports.'
         }
         failure {
-            echo 'FAILED: check Build or Discover stage logs.'
+            echo 'FAILED: check Build/Discover stage logs, or the Test Gate stage for failing tests.'
         }
     }
 }

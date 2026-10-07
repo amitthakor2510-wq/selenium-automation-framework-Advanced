@@ -104,3 +104,6 @@ __pycache__/
 *.env
 docs/obsidian-vault/.obsidian/
 docs/obsidian-vault/.obsidian/
+
+# Local secrets (e.g. DASHBOARD_PASSWORD) — never commit
+.env

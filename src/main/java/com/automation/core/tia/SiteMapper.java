@@ -34,6 +34,8 @@ public final class SiteMapper {
         // class fell through to TIA's site-blind "unsafe/full suite" decision
         // instead of being scoped to just this site's tests.
         SITE_TEST_PACKAGE.put("jsonplaceholder", "com.automation.sites.jsonplaceholder");
+        // No-code API runner (spec-file driven) — see docs/API_NO_CODE_GUIDE.md.
+        SITE_TEST_PACKAGE.put("apitest", "com.automation.sites.apitest");
     }
 
     private SiteMapper() {

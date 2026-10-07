@@ -132,8 +132,8 @@
       "source": "docker-compose.yml · docker-compose.autoscale.yml · docker-compose.dashboard.yml · Scripts/grid-autoscaler.py",
       "summary": "The execution fabric. Instead of launching browsers on the CI host, tests open `RemoteWebDriver` sessions against a Dockerized Selenium Grid, so browsers are isolated, parallel and reproducible. The same compose files run on a laptop or a CI server.",
       "features": [
-        "Selenium Hub 4.21.0 with event bus on ports 4442 / 4443",
-        "Browser nodes: `node-chrome`, `node-firefox`, `node-edge` (4.21.0), each `SE_NODE_MAX_SESSIONS=3`, `shm_size: 3gb`",
+        "Selenium Hub 4.49.0 with event bus on ports 4442 / 4443",
+        "Browser nodes: `node-chrome`, `node-firefox`, `node-edge` (4.49.0), each `SE_NODE_MAX_SESSIONS=3`, `shm_size: 3gb`",
         "Live viewing through noVNC on each node",
         "`tests` container runs the suite inside the same Docker network",
         "Autoscale override (`docker-compose.autoscale.yml`) + `grid-autoscaler.py` adds/removes nodes with queue depth",

@@ -175,12 +175,12 @@
 
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
-    <aspectj.version>1.9.25</aspectj.version>
+    <aspectj.version>1.9.25.1</aspectj.version>
 
     <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
          dependency block below for the full rationale). Pinned as its own
          property so log4j-core / log4j-slf4j2-impl always move together. -->
-    <log4j.version>2.23.1</log4j.version>
+    <log4j.version>2.25.4</log4j.version>
 
     <!-- SLF4J — the logging API this project's own code, and
          WebDriverManager, compile against and call. Log4j2 above is what
@@ -234,7 +234,7 @@
          sandbox has no Maven Central access, so pin/version compatibility
          hasn't been build-verified here — run `mvn dependency:resolve`
          locally and bump if this version has since been superseded. -->
-    <datafaker.version>2.4.2</datafaker.version>
+    <datafaker.version>2.7.0</datafaker.version>
 
     <!-- Lombok — pinned explicitly (previously undeclared even though
          RegistrationPage.java uses @Getter, so it was resolving from an
@@ -243,7 +243,7 @@
          "NoSuchFieldError: JCTree$JCImport ... qualid" because JDK 21
          changed that internal field's type and old Lombok reflects into
          it assuming the pre-21 type. -->
-    <lombok.version>1.18.46</lombok.version>
+    <lombok.version>1.18.48</lombok.version>
 
     <!-- WebDriverManager — cache drivers so they are not re-downloaded every run.
          These must live here (not just in systemPropertyVariables) so they take
@@ -300,11 +300,13 @@
            pulls in an older commons-io that wins dependency mediation and
            shadows the one WebDriverManager actually needs, causing:
            NoSuchMethodError: FileTimes.fromUnixTime(long) at
-           TarArchiveEntry.parseTarHeaderUnwrapped during driver setup. -->
+           TarArchiveEntry.parseTarHeaderUnwrapped during driver setup.
+           2.20.0 (not 2.16.1) because poi-ooxml 5.5.x needs a newer
+           commons-io than the old pin, and this pin overrides POI's own. -->
       <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
-        <version>2.16.1</version>
+        <version>2.22.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -315,14 +317,14 @@
     <dependency>
       <groupId>org.seleniumhq.selenium</groupId>
       <artifactId>selenium-java</artifactId>
-      <version>4.21.0</version>
+      <version>4.50.0</version>
     </dependency>
 
     <!-- Tess4J - Tesseract for Java -->
     <dependency>
       <groupId>net.sourceforge.tess4j</groupId>
       <artifactId>tess4j</artifactId>
-      <version>5.12.0</version>
+      <version>5.20.0</version>
     </dependency>
 
     <!-- Logging — this project's own code (every class in com.automation),
@@ -381,14 +383,14 @@
     <dependency>
       <groupId>org.jacoco</groupId>
       <artifactId>org.jacoco.core</artifactId>
-      <version>0.8.12</version>
+      <version>0.8.15</version>
     </dependency>
 
     <!-- TestNG -->
     <dependency>
       <groupId>org.testng</groupId>
       <artifactId>testng</artifactId>
-      <version>7.9.0</version>
+      <version>7.12.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -402,7 +404,7 @@
            msedgedriver.azureedge.net CDN in mid-2025; 6.1.0 (previously
            pinned here) still pointed at the dead domain, causing
            UnknownHostException on every -Dbrowser=edge run. -->
-      <version>6.3.4</version>
+      <version>6.4.0</version>
     </dependency>
 
     <!-- Extent Reports (custom HTML report) -->
@@ -458,7 +460,7 @@
     <dependency>
       <groupId>com.epam.reportportal</groupId>
       <artifactId>agent-java-testng</artifactId>
-      <version>5.6.5</version>
+      <version>5.6.8</version>
       <scope>test</scope>
     </dependency>
 
@@ -475,7 +477,7 @@
     <dependency>
       <groupId>org.apache.poi</groupId>
       <artifactId>poi-ooxml</artifactId>
-      <version>5.2.5</version>
+      <version>5.5.1</version>
     </dependency>
 
     <!-- NOTE on Apache POI's logging: poi-ooxml logs through the Log4j2
@@ -490,7 +492,7 @@
     <dependency>
       <groupId>com.opencsv</groupId>
       <artifactId>opencsv</artifactId>
-      <version>5.9</version>
+      <version>5.12.0</version>
     </dependency>
 
     <!-- JSON — pinned as a DIRECT dependency (used by JsonDataFileReader and
@@ -508,14 +510,14 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.22.1</version>
+      <version>2.22.3</version>
     </dependency>
 
     <!-- YAML (DDT data files) -->
     <dependency>
       <groupId>org.yaml</groupId>
       <artifactId>snakeyaml</artifactId>
-      <version>2.2</version>
+      <version>2.7</version>
     </dependency>
 
     <!-- REST Assured — API testing (BookStoreApiTest hits DemoQA's BookStore/Account REST API) -->
@@ -593,7 +595,7 @@
     <dependency>
       <groupId>com.deque.html.axe-core</groupId>
       <artifactId>selenium</artifactId>
-      <version>4.9.1</version>
+      <version>4.13.0</version>
     </dependency>
 
     <!-- AShot — pixel-level visual regression screenshots/diffing, see
@@ -612,7 +614,7 @@
     <dependency>
       <groupId>io.appium</groupId>
       <artifactId>java-client</artifactId>
-      <version>9.3.0</version>
+      <version>10.1.1</version>
     </dependency>
 
     <!-- DataFaker — generates realistic-looking synthetic test data (names,
@@ -699,7 +701,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.6</version>
         <configuration>
           <suiteXmlFiles>
             <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
@@ -830,7 +832,7 @@
           <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-testng</artifactId>
-            <version>3.2.5</version>
+            <version>3.5.6</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -870,7 +872,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.12</version>
+        <version>0.8.15</version>
         <executions>
           <execution>
             <id>jacoco-prepare-agent</id>
@@ -1424,7 +1426,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
-            <version>3.2.5</version>
+            <version>3.5.6</version>
             <dependencies>
               <!-- Declared here (not just relying on the project's own
                    junit-jupiter test dependency above) so this plugin's own

@@ -24,6 +24,7 @@ stages:
   - test
   - report
   - pages
+  - gate
 
 # Both quality gates below reuse the same pom.xml executions the docs
 # describe as opt-in via `mvn verify` (see docs/reports-and-quality.md) —
@@ -407,6 +408,13 @@ test:
       -Dreportportal.launch="Selenium Automation Framework"
       -Dreportportal.attributes="site:$SITE;browser:$BROWSER;suite:$SUITE_TYPE;ci:gitlab;pipeline:$CI_PIPELINE_ID"
       -Dmaven.test.failure.ignore=true
+    # Test gate marker: -Dmaven.test.failure.ignore=true above keeps this job
+    # green so the report stage still runs, so record this leg's own pass/fail
+    # counts under a UNIQUE filename (target/gate/<site>-<browser>.txt). Unlike
+    # testng-results.xml, it survives GitLab's artifact merge across matrix
+    # legs. The `test-gate` job at the end of the pipeline fails on any leg
+    # with failures. See Scripts/test-gate.sh.
+    - bash Scripts/test-gate.sh record "$SITE-$BROWSER"
     # Same collision the comment above describes for surefire's
     # testng-results.xml applies to a bare target/jacoco.exec too — every
     # matrix instance would write that same path, and GitLab's artifact
@@ -433,6 +441,7 @@ test:
       - target/jacoco-artifacts/
       - target/videos/
       - target/self-healing/
+      - target/gate/
     reports:
       # NOTE: each matrix instance's own target/surefire-reports/testng-results.xml
       # lands at the same path, so GitLab's artifact merge keeps only one
@@ -978,6 +987,7 @@ api-tests:
       -Dreportportal.launch="Selenium Automation Framework"
       -Dreportportal.attributes="site:$SITE;suite:api;ci:gitlab;pipeline:$CI_PIPELINE_ID"
       -Dmaven.test.failure.ignore=true
+    - bash Scripts/test-gate.sh record "$SITE-api"
     - mkdir -p target/jacoco-artifacts
     - cp target/jacoco.exec target/jacoco-artifacts/$SITE-api.exec
   artifacts:
@@ -990,6 +1000,7 @@ api-tests:
       - target/logs/
       - target/surefire-reports/
       - target/jacoco-artifacts/
+      - target/gate/
     reports:
       junit: target/surefire-reports/*.xml
 
@@ -1347,3 +1358,34 @@ notify:
       artifacts: false
   only:
     - branches
+
+# ================================================================
+# FINAL STAGE - Test gate
+# ================================================================
+# Every test job passes -Dmaven.test.failure.ignore=true so the report
+# stage still runs after a failing test, which also means mvn exits 0 and
+# the pipeline used to go green with failing tests. Each test/api-tests leg
+# now records its own counts in target/gate/<leg>.txt (unique filenames, so
+# GitLab's artifact merge keeps every leg, unlike testng-results.xml where
+# only one leg survives). This job reads them all and fails the pipeline if
+# any leg has failures, no results, zero tests, or nothing passed.
+# It sits in its own last stage so a failure here can never block `report`
+# or `pages`. mobile-test/perf-tests/perf-smoke stay allow_failure by design.
+# Knobs (set under `variables:`): GATE_FAIL_ON_SKIPPED=true, GATE_ALLOW_EMPTY=true.
+test-gate:
+  stage: gate
+  interruptible: true
+  cache: []
+  variables:
+    GIT_CLEAN_FLAGS: -ffdx
+  needs:
+    - job: test
+      optional: true
+      artifacts: true
+    - job: api-tests
+      optional: true
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+  script:
+    - bash Scripts/test-gate.sh check

@@ -1,0 +1,13 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- No-code API tests: every request in the spec files (or generated from an OpenAPI document)
+     becomes one test. Requests run in file order, one at a time, so later requests can reuse
+     values extracted from earlier ones. Run through ./Scripts/api-test.sh, or directly:
+       mvn test -Dsite=apitest -DsuiteXmlFile=testng-suites/api-spec.xml [-Dapi.openapi=URL] [-Dapi.base.url=URL]
+     (See ApiSpecRunner's javadoc for every api.* key.) -->
+<suite name="API Spec Tests" parallel="none">
+  <test name="API Spec Tests" preserve-order="true">
+    <classes>
+      <class name="com.automation.sites.apitest.tests.ApiSpecRunner"/>
+    </classes>
+  </test>
+</suite>

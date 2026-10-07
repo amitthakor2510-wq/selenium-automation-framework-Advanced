@@ -1,0 +1,78 @@
+# DEMO: a complete REST example against the free public JSONPlaceholder API.
+# Run it:   ./Scripts/api-test.sh --example
+name: JSONPlaceholder demo
+baseUrl: https://jsonplaceholder.typicode.com
+
+defaults:
+  maxTimeMs: 5000          # every request must answer within 5 s
+  retry: { count: 1 }      # one retry on 502/503/504 or a network error
+
+vars:
+  title: "QA post ${randomString:6}"
+
+tests:
+  - name: List posts
+    get: /posts
+    tags: [smoke, read]
+    expect:
+      status: 200
+      contentType: json
+      body:
+        $: { type: array, sizeGte: 1 }
+        "[0].title": notEmpty
+
+  - name: Get one post (checked against a JSON schema)
+    get: /posts/1
+    tags: [smoke, read]
+    expect:
+      status: 200
+      schema: schemas/post.json
+      body: { id: 1, userId: notNull, title: notEmpty }
+
+  - name: Filter with query parameters
+    get: /comments
+    query: { postId: 1 }
+    expect:
+      status: 200
+      body:
+        $: { type: array, size: 5 }
+        "[*].postId": { contains: 1 }
+
+  - name: Create a post (and remember its id)
+    post: /posts
+    tags: [write]
+    body: { title: "${title}", body: "hello from the no-code runner", userId: 1 }
+    expect:
+      status: 201
+      body: { title: "${title}", id: notNull }
+    extract: { newId: id }
+
+  - name: Replace a post
+    put: /posts/1
+    tags: [write]
+    body: { id: 1, title: updated, body: updated body, userId: 1 }
+    expect: { status: 200, body: { title: updated } }
+
+  - name: Patch a post
+    patch: /posts/1
+    tags: [write]
+    body: { title: patched }
+    expect: { status: 200, body: { title: patched } }
+
+  - name: Delete a post
+    delete: /posts/1
+    tags: [write]
+    expect: 200
+
+  - name: Unknown post gives 404
+    get: /posts/999999
+    tags: [negative]
+    expect: 404
+
+  - name: "User ${id} exists"           # runs once per row below
+    get: /users/${id}
+    expect: { status: 200, body: { id: "${id}", name: "${name}" } }
+    data:
+      - { id: 1, name: Leanne Graham }
+      - { id: 2, name: Ervin Howell }
+      - { id: 3, name: Clementine Bauch }
