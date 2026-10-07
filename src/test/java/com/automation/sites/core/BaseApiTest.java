@@ -3,8 +3,13 @@ package com.automation.sites.core;
 import com.automation.core.api.ApiClient;
 import com.automation.core.api.CleanupRegistry;
 import com.automation.core.config.ConfigReader;
+import com.automation.core.report.ExtentManager;
+import com.automation.sites.listeners.TestListener;
+import org.testng.ITestContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Listeners;
 
 /**
  * Base for pure-HTTP API test classes (no browser). Mirrors BaseTest's
@@ -16,6 +21,7 @@ import org.testng.annotations.BeforeClass;
  * call it — picks up whatever -Dsite was passed for *this* run rather than
  * a value cached from a previous test class in the same JVM.
  */
+@Listeners({TestListener.class}) // same listener BaseTest uses: produces the Extent HTML report (TestListener is null-safe without a browser)
 public abstract class BaseApiTest {
 
     private final CleanupRegistry classCleanup = new CleanupRegistry("api-class");
@@ -24,6 +30,12 @@ public abstract class BaseApiTest {
     public void setUpApiClient() {
         ConfigReader.reset();
         ApiClient.configure();
+    }
+
+    /** Names the Extent report folder after the suite (as BaseTest does), instead of the generic "suite". */
+    @BeforeMethod(alwaysRun = true)
+    public void registerSuiteNameForReports(ITestContext context) {
+        ExtentManager.setActiveSuiteName(context.getSuite().getName());
     }
 
     /**

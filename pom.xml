@@ -268,6 +268,18 @@
          forked surefire JVM that actually runs the tests and initializes
          Log4j2, unless it's explicitly forwarded. -->
     <log.level>INFO</log.level>
+
+    <!-- Javadoc — see the maven-javadoc-plugin declaration in <build> below.
+         Version kept as its own property (same convention as
+         dependency-check.version/pitest.version) so it can be bumped without
+         hunting through the plugin block. javadoc.failOnError defaults to true
+         so a real Javadoc problem (e.g. an unresolvable type) is not silently
+         swallowed; override one-off with -Djavadoc.failOnError=false while
+         triaging. Could not be build-verified where this was added (no Maven
+         Central access) — run `mvn javadoc:javadoc` locally and bump the
+         version if it has since been superseded. -->
+    <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+    <javadoc.failOnError>true</javadoc.failOnError>
   </properties>
 
   <dependencyManagement>
@@ -985,6 +997,44 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- Javadoc — deliberately declared with NO <executions>, so it is not
+           bound to any lifecycle phase: `mvn test`/`mvn verify` (CI included)
+           are completely unaffected, same opt-in spirit as the perf/security/
+           mutation profiles. Invoke directly:
+             mvn javadoc:javadoc        -> target/site/apidocs      (src/main: core/, sites/*/pages, mobile/)
+             mvn javadoc:test-javadoc   -> target/site/testapidocs  (src/test: tests, listeners, unit tests)
+           Neither goal runs the test suite (they only fork generate-sources /
+           generate-test-sources).
+           doclint=none: the existing comments are long-form design notes with
+           raw <, >, & and loose {@link}s that strict doclint would reject as
+           errors; this keeps the docs buildable today without rewriting them.
+           Tighten later (e.g. all,-missing) once the comments are cleaned up.
+           sourceFileExcludes mirrors maven-compiler-plugin's testExcludes: the
+           perf sources need jmeter-java-dsl, which lives only in the "perf"
+           profile, so test-javadoc would fail resolving it on a default build. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>${maven-javadoc-plugin.version}</version>
+        <configuration>
+          <release>17</release>
+          <encoding>UTF-8</encoding>
+          <docencoding>UTF-8</docencoding>
+          <charset>UTF-8</charset>
+          <doclint>none</doclint>
+          <quiet>true</quiet>
+          <show>protected</show>
+          <failOnError>${javadoc.failOnError}</failOnError>
+          <failOnWarnings>false</failOnWarnings>
+          <windowtitle>Selenium Automation Framework API</windowtitle>
+          <doctitle>Selenium Automation Framework ${project.version} API</doctitle>
+          <sourceFileExcludes>
+            <sourceFileExclude>**/core/perf/**</sourceFileExclude>
+            <sourceFileExclude>**/sites/*/perf/**</sourceFileExclude>
+          </sourceFileExcludes>
+        </configuration>
       </plugin>
     </plugins>
   </build>

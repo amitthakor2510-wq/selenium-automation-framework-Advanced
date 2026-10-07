@@ -8,6 +8,7 @@
 
 ## 📋 Table of Contents
 - [🔁 Retry & Resilience](#-retry--resilience)
+- [✅ Soft Assertions — Verify & FailureHandling](#-soft-assertions--verify--failurehandling)
 - [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
 - [🌐 API Testing](#-api-testing)
 - [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
@@ -38,6 +39,35 @@ mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
 > **CI defaults to `retry.count=0`** in both the GitHub Actions workflow and typical Jenkins params, trading resilience for fast, unambiguous CI signal. Locally, leaving the default `2` in place absorbs one-off network/render hiccups without masking a real break.
 
 Page objects add a second layer of resilience beyond retry: several locators are wrapped to dump the full page source to `target/debug-dumps/*.html` on a `TimeoutException`/`NoSuchElementException`, rather than failing with only a stack trace. See [🧭 Debugging a Live Site Redesign](extending.md#-debugging-a-live-site-redesign--lessons-from-a-real-session) for why that pattern exists and how to use the dumps it produces.
+
+---
+
+## ✅ Soft Assertions — Verify & FailureHandling
+
+A plain `Assert.*` stops the test at the first failure. `Verify` (in `core/verify/`) wraps the same TestNG assertions but lets each check choose what a failure does:
+
+| `FailureHandling` | On failure | Test result |
+|---|---|---|
+| `STOP_ON_FAILURE` | Throws immediately (same as `Assert.*`) | Failed |
+| `CONTINUE_ON_FAILURE` | Records it, test keeps running | Failed at the end, **all** collected failures listed |
+| `OPTIONAL` | Logs a warning, test keeps running | Unaffected |
+
+```java
+Verify.verifyEquals(form.firstName(), "Amit", "first name", FailureHandling.CONTINUE_ON_FAILURE);
+Verify.verifyContains(form.output(), "amit@example.com", "email echoed", FailureHandling.CONTINUE_ON_FAILURE);
+Verify.verifyTrue(page.isPromoShown(), "promo banner", FailureHandling.OPTIONAL);
+
+// any existing Assert.* call can be wrapped:
+Verify.check("cart total", FailureHandling.CONTINUE_ON_FAILURE,
+    () -> Assert.assertEquals(cart.total(), 42.0, 0.001));
+```
+
+- Available checks: `verifyTrue/False`, `verifyEquals/NotEquals`, `verifyNull/NotNull`, `verifyContains`, `fail`, and the generic `check(...)`. Each has a variant without a mode, which uses `verify.failure.handling` (`global.properties`, default `STOP_ON_FAILURE`; override with `-Dverify.failure.handling=CONTINUE_ON_FAILURE`).
+- Every check returns `true` if it passed, so you can branch on it: `if (!Verify.verifyTrue(...)) { ... }`.
+- **No "assert all" call is needed.** `TestListener` folds the collected failures into the result after each test method, so a test that finished but had soft failures is reported as failed (and retried like any failure). If the test also failed on a hard assertion, the soft failures are attached to it as suppressed exceptions.
+- Reports: each check is an Allure step (passed / failed / broken for `OPTIONAL`); soft failures get a screenshot taken *when they fail*; `OPTIONAL` failures also appear as warnings in the Extent report.
+- Only `AssertionError` is handled. An exception while *computing* the value (e.g. an element not found) still stops the test.
+- Use it in `@Test` methods. Page objects still never call assertions.
 
 ---
 

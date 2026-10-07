@@ -107,10 +107,9 @@ public class ToolTipsPage extends BasePage {
         // Actions.moveToElement() was flaking specifically under headless
         // Chrome in CI (Jenkins runs this suite with -Dheadless=true).
         HumanActions.hover(driver, element);
-        try {
-            Thread.sleep(800);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
+        // No fixed sleep here: the caller (hoverAndGetTooltipText) immediately
+        // waits for .tooltip-inner to become visible, which returns as soon as
+        // the tooltip actually shows and times out (triggering the retry) if
+        // it never does. A blind pause before that wait only added latency.
     }
 }

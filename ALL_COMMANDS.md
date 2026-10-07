@@ -264,6 +264,13 @@ open target/site/jacoco/index.html   # macOS
 mvn verify
 mvn clean compile
 mvn checkstyle:check
+
+# Javadoc — opt-in, NOT bound to any phase (never runs as part of `mvn test`/`verify`)
+mvn javadoc:javadoc        # framework API (src/main)  -> target/site/apidocs/index.html
+mvn javadoc:test-javadoc   # tests/listeners (src/test) -> target/site/testapidocs/index.html
+mvn javadoc:javadoc javadoc:test-javadoc
+# triage a failure without stopping at the first error
+mvn javadoc:javadoc -Djavadoc.failOnError=false
 ```
 
 ---

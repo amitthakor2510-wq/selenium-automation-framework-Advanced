@@ -69,7 +69,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .vcard .ic{font-size:26px}.vcard b{display:block;margin:6px 0 2px}.vcard span{color:var(--muted);font-size:13px;line-height:1.4;display:block}
 .terms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 22px}
 .term{display:flex;gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px dashed var(--border)}
-.term b{min-width:104px}.term span{color:var(--muted)}
+.term b{min-width:118px;flex:none}.term span{color:var(--muted)}
 .paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .path{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);transition:.18s}
 .path:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--shadow-h)}
@@ -198,8 +198,8 @@ pre#code{margin:0;padding:16px;background:#0b1220;color:#d6e0f5;border-radius:10
 /* drawer */
 #scrim{position:fixed;inset:0;background:rgba(8,12,24,.45);opacity:0;pointer-events:none;transition:.2s;z-index:20}
 #scrim.on{opacity:1;pointer-events:auto}
-#drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 40px rgba(0,0,0,.25);transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:21;display:flex;flex-direction:column}
-#drawer.on{transform:none}
+#drawer{visibility:hidden;position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--surface);border-left:1px solid var(--border);box-shadow:-12px 0 40px rgba(0,0,0,.25);transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s;z-index:21;display:flex;flex-direction:column}
+#drawer.on{transform:none;visibility:visible;transition-delay:0s}
 .d-head{padding:22px 24px 16px;border-bottom:1px solid var(--border);border-top:5px solid var(--c,var(--accent));position:relative}
 .d-head h2{margin:0 0 8px;font-size:19px;font-weight:700;padding-right:34px}
 .d-head .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:99px;color:#fff;background:var(--c)}
@@ -209,12 +209,25 @@ pre#code{margin:0;padding:16px;background:#0b1220;color:#d6e0f5;border-radius:10
 .d-body h3{margin:20px 0 8px;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:650}
 .d-body p{margin:0;line-height:1.6}.d-body .lead{font-size:15.5px;font-weight:550}
 .d-body ul{margin:0;padding-left:20px}.d-body li{margin:5px 0}
-.d-body .chips a{cursor:pointer}
+.d-body .chips .lnk{cursor:pointer}
 .d-body .chip{white-space:normal;line-height:1.4;border-radius:10px;padding:5px 10px}
 .d-flow{list-style:none;padding:0!important;display:grid;gap:6px}
 .d-flow li{display:flex;gap:10px;align-items:flex-start;margin:0;font-size:13px}
 .d-flow .badge{width:22px;height:22px;font-size:12px;margin-top:1px}
 .err{color:#dc2626;padding:12px}
+#diagram g.node{cursor:pointer}
+.card:focus-visible,.tcard:focus-visible,.dot:focus-visible,.ctrls button:focus-visible,.tabs button:focus-visible,.path:focus-visible,.cta button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip.lnk{cursor:pointer;font:inherit;font-size:11.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media(max-width:700px){
+  .wrap{padding:0 16px}.top h1{font-size:19px}.kpis{gap:10px}.kpi{padding:12px 14px;gap:10px}.kpi b{font-size:22px;min-width:30px}
+  .hero{padding:22px 20px}.hero h2{font-size:23px}.ctrls{flex-wrap:wrap}.ctrls button.play{white-space:nowrap}.ctrls select{min-width:84px}
+  .tbl thead{display:none}.tbl,.tbl tbody,.tbl tr,.tbl td{display:block}.tbl tr{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .tbl td{border:0;padding:3px 0}.tbl td.n,.tbl td.arrow,.tbl td:nth-child(2),.tbl td:nth-child(4){display:inline-block;width:auto;padding:3px 6px 3px 0;vertical-align:middle}
+  .tbl td:nth-child(5){margin-top:6px}
+  code{white-space:normal;overflow-wrap:anywhere}.cmd code{font-size:12px}
+  #diagram svg{min-width:560px}.tdh{padding:18px 16px 12px}.tmeta,.cmd{padding-left:16px;padding-right:16px}.cmd{margin-left:16px;margin-right:16px}.pipewrap{padding:18px 16px 22px}
+}
 @media(max-width:1000px){.kpis{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.vgrid,.tgrid{grid-template-columns:repeat(2,1fr)}.terms,.paths{grid-template-columns:1fr}.lane{grid-template-columns:1fr}.lane-head{border-left:0;border-top:5px solid var(--c)}.cards{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.pipe{grid-auto-flow:row}.ps{padding:0 0 0 54px;text-align:left}.ps .c{left:0;margin-left:0}.ps:not(:last-child):after{display:none}.player{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -228,7 +241,7 @@ pre#code{margin:0;padding:16px;background:#0b1220;color:#d6e0f5;border-radius:10
 
 <div class="wrap">
   <section class="kpis" id="kpis"></section>
-  <nav class="tabs" id="tabs">
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Sections">
     <button data-tab="overview" class="on">Start here</button>
     <button data-tab="arch">Architecture</button>
     <button data-tab="diagram">Animated flow</button>
@@ -280,6 +293,22 @@ const layerIdx = id => cfg.layers.findIndex(l => l.id === node(id).layer);
 const lname = l => l.name.replace(/^Layer \d — /, "");
 const isDark = () => document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme:dark)").matches);
 const showTab = t => $(`#tabs button[data-tab=${t}]`).click();
+const mm = s => String(s).replace(/&/g,"#amp;").replace(/"/g,"#quot;").replace(/</g,"#lt;").replace(/>/g,"#gt;");
+async function copyText(text, btn, label){
+  let ok = false;
+  try{ await navigator.clipboard.writeText(text); ok = true; }
+  catch(_){ const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+    try{ ok = document.execCommand("copy"); }catch(__){} ta.remove(); }
+  btn.textContent = ok ? "Copied ✓" : "Press Ctrl+C"; setTimeout(() => btn.textContent = label, 1500);
+}
+function normalize(c){
+  c.stepTitles = c.stepTitles || {}; c.categories = c.categories || []; c.testTypes = c.testTypes || [];
+  c.overview = Object.assign({headline:c.title||"Framework architecture", text:"", moves:[], values:[], terms:[]}, c.overview || {});
+  c.nodes.forEach(n => { n.features = n.features || []; n.stack = n.stack || []; n.neighbours = n.neighbours || []; n.summary = n.summary || "";
+    n.tagline = n.tagline || n.short || n.label; n.short = n.short || n.tagline; n.bullets = n.bullets || n.features.slice(0,4); n.source = n.source || "—"; });
+  c.flows.forEach(f => { f.text = f.text || f.label || ""; f.plain = f.plain || f.label || f.text; f.label = f.label || f.plain; });
+  return c;
+}
 
 /* ================= Player (shared by Architecture + Animated flow) ================= */
 const P = {i:-1, playing:false, timer:null, ms:2800, list:[]};
@@ -295,7 +324,7 @@ function renderBars(){
       <button data-act="next" title="Next step">⏭</button>
       <select data-act="speed" title="Speed"><option value="4200" ${P.ms==4200?"selected":""}>Slow</option><option value="2800" ${P.ms==2800?"selected":""}>Normal</option><option value="1600" ${P.ms==1600?"selected":""}>Fast</option></select>
     </div>
-    <div class="cap">${st ? `<div class="big">${st.num}</div><div><b>${esc(st.title)}</b><span>${st.flows.map(f => esc(f.plain)).join(" ")}</span></div>`
+    <div class="cap" aria-live="polite">${st ? `<div class="big">${st.num}</div><div><b>${esc(st.title)}</b><span>${st.flows.map(f => esc(f.plain)).join(" ")}</span></div>`
                           : `<div class="big idle">▶</div><div><b>Watch one test run, step by step</b><span>Press play — each step lights up the blocks involved.</span></div>`}</div>
     <div class="dots">${P.list.map((s,k) => `<button class="dot ${k<P.i?"done":""} ${k===P.i?"cur":""}" data-act="goto" data-k="${k}" title="${s.num}. ${esc(s.title)}"></button>`).join("")}</div>`;
   $$("[data-player]").forEach(el => el.innerHTML = html);
@@ -306,10 +335,10 @@ function highlight(){
   $$(".card").forEach(c => { c.classList.toggle("active", act.has(c.dataset.id)); c.classList.toggle("dim", !!st && !act.has(c.dataset.id)); });
   $$(".pill[data-step],.returns li[data-step]").forEach(e => e.classList.toggle("on", !!st && e.dataset.step.split(",").includes(st.num)));
   const svg = $("#diagram svg"); if (!svg) return;
-  svg.querySelectorAll("g.node").forEach(n => { const id = n.id.replace(/^flowchart-/,"").replace(/-\d+$/,"");
+  svg.querySelectorAll("g.node").forEach(n => { const mt = /^flowchart-(.+)-\d+$/.exec(n.id); const id = mt ? mt[1] : "";
     n.classList.toggle("m-active", act.has(id)); n.classList.toggle("m-dim", !!st && !act.has(id)); });
-  const live = new Set(st ? st.flows.map(f => `${f.from}>${f.to}`) : []);
-  svg.querySelectorAll("path.flowchart-link").forEach(p => { const m = (p.id||"").split("_"); const on = live.has(`${m[1]}>${m[2]}`);
+  const live = st ? st.flows.map(f => `L_${f.from}_${f.to}_`) : [];
+  svg.querySelectorAll("path.flowchart-link").forEach(p => { const on = live.some(pre => (p.id||"").startsWith(pre));
     p.classList.toggle("m-active", on); p.classList.toggle("m-dim", !!st && !on); });
   svg.querySelectorAll(".edgeLabel").forEach(l => { const on = !!st && l.textContent.trim() === st.num;
     l.classList.toggle("m-active", on); l.classList.toggle("m-dim", !!st && !on); });
@@ -334,10 +363,9 @@ document.addEventListener("change", e => { if (e.target.dataset.act === "speed")
 /* ================= Mermaid ================= */
 function buildMermaid(c){
   const L = ["flowchart TB"];
-  c.nodes.forEach(n => L.push(`  ${n.id}["<b>${n.label}</b><br/>${n.tagline}"]:::${n.layer}`));
-  c.flows.forEach(f => L.push(`  ${f.from} -->|"${NUM(f.step)}"| ${f.to}`));
+  c.nodes.forEach(n => L.push(`  ${n.id}["<b>${mm(n.label)}</b><br/>${mm(n.tagline)}"]:::${n.layer}`));
+  c.flows.forEach(f => L.push(`  ${f.from} -->|"${mm(NUM(f.step))}"| ${f.to}`));
   c.layers.forEach(ly => L.push(`  classDef ${ly.id} fill:${ly.color}22,stroke:${ly.color},stroke-width:2px,color:inherit`));
-  c.nodes.forEach(n => L.push(`  click ${n.id} call showNode("${n.id}")`));
   return L.join("\n");
 }
 async function drawDiagram(){
@@ -345,8 +373,14 @@ async function drawDiagram(){
   mermaid.initialize({startOnLoad:false, securityLevel:"loose", theme:isDark() ? "dark" : "default",
     themeVariables:{fontFamily:"Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif", fontSize:"14px"},
     flowchart:{htmlLabels:true, curve:"basis", nodeSpacing:60, rankSpacing:60, padding:14, wrappingWidth:220, useMaxWidth:true}});
-  try{ const {svg} = await mermaid.render("arch-" + Date.now(), code); $("#diagram").innerHTML = svg; diagramStale = false; highlight(); }
+  try{ const {svg} = await mermaid.render("arch-" + Date.now(), code); $("#diagram").innerHTML = svg; diagramStale = false; wireDiagram(); highlight(); }
   catch(e){ $("#diagram").innerHTML = `<div class="err">Diagram error: ${esc(e.message)}</div>`; }
+}
+
+function wireDiagram(){
+  $$("#diagram g.node").forEach(n => { const m = /^flowchart-(.+)-\d+$/.exec(n.id); if (!m || !node(m[1])) return; const id = m[1];
+    n.setAttribute("tabindex","0"); n.setAttribute("role","button"); n.setAttribute("aria-label", node(id).label + " — open details");
+    n.addEventListener("click", () => showNode(id)); n.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); showNode(id); } }); });
 }
 
 /* ================= Overview ================= */
@@ -354,7 +388,7 @@ function renderOverview(){
   const o = cfg.overview;
   $("#tab-overview").innerHTML = `
   <div class="hero rise"><div><h2>${esc(o.headline)}</h2><p>${esc(o.text)}</p>
-    <div class="cta"><button class="p" data-go="diagram">▶ Watch a test run</button><button data-go="types">What can it test?</button><button data-go="arch">See the architecture</button></div></div>
+    <div class="cta"><button class="p" data-go="diagram" data-play="1">▶ Watch a test run</button><button data-go="types">What can it test?</button><button data-go="arch">See the architecture</button></div></div>
     <div class="moves">${o.moves.map((m,i) => `<div class="move rise" style="--i:${i+2}"><span class="n">${i+1}</span><span class="ic" style="--i:${i}">${m.icon}</span><b>${esc(m.t)}</b><span>${esc(m.d)}</span></div>`).join("")}</div></div>
   <div class="h2">What you get</div>
   <div class="vgrid">${o.values.map((v,i) => `<div class="vcard rise" style="--i:${i}"><span class="ic">${v.icon}</span><b>${esc(v.t)}</b><span>${esc(v.d)}</span></div>`).join("")}</div>
@@ -364,7 +398,7 @@ function renderOverview(){
   <div class="paths"><button class="path" data-go="arch"><b>🏛️ The big picture</b><span>4 layers, 12 building blocks. Click any block for details.</span><em>Open architecture →</em></button>
     <button class="path" data-go="diagram"><b>🎬 A run in motion</b><span>Watch the 11 steps light up from trigger to report.</span><em>Play the animation →</em></button>
     <button class="path" data-go="types"><b>🧪 Every kind of test</b><span>${cfg.testTypes.length} test types, each with its own animated flow.</span><em>Explore test types →</em></button></div>`;
-  $$("[data-go]").forEach(b => b.onclick = () => showTab(b.dataset.go));
+  $$("[data-go]").forEach(b => b.onclick = async () => { showTab(b.dataset.go); if (b.dataset.play){ await new Promise(r => setTimeout(r, 450)); stop(); P.i = -1; play(); } });
 }
 
 /* ================= Architecture ================= */
@@ -380,7 +414,7 @@ function renderArch(){
           <h4>${esc(n.label)}</h4><div class="tl">${esc(n.short)}</div><div class="more">Click for details →</div></button>`; }).join("")}</div></div>`;
     if (i < cfg.layers.length-1){
       const here = adj.filter(x => Math.min(x.a,x.b) === i);
-      html += `<div class="conn">${here.length ? `<span class="pill" data-step="${here.map(x => NUM(x.f.step)).join(",")}">${here.map(x => `<b>${NUM(x.f.step)}</b> ${esc(x.f.plain)}`).join(" &nbsp;·&nbsp; ")}</span>` : ""}</div>`;
+      html += `<div class="conn">${here.length ? `<span class="pill" data-step="${here.map(x => NUM(x.f.step)).join(",")}">${[...new Set(here.map(x => NUM(x.f.step)))].map(n => `<b>${n}</b> ${esc(here.find(x => NUM(x.f.step) === n).f.plain)}`).join(" &nbsp;·&nbsp; ")}</span>` : ""}</div>`;
     }
   });
   $("#lanes").innerHTML = html;
@@ -392,6 +426,7 @@ function renderArch(){
 /* ================= Testing types ================= */
 const T = {cat:"All", id:null, i:-1, timer:null};
 function renderTypes(){
+  if (!cfg.testTypes.length){ $("#tab-types").innerHTML = '<p class="hint">No test types defined in the JSON.</p>'; return; }
   const cats = [{id:"All",color:"var(--accent)"}, ...cfg.categories];
   const list = cfg.testTypes.filter(t => T.cat === "All" || t.category === T.cat);
   if (!T.id || !cfg.testTypes.find(t => t.id === T.id)) T.id = list[0].id;
@@ -399,13 +434,14 @@ function renderTypes(){
   $("#tab-types").innerHTML = `
     <p class="hint">Pick a test type to see how it flows from start to report. Each flow plays automatically — press replay to watch again.</p>
     <div class="tfilter">${cats.map(c => `<button data-cat="${c.id}" style="--c:${c.color}" class="${T.cat===c.id?"on":""}">${c.id}</button>`).join("")}</div>
-    <div class="tgrid">${list.map((t,i) => `<button class="tcard rise ${t.id===T.id?"on":""}" data-t="${t.id}" style="--c:${colorOf(t.category)};--i:${i}"><span class="ic">${t.icon}</span><b>${esc(t.name)}</b><span>${esc(t.tagline)}</span></button>`).join("")}</div>
+    <div class="tgrid">${list.map((t,i) => `<button class="tcard rise ${t.id===T.id?"on":""}" aria-pressed="${t.id===T.id}" data-t="${t.id}" style="--c:${colorOf(t.category)};--i:${i}"><span class="ic">${t.icon}</span><b>${esc(t.name)}</b><span>${esc(t.tagline)}</span></button>`).join("")}</div>
     <div id="tdetail"></div>`;
   $$(".tfilter button").forEach(b => b.onclick = () => { T.cat = b.dataset.cat; T.id = null; renderTypes(); });
-  $$(".tcard").forEach(b => b.onclick = () => { T.id = b.dataset.t; renderTypes(); });
+  $$(".tcard").forEach(b => b.onclick = () => { T.id = b.dataset.t; $$(".tcard").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", x === b); }); renderTypeDetail(colorOf); });
   renderTypeDetail(colorOf);
 }
 function renderTypeDetail(colorOf){
+  colorOf = colorOf || (c => (cfg.categories.find(x => x.id === c)||{}).color || "var(--accent)");
   const t = cfg.testTypes.find(x => x.id === T.id); const c = colorOf(t.category);
   $("#tdetail").innerHTML = `<div class="tdetail" style="--c:${c}">
     <div class="tdh"><div><span class="catb">${esc(t.category)}</span><h3>${t.icon} ${esc(t.name)}</h3><p>${esc(t.what)}</p></div></div>
@@ -413,7 +449,7 @@ function renderTypeDetail(colorOf){
     <div class="cmd"><code id="tcmd">${esc(t.cmd)}</code><button id="tcopy">Copy</button></div>
     <div class="pipewrap"><div class="pipehead"><b>How it flows — ${t.steps.length} steps</b><button id="treplay">↺ Replay</button></div>
       <div class="pipe" id="pipe">${t.steps.map((s,k) => `<div class="ps todo" data-k="${k}"><div class="c">${k+1}</div><b>${esc(s.t)}</b><span>${esc(s.d)}</span></div>`).join("")}</div></div></div>`;
-  $("#tcopy").onclick = async e => { await navigator.clipboard.writeText(t.cmd); e.target.textContent = "Copied ✓"; setTimeout(() => e.target.textContent = "Copy", 1400); };
+  $("#tcopy").onclick = e => copyText(t.cmd, e.target, "Copy");
   $("#treplay").onclick = () => playType(t);
   $$("#pipe .ps").forEach(p => p.onclick = () => { clearTimeout(T.timer); setTypeStep(+p.dataset.k); });
   playType(t);
@@ -458,21 +494,26 @@ window.showNode = id => {
       <h3>Tech stack</h3><div class="chips" style="--c:${ly.color}">${n.stack.map(s => `<span class="chip">${esc(s.replace(/`/g,""))}</span>`).join("")}</div>
       <details style="margin-top:16px"><summary>Technical details</summary><p style="margin:8px 0;color:var(--muted)">${md(n.summary)}</p><ul>${n.features.map(f => `<li>${md(f)}</li>`).join("")}</ul>
       <h3>Source in repository</h3><p><code>${esc(n.source)}</code></p></details>
-      <h3>Connected blocks</h3><div class="chips">${n.neighbours.map(i => `<a class="chip" data-id="${i}" style="--c:${layerOf(i).color}">${esc(node(i).label)}</a>`).join("")}</div></div>`;
+      <h3>Connected blocks</h3><div class="chips">${n.neighbours.map(i => `<button class="chip lnk" data-id="${i}" style="--c:${layerOf(i).color}">${esc(node(i).label)}</button>`).join("")}</div></div>`;
   $("#drawer").classList.add("on"); $("#scrim").classList.add("on"); $("#drawer").setAttribute("aria-hidden","false");
   $("#drawer .x").onclick = closeDrawer;
-  $("#drawer").querySelectorAll(".chips a").forEach(a => a.onclick = () => showNode(a.dataset.id));
+  $("#drawer").querySelectorAll(".chips .lnk").forEach(a => a.onclick = () => showNode(a.dataset.id));
+  lastFocus = lastFocus || document.activeElement; $("#drawer .x").focus({preventScroll:true});
   $("#drawer .d-body").scrollTop = 0;
 };
-function closeDrawer(){ $("#drawer").classList.remove("on"); $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden","true"); }
+let lastFocus = null;
+function closeDrawer(){ if (!$("#drawer").classList.contains("on")) return; $("#drawer").classList.remove("on"); if (lastFocus && lastFocus.focus) lastFocus.focus({preventScroll:true}); lastFocus = null; $("#scrim").classList.remove("on"); $("#drawer").setAttribute("aria-hidden","true"); }
 $("#scrim").onclick = closeDrawer; addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 
 /* ================= wiring ================= */
-async function load(){
-  $("#status").textContent = "Loading…"; stop();
+let lastRaw = "";
+async function load(force = true){
+  if (force) $("#status").textContent = "Loading…";
   try{
     const r = await fetch(CONFIG_URL, {cache:"no-store"}); if (!r.ok) throw new Error(r.status + " " + r.statusText);
-    cfg = await r.json(); P.i = -1; diagramStale = true; renderStatic();
+    const raw = await r.text();
+    if (!force && raw === lastRaw){ $("#status").textContent = "Checked " + new Date().toLocaleTimeString() + " · no changes"; return; }
+    stop(); lastRaw = raw; const keep = P.i; cfg = normalize(JSON.parse(raw)); diagramStale = true; renderStatic(); setStep(Math.min(keep, P.list.length-1));
     if ($("#tab-diagram").classList.contains("on")) await drawDiagram(); else $("#code").textContent = buildMermaid(cfg);
     $("#status").textContent = "Updated " + new Date().toLocaleTimeString();
   }catch(e){
@@ -486,13 +527,15 @@ $("#tabs").onclick = async e => {
   if (b.dataset.tab !== "arch" && b.dataset.tab !== "diagram") { stop(); renderBars(); }
   if (b.dataset.tab === "diagram" && cfg && diagramStale) await drawDiagram();
   if (b.dataset.tab === "types" && cfg){ const t = cfg.testTypes.find(x => x.id === T.id); if (t) playType(t); }
-  scrollTo({top:0});
+  b.parentElement.querySelectorAll("button").forEach(x => x.setAttribute("aria-selected", x === b));
+  history.replaceState(null, "", "#" + b.dataset.tab); scrollTo({top:0});
 };
-$("#reload").onclick = load;
-$("#copy").onclick = async e => { await navigator.clipboard.writeText($("#code").textContent); e.target.textContent = "Copied ✓"; setTimeout(() => e.target.textContent = "Copy code", 1500); };
-$("#theme").onclick = async () => { document.documentElement.dataset.theme = isDark() ? "light" : "dark"; diagramStale = true; if ($("#tab-diagram").classList.contains("on")) await drawDiagram(); };
-$("#auto").onchange = e => { clearInterval(refreshTimer); if (e.target.checked) refreshTimer = setInterval(load, 30000); };
-load();
+$("#reload").onclick = () => load(true);
+$("#copy").onclick = e => copyText($("#code").textContent, e.target, "Copy code");
+try{ const saved = localStorage.getItem("arch-theme"); if (saved) document.documentElement.dataset.theme = saved; }catch(_){}
+$("#theme").onclick = async () => { document.documentElement.dataset.theme = isDark() ? "light" : "dark"; try{ localStorage.setItem("arch-theme", document.documentElement.dataset.theme); }catch(_){} diagramStale = true; if ($("#tab-diagram").classList.contains("on")) await drawDiagram(); };
+$("#auto").onchange = e => { clearInterval(refreshTimer); if (e.target.checked) refreshTimer = setInterval(() => load(false), 30000); };
+load(true).then(() => { const t = location.hash.slice(1); if (t && $(`#tabs button[data-tab="${t}"]`)) showTab(t); });
 </script>
 </body>
 </html>

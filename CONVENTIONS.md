@@ -83,6 +83,9 @@ generates and why all three exist.
   reference `RetryAnalyzer` from a test class directly.
 - Assertions use TestNG's `Assert`, not AssertJ/Hamcrest/etc. — nothing else
   is a dependency in this project.
+- Need a check that shouldn't end the test (several independent field checks,
+  an informational check)? Use `Verify.verify*(…, FailureHandling.CONTINUE_ON_FAILURE | OPTIONAL)`
+  instead of a bare `Assert` — see [testing-guide.md](docs/testing-guide.md#-soft-assertions--verify--failurehandling).
 
 ---
 

@@ -11,6 +11,7 @@ import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
 import com.automation.core.utils.VideoRecorder;
 import com.automation.core.utils.ZipUtils;
+import com.automation.core.verify.Verify;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
 import com.epam.reportportal.message.ReportPortalMessage;
@@ -134,6 +135,10 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
 
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult result) {
+        // Lets Verify (soft assertions) screenshot the browser at the moment a check fails.
+        // Bound for every invocation, @BeforeMethod included, since checks may run there too;
+        // lazy because the driver doesn't exist yet when a @BeforeMethod starts.
+        Verify.bindDriver(() -> getDriver(result));
         if (!method.isTestMethod()) {
             return;
         }
@@ -210,7 +215,28 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         // removed instead in tearDown()'s own finally block, once teardown
         // logging has actually happened, which is also guaranteed to run
         // (alwaysRun = true) so this thread's next test still starts clean.
+        // Soft assertions (Verify / FailureHandling) must be folded into the result FIRST:
+        // a test whose body finished but which collected CONTINUE_ON_FAILURE failures is flipped
+        // to FAILURE here, before afterTestInvocation() picks its Pass/Failure branch, before
+        // TestNG notifies the ITestListeners (Allure, Extent) and before RetryAnalyzer decides
+        // whether to re-run it.
+        try {
+            reportVerifications(Verify.applyToResult(result));
+        } finally {
+            Verify.unbindDriver();
+        }
         afterTestInvocation(method, result);
+    }
+
+    /** OPTIONAL checks never fail a test, so the Extent report is the only place besides the
+     *  log and the Allure steps that shows they didn't hold. */
+    private void reportVerifications(Verify.Outcome outcome) {
+        if (outcome.warnings().isEmpty() || test.get() == null) {
+            return;
+        }
+        for (Verify.Failure warning : outcome.warnings()) {
+            test.get().warning("Optional check failed: " + warning.message());
+        }
     }
 
     private void afterTestInvocation(IInvokedMethod method, ITestResult result) {
