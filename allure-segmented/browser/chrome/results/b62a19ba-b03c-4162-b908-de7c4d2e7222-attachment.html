@@ -1,0 +1,1264 @@
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta name="context-path" content="/PermissionPortal/permission/">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>SAHMAT</title>
+  <meta content="" name="description">
+  <meta content="" name="keywords">
+
+  <link rel="icon" type="image/png" href="/PermissionPortal/assets/images/ac-logo.png">
+  <link href="assets/images/ac-logo.png" rel="apple-touch-icon">
+  <meta name="_csrf" content="Otz1qjgEynNqgDUt1CE09JMsfz0zDzD5a_ZBkVEXPFJyHdpyXunGz140_0pHtlFMsgwAkaYZUgQKbgLUDZAgoWEiDDRCK-oQ">
+
+  <meta name="_csrf_header" content="X-CSRF-TOKEN">
+  <meta name="abcd" content="bXVz">
+  <meta name="jklm" content="dGJl">
+  <meta name="mmnn" content="MTZieXRlc2tleQ==">
+
+
+  <link rel="stylesheet" href="/PermissionPortal/css/loader.css">
+  <link rel="stylesheet" href="/PermissionPortal/asset/js/rev-slider/css/settings.css" media="all">
+  <link rel="stylesheet" href="/PermissionPortal/asset/js/rev-slider/css/layers.css" media="all">
+  <link rel="stylesheet" href="/PermissionPortal/asset/js/rev-slider/css/navigation.css" media="all">
+  <link href="/PermissionPortal/css/all.min.css" rel="stylesheet">
+  <link href="/PermissionPortal/assets/css/website_translation_utility.css" rel="stylesheet">
+  <!-- <link th:href="@{/css/change.css}" rel="stylesheet"> -->
+
+  <link rel="stylesheet" href="/PermissionPortal/asset/admin/css/all.min.css" media="all">
+  <link rel="stylesheet" href="/PermissionPortal/css/bootstrap5.3.min.css" media="all">
+  <link rel="stylesheet" href="/PermissionPortal/css/styleindex.css" media="all">
+  <link rel="stylesheet" href="/PermissionPortal/css/swiper.min.css">
+  <link href="css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/PermissionPortal/assets/css/fregment.css" rel="stylesheet">
+  <script src="/PermissionPortal/assets/js/newhomepage.js"></script>
+
+  <link href="/PermissionPortal/assets/css/homestyle.css" rel="stylesheet">
+  <!-- <link th:href="@{/assets/css/website_translation_utility.css}" rel="stylesheet" /> -->
+
+  <link rel="stylesheet" type="text/css" href="/PermissionPortal/css/toastify.min.css">
+
+  <link rel="stylesheet" href="/PermissionPortal/css/styleindex.css">
+
+  <link rel="stylesheet" href="/PermissionPortal/css/fragmentsheader.css">
+
+</head>
+
+<body class="modal-open" style="overflow: hidden; padding-right: 15px;">
+
+  <div class="loader-overlay" id="loader" style="display: none;">
+    <div class="d-flex align-items-center justify-content-center">
+      <div class="d-flex align-items-center justify-content-center rounded-circle spinner-gradient">
+        <!-- From Uiverse.io by dovatgabriel -->
+        <div class="three-body">
+          <div class="three-body__dot"></div>
+          <div class="three-body__dot"></div>
+          <div class="three-body__dot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="hero">
+
+
+    <header class="navbar pb-0">
+
+    <div class="navbar-top w-100">
+
+      <div class="top-grey-strip">
+        <div class="container container-top d-flex justify-content-between align-items-center">
+
+          <div class="headerLeft d-flex align-items-center">
+            <span class="flag-icon-container me-2"><img src="/PermissionPortal/assets/images/indian-flag.png" alt="India Flag"></span>
+            <span class="gov-text-en font-weight-bold">GOVERNMENT OF INDIA</span>
+            <span class="gov-separator mx-2">|</span>
+            <span class="gov-text-hi font-weight-bold">भारत सरकार</span>
+          </div>
+
+          <div class="headerRight d-flex align-items-center">
+
+            <div class="bhashini-plugin-container me-2" title="Select Language / भाषा चुनें" data-bs-toggle="tooltip" data-bs-placement="bottom"></div>
+
+
+            <button class="sr-btn me-2" id="srHoverMode" data-bs-toggle="tooltip" data-bs-placement="bottom">
+              <i class="fab fa-hand-o-up"></i> Screen Reader
+            </button>
+
+            <ul class="fontSizeChange d-flex align-items-center mb-0">
+              <li class="text-dark" title="Increase Font Size (+A)"><button id="increaseFont" class="btnFont" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Increase Font Size (+A)">+A</button></li>
+              <li class="text-dark" title="Reset Font Size (A)"><button id="resetFont" class="btnFont" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Reset Font Size (A)">A</button></li>
+              <li class="text-dark me-3 border-end" title="Decrease Font Size (-A)"><button id="decreaseFont" class="btnFont" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Decrease Font Size (-A)">-A</button></li>
+
+
+
+              <li class="noBorder" title="Toggle Theme (Light / Dark Mode)">
+                <a href="javascript:void(0);" title="Toggle Theme (Light / Dark Mode)" data-bs-toggle="tooltip" data-bs-placement="bottom" class="theme-toggle" data-css="/PermissionPortal/assets/css/change.css">
+                  <img id="themeIcon" src="/PermissionPortal/assets/images/dark-mode.png" data-dark="/PermissionPortal/assets/images/dark-mode.png" data-light="/PermissionPortal/assets/images/light-mode.png" alt="Toggle Theme" style="width: 2rem;">
+                </a>
+              </li>
+
+
+
+            </ul>
+
+          </div>
+
+        </div>
+      </div>
+
+      <div class="container mobile-responsive container-logo d-flex justify-content-between align-items-center">
+
+        <div class="header-logos-container d-flex align-items-center">
+          <a href="https://www.indiaculture.gov.in/" class="header-logo-link" target="_blank">
+            <img src="/PermissionPortal/images/Ministry_of_Culture_India.png" alt="Ministry of Culture" class="header-logo-img logo-ministry">
+          </a>
+          <div class="logo-separator"></div>
+          <a href="https://asi.nic.in/" class="header-logo-link" target="_blank">
+            <img src="/PermissionPortal/assets/images/ASI_Logo.png" alt="Archaeological Survey of India" class="header-logo-img logo-asi">
+          </a>
+          <!-- <div class="logo-separator"></div>
+            <a th:href="@{/}" class="header-logo-link">
+              <img th:src="@{/img/asilogo.png}" alt="SAHMAT Portal" class="header-logo-img logo-sahmat" />
+            </a> -->
+        </div>
+
+        <input type="checkbox" id="menu-toggle" class="menu-toggle">
+
+        <label for="menu-toggle" class="hamburger">
+          <i class="fas fa-bars icon-open"></i>
+          <i class="fas fa-times icon-close"></i>
+        </label>
+
+        <nav class="nav-links d-flex align-items-center">
+          <a href="/PermissionPortal/" id="en" style="display: block;">Home</a>
+          <a href="/PermissionPortal/" id="hi" style="display:none;">होम</a>
+          <a href="/PermissionPortal/aboutus">About</a>
+          <a href="/PermissionPortal/contactus">Contact</a>
+          <a href="/PermissionPortal/guidelines2">Guidelines</a>
+          <a href="/PermissionPortal/tutorialVideos">Tutorials</a>
+          <a href="/PermissionPortal/FAQs">FAQs</a>
+          <!-- <a class="btn-login signup-btn-mobile" data-bs-toggle="modal" data-bs-target="#loginModal">
+              <i class="fa fa-user" aria-hidden="true"></i> Sign In
+            </a> -->
+        </nav>
+
+        <a class="btn-login signup-btn" data-bs-toggle="modal" data-bs-target="#loginModal">
+          <i class="fa fa-user" aria-hidden="true"></i> <span> Sign In </span>
+        </a>
+
+      </div>
+
+    </div>
+  </header>
+
+    
+
+    <div class="hero-body" style="background: url('/PermissionPortal/images/bg-background.png') center/cover no-repeat; height:80vh;">
+
+
+      <div class="container">
+        <div class="hero-left">
+
+          <!-- <div th:if="${param.expired}" class="alert alert-warning logout-warring ">
+            Your session was ended because someone else logged in with your account.
+          </div> -->
+
+
+          <div>
+            <span class="preserve-class">
+              Preserve Heritage. Enable Progress.
+            </span>
+          </div>
+
+
+          <div class="welcome-label">
+            <span id="en" class="en notranslate" translate="no" style="display: block;">
+              Welcome to <span class="sahmat-name">SAHMAT</span>
+            </span>
+            <span id="hi" class="hi notranslate" translate="no" style="display:none;">
+              <span class="sahmat-name">SAHMAT</span> में आपका स्वागत है
+            </span>
+          </div>
+
+
+
+          <p class="hero-subtitle">
+            System for Approval at Historic Monuments<br>
+            of ASI with Transparency
+          </p>
+          <!-- <p class="hero-desc">
+          Apply for permissions to carry out activities like filming,
+          photography, events, and research at protected monuments and sites
+          under the care of ASI.
+        </p> -->
+          <!-- <div class="hero-btn-row">
+            <a href="#" class="btn-primary">
+              Apply for Permission &rarr;
+            </a>
+            <a href="#" class="btn-secondary">
+              <span class="play-circle"><i class="fa fa-play"></i></span>
+              How It Works
+            </a>
+          </div> -->
+        </div>
+      </div>
+
+      <!-- RIGHT CARDS -->
+      <!-- <div class="hero-right">
+
+        <div class="track-card">
+          <h3>Track Your Application</h3>
+
+          <label>Enter Application ID</label>
+          <input type="text" placeholder="Enter ID" />
+
+          <button class="track-btn">Track Now</button>
+
+          <div class="help-section">
+            <h4>Need Help?</h4>
+            <p>See how SARNAT works or chat with our assistant.</p>
+            <a href="#">Get Help →</a>
+          </div>
+        </div>
+
+      </div> -->
+    </div>
+
+  </section>
+
+  <div class="alert-strip container">
+    <div class="alert-strip-inner ">
+
+      <div class="alert-badge">
+        <span class="alert-dot"></span>
+        Latest
+      </div>
+
+      <div class="alert-divider-v"></div>
+
+      <marquee behavior="scroll" direction="left" scrollamount="5" class="marquee-tag">
+
+        <div class="marquee-flex">
+
+          <div class="alert-point">
+
+            <strong> Applications must be submitted at least 40 days in advance but not later than 15 days </strong>
+          </div>
+
+          <div class="alert-sep">|</div>
+
+          <div class="alert-point">
+
+            <strong> Applicants Are Not Permitted to Film Inside the Monument</strong>
+          </div>
+
+          <div class="alert-sep">|</div>
+
+          <!-- <div class="alert-point">
+            View All Notices & Updates
+          </div> -->
+
+        </div>
+
+
+      </marquee>
+
+    </div>
+  </div>
+
+  <div class="container-fluid">
+
+    <div class="main-section">
+
+      <!-- TOP CAROUSEL -->
+      <h3 class="section-title" id="en" style="display: block;">Apply For </h3>
+      <h3 class="section-title" id="hi" style="display:none;">आवेदन करें </h3>
+
+
+      <div class="carousel-wrapper">
+
+        <div class="carousel">
+
+          <div class="hero-service-card">
+            <div class="hero-icon purple-bg"><img src="/PermissionPortal/images/SVG-clip.png" alt="Filming"></div>
+            <h4>Filming</h4>
+            <p class="text text-dark">Shoot films, ads,
+              documentaries <span> at heritage sites</span>
+            </p>
+          </div>
+
+          <div class="hero-service-card">
+            <div class="hero-icon blue-bg"><img src="/PermissionPortal/images/dslr-camera.png" alt="Photography"></div>
+            <h4>Photography</h4>
+            <p class="text text-dark">Commercial or editorial <span>shoot permissions</span>
+            </p>
+          </div>
+
+
+
+          <div class="hero-service-card">
+            <div class="hero-icon green-bg"><img src="/PermissionPortal/images/calendar.png" alt="Events"></div>
+            <h4 id="en" class="en notranslate" translate="no" style="display: block;">Events</h4>
+            <h4 id="hi" class="hi notranslate" translate="no" style="display:none;">कार्यक्रम</h4>
+            <p class="text text-dark">Organize events,
+              exhibitions &amp; <span>cultural programs</span></p>
+          </div>
+
+          <div class="hero-service-card">
+            <div class="hero-icon orange-bg"><img src="/PermissionPortal/images/amenities.png" alt="Amenities"></div>
+            <h4>Amenities</h4>
+            <p class="text text-dark">
+              Seek permission for amenities
+              <span>at heritage sites</span>
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between ">
+        <h3 class="section-title">Explore India's Heritage</h3>
+        <a href="https://asi.nic.in/pages/Monuments" target="_blank" class="btn btn-primary">Explore Monuments</a>
+      </div>
+
+      <div class="heritage-wrapper">
+
+        <button class="h-nav h-prev" onclick="scrollHeritage(-1)">❮</button>
+
+        <div class="heritage-scroll" id="heritageScroll">
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/RED_FORT_DELHI.jpg" alt="Red Fort">
+            <div class="pm-card-overlay">
+              <span>Red Fort</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Qutub_Minar.jpg" alt="Qutub Minar">
+            <div class="pm-card-overlay">
+              <span>Qutub Minar</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Sun_Temple_Konark.jpg" alt="Sun Temple">
+            <div class="pm-card-overlay">
+              <span>Sun Temple</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Agra_Fort.jpg" alt="Agra Fort">
+            <div class="pm-card-overlay">
+              <span>Agra Fort</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Taj_Mahal.jpg" alt="Taj Mahal">
+            <div class="pm-card-overlay">
+              <span>Taj Mahal</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Udaigiri_Caves.jpg" alt="Udaigiri Caves">
+            <div class="pm-card-overlay">
+              <span>Udayagiri Caves</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/Ellora_Caves.jpg" alt="Ellora Caves">
+            <div class="pm-card-overlay">
+              <span>Ellora Caves</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/golcondafort.jpg" alt="Golconda Fort">
+            <div class="pm-card-overlay">
+              <span>Golconda Fort</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/chittaurgarh.jpg" alt="Chittaurgarh Fort">
+            <div class="pm-card-overlay">
+              <span>Chittaurgarh</span>
+            </div>
+          </div>
+
+          <div class="heritage-card">
+            <img src="/PermissionPortal/images/humayun-tomb.jpg" alt="Humayun Tomb">
+            <div class="pm-card-overlay">
+              <span>Humayun Tomb</span>
+            </div>
+          </div>
+
+        </div>
+
+        <button class="h-nav h-next" onclick="scrollHeritage(1)">❯</button>
+
+      </div>
+
+      <div class="category-section">
+
+        <h3 class="section-title" id="en" style="display: block;">Access a Repository of 3600+ Heritage</h3>
+        <h3 class="section-title" id="hi" style="display:none;"> 3600+ ऐतिहासिक धरोहरों का अनुभव करें</h3>
+
+
+
+
+        <div class="categories">
+
+          <div class="cat-card ">
+
+            <img src="/PermissionPortal/images/Fort.png" alt="Forts">
+            <p class="cat-card-monument-name text-dark"><b>Forts</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue" >1200+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/Temple.png" alt="Temple">
+            <p class=" text-dark "><b>Temples</b>
+            </p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">1000+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/Tombs.png" alt="Tombs">
+            <p class=" text-dark"><b>Tombs</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">860+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/Caves.png" alt="Caves">
+            <p class=" text-dark"><b>Caves</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">600+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/Mosque.png" alt="Mosque">
+            <p class=" text-dark"><b>Mosques</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">350+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/Place.png" alt="Place">
+            <p class=" text-dark"><b>Palaces</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">250+</p> -->
+          </div>
+
+          <div class="cat-card">
+
+            <img src="/PermissionPortal/images/other.png" alt="other">
+            <p class=" text-dark"><b>Others</b></p>
+            <!-- <p class="cat-card-monument-count text-dark-blue">1000+</p> -->
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <section class="initiative-section">
+
+        <!-- HEADER -->
+        <div class="initiative-header">
+          <h3 class="section-title">Featured Initiatives</h3>
+          <!-- <a href="#">View All →</a> -->
+        </div>
+
+
+        <div class="initiative-cards">
+
+          <a href="https://amritkaal.nic.in/" target="_blank" class="init-card-link">
+            <div class="init-card azadi-mahotsav-logo" style="background: url('/PermissionPortal/images/azadi_Amit.jpeg') center/cover no-repeat; ">
+
+
+              <div class="overlay"></div>
+
+              <img src="/PermissionPortal/images/azadi_Amrit_Mahotsav_logo.png" alt="approved">
+              <h3>Azadi Ka Amrit Mahotsav</h3>
+              <p>Celebrate India's Freedom Through Heritage</p>
+            </div>
+
+          </a>
+
+
+          <a href="https://indianheritage.gov.in" target="_blank" class="init-card-link">
+            <div class="init-card" style="background: url('/PermissionPortal/images/heritage_walk.jpeg') center/cover no-repeat; ">
+              <div class="overlay"></div>
+              <h3>Heritage Walks</h3>
+              <p>Explore, Learn, Preserve</p>
+            </div>
+          </a>
+
+
+          <a href="https://indianheritage.gov.in" target="_blank" class="init-card-link">
+            <div class="init-card" style="background: url('/PermissionPortal/images/adopt_monument.jpeg') center/cover no-repeat; ">
+              <div class="overlay"></div>
+              <h3>Adopt a Monument</h3>
+              <p>Join hands to protect our heritage</p>
+            </div>
+          </a>
+
+          <a href="https://sbmurban.org/" target="_blank" class="init-card-link">
+            <div class="init-card" style="background: url('/PermissionPortal/images/swachh.jpeg') center/cover no-repeat; ">
+
+              <div class="overlay green-overlay"></div>
+              <h3>Swachh Heritage</h3>
+              <p>Clean today, preserve forever</p>
+            </div>
+          </a>
+
+        </div>
+
+        <section class="sahmat-work">
+
+          <h2 class="section-title">How SAHMAT Works</h2>
+
+          <div class="permit-steps">
+
+            <!-- Step 1 -->
+            <div class="permit-card">
+              <span class="step-badge purple">1</span>
+              <div class="card-content">
+                <div class="step-icon purple-text">
+
+                  <img src="/PermissionPortal/images/user_reg.png" alt="Register">
+                </div>
+                <div class="step-info">
+                  <h4 class="purple-text">Register / Sign In</h4>
+                  <p>Create your account or sign in to begin</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-arrow"></div>
+
+            <!-- Step 2 -->
+            <div class="permit-card">
+              <span class="step-badge blue">2</span>
+              <div class="card-content">
+                <div class="step-icon blue-text">
+                  <img src="/PermissionPortal/images/exam.png" alt="exam">
+                </div>
+                <div class="step-info">
+                  <h4 class="blue-text">Apply Online</h4>
+                  <p>Fill application form &amp; upload documents</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-arrow"></div>
+
+            <!-- Step 3 -->
+            <div class="permit-card">
+              <span class="step-badge green">3</span>
+              <div class="card-content">
+                <div class="step-icon green-text">
+                  <img src="/PermissionPortal/images/pay-per-click.png" alt="pay-per-click">
+                </div>
+                <div class="step-info">
+                  <h4 class="green-text"> Submit &amp; Pay</h4>
+                  <p>Make payment and submit application</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-arrow"></div>
+
+            <!-- Step 4 -->
+            <div class="permit-card">
+              <span class="step-badge orange">4</span>
+              <div class="card-content">
+                <div class="step-icon orange-text">
+                  <img src="/PermissionPortal/images/search-data.png" alt="search-data">
+                </div>
+                <div class="step-info">
+                  <h4 class="orange-text">Review Process</h4>
+                  <p>Our team reviews your application</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-arrow"></div>
+
+            <!-- Step 5 -->
+            <div class="permit-card">
+              <span class="step-badge pink">5</span>
+              <div class="card-content">
+                <div class="step-icon pink-text">
+                  <img src="/PermissionPortal/images/approved.png" alt="approved">
+                </div>
+                <div class="step-info">
+                  <h4 class="pink-text">Approval &amp; Permission</h4>
+                  <p>Receive approval letter and proceed</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="btn-wrap">
+            <a href="/PermissionPortal/guidelines2" class="btn btn-primary ">
+              View Detailed Guidelines →
+            </a>
+          </div>
+        </section>
+      </section>
+
+    </div>
+
+  </div>
+
+  <div class="modal fade show" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-modal="true" role="dialog" style="display: block;">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+
+        <div class="modal-header">
+
+          <div class="text-white text-white-dark-mode">User Login</div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body p-0">
+          <div class="d-flex login-wrapper">
+
+
+            <div class="login-left w-50 py-2">
+              <div class="container-fluid h-100">
+                <div class="row g-2 h-100">
+                  <div class="col-8">
+                    <div class="row g-2 h-100">
+                      <div class="col-6">
+                        <img src="/PermissionPortal/images/slide/grid/grid-1.png" class="img-fluid h-100 w-100 object-fit-cover">
+                      </div>
+                      <div class="col-6">
+                        <img src="/PermissionPortal/images/slide/grid/grid-2.jpeg" class="img-fluid h-100 w-100 object-fit-cover">
+                      </div>
+                      <div class="col-12">
+                        <img src="/PermissionPortal/images/slide/grid/grid-4.png" class="img-fluid h-100 w-100 object-fit-cover">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-4">
+                    <img src="/PermissionPortal/images/slide/grid/grid-3.png" class="img-fluid h-100 w-100 object-fit-cover">
+                  </div>
+
+                  <div class="col-4">
+                    <img src="/PermissionPortal/images/slide/grid/grid-5.png" class="img-fluid h-100 w-100 object-fit-cover">
+                  </div>
+
+                  <div class="col-8">
+                    <img src="/PermissionPortal/images/slide/grid/grid-6.png" class="img-fluid h-100 w-100 object-fit-cover">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="login-right w-50 p-5">
+              <h3 class="mb-2 text-black text-white-dark-mode">User Login</h3>
+              <p class="text-muted mb-4 text-white-dark-mode">Login to your Account</p>
+
+              <form id="loginFrm" autocomplete="off">
+                <input type="hidden" name="_csrf" value="Otz1qjgEynNqgDUt1CE09JMsfz0zDzD5a_ZBkVEXPFJyHdpyXunGz140_0pHtlFMsgwAkaYZUgQKbgLUDZAgoWEiDDRCK-oQ">
+
+                <div class="mb-3">
+                  <label class="form-label text-black text-white-dark-mode d-flex justify-content-start items-center gap-2">Email ID <span class="text-danger">*</span></label>
+                  <input type="text" name="username" id="uname" class="form-control text-white-dark-mode" placeholder="Email ID" maxlength="50" required="">
+                  <span id="lblErroremail" class="text-danger"></span>
+                  <span id="lblMaxEmail" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label text-black text-white-dark-mode d-flex justify-content-start items-center gap-2">Password <span class="text-danger">*</span></label>
+                  <div class="password-wrapper">
+                    <!-- <input type="password" name="password" id="pswrd" class="form-control" placeholder="Password"
+                      required> -->
+                    <input type="password" name="password" id="pswrd" class="form-control text-white-dark-mode" placeholder="Password" required="" onkeydown="return event.key !== ' '" maxlength="15">
+                    <span id="lblMaxPswrd" class="text-danger"></span>
+                    <span class="toggle-eye" id="toggleLoginPwd" pattern="^\S+$">
+                      <i class="fa fa-eye-slash"></i>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label text-black text-white-dark-mode">Otp</label>
+                  <div class="d-flex gap-3 justify-content-between">
+                    <input type="text" id="otpInput" class="form-control text-white-dark-mode p-2 " placeholder=" Enter OTP">
+                    <button type="button" class="btn btn-primary" id="sendLoginOtp">Send OTP</button>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label text-black text-white-dark-mode ">Captcha</label>
+                  <div class="d-flex align-items-center gap-2">
+                    <img id="loginCaptchaImage" class="captcha-img" alt="Security Captcha Image - Click audio button to hear" role="img" aria-label="Captcha image - use audio button below to hear the captcha">
+
+
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshCaptcha" aria-label="Refresh captcha">
+                      <i class="fa fa-refresh"></i>
+                    </button>
+
+
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="listenCaptcha" aria-label="Listen to captcha audio" title="Captcha सुनें">
+                      <i class="fa fa-volume-up"></i>
+                    </button>
+
+                  </div>
+
+                  <small id="captchaAudioStatus" aria-live="polite" class="index-style-2">
+                  </small>
+                </div>
+
+                <div class="mb-4">
+                  <input type="text" name="captcha" id="captchaU" class="form-control text-white-dark-mode" placeholder="Enter Captcha" required="" maxlength="5">
+                  <span id="lblMaxCaptchaU" class="text-danger"></span>
+                </div>
+
+                <button type="button" class="btn btn-primary justify-content-center w-100" id="loginButton">Login</button>
+
+                <p class="mt-3 text-center text-black text-white-dark-mode">
+                  Don't have an Account?
+                  <a href="#" data-bs-toggle="modal" data-bs-target="#registerModal" data-bs-dismiss="modal">
+                    Register Now
+                  </a>
+                </p>
+                <p class="mt-3 text-center text-black text-white-dark-mode">
+
+                  <a href="#" data-bs-toggle="modal" data-bs-target="#forgotModal" data-bs-dismiss="modal">
+                    Forgot Password
+                  </a>
+                </p>
+
+                <div class="mt-3">
+                  
+
+                  
+
+                  <div id="alerts-container"></div>
+                </div>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" id="checkCredentilasModal">
+      <div class="modal-content">
+
+
+        <div class="modal-header">
+
+          <div class="text-white text-white-dark-mode">User Registration</div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+
+        <div class="modal-body position-relative">
+          <!-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> -->
+          <div class="row align-items-center">
+            <div class="col-md-6">
+              <div class="row gy-2 gx-2 left-grid">
+                <div class="col-md-8">
+                  <div class="row gy-2 gx-2">
+                    <div class="col-md-6">
+                      <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-1.png"> </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-2.jpeg"></div>
+                    </div>
+                    <div class="col-md-12">
+                      <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-4.png"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-3.png"></div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-5.png"></div>
+                </div>
+                <div class="col-md-8">
+                  <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-6.png"></div>
+                </div>
+                <div class="col-md-6">
+                  <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-9.png"></div>
+                </div>
+                <div class="col-md-6">
+                  <div class="img"><img src="/PermissionPortal/images/slide/grid/grid-8.png"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <!-- <h3 class="my-2">User Registration</h3> -->
+              <h5 class="text-white-dark-mode">Create New Account</h5>
+              <form autocomplete="off" id="registerForm" method="post" onsubmit="return false;">
+
+
+                <input type="hidden" id="errorDiv" value="">
+
+                <input type="hidden" id="logoutDiv" value="">
+
+
+                <div class="modal-body">
+
+                  <div class="row text-black">
+                    <div class="col-md-12">
+
+                      <div class="login-account">
+
+                        <div class="row ">
+                          <div class="col-md-12 text-white-dark-mode"><span>Name</span> <span class="text-danger">*</span>
+                            <input type="text" class="form-control linput text-white-dark-mode" name="name" id="namee" required="required" placeholder="Name" maxlength="70">
+
+                          </div>
+                          <div class="col-md-12 text-white-dark-mode"> <label for="">Email ID <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control linput text-white-dark-mode" id="emailreg" name="username" maxlength="50" placeholder="Email ID" required="required">
+                            <span id="lblErroremail2" class="text-danger"></span>
+                            <span id="lblMaxEmailReg" class="text-danger"></span>
+                            <button type="button" class="btn btn-primary" id="sendRegOtp">Send
+                              OTP</button>
+
+                            <input type="password" class="form-control linput text-white-dark-mode" id="verifyotpValue" name="otp" placeholder="Enter OTP" required="required" style="display: none;">
+                            <button type="button" class="btn btn-primary" id="verifyOtpbut" style="display: none;">Verify
+                              OTP</button>
+
+                          </div>
+
+
+
+
+                          <div class="col-md-12 text-white-dark-mode"> <span>Mobile No. <span class="text-danger">*</span></span>
+                            <input type="text" name="mobileno" class="form-control linput text-white-dark-mode" id="mobile" disabled="" required="required" placeholder="Mobile No." maxlength="10">
+                            <span id="mobileNumberError" class="text-danger"></span>
+                            <span id="lblMaxMobile" class="text-danger"></span>
+                          </div>
+
+                          <div class="col-md-12 text-white-dark-mode">
+                            <label><b>Select User Type</b><span class="text-danger">*</span></label>
+
+                            <div class="flex  mt-1">
+
+
+                              <div class="form-check form-check-inline text-white-dark-mode">
+                                <input class="form-check-input" type="radio" id="govAcademicOrg" name="individualType" value="Government Entity">
+                                <label class="form-check-label" for="govAcademicOrg">Government
+                                  Entity</label>
+                              </div>
+
+
+                              <div class="form-check form-check-inline text-white-dark-mode">
+                                <input class="form-check-input" type="radio" id="privateIndividual" name="individualType" value="Private Entity" required="">
+                                <label class="form-check-label" for="privateIndividual">Private
+                                  Entity</label>
+                              </div>
+
+
+
+                              <div class="form-check form-check-inline text-white-dark-mode">
+                                <input class="form-check-input" type="radio" id="Individual" name="individualType" value="Individual">
+                                <label class="form-check-label" for="Individual">Individual</label>
+                              </div>
+
+                              <div class="form-check form-check-inline text-white-dark-mode">
+                                <input class="form-check-input" type="radio" id="govAcademicOrg" name="individualType" value="Government Entity">
+                                <label class="form-check-label" for="govAcademicOrg">
+                                  NGO / Trust / Societies
+                                </label>
+                              </div>
+
+                            </div>
+                          </div>
+
+                          <div class="col-md-12 text-white-dark-mode">
+                            <label for=""> Nationality <span class="text-danger">*</span></label>
+                            <div class="mt-2">
+                              <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="nationality" id="nationalityIndian" value="Indian" required="">
+                                <label class="form-check-label" for="nationalityIndian">Indian</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="nationality" id="nationalityForeigner" value="Foreigner">
+                                <label class="form-check-label" for="nationalityForeigner">Foreigner</label>
+                              </div>
+                            </div>
+                            <span id="NationalityError" class="text-danger"></span>
+                          </div>
+
+                          <div class="col-md-12 text-white-dark-mode"> <span> Password</span> <span class="text-danger">*</span>
+                            <div class="password-wrapper">
+                              <input type="password" name="password" class="form-control text-white-dark-mode" placeholder="Enter Password" maxlength="15" required="required" pattern="^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])\S{8,15}$" id="pasword" title="Password must be 8-15 characters, include uppercase, lowercase, number and no spaces">
+                              <span id="lblMaxPasword" class="text-danger"></span>
+                              <span class="toggle-eye" id="toggleRegPwd">
+                                <i class="fa fa-eye-slash"></i>
+                              </span>
+                            </div>
+                          </div>
+                          <div class="col-md-12 text-white-dark-mode"> <span>Confirm Password</span> <span class="text-danger">*</span>
+                            <div class="password-wrapper">
+                              <input type="password" class="form-control text-white-dark-mode" required="required" id="cPassword" maxlength="15" pattern="^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])\S{8,15}$" placeholder="Enter Confirm Password" title="Password must be 8-15 characters, include uppercase, lowercase, number and no spaces">
+                              <span id="lblMaxCPassword" class="text-danger"></span>
+                              <span class="toggle-eye" id="toggleConfirmPwd">
+                                <i class="fa fa-eye-slash"></i>
+                              </span>
+                            </div>
+
+                            <span id="cpasswordSpan"></span>
+                          </div>
+
+
+
+                          <div id="passwordCriteria" class="passwordCriteria">
+                            <div id="length" class="passwordCriteria-red">❌ 8-15 characters</div>
+                            <div id="upper" class="passwordCriteria-red">❌ At least 1 uppercase</div>
+                            <div id="lower" class="passwordCriteria-red">❌ At least 1 lowercase</div>
+                            <div id="number" class="passwordCriteria-red">❌ At least 1 number</div>
+                            <!-- <div id="space" class="passwordCriteria-red">❌ No spaces allowed</div> -->
+                          </div>
+
+
+                          <div class="col-md-12 text-white-dark-mode">
+                            <div class="row align-items-center">
+                              <label class="col-md-12">Captcha</label>
+                              <div class="col-md-6 mb-2 d-flex align-items-center captchaImg2">
+                                <img src="data:realCaptcha/jpg;base64,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" id="captchaImage2" alt="Security Captcha - Click audio button to hear" aria-label="Captcha image for registration">
+
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="resetCap2" aria-label="Refresh captcha">
+                                  <i class="fa fa-refresh resetcap"></i>
+                                </button>
+
+
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="listenCaptcha2" title="Captcha सुनें" aria-label="Listen to captcha">
+                                  <i class="fa fa-volume-up"></i>
+                                </button>
+
+                                <small id="captchaAudioStatus2" aria-live="polite" class="index-style-2">
+                                </small>
+                              </div>
+                              <div class="col-md-6 mb-2">
+                                <input type="hidden" id="hiddenCaptcha2" name="hiddenCaptcha" value="d2mIXrt2gakK871fExR5AQ=="> <input type="text" class="form-control text-white-dark-mode" id="captchaU2" placeholder="ENTER CAPTCHA" name="captcha" value="" maxlength="5">
+                                <span id="lblMaxCaptchaU2" class="text-danger"></span>
+                              </div>
+                            </div>
+                            <!-- <a th:href="@{/PermissionPortal/forgotPassword" class="float-right text-muted pull-right"><u>Forgot Password?</u></a> -->
+                          </div>
+                          <div class="col-md-12 text-white-dark-mode">
+                            <!-- <button type="button" class="btn btn-primary-cta" id="registerButton">Register</button> -->
+
+
+                            <!-- <button type="submit" class="btn btn-primary-cta" id="registerButton">Register</button> -->
+                            <button type="button" class="btn btn-primary justify-content-center w-100" id="registerButton">Register</button>
+
+                          </div>
+                          <p class="mt-3 text-center text-black text-white-dark-mode">
+                            Arleady have an Account?
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">
+                              Login
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="forgotModal" tabindex="-1" aria-labelledby="forgotModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+      <div class="modal-content">
+        <div class="modal-body position-relative p-4">
+          <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Close"></button>
+
+          <h4 class="mb-1 fw-semibold">Forgot Password</h4>
+          <p class="text-muted mb-4" style="font-size:0.875rem;">
+            Enter your registered email to receive a reset OTP.
+          </p>
+
+          <form>
+            <!-- Step 1: Email + Send OTP -->
+            <div class="col-md-12" id="emaildiv">
+              <label>Email ID <span class="text-danger">*</span></label>
+              <input type="text" class="form-control linput text-white-dark-mode" id="emailf" name="username" placeholder="Email ID" required="">
+              <span id="lblErroremail2" class="text-danger"></span>
+              <button type="button" class="btn btn-primary fotpbutton" id="fotpbutton">Send OTP</button>
+            </div>
+
+            <!-- Step 2: OTP Verify (hidden initially) -->
+            <div id="verifyf" style="display:none;" class="col-md-12 mt-2">
+              <label>Enter OTP <span class="text-danger">*</span></label>
+              <input type="password" class="form-control linput" id="verifyOTP" placeholder="Enter OTP" maxlength="4">
+              <button type="button" class="btn btn-success" id="verifiyotpbutton">Verify Otp</button>
+            </div>
+
+            <!-- Step 3: New Password (hidden initially) -->
+            <div id="passworddiv" style="display:none;" class="col-md-12 mt-2">
+                  <label>New Password <span class="text-danger">*</span></label>
+
+                  <div class="position-relative">
+                      <input type="password" class="form-control linput pe-5" id="password" placeholder="Enter New Password" pattern="^\S+$">
+
+                      <span class="toggle-eye" id="togglePwd">
+                          <i class="fa fa-eye-slash"></i>
+                      </span>
+                  </div>
+              </div>
+              <div id="cPassword" style="display:none;" class="col-md-12 mt-2">
+                  <label>Confirm Password <span class="text-danger">*</span></label>
+
+                  <div class="position-relative">
+                      <input type="password" class="form-control linput pe-5" id="confirmPassword" placeholder="Confirm New Password" pattern="^\S+$">
+
+                      <span class="toggle-eye" id="toggleConPwd">
+                          <i class="fa fa-eye-slash"></i>
+                      </span>
+                  </div>
+                  <button type="button" class="btn btn-warning mt-2" id="passbutton">
+                      Update Password
+                  </button>
+              </div>
+
+          </form>
+
+
+          <div id="stepSuccess" class="d-none text-center py-3">
+            <i class="fa fa-check-circle text-success" style="font-size:2.5rem;"></i>
+            <h6 class="mt-3 fw-semibold">Password Reset Successful!</h6>
+            <p class="text-muted small">You can now login with your new password.</p>
+          </div>
+
+          <p class="mt-3 text-center small">
+            Remember your password?
+            <a href="#" data-bs-toggle="modal" data-bs-target="#loginModal" data-bs-dismiss="modal">Login</a>
+          </p>
+
+          
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- <footer th:replace="fragments :: footer"></footer> -->
+
+  <footer style="background:#0b1c33; color:#d1d5db; font-family:'Inter',sans-serif;">
+
+    <div class="container footer-grid" style="padding:40px 12px 20px; display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:40px;">
+
+      <div style="grid-column: span 1;">
+
+        <div style="display:flex; align-items:center; gap:14px; margin-bottom:18px;">
+          <img src="/PermissionPortal/images/asilogo.png" alt="ASI Logo" style="height:54px; width:auto; background:#fff; border-radius:8px; padding:4px 6px;">
+          <div>
+            <div style="font-weight:700; color:#fff; font-size:0.95rem; line-height:1.3;">SAHMAT</div>
+            <div style="font-size:0.72rem; color:#9ca3af; margin-top:2px;">Archaeological Survey of India</div>
+          </div>
+        </div>
+
+        <p style="font-size:0.83rem; color:#9ca3af; line-height:1.7; margin-bottom:20px;">
+          A Digital Platform by Archaeological Survey of India for Obtaining
+          Permissions at Protected Monuments and Sites &amp; Archaeological Site Museums.
+        </p>
+        <div style="display:flex; gap:10px;">
+
+          <!-- Instagram -->
+          <a href="https://www.instagram.com/asi.goi?igshid=NjIwNzIyMDk2Mg%3D%3D" target="_blank" style="width:34px;height:34px;border-radius:50%;background:#E1306C;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-size:0.85rem;">
+            <i class="fab fa-instagram"></i>
+          </a>
+
+          <!-- Facebook -->
+          <a href="https://www.facebook.com/IndianHeritage.GoI/" target="_blank" style="width:34px;height:34px;border-radius:50%;background:#1877F2;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-size:0.85rem;">
+            <i class="fab fa-facebook-f"></i>
+          </a>
+
+          <!-- X (Twitter) -->
+          <a href="https://x.com/ASIGoI" target="_blank" style="width:34px;height:34px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-size:0.85rem;">
+            <!-- <i class="fab fa-twitter"></i> -->
+            <i class="bi bi-twitter-x"></i>
+          </a>
+
+        </div>
+      </div>
+
+      <div class="d-flex flex-column">
+        <h6 style="color:#fff;font-weight:700;font-size:0.88rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #b75e15;display:inline-block;">
+          Quick Links</h6>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;">
+          <li>
+
+            <a href="/PermissionPortal/" id="en" style="color: rgb(156, 163, 175); text-decoration: none; font-size: 0.85rem; display: block;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'">
+              <i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>
+              Home
+            </a>
+
+
+            <a href="/PermissionPortal/" id="hi" style="display:none;color:#9ca3af;text-decoration:none;font-size:0.85rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'">
+              <i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>
+              होम
+            </a>
+          </li>
+          <li><a href="/PermissionPortal/aboutus" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.85rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'"><i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>About Portal</a></li>
+          <li><a href="/PermissionPortal/guidelines2" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.85rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'"><i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>Guidelines</a></li>
+          <li><a href="/PermissionPortal/contactus" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.85rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'"><i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>Contact Us</a></li>
+          <li><a href="/PermissionPortal/tutorialVideos" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.85rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'"><i class="fas fa-chevron-right" style="font-size:0.65rem;margin-right:7px;"></i>Tutorial Videos</a></li>
+        </ul>
+      </div>
+
+
+      <div class="d-flex flex-column">
+        <h6 style="color:#fff;font-weight:700;font-size:0.88rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #b75e15;display:inline-block;">
+          Stay Updated</h6>
+
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <a href="/PermissionPortal/Term-&amp;-Conditions" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.82rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'">Terms &amp; Conditions</a>
+          <a href="/PermissionPortal/Privacy-Policy" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.82rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'">Privacy Policy</a>
+          <a href="/PermissionPortal/Copyright-Policy" target="_blank" style="color:#9ca3af;text-decoration:none;font-size:0.82rem;" onmouseover="this.style.color='#b75e15'" onmouseout="this.style.color='#9ca3af'">Copyright Policy</a>
+        </div>
+
+      </div>
+
+
+      <div class="d-flex flex-column">
+        <h6 style="color:#fff;font-weight:700;font-size:0.88rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid #b75e15;display:inline-block;">
+          Help &amp; Support</h6>
+
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+
+
+          <div class="help-panel">
+
+            <div class="help-content">
+
+              <div class="help-item">
+                <div class="help-icon-wrap">
+                  <img src="/PermissionPortal/images/call.png" alt="call">
+                </div>
+                <div>
+                  <p class="help-label">Call Us</p>
+                  <p class="help-sub phone-text">+91-11-2301-2770</p>
+                  <p class="help-sub">(Mon - Fri: 09:30 AM - 06:00 PM)</p>
+                </div>
+              </div>
+
+              <div class="help-item">
+                <div class="help-icon-wrap">
+                  <img src="/PermissionPortal/images/email.png" alt="email">
+                </div>
+                <div>
+                  <p class="help-label">Email Us</p>
+                  <a href="mailto:directormonumenttwo.asi@gmail.com" class="help-link">
+                    directormonumenttwo[dot]asi[at]gmail[dot]com
+                  </a><br>
+                  <a href="mailto:dirmonument-asi@gov.in" class="help-link">
+                    dirmonument[-]asi[at]gov[dot]in
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="display:flex; justify-content:start;">
+
+          <div>
+
+            <p class="visitor_count">
+              Total Visitors : <span id="visitorCount" data-url="/PermissionPortal/permission/visitor-count">3,062</span>
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    
+
+    <div style="background: rgba(0, 0, 0, 0.25); border-top: 1px solid rgba(255, 255, 255, 0.08);">
+      <div class="container" style="padding:18px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <p style="margin:0;font-size:0.78rem;color:#9ca3af;">
+          © 2026 Archaeological Survey of India, Ministry of Culture, Government of India All rights reserved
+        </p>
+        <p style="margin:0;font-size:0.78rem;color:#9ca3af;">
+          Design &amp; Developed by <a href="https://bisag-n.gov.in/" target="_blank" class="dont-translate">BISAG-N </a>
+        </p>
+      </div>
+    </div>
+
+  </footer>
+
+  <!-- <script th:src="@{/js/jquery/jquery.min.js}"></script> -->
+  <!-- <script th:src="@{/assets/vendor/bootstrap/js/bootstrap.bundle.min.js}"></script> -->
+
+  <script src="/PermissionPortal/js/jquery.com.jquery.3.7.1.min.js"></script>
+
+  <script src="/PermissionPortal/js/bootstrap.bundle.min.js"></script>
+  <script src="/PermissionPortal/js/toastify-js.js"></script>
+ 
+
+  <script src="/PermissionPortal/js/jquery-3.7.1.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/jquery.themepunch.tools.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/jquery.themepunch.revolution.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.actions.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.kenburn.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.layeranimation.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.migration.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.navigation.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.parallax.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.slideanims.min.js"></script>
+  <script src="/PermissionPortal/asset/js/rev-slider/js/extensions/revolution.extension.video.min.js"></script>
+  <script src="/PermissionPortal/js/swiper.min.js"></script>
+  <script src="/PermissionPortal/js/csrfToken.js"></script>
+  <!-- <script th:src="@{/js/cryptoJS.js}"></script> -->
+  <!-- <script th:src="@{/js/code.js}"></script> -->
+  <script src="/PermissionPortal/js/common/adminhelper.js"></script>
+  <script src="/PermissionPortal/js/common/AesUtil.js"></script>
+  <script src="/PermissionPortal/js/common/forge.min.js"></script>
+  <script src="/PermissionPortal/js/common/hybridencryption.js"></script>
+  <script src="/PermissionPortal/js/common/cryptoJS.js"></script>
+  <script src="/PermissionPortal/js/index.js"></script>
+  <script src="/PermissionPortal/js/slick.js"></script>
+  <script src="/PermissionPortal/assets/js/guideline.js"></script>
+  <!-- <script th:src="@{/js/circlesaDashboard.js}"></script> -->
+  <!-- <script th:src="@{/assets/js/website_translation_utility.js}"></script> -->
+  <script src="/PermissionPortal/js/fragmentsheader.js"></script>
+
+
+  <!-- shubham -->
+  <!-- <script th:src="@{/./translation_with_feedback_url.js}" page-source-language="en" default-translated-language=""
+    translation-language-list="en,hi,bn,ta,te,mr,gu,kn,ml,pa,or,as,ur" language_order="en,hi"
+    language-icon-color="#1D0A69"></script> -->
+
+  <script src="/PermissionPortal/assets/js/website_translation_utility.js"></script>
+
+
+<div class="modal-backdrop fade show"></div></body></html>
