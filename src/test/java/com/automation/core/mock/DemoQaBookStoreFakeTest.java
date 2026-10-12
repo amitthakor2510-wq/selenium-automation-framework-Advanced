@@ -4,7 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.automation.core.config.ConfigReader;
+import com.automation.core.config.SiteRegistry;
 import com.github.tomakehurst.wiremock.common.Json;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -35,14 +38,34 @@ class DemoQaBookStoreFakeTest {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static String base;
 
+    private static boolean siteOverridden;
+    private static String previousSite;
+
     @BeforeAll
     static void startServer() {
+        // The fake only exists for site=demoqa, and demoqa is a switch in pipeline-config.properties:
+        // when it is off, skip (not fail) - same rule every other demoqa test follows.
+        assumeTrue(SiteRegistry.isEnabled("demoqa"),
+            "demoqa is disabled in pipeline-config.properties - skipping its fake-server test");
+        previousSite = System.getProperty("site");
+        System.setProperty("site", "demoqa");
+        siteOverridden = true;
+        ConfigReader.reset();
         base = WireMockManager.start();
     }
 
     @AfterAll
     static void stopServer() {
         WireMockManager.stop();
+        if (siteOverridden) {   // restore, so later test classes in this JVM keep the profile's site
+            if (previousSite == null) {
+                System.clearProperty("site");
+            } else {
+                System.setProperty("site", previousSite);
+            }
+            ConfigReader.reset();
+            siteOverridden = false;
+        }
     }
 
     @Test

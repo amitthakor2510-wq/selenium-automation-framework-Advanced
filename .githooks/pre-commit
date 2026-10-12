@@ -41,6 +41,28 @@ else
   echo "[pre-commit]   Install: https://github.com/gitleaks/gitleaks#installing"
 fi
 
+# --- Compile check: CI's Build job runs `mvn clean compile test-compile` first, so a
+# broken compile (e.g. a src/main class importing a test-scope library, or a file moved
+# to the wrong source root) fails there anyway - this just catches it before the commit
+# instead of a push round-trip. Runs only when a .java file or pom.xml is part of the
+# commit (moves/deletes included, hence the R and D filters). Incremental, so it is
+# usually a few seconds after the first run.
+STAGED_BUILD=$(git diff --cached --name-only --diff-filter=ACMRD -- '*.java' 'pom.xml')
+if [ -n "$STAGED_BUILD" ]; then
+  echo "[pre-commit] Java/pom changes staged - running mvn test-compile (pre-commit)..."
+  BUILD_MVN="mvn"
+  [ -x "./mvnw" ] && BUILD_MVN="./mvnw"
+  BUILD_LOG=$(mktemp "${TMPDIR:-/tmp}/pre-commit-compile.XXXXXX")
+  if ! "$BUILD_MVN" -q -B test-compile > "$BUILD_LOG" 2>&1; then
+    echo "[pre-commit] Compilation failed:"
+    cat "$BUILD_LOG"
+    FAILED=1
+  fi
+  rm -f "$BUILD_LOG"
+else
+  echo "[pre-commit] No staged .java/pom.xml changes - skipping compile check."
+fi
+
 # --- Checkstyle: only bother when a staged .java file is actually part
 # of this commit — running it on doc/config-only commits would just add
 # a several-second delay for zero signal. Uses the same checkstyle.xml

@@ -9,6 +9,10 @@
 #   Scripts/enabled-sites.sh --check <site>    # exit 0 if enabled, 1 if disabled/unknown
 #   Scripts/enabled-sites.sh --dotenv          # SITE_<NAME>_ENABLED=true|false, one per line
 #
+# CI-only skip: add "site.<name>.ci=false" to pipeline-config.properties and the
+# site stays enabled for local runs but is hidden from every mode above whenever
+# the script runs inside GitHub Actions / GitLab CI / Jenkins (see in_ci below).
+#
 # The single, shared reader for pipeline-config.properties (repo root) —
 # GitHub Actions' matrix-setup job, the Jenkinsfile's "Discover Site
 # Projects" stage, and GitLab CI's generate-pipeline-config job all call
@@ -29,14 +33,41 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 2
 fi
 
+# True when running inside a CI system. GitHub Actions and GitLab CI both set
+# CI=true (plus GITHUB_ACTIONS / GITLAB_CI); Jenkins does not set CI by default
+# but always sets JENKINS_URL. Set ENABLED_SITES_IGNORE_CI_FLAG=true to bypass
+# the ci=false filtering (e.g. to debug a CI-skipped site on a CI runner).
+in_ci() {
+    [ "${ENABLED_SITES_IGNORE_CI_FLAG:-false}" = "true" ] && return 1
+    [ "${CI:-}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ] \
+        || [ -n "${GITLAB_CI:-}" ] || [ -n "${JENKINS_URL:-}" ]
+}
+
+# Sites tagged "site.<name>.ci=false": enabled for LOCAL runs (SiteRegistry only
+# reads site.<name>.enabled) but skipped by every CI system, because the pipeline
+# cannot run them (e.g. SAHMAT needs the local Ollama AI vision model for its
+# CAPTCHA). A site with no "ci=" line is treated as ci=true, so nothing changes
+# for existing sites.
+ci_disabled() {
+    grep -E '^site\.[a-zA-Z0-9_-]+\.ci=false[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.ci=false[[:space:]]*$/\1/' || true
+}
+
 # Every "site.<name>.enabled=true" line (no inline comments, no spaces
 # around "=" — matches the file's own documented format) contributes
 # <name> to the list. A site with enabled=false, or with no line at all,
 # is simply absent from this list — that's the fail-safe: unknown/missing
 # sites are disabled by default, never silently on.
 all_enabled() {
-    grep -E '^site\.[a-zA-Z0-9_-]+\.enabled=true[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled=true[[:space:]]*$/\1/'
+    local list
+    list=$(grep -E '^site\.[a-zA-Z0-9_-]+\.enabled=true[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled=true[[:space:]]*$/\1/' || true)
+    if in_ci; then
+        # Drop sites marked "site.<name>.ci=false" (see ci_disabled below).
+        echo "$list" | grep -Fxvf <(ci_disabled) | grep -v '^$' || true
+    else
+        echo "$list" | grep -v '^$' || true
+    fi
 }
 
 all_known() {
@@ -73,7 +104,7 @@ to_json() {
 case "${1:-}" in
     --check)
         site="${2:?usage: enabled-sites.sh --check <site>}"
-        grep -qE "^site\.${site}\.enabled=true[[:space:]]*\$" "$CONFIG_FILE"
+        all_enabled | grep -Fxq "$site"
         ;;
     --json)
         to_json "$(all_enabled)"
@@ -96,7 +127,7 @@ case "${1:-}" in
         while read -r site; do
             [ -z "$site" ] && continue
             upper=$(echo "$site" | tr '[:lower:]-' '[:upper:]_')
-            if grep -qE "^site\.${site}\.enabled=true[[:space:]]*\$" "$CONFIG_FILE"; then
+            if all_enabled | grep -Fxq "$site"; then
                 echo "SITE_${upper}_ENABLED=true"
             else
                 echo "SITE_${upper}_ENABLED=false"

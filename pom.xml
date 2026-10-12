@@ -219,7 +219,7 @@
          sandbox has no Maven Central access, so pin/version compatibility
          hasn't been build-verified here — run `mvn dependency:resolve
          -Pmutation` locally and bump if needed. -->
-    <junit.version>5.10.2</junit.version>
+    <junit.version>5.12.2</junit.version>
     <!-- Cucumber (BDD) — see BDD.md. cucumber-java + cucumber-testng must share one version, and it must stay old enough for allure-cucumber7-jvm 2.27.0 (its gherkin needs io.cucumber:messages < 23). Raise it only together with allure.version. -->
     <cucumber.version>7.15.0</cucumber.version>
 
@@ -291,6 +291,23 @@
         <groupId>io.qameta.allure</groupId>
         <artifactId>allure-bom</artifactId>
         <version>${allure.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- JUnit BOM — aligns EVERY org.junit.* artifact (platform-commons,
+           platform-engine, platform-launcher, jupiter-*) to one version.
+           Without it a transitive dependency drags junit-platform-commons/
+           engine down to 1.10.2 while the Failsafe/Surefire JUnit Platform
+           provider brings junit-platform-launcher 1.12.2, and the forked
+           test JVM dies with "JUnitException: ... versions of JUnit jars
+           ... not being properly aligned". The BOM is applied to the
+           project's own classpath; the plugin-level junit-jupiter-engine
+           dependency below uses the same ${junit.version}. -->
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -1449,6 +1466,10 @@
            unit-test slice alone. -->
       <properties>
         <checkstyle.skip>true</checkstyle.skip>
+        <!-- Site whose config the unit tests load via ConfigReader. Must be enabled in
+             pipeline-config.properties: the default site (demoqa) is switched off there, and
+             ConfigReader.init() then throws, which made VerifyTest see STOP_ON_FAILURE. -->
+        <unit.test.site>saucedemo</unit.test.site>
       </properties>
       <build>
         <plugins>
@@ -1492,6 +1513,9 @@
                    <argLine> uses (see the comment there). Empty string when
                    jacoco.skip=true is passed, so this stays safe either way. -->
               <argLine>@{jacocoArgLine}</argLine>
+              <systemPropertyVariables>
+                <site>${unit.test.site}</site>
+              </systemPropertyVariables>
               <!-- Overrides Failsafe's default **/IT*.java / **/*IT.java /
                    **/*ITCase.java naming convention — this project's JUnit 5
                    classes follow the same *Test.java convention as
