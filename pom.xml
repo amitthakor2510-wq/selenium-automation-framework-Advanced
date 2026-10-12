@@ -220,6 +220,8 @@
          hasn't been build-verified here — run `mvn dependency:resolve
          -Pmutation` locally and bump if needed. -->
     <junit.version>5.10.2</junit.version>
+    <!-- Cucumber (BDD) — see BDD.md. cucumber-java + cucumber-testng must share one version, and it must stay old enough for allure-cucumber7-jvm 2.27.0 (its gherkin needs io.cucumber:messages < 23). Raise it only together with allure.version. -->
+    <cucumber.version>7.15.0</cucumber.version>
 
     <!-- PIT (pitest) mutation testing — see the "mutation" profile below.
          Kept as its own properties for the same reason dependency-check.version
@@ -394,6 +396,26 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- Cucumber / BDD: Gherkin feature files run through TestNG (see BDD.md).
+         allure-cucumber7-jvm is version-managed by the allure-bom above. -->
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-java</artifactId>
+      <version>${cucumber.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-testng</artifactId>
+      <version>${cucumber.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-cucumber7-jvm</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- WebDriverManager -->
     <dependency>
       <groupId>io.github.bonigarcia</groupId>
@@ -558,6 +580,24 @@
       <groupId>org.wiremock</groupId>
       <artifactId>wiremock-standalone</artifactId>
       <version>3.13.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JDBC for the database assertions (core/db/DbClient: query what the app actually stored).
+         Plain JDBC, so DbClient itself works with any driver - PostgreSQL is here because it is the
+         database this project's apps use; add another driver (mysql-connector-j, mssql-jdbc, ...)
+         the same way if a site needs it. H2 is the in-memory database DbClientTest runs against, so
+         the DB layer is unit-tested with no server. Test-scoped: never shipped in application code. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
       <scope>test</scope>
     </dependency>
 
@@ -876,6 +916,10 @@
         <executions>
           <execution>
             <id>jacoco-prepare-agent</id>
+            <!-- Default phase is initialize, which IDE Maven sync also runs (it just printed
+                 the jacocoArgLine line there). Surefire only needs the property at the test
+                 phase, so bind it to the last phase before it. -->
+            <phase>process-test-classes</phase>
             <goals>
               <goal>prepare-agent</goal>
             </goals>
@@ -918,6 +962,10 @@
                before jacoco-check below runs against the union. -->
           <execution>
             <id>jacoco-merge</id>
+            <!-- phase=none: merge's default phase is generate-resources, so without this it ran
+                 (and logged "Skipping JaCoCo merge...") on every build and IDE sync. With none,
+                 it still runs when invoked directly as `jacoco:merge@jacoco-merge`. -->
+            <phase>none</phase>
             <goals>
               <goal>merge</goal>
             </goals>
@@ -1459,6 +1507,12 @@
                 <include>**/core/mock/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>
                 <include>**/core/utils/**/*Test.java</include>
+                <include>**/core/verify/**/*Test.java</include>
+                <include>**/core/budget/**/*Test.java</include>
+                <include>**/core/api/postman/**/*Test.java</include>
+                <include>**/core/db/**/*Test.java</include>
+                <include>**/core/contract/**/*Test.java</include>
+                <include>**/core/api/spec/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>
               </includes>
             </configuration>

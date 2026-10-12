@@ -735,7 +735,9 @@ public final class DriverFactory {
             String browser = ConfigReader.get("browser", "chrome").toLowerCase();
             File logDir = new File(System.getProperty("user.dir") + File.separator
                 + "target" + File.separator + "logs" + File.separator + safeSiteName());
-            if (!logDir.exists() && !logDir.mkdirs()) {
+            // mkdirs() returns false when another parallel session created the folder between the
+            // exists() check and this call, so only warn if the folder is still missing afterwards.
+            if (!logDir.isDirectory() && !logDir.mkdirs() && !logDir.isDirectory()) {
                 logger.warn("[DriverFactory] Could not create log directory: " + logDir);
                 return null;
             }

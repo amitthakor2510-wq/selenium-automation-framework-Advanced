@@ -23,7 +23,7 @@
 # Exit code: 0 = every request passed, 1 = at least one failed, 2 = could not run.
 # Secrets: put them in environment variables (${env:API_TOKEN} in the spec), not in files.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 usage() { sed -n '2,/^set -uo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
 

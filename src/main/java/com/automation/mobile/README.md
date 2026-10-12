@@ -232,9 +232,8 @@ Point `appium.server.url` at a remote/cloud grid (BrowserStack, Sauce Labs, a se
   (session created, app launched via `appium:appPackage`/`appActivity`,
   element found, screenshot captured, clean teardown). The Settings-app
   example is a solid baseline, not just untested scaffolding.
-- **Dependency resolves cleanly**: `io.appium:java-client:9.3.0` resolves
-  and compiles fine against Maven Central — confirmed via
-  `mvn dependency:resolve compile test-compile`.
+- **Dependency resolves cleanly**: `io.appium:java-client` is pinned in `pom.xml` (currently `10.1.1`). Re-confirm
+  with `mvn dependency:resolve compile test-compile` after any version bump.
 - **Wired into all three CI pipelines**: `Jenkinsfile`'s `Mobile Test`
   stage, `.github/workflows/github-ci.yml`'s `mobile-test` job, and
   `.gitlab-ci.yml`'s `mobile-test` job all install/boot an emulator +
@@ -256,7 +255,7 @@ Point `appium.server.url` at a remote/cloud grid (BrowserStack, Sauce Labs, a se
 
 ## 📦 Dependency
 
-`io.appium:java-client` (version `9.3.0`) was added to `pom.xml` for this — see the `<!-- Appium -->` comment there. Confirmed resolving and compiling cleanly against Maven Central (`mvn dependency:resolve compile test-compile`).
+`io.appium:java-client` (currently version `10.1.1`) was added to `pom.xml` for this — see the `<!-- Appium -->` comment there. After any version bump, re-confirm with `mvn dependency:resolve compile test-compile`.
 
 ---
 

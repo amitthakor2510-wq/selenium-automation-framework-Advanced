@@ -1,5 +1,6 @@
 package com.automation.mobile.core;
 
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.utils.CaptchaSolver;
 import org.openqa.selenium.By;
@@ -72,12 +73,29 @@ public abstract class BaseMobilePage {
         return captchaSolver;
     }
 
+    /**
+     * Waits for the element and records how long the screen took to show it, for the performance
+     * budget (see PerfSamples / PerfBudgetEnforcer, {@code perf.budget.screen.*}). Only a
+     * SUCCESSFUL wait is recorded - a timeout already fails the test. {@link #isDisplayed} and
+     * waits for an element to disappear are deliberately not timed, because there a long wait is
+     * the expected outcome, not a slow screen.
+     */
     protected WebElement waitVisible(By locator) {
-        return wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        long startedNanos = System.nanoTime();
+        WebElement element = wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+        recordScreenReady(locator, startedNanos);
+        return element;
     }
 
     protected WebElement waitClickable(By locator) {
-        return wait.until(ExpectedConditions.elementToBeClickable(locator));
+        long startedNanos = System.nanoTime();
+        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(locator));
+        recordScreenReady(locator, startedNanos);
+        return element;
+    }
+
+    private static void recordScreenReady(By locator, long startedNanos) {
+        PerfSamples.recordScreen("element " + locator, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     /**

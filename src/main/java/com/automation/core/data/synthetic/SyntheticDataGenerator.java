@@ -75,10 +75,9 @@ public final class SyntheticDataGenerator {
      * just with a more realistic-looking prefix.
      */
     public String uniqueUsername() {
-        // faker.name().username() is @Deprecated in DataFaker 2.4.x in favor of
-        // faker.internet().username() (Name.username() is just a delegating
-        // wrapper around it anyway — same output, no behavior change here).
-        String base = faker.internet().username().replaceAll("[^a-zA-Z0-9]", "");
+        // Built from first/last name rather than faker.internet().username(), which
+        // DataFaker 2.7 marks deprecated-for-removal; name().firstName()/lastName() are stable.
+        String base = (faker.name().firstName() + faker.name().lastName()).replaceAll("[^a-zA-Z0-9]", "");
         return base + "_" + UUID.randomUUID().toString().substring(0, 8);
     }
 
@@ -93,7 +92,28 @@ public final class SyntheticDataGenerator {
      * unrelated to what it's actually testing.
      */
     public String strongPassword() {
-        return faker.internet().password(10, 16, true, true, true);
+        // Generated locally (not faker.internet().password(...), deprecated-for-removal in
+        // DataFaker 2.7): one char from each class guarantees every strength rule, the rest
+        // are drawn from all classes, then shuffled so the guaranteed ones aren't always first.
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghijkmnopqrstuvwxyz";
+        String digits = "23456789";
+        String symbols = "!@#$%^&*";
+        String all = upper + lower + digits + symbols;
+        java.security.SecureRandom rnd = new java.security.SecureRandom();
+        int length = 10 + rnd.nextInt(7);
+        java.util.List<Character> chars = new java.util.ArrayList<>();
+        chars.add(upper.charAt(rnd.nextInt(upper.length())));
+        chars.add(lower.charAt(rnd.nextInt(lower.length())));
+        chars.add(digits.charAt(rnd.nextInt(digits.length())));
+        chars.add(symbols.charAt(rnd.nextInt(symbols.length())));
+        while (chars.size() < length) {
+            chars.add(all.charAt(rnd.nextInt(all.length())));
+        }
+        java.util.Collections.shuffle(chars, rnd);
+        StringBuilder sb = new StringBuilder(length);
+        chars.forEach(sb::append);
+        return sb.toString();
     }
 
     public String phoneNumber() {

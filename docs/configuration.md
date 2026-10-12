@@ -109,6 +109,35 @@ pageLoad.timeout=                   # blank = falls back to timeout.long; how lo
                                      # waits for document.readyState == 'complete' before logging a warning and
                                      # continuing anyway (never fails the test on its own)
 
+# ── Performance budgets (see core/budget/) — slow responses fail the test ────
+perf.budget.enabled=true
+perf.budget.handling=CONTINUE_ON_FAILURE   # or OPTIONAL = warn only
+perf.budget.retry=false                    # true = retry a test that broke a budget
+perf.budget.pageLoad.maxMs=15000           # API default follows api.responseTime.maxMs unless perf.budget.api.maxMs is set
+perf.budget.api.overrides=GET /BookStore/v1/Books=2000; POST /Account/*=8000
+perf.budget.pageLoad.overrides=/books=20000
+perf.budget.screen.maxMs=10000               # mobile: app launch / element a screen waits for
+perf.budget.screen.overrides=app launch=60000
+
+# ── Database assertions (core/db/DbClient) — set per site, password via -D / CI secret ──
+db.url=                                    # blank = no database; e.g. jdbc:postgresql://localhost:5432/qa_mantis
+db.user=
+db.password=
+db.readOnly=true                           # false = DbClient.update() allowed (test databases only)
+db.queryTimeoutSeconds=30
+db.connectTimeoutSeconds=10
+db.maxRows=10000                           # a query returning more is refused, not loaded
+
+# ── Consumer contracts (core/contract, testng-suites/api-contracts.xml) ──
+contract.dir=src/test/resources/contracts  # Pact JSON files
+contract.provider=                         # only contracts for this provider (blank = all)
+contract.state.handler=                    # class implementing ProviderStateHandler
+
+# ── Flaky quarantine (see quarantine.properties, core/quarantine/Quarantine.java) ──
+quarantine.enabled=true                    # false = ignore every quarantine
+quarantine.maxDays=90                      # entries ending further away than this are ignored (0 = no cap)
+quarantine.neverGroups=security            # tests in these groups can never be quarantined
+
 # ── API Test Logging (see core/api/ApiClient.java) ────────────────
 api.log.onFailureOnly=true          # true = only print request/response bodies when an assertion fails
 

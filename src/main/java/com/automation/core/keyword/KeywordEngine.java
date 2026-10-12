@@ -1,5 +1,6 @@
 package com.automation.core.keyword;
 
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.KeywordExecutionException;
 import com.automation.core.selfhealing.SelfHealingEngine;
@@ -114,6 +115,8 @@ public class KeywordEngine {
     // ── Keyword implementations ──────────────────────────────────────────────
 
     private void navigate(String path) {
+        // Timed for the performance budget (see PerfSamples) - measured around driver.get() only.
+        long startedNanos = System.nanoTime();
         if (path.startsWith("http://") || path.startsWith("https://")) {
             driver.get(path);
         } else {
@@ -127,6 +130,7 @@ public class KeywordEngine {
             driver.get(path.isEmpty() ? baseUrl
                 : baseUrl + (path.startsWith("/") ? path : "/" + path));
         }
+        PerfSamples.recordPageLoad(path, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     /**

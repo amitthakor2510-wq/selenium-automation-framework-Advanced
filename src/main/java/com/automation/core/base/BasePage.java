@@ -1,5 +1,6 @@
 package com.automation.core.base;
 
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.selfhealing.SelfHealingEngine;
 import com.automation.core.utils.CaptchaSolver;
@@ -55,11 +56,16 @@ public abstract class BasePage {
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
+        // Timed so the performance budget (see PerfSamples / PerfBudgetEnforcer) can fail a
+        // test whose page loaded too slowly. Measured around driver.get() only - the CAPTCHA
+        // pass below is deliberately excluded, it is not part of the page's own load time.
+        long startedNanos = System.nanoTime();
         if (path == null || path.isEmpty()) {
             driver.get(baseUrl);
         } else {
             driver.get(baseUrl + (path.startsWith("/") ? path : "/" + path));
         }
+        PerfSamples.recordPageLoad(path, (System.nanoTime() - startedNanos) / 1_000_000L);
         handleCaptchaIfPresent();
     }
 

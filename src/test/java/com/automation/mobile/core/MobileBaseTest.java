@@ -1,6 +1,7 @@
 package com.automation.mobile.core;
 
 import com.automation.core.base.DriverProvider;
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
@@ -73,7 +74,12 @@ public class MobileBaseTest implements DriverProvider {
         if (currentSite == null || !currentSite.equals(requestedSite)) {
             ConfigReader.reset();
         }
+        // App launch = Appium session creation. Timed for the performance budget
+        // (perf.budget.screen.*, see PerfBudgetEnforcer); global.properties gives it a generous
+        // 60 s override because an emulator cold start is normally far slower than any screen.
+        long launchStartedNanos = System.nanoTime();
         driver.set(AppiumDriverFactory.createDriver());
+        PerfSamples.recordScreen("app launch", (System.nanoTime() - launchStartedNanos) / 1_000_000L);
     }
 
     @AfterMethod(alwaysRun = true)

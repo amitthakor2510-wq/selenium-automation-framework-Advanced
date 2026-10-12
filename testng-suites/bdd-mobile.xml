@@ -1,0 +1,11 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Sequential BDD suite for mobile: one emulator/device can only run ONE Appium session at a
+     time, so scenarios must not run in parallel. Run with:
+       mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/bdd-mobile.xml -->
+<suite name="BDD Mobile Suite" data-provider-thread-count="1">
+  <test name="BDD Mobile Scenarios">
+    <classes>
+      <class name="com.automation.bdd.runner.CucumberRunnerTest"/>
+    </classes>
+  </test>
+</suite>

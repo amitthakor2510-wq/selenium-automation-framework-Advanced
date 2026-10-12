@@ -3,6 +3,9 @@ package com.automation.sites.listeners;
 import com.automation.core.ai.AiExceptionAnalyzer;
 import com.automation.core.ai.AiFailureAnalysis;
 import com.automation.core.base.DriverProvider;
+import com.automation.core.budget.PerfBudgetEnforcer;
+import com.automation.core.budget.PerfBudgetReport;
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
@@ -36,6 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Optional;
 
 /**
  * Implements BOTH ITestListener (Extent Reports bookkeeping) and
@@ -142,6 +146,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         if (!method.isTestMethod()) {
             return;
         }
+        PerfBudgetEnforcer.resetExceeded();
         // Tags every SLF4J log line this thread emits for the rest of this
         // test — page objects, DriverFactory, self-healing, etc. — with
         // which test produced it. Essential once parallel="classes" is
@@ -203,6 +208,14 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult result) {
+        // Timings recorded while tearing down (@AfterMethod/@AfterClass cleanup calls) are not
+        // part of any test's performance - drop them so they can't be charged to the NEXT test
+        // that runs on this thread.
+        if (method.isConfigurationMethod()
+            && (method.getTestMethod().isAfterMethodConfiguration()
+                || method.getTestMethod().isAfterClassConfiguration())) {
+            PerfSamples.clear();
+        }
         if (!method.isTestMethod()) {
             return;
         }
@@ -220,12 +233,28 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         // to FAILURE here, before afterTestInvocation() picks its Pass/Failure branch, before
         // TestNG notifies the ITestListeners (Allure, Extent) and before RetryAnalyzer decides
         // whether to re-run it.
+        // Order matters. (1) Slow page loads / API calls are checked against the performance
+        // budget and reported through Verify, so (2) applyToResult folds them in with every other
+        // soft failure, and only then (3) the quarantine decides whether a FAILURE of a known-flaky
+        // test may be tolerated - it must see the final status, soft/perf failures included.
         try {
+            PerfBudgetEnforcer.enforce(result);
             reportVerifications(Verify.applyToResult(result));
+            reportQuarantine(QuarantineHandler.apply(result), result);
         } finally {
             Verify.unbindDriver();
         }
         afterTestInvocation(method, result);
+    }
+
+    /** Makes a tolerated failure visible in the Extent report, where a skipped entry alone would look harmless. */
+    private void reportQuarantine(Optional<QuarantineRegistry.Entry> entry, ITestResult result) {
+        if (entry.isEmpty() || test.get() == null) {
+            return;
+        }
+        String outcome = result.getStatus() == ITestResult.SKIP
+            ? "FAILED but is quarantined - build not affected" : "passed while quarantined";
+        test.get().warning("Quarantine: " + outcome + " - " + entry.get().describe());
     }
 
     /** OPTIONAL checks never fail a test, so the Extent report is the only place besides the
@@ -491,12 +520,26 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         // widget and "Categories" tab before any test results land in
         // target/allure-results.
         AllureEnvironmentWriter.writeOnce();
+        QuarantineHandler.logStartupOnce();
     }
 
     @Override
     public void onTestStart(ITestResult result) {
         String testName    = result.getMethod().getMethodName();
         String description = result.getMethod().getDescription();
+        String[] groups    = result.getMethod().getGroups();
+
+        // Cucumber scenarios all run through the single TestNG method CucumberRunnerTest.runScenario,
+        // so without this every BDD entry in the Extent report would be called "runScenario". Name
+        // the entry after the scenario (and its feature) instead, and tag it "bdd".
+        Object[] params = result.getParameters();
+        if (result.getInstance() instanceof io.cucumber.testng.AbstractTestNGCucumberTests
+            && params.length > 0 && params[0] instanceof io.cucumber.testng.PickleWrapper pickle) {
+            testName = pickle.getPickle().getName();
+            description = params.length > 1
+                ? "Feature: " + String.valueOf(params[1]).replace("\"", "") : "";
+            groups = new String[] {"bdd"};
+        }
 
         ExtentTest extentTest;
         synchronized (TestListener.class) {
@@ -509,7 +552,6 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         // Categories/author/device populate the Dashboard tab's filter chips and the
         // Tests-by-category donut chart — without them every test shows up "uncategorized"
         // and the dashboard has nothing to slice by.
-        String[] groups = result.getMethod().getGroups();
         if (groups.length > 0) {
             extentTest.assignCategory(groups);
         }
@@ -630,6 +672,8 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
     @Override
     public void onFinish(ITestContext context) {
         extent().flush();
+        QuarantineHandler.writeSummary();
+        PerfBudgetReport.writeSummary();
         archiveExtentReports();
         // Reset the ExtentManager singleton after each suite finishes.
         // Without this, if two sites run sequentially in the same JVM (e.g. a

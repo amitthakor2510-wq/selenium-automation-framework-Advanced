@@ -82,6 +82,9 @@ public final class NewmanRunner {
 
         if (Files.exists(json)) {
             JsonNode run = MAPPER.readTree(json.toFile()).path("run");
+            // Newman is a separate process, so its requests bypass the RestAssured filter: feed their
+            // response times to the performance budget from the report instead (see NewmanTimings).
+            NewmanTimings.record(run);
             JsonNode stats = run.path("stats");
             requestsTotal = stats.path("requests").path("total").asInt();
             requestsFailed = stats.path("requests").path("failed").asInt();

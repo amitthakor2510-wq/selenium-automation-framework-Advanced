@@ -60,12 +60,6 @@ things are true at once here:
    (suite), every severity, every category (TestNG group) a test belongs to,
    and — when any exist — a dedicated "flaky" report for tests that only
    passed after a retry. Run it locally the same way CI does:
-   <!-- BUG FIX: this previously said `Scripts/generate_segmented_reports.py` —
-        that path doesn't exist; the script only ever lived at
-        .github/workflows/scripts/generate_segmented_reports.py (confirmed
-        against what all three CI pipelines actually invoke). Anyone following
-        this section's "run it locally" instruction as written would have hit
-        a plain "No such file or directory". -->
    ```bash
    mvn test -Dsite=demoqa
    python3 .github/workflows/scripts/generate_segmented_reports.py   # writes target/allure-segmented/ + target/report-index.html
@@ -184,6 +178,20 @@ What you get that Extent doesn't have:
 | ✅ Pass | Pass log | Screenshot (+ video, if `video.keep.on.pass=true`) |
 | ❌ Fail | Fail log + stack trace + screenshot (inline) + video link | Screenshot + page source (HTML) + browser console logs + Failed URL parameter + video |
 | ⏭️ Skip | Skip log + reason + screenshot (inline) + video link | Screenshot + page source (HTML) + browser console logs + Skip URL parameter + video |
+
+### Quarantined and slow-response results
+
+- **Quarantined** — a known-flaky test that failed is reported as *skipped* with the message
+  "Quarantined - <ticket> (until <date>): …", the Allure label `quarantined` and the Allure
+  category **Quarantined (known flaky - build not affected)**; the Extent report adds a warning
+  line. What was tolerated is also listed in the log and in `target/quarantine/summary-<site>.txt`
+  (uploaded as a CI artifact in GitHub Actions, GitLab CI and Jenkins). `Scripts/test-gate.sh`
+  counts these as *skipped*, so they do not fail the gate — unless you set
+  `GATE_FAIL_ON_SKIPPED=true`, which would also fail on every quarantined failure.
+- **Performance summary** — `target/perf-budget/summary-<site>.txt` (also a CI artifact): everything over budget, the slowest calls, and per-endpoint p50/p95/max with a suggested limit for tuning `perf.budget.*`.
+- **Slow response** — a page load or API call over its budget fails the test and shows under the
+  Allure category **Slow response (performance budget exceeded)**; every test carries a
+  "Performance budget" attachment with all its timings.
 
 ### Video Recording
 

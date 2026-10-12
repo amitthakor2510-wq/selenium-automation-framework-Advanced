@@ -9,6 +9,10 @@
 ## 📋 Table of Contents
 - [🔁 Retry & Resilience](#-retry--resilience)
 - [✅ Soft Assertions — Verify & FailureHandling](#-soft-assertions--verify--failurehandling)
+- [⏱️ Performance Budgets — slow responses fail the run](#️-performance-budgets--slow-responses-fail-the-run)
+- [🧪 Flaky Test Quarantine](#-flaky-test-quarantine)
+- [🗄️ Database Assertions](#️-database-assertions)
+- [🤝 Consumer Contracts](#-consumer-contracts)
 - [🧩 Test Coverage — demoqa.com](#-test-coverage--demoqacom)
 - [🌐 API Testing](#-api-testing)
 - [🧵 Keyword-Driven & Data-Driven Testing](#-keyword-driven--data-driven-testing)
@@ -68,6 +72,121 @@ Verify.check("cart total", FailureHandling.CONTINUE_ON_FAILURE,
 - Reports: each check is an Allure step (passed / failed / broken for `OPTIONAL`); soft failures get a screenshot taken *when they fail*; `OPTIONAL` failures also appear as warnings in the Extent report.
 - Only `AssertionError` is handled. An exception while *computing* the value (e.g. an element not found) still stops the test.
 - Use it in `@Test` methods. Page objects still never call assertions.
+
+---
+
+## ⏱️ Performance Budgets — slow responses fail the run
+
+Every page navigation (`BasePage.navigateTo`, the keyword `OPEN_URL`) and every API call made through `ApiClient` is **timed automatically**. After each test the timings are checked against a budget, and anything over it is reported through `Verify` — so a slow response fails the test like any other failed check, with no per-test code. (The existing `ApiAssertions.assertResponseTimeUnder` still works for a one-off explicit check.)
+
+```properties
+perf.budget.enabled=true                      # master switch
+perf.budget.handling=CONTINUE_ON_FAILURE      # or OPTIONAL = slow calls are only warnings
+perf.budget.api.maxMs=5000                    # default per API call (falls back to api.responseTime.maxMs)
+perf.budget.pageLoad.maxMs=15000              # default per page navigation
+perf.budget.api.overrides=GET /BookStore/v1/Books=2000; POST /Account/*=8000
+perf.budget.pageLoad.overrides=/books=20000; /upload-download=25000
+```
+
+- **What is timed:** web page loads (`BasePage.navigateTo`, keyword `OPEN_URL`, the first page in `BaseTest.setUp` and in BDD `@ui` scenarios), every `ApiClient` call, **every request of a Postman/Newman collection** (read from Newman's JSON report, `NewmanTimings`), and for mobile the **app launch** plus every successful `waitVisible`/`waitClickable` in a mobile page object (`perf.budget.screen.maxMs`, default 10 s; `app launch` has a 60 s override). Waits that are *expected* to be long (`isDisplayed`, waiting for an element to disappear) are not timed.
+- Overrides are `;`-separated and the **first match wins** (put specific entries first). `*` is a wildcard; a limit of `0` exempts that match. Put the same keys in `{site}.properties` for a per-site budget, or pass `-D...` for one run.
+- A failure reads like `API GET /BookStore/v1/Books took 6120 ms, budget is 5000 ms`, is listed under the Allure category **Slow response (performance budget exceeded)**, and every test gets a **Performance budget** attachment with all its timings — passing runs included, so you can see how close to the limit you are.
+- Page load is the wall-clock time of `driver.get()` on the machine running the tests, not the browser's own timing — size `perf.budget.pageLoad.maxMs` for your slowest CI runner.
+- Calls made during `@BeforeClass`/`@BeforeMethod` count toward the first test that follows; calls made in `@After*` cleanup are ignored.
+- **Choosing limits:** every run writes `target/perf-budget/summary-<site>.txt` (uploaded as a CI artifact) with the calls that were over budget, the 10 slowest, and for each endpoint/page its call count, p50, p95, max, current limit and a **suggested limit** (p95 × 1.5, rounded up to 100 ms, only for ≥ 3 calls). Run the suite a few times with `-Dperf.budget.handling=OPTIONAL`, then copy the suggested numbers into `perf.budget.api.overrides` / `perf.budget.pageLoad.overrides`.
+- This is separate from the opt-in JMeter load tests (`perf.maxP99Millis`, `-Pperf`), which judge a whole load run rather than single requests.
+
+---
+
+## 🧪 Flaky Test Quarantine
+
+A known-flaky test can be **quarantined**: it still runs (so you keep seeing whether it passes), but if it fails the result is reported as **skipped — "Quarantined - QA-412 (until 2026-11-15): …"** instead of failed, so it cannot turn the build red. The screenshot / page source / video are still attached, the Allure result carries the label `quarantined`, and the Extent report shows a warning line.
+
+Quarantine a test from `quarantine.properties` (repo root, no code change):
+
+```properties
+# <target> = <last day yyyy-MM-dd> | <ticket> | <reason>
+LoginTest#verifyValidLogin = 2026-11-15 | QA-412 | CAPTCHA solver misreads 'f'
+BrokenLinksImagesTest      = 2026-10-31 | QA-377 | external CDN is intermittently down
+```
+
+…or on the test itself:
+
+```java
+@Test
+@Quarantine(until = "2026-11-15", ticket = "QA-412", reason = "CAPTCHA solver misreads 'f'")
+public void verifyValidLogin() { ... }
+```
+
+- **The expiry date is mandatory.** After it the test fails the build normally again, so a quarantine can't quietly become permanent; expired entries are listed in the log at the start of every run. A missing or malformed date makes the entry ineffective (the test fails normally) and logs a warning — a typo can never hide a failure.
+- Targets are the same as `test-config.properties`: class, `Class#method`, or `some.package.*`; a method entry beats a class/package entry.
+- Quarantined tests are **not retried** (a failure is tolerated anyway). A quarantined test that **passes** is tagged too — a few clean runs in a row means it is ready to leave quarantine.
+- Failures that were tolerated are listed at the end of the run in the log and in `target/quarantine/summary-<site>.txt` — read it; that is the list of things nobody is being paged about.
+- Run with `-Dquarantine.enabled=false` for an unfiltered result (a good fit for a nightly job). Disabling a test entirely is a different thing: use `test-config.properties`.
+- Quarantine is applied last, so it also covers soft-assertion and performance-budget failures of a quarantined test.
+- **A quarantine cannot become permanent:** an entry whose end date is more than `quarantine.maxDays` (default **90**) days away is ignored — the test fails normally and the log says why — so `2099-01-01` is not a loophole (`0` removes the cap).
+- **Security tests cannot be quarantined:** a test in a group listed in `quarantine.neverGroups` (default `security`) is never quarantined, whatever the file says — a flaky security check has to be fixed, not silenced.
+- **Cucumber scenarios** can be quarantined individually: `scenario: <name, * wildcard>`, `feature: <file>` or `tag: @flaky` lines in `quarantine.properties`, or `@quarantine_until_2026-11-15` (+ optional `@ticket_QA-412`) written on the scenario itself. In Allure the Cucumber plugin's own result stays "failed" but is labelled `quarantined`; the TestNG result, the CI gate and the Extent report treat it as skipped.
+
+- A quarantine entry naming the Cucumber runner class (`CucumberRunnerTest`) quarantines **all** scenarios; use the `scenario:` / `feature:` / `tag:` forms below to be selective.
+- A rule naming a subclass also covers a method it inherits from a base class.
+
+---
+
+## 🗄️ Database Assertions
+
+A UI or API test only proves what the application *shows*. `core/db` lets a test check what it actually *stored*: plain JDBC, one small client, assertions in the same style as `ApiAssertions`.
+
+```properties
+db.url=jdbc:postgresql://localhost:5432/qa_mantis    # in {site}.properties; blank = no database
+db.user=qa
+db.password=...                                       # -Ddb.password=... or a CI secret, not git
+db.readOnly=true                                      # default; false enables update() for setup/cleanup
+```
+
+```java
+try (DbClient db = DbClient.connect()) {
+    Row user = DbAssertions.assertRowExists(db, "SELECT * FROM users WHERE email = ?", email);
+    assertEquals(user.getString("status"), "ACTIVE");
+
+    DbAssertions.assertValue(db, 1, "SELECT COUNT(*) FROM audit_log WHERE user_id = ?", user.getLong("id"));
+    DbAssertions.awaitRow(db, 5000, "SELECT * FROM jobs WHERE ref = ?", ref);   // async write: poll, don't sleep
+}
+```
+
+- **Always bound parameters (`?`)**, never string concatenation — a value can never become SQL.
+- **Read-only by default.** The connection is set read-only and a statement guard refuses anything that is not a plain `SELECT` / `WITH` / `SHOW` / `EXPLAIN` / `VALUES`: no second statement, and none of the words that write or change the session (`insert`, `delete`, `into`, `set`, `copy`, `analyze`, `set_config`, ...) outside a string literal or comment — which is what stops `SELECT ... FROM OLD TABLE (DELETE ...)`, `WITH d AS (DELETE ... RETURNING *) SELECT ...`, `EXPLAIN ANALYZE DELETE ...` and `FOR UPDATE`. Where in doubt it refuses (a query that trips it can pass the value as a `?` parameter). **The guard is a safety net, not a security boundary** — SQL dialects have too many ways to write through a query. For any database you care about, connect with an account that only has `SELECT` privileges; that is the real protection.
+- `db.readOnly=false` (a throw-away test database only) enables `db.update(...)` for setup/cleanup — `cleanupAfterClass` is a good place for the cleanup.
+- A query that returns more than `db.maxRows` (default 10 000) rows is refused instead of loaded into memory — add a `LIMIT` or a tighter `WHERE`.
+- **No secrets in reports:** passwords in the connection URL (including `user:pass@host` and `sslpassword=`) are masked in logs; `Row.toString()` and assertion failure messages show `********` for any column whose *name* looks sensitive (password, token, secret, api key, ...); `assertValue` on a query that names such a column does not echo the values; parameters are cut to 80 characters. `row.get(...)` still returns the real value to the test.
+- Column names are lower-cased (`row.get("status")` works on PostgreSQL, H2 and Oracle alike); numbers compare by value (`5` equals `5.00`).
+- Each query is attached to the Allure report (SQL, row count, time) — passwords are never logged or attached.
+- Wrap an assertion in `Verify.check(...)` to make it soft. Not included: query timings are not part of the performance budget, and only the PostgreSQL and H2 drivers are in the pom (add another driver as a test dependency for other databases).
+
+---
+
+## 🤝 Consumer Contracts
+
+A **contract** records what a consumer sends to a provider and the response it relies on, as a [Pact](https://docs.pact.io) JSON file (v2 and v3 layouts) in `src/test/resources/contracts/`. The same file serves both sides, so a backend change that breaks a consumer fails a test instead of production:
+
+- **Provider verification** — replays every interaction against the real API and reports exactly what no longer matches:
+  `mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-contracts.xml`
+  (one test per interaction; `contract.provider` limits it to one provider, `contract.state.handler` names a `ProviderStateHandler` that sets up "given a user exists" states). Requests go through `ApiClient`, so they appear in Allure and count toward the performance budget.
+- **Consumer stub** — `ContractStubServer` serves the contract's responses on a local port for the consumer's *own* tests:
+
+```java
+try (ContractStubServer stub = ContractStubServer.start(Contract.load(path))) {
+    MyClient client = new MyClient(stub.baseUrl());
+    // ... exercise the client ...
+    stub.assertAllInteractionsUsed();   // fails on requests outside the contract / unused interactions
+}
+```
+
+How a response is judged: the status must be equal; each header in the contract must be present (`Content-Type` compares the media type only); the body must contain every field the contract lists — **extra fields from the provider are fine**, because a consumer only depends on what it uses. Matching rules relax that where the contract says so: `type` (same JSON type, whole subtree; an array is checked against its first element, with `min`/`max`), `regex`, `integer`, `decimal`, `number`, `boolean`, `null`, `include`, `equality`. A rule this framework does not support makes the interaction **fail** instead of passing silently.
+
+- **Not Pact itself:** no broker or "can-i-deploy", no date/time matchers, no message pacts, no Pact v4 plugins. Files written by the Pact libraries (pact-jvm, pact-js, …) load as long as they stay inside the subset above; `src/test/resources/contracts/sample-consumer__jsonplaceholder.json` is a worked example.
+- **Safe to run from CI:** the verifier only sends *relative* paths starting with a single `/` — a contract whose path is `http://169.254.169.254/...`, `//host/...`, contains CR/LF, spaces or backslashes, an unusual method, or a `Host` / `Content-Length` / `Transfer-Encoding` header is rejected **before anything is sent** (and before provider states are set up), so a contract file in a pull request cannot aim the runner's network access or credentials elsewhere. A file with no interactions (empty, or not a Pact file) **fails** instead of verifying nothing; files over 5 MB are refused. A `regex` rule is given a fixed work budget, so a hostile response cannot hang the run with catastrophic backtracking — it fails with "took too long"; an invalid or missing regex is a mismatch, not a crash. Failure messages mask the value of sensitive-looking fields and `Authorization` / `Cookie` headers and cut long values.
+- Query values are stored decoded and encoded once when a request is sent; paths containing `{`/`}` are treated as RestAssured path templates, so keep contract paths literal.
 
 ---
 
@@ -167,7 +286,7 @@ Pure-HTTP tests — no browser, no Selenium/Grid — built on Rest-Assured plus 
 ```java
 Response response = ApiClient.get("/posts/1");
 ApiAssertions.assertStatus(response, 200);
-ApiAssertions.assertMatchesSchema(response, "schemas/jsonplaceholder/post.json");
+ApiAssertions.assertMatchesSchema(response, "schemas/post.json");
 ApiAssertions.assertResponseTimeUnder(response);   // uses api.responseTime.maxMs
 ```
 
@@ -218,29 +337,29 @@ mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-tests-jsonplace
 Tests 1, 4, 5, and 7 of `BookStoreApiTest` also assert the *whole shape* of the response, not just the specific field values the table above implies:
 
 ```java
-.body(matchesJsonSchemaInClasspath("schemas/bookstore/account-created.json"))
+.body(matchesJsonSchemaInClasspath("schemas/account-created.json"))
 .body("username", equalTo(API_USERNAME))
 .body("userID", not(emptyString()))
 ```
 
 Or, using the new `ApiAssertions` helper (equivalent, usable outside a `.then()` chain — e.g. after `ApiRetry.withRetry`):
 ```java
-ApiAssertions.assertMatchesSchema(response, "schemas/bookstore/account-created.json");
+ApiAssertions.assertMatchesSchema(response, "schemas/account-created.json");
 ```
 
 Schema validation and field-by-field Hamcrest assertions catch different things, and neither replaces the other:
 - **A field-by-field assertion** (`equalTo`, `hasItem`, ...) catches a specific value being *wrong* — e.g. `username` echoing back something other than what was submitted.
 - **Schema validation** catches the response's *shape* changing — a field disappearing, being renamed, or switching type (say, `pages` starting to come back as a string) — even when every field the Hamcrest assertions happen to check still passes.
 
-The schemas live under `src/test/resources/schemas/<site>/` — `bookstore/` for demoqa's 4 schemas, `jsonplaceholder/post.json` for the standalone site:
+The schemas live directly under `src/test/resources/schemas/` — 4 for demoqa's Book Store API, plus `post.json` for the standalone jsonplaceholder site:
 
 | Schema | Validates | Used in |
 |---|---|---|
-| `bookstore/account-created.json` | `POST /Account/v1/User` | `BookStoreApiTest` Test 1 |
-| `bookstore/books-list.json` | `GET /BookStore/v1/Books` | `BookStoreApiTest` Test 4 |
-| `bookstore/book-detail.json` | `GET /BookStore/v1/Book?ISBN=...` | `BookStoreApiTest` Test 5 |
-| `bookstore/user-detail.json` | `GET /Account/v1/User/{UUID}` | `BookStoreApiTest` Test 7 |
-| `jsonplaceholder/post.json` | `GET/POST/PUT /posts...` | `JsonPlaceholderApiTest` |
+| `account-created.json` | `POST /Account/v1/User` | `BookStoreApiTest` Test 1 |
+| `books-list.json` | `GET /BookStore/v1/Books` | `BookStoreApiTest` Test 4 |
+| `book-detail.json` | `GET /BookStore/v1/Book?ISBN=...` | `BookStoreApiTest` Test 5 |
+| `user-detail.json` | `GET /Account/v1/User/{UUID}` | `BookStoreApiTest` Test 7 |
+| `post.json` | `GET/POST/PUT /posts...` | `JsonPlaceholderApiTest` |
 
 > [!IMPORTANT]
 > `user-detail.json` documents a real quirk: `GET /Account/v1/User/{UUID}` returns the id field as `userId` (lowercase d), while `POST /Account/v1/User`'s creation response uses `userID` (capital D) for what is otherwise the same value. That's DemoQA's own API being inconsistent between endpoints, not a typo in the schema — see the comment in that file.

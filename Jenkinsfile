@@ -823,6 +823,69 @@ pipeline {
             }
         }
 
+        stage('BDD Tests') {
+            // Cucumber/Gherkin scenarios (features/<site>/*.feature, see BDD.md) through
+            // testng-suites/bdd.xml - same Surefire/TestNG/Allure path as every other
+            // stage. Runs on every build like 'API Tests'. One leg per site, each gated
+            // on its own pipeline-config.properties switch: saucedemo is @ui (headless
+            // Chrome), jsonplaceholder is @api (pure HTTP). @mobile scenarios are NOT run
+            // here - they need the emulator 'Mobile Test' provisions; run them locally
+            // with testng-suites/bdd-mobile.xml.
+            steps {
+                script {
+                    sh 'mkdir -p target/jacoco-artifacts'
+                    def bddSites = ['saucedemo', 'jsonplaceholder']
+                    def rpArgs = params.REPORTPORTAL_ENABLE
+                            ? "-Dreportportal.enable=true -Dreportportal.endpoint=${params.REPORTPORTAL_ENDPOINT} -Dreportportal.project=${params.REPORTPORTAL_PROJECT} -Dreportportal.launch=\"Selenium Automation Framework\""
+                            : "-Dreportportal.enable=false"
+                    def bddResults = [:]
+
+                    def runBddSuites = {
+                        bddSites.each { site ->
+                            if (sh(script: "bash Scripts/enabled-sites.sh --check ${site}", returnStatus: true) != 0) {
+                                echo "site.${site}.enabled is not true in pipeline-config.properties - skipping BDD suite"
+                                return
+                            }
+                            echo "==== Running ${site} BDD Tests ===="
+                            int exitCode = sh(
+                                    script: """
+                                       mvn -B -ntp test \\
+                                          -Dsite=${site} \\
+                                          -DsuiteXmlFile=testng-suites/bdd.xml \\
+                                          -Dbrowser=chrome \\
+                                          -Dheadless=true \\
+                                          -Dhuman.pause.enabled=false \\
+                                          -Dretry.count=${params.RETRY_COUNT} \\
+                                          -Dallure.results.directory=target/allure-results/${site}-bdd \\
+                                          -Dsurefire.reportsDirectory=target/surefire-reports/${site}-bdd \\
+                                          -Djacoco.destFile=target/jacoco-artifacts/${site}-bdd.exec \\
+                                          ${rpArgs} \\
+                                          -Dreportportal.attributes="site:${site};suite:bdd;ci:jenkins;build:${env.BUILD_NUMBER}" \\
+                                          -Dmaven.test.failure.ignore=true
+                                    """,
+                                    returnStatus: true
+                            )
+                            bddResults[site] = exitCode
+                            sh(script: "bash Scripts/test-gate.sh record ${site}-bdd target/surefire-reports/${site}-bdd", returnStatus: true)
+                        }
+                    }
+                    if (params.REPORTPORTAL_ENABLE) {
+                        withCredentials([string(credentialsId: 'reportportal-api-key', variable: 'RP_API_KEY')]) {
+                            runBddSuites()
+                        }
+                    } else {
+                        runBddSuites()
+                    }
+
+                    def failedBddSites = bddResults.findAll { k, v -> v != 0 }.keySet()
+                    if (failedBddSites) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "BDD suites with failures: ${failedBddSites.join(', ')}"
+                    }
+                }
+            }
+        }
+
         stage('Mobile Test') {
             when {
                 expression { env.RUN_MOBILE == 'true' }
@@ -1558,7 +1621,7 @@ pipeline {
         }
 
         stage('Coverage Gate') {
-            // Runs after Run Tests Per Site + Mobile Test + API Tests +
+            // Runs after Run Tests Per Site + Mobile Test + API Tests + BDD Tests +
             // Performance Tests (Java DSL, nightly-only) so every branch's
             // target/jacoco-artifacts/<key>.exec (see -Djacoco.destFile
             // above) is already on disk. Each individual branch only
@@ -1890,7 +1953,7 @@ pipeline {
                     // regular per-site ones, not gated behind NIGHTLY_RESULT_DIRS.
                     // Only dirs that actually exist are included — an API
                     // suite skipped via enabled-sites.sh never writes one.
-                    resultDirs += ['demoqa-api', 'jsonplaceholder-api']
+                    resultDirs += ['demoqa-api', 'jsonplaceholder-api', 'saucedemo-bdd', 'jsonplaceholder-bdd']
                             .findAll { fileExists("target/allure-results/${it}") }
                             .collect { [path: "target/allure-results/${it}"] }
                     if (!resultDirs) {
@@ -2063,7 +2126,7 @@ for seg in segs:
                     // ("a report a developer actually sees"). GitHub Actions already
                     // archives + aggregates this directory per job; Jenkins never did.
                     archiveArtifacts allowEmptyArchive: true,
-                            artifacts: 'target/report-index.html, target/extent-reports/**, target/logs/**, target/screenshots/**, target/videos/**, target/allure-results/**, target/allure-segmented/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**, target/self-healing/**',
+                            artifacts: 'target/report-index.html, target/extent-reports/**, target/quarantine/**, target/perf-budget/**, target/logs/**, target/screenshots/**, target/videos/**, target/allure-results/**, target/allure-segmented/**, target/jmeter/results/**, target/jmeter/reports/**, target/site/jacoco/**, target/jacoco-artifacts/**, target/self-healing/**',
                             fingerprint: true
 
                     // ── ADB memory-leak cleanup ─────────────────────

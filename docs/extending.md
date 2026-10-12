@@ -122,7 +122,7 @@ For a site that's nothing but an API — no browser, no page objects at all. `js
    }
    ```
 5. **Suite file** — `testng-suites/api-tests-mysite.xml`, copy `testng-suites/api-tests-jsonplaceholder.xml` as a template and swap the class name. Keep it as its **own suite file**, not a second `<test>` block inside an existing one — `-Dsite` is a single JVM-wide system property (see `ConfigReader`), so a suite mixing two different sites' API test classes can only ever correctly resolve one of them per run. See `testng-suites/api-tests.xml`'s own comment for the full reasoning.
-6. **(Optional) JSON schemas** — `src/test/resources/schemas/mysite/*.json` if you want contract validation via `ApiAssertions.assertMatchesSchema(...)`.
+6. **(Optional) JSON schemas** — `src/test/resources/schemas/*.json` (flat; name files per site, e.g. `mysite-user.json`) if you want contract validation via `ApiAssertions.assertMatchesSchema(...)`.
 7. **Run it**:
    ```bash
    mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/api-tests-mysite.xml

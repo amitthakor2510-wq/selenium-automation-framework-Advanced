@@ -2,11 +2,13 @@ package com.automation.core.api.generic;
 
 import com.automation.core.api.postman.NewmanRunner;
 import com.automation.core.config.ConfigReader;
+import com.automation.sites.listeners.TestListener;
 import io.qameta.allure.Allure;
 import org.testng.Assert;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
+import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -34,6 +36,10 @@ import java.util.stream.Stream;
  *
  * See NewmanRunner for the remaining postman.* keys.
  */
+// Same listener every other test base attaches: gives Postman runs the performance budget
+// (response times come from Newman's report, see NewmanTimings), the flaky quarantine and the
+// Extent/Allure evidence. Before this, this suite ran without any of them.
+@Listeners({TestListener.class})
 public class PostmanCollectionRunner {
 
     @BeforeClass(alwaysRun = true)

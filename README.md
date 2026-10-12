@@ -3,7 +3,7 @@
 # 🤖 Selenium Automation Framework
 ### Advanced Edition
 
-**A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven — with dual reporting, data-driven testing across 5 file formats, keyword-driven scripting, accessibility & visual-regression checks, an opt-in performance smoke test, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline.
+**A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven — with dual reporting, data-driven testing across 5 file formats, keyword-driven scripting, BDD (Cucumber/Gherkin) feature files, accessibility & visual-regression checks, an opt-in performance smoke test, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline.
 
 <!--
   CI Status badge below is a static placeholder — the dynamic GitHub Actions
@@ -17,14 +17,14 @@
 <p>
   <img alt="CI Status" src="https://img.shields.io/badge/CI-passing-2ea44f?style=flat-square&logo=githubactions&logoColor=white">
   <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
-  <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.21.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
-  <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.9.0-orange?style=flat-square">
+  <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.50.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
+  <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.12.0-orange?style=flat-square">
   <img alt="Maven" src="https://img.shields.io/badge/Maven-Build-C71A36?style=flat-square&logo=apachemaven&logoColor=white">
   <br/>
   <img alt="Allure" src="https://img.shields.io/badge/Allure-2.27.0-FF5252?style=flat-square">
   <img alt="Extent Reports" src="https://img.shields.io/badge/Extent%20Reports-5.1.2-blue?style=flat-square">
   <img alt="Rest Assured" src="https://img.shields.io/badge/Rest%20Assured-5.4.0-25A162?style=flat-square">
-  <img alt="JaCoCo" src="https://img.shields.io/badge/Coverage-JaCoCo%200.8.12-C4A000?style=flat-square">
+  <img alt="JaCoCo" src="https://img.shields.io/badge/Coverage-JaCoCo%200.8.15-C4A000?style=flat-square">
   <img alt="Checkstyle" src="https://img.shields.io/badge/Code%20Style-Checkstyle-6DB33F?style=flat-square">
   <br/>
   <img alt="Docker" src="https://img.shields.io/badge/Docker-Selenium%20Grid-2496ED?style=flat-square&logo=docker&logoColor=white">
@@ -41,15 +41,19 @@
 | | |
 |---|---|
 | 🧱 **Language / Build** | Java 17 · Maven |
-| 🧪 **Test Runner** | TestNG 7.9.0 (parallel-ready, retry-aware) |
-| 🌐 **Browser Engine** | Selenium 4.21.0 (Chrome, Firefox, Edge, Brave, Safari — Safari is macOS-only, no headless mode, one session per machine; see [Safari](docs/configuration.md#-safari)) |
+| 🧪 **Test Runner** | TestNG 7.12.0 (parallel-ready, retry-aware) |
+| 🌐 **Browser Engine** | Selenium 4.50.0 (Chrome, Firefox, Edge, Brave, Safari — Safari is macOS-only, no headless mode, one session per machine; see [Safari](docs/configuration.md#-safari)) |
 | 📄 **Design Pattern** | Page Object Model |
-| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) — both also show the keyword-driven style (`KeywordDrivenTextBoxTest`, `KeywordDrivenLoginTest`) |
+| 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) · SAHMAT (keyword-driven login / forgot-password flows with CAPTCHA solving, staging portal) — demoqa and saucedemo also show the keyword-driven style (`KeywordDrivenTextBoxTest`, `KeywordDrivenLoginTest`) |
 | 📊 **Data-Driven Formats** | Excel · CSV · JSON · YAML · ZIP — same `DataRow` shape from every format |
 | 🧵 **Keyword-Driven Testing** | CSV-scripted test cases (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_*`, ...) resolved against a locator `ObjectRepository` — new scenarios need no Java. See [`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md) |
 | 🌐 **API Testing** | Rest-Assured — pure-HTTP Book Store flow (`BookStoreApiTest`), independent of the browser tests. **No-code runner:** `./Scripts/api-test.sh --openapi <url>` or YAML/JSON/CSV specs → one HTML report ([guide](docs/API_NO_CODE_GUIDE.md)) |
 | ♿ **Accessibility** | axe-core (WCAG/GIGW-adjacent) scanning — opt-in `accessibility` group, `testng-suites/demoqa-accessibility.xml` |
 | 🖼️ **Visual Regression** | AShot pixel-diff screenshots — opt-in `visual` group, `testng-suites/demoqa-visual.xml` |
+| 🗄️ **Database Assertions** | Check what the app actually stored: read-only-by-default JDBC client with bound parameters and polling assertions (`core/db`) — see [testing guide](docs/testing-guide.md) |
+| 🤝 **Consumer Contracts** | Pact-compatible contract verification against the real API plus a stub server for the consumer's own tests (`core/contract`, `testng-suites/api-contracts.xml`) — see [testing guide](docs/testing-guide.md) |
+| 🧪 **Flaky Quarantine** | Known-flaky tests (`quarantine.properties` / `@Quarantine`, mandatory expiry date) still run but a failure is reported as skipped, not failed — see [testing guide](docs/testing-guide.md) |
+| ⏱️ **Performance Budgets** | Every page load and API call is timed automatically; one over its limit fails the test (`perf.budget.*`, per-endpoint overrides) — see [testing guide](docs/testing-guide.md) |
 | ⏱️ **Performance Smoke** | JMeter response-time/response-code check — opt-in `mvn verify -Pperf` |
 | 📱 **Mobile (Appium)** | `AndroidDriver`/`IOSDriver` via `com.automation.mobile` — working example against Android's built-in Settings app, `-Dsite=mobile`. See [`mobile/README.md`](src/main/java/com/automation/mobile/README.md) |
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
@@ -96,6 +100,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | Guide | What's inside |
 |---|---|
 | 📐 [Architecture & Design](docs/architecture.md) | How a test runs, core files, page-object pattern, key Selenium concepts |
+| 🥒 [BDD / Cucumber](BDD.md) | Gherkin features for web, mobile and API with one shared set of no-code steps, tags, hooks, CI and reports |
 | 🧪 [Testing Guide](docs/testing-guide.md) | Retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression |
 | 🧩 [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md) | Automatic + keyword-driven CAPTCHA solving, setup (local/Docker/CI), how it's wired into every test style |
 | 🤖 [AI Features](docs/AI_FEATURES.md) | AI-assisted self-healing, AI root-cause failure analysis, AI-augmented bug crawler — model choice, config, usage |
@@ -118,25 +123,25 @@ open target/extent-reports/demoqa-report.html   # macOS
 | Tool | Version | Purpose |
 |---|---|---|
 | Java | 17 | Programming language |
-| Selenium | 4.21.0 | Browser automation |
-| TestNG | 7.9.0 | Test runner, retry, grouping (`smoke`/`regression`/`accessibility`/`visual`) |
+| Selenium | 4.50.0 | Browser automation |
+| TestNG | 7.12.0 | Test runner, retry, grouping (`smoke`/`regression`/`accessibility`/`visual`) |
 | Maven | 3.9+ | Build and dependency management |
 | Allure | 2.27.0 | Interactive test report with history/trends |
 | ExtentReports | 5.1.2 | Self-contained HTML test report |
 | Rest-Assured | 5.4.0 | Pure-HTTP API testing (Book Store REST flow) |
-| Apache POI | 5.2.5 | Reads/writes the `.xlsx` data-driven format |
-| OpenCSV | 5.9 | Reads the `.csv` data-driven format |
-| Jackson | 2.17.1 | Reads the `.json` data-driven format |
-| SnakeYAML | 2.2 | Reads the `.yaml` data-driven format |
-| axe-core (Deque) | 4.9.1 | Accessibility (WCAG/GIGW-adjacent) scanning — `AccessibilityUtils` |
+| Apache POI | 5.5.1 | Reads/writes the `.xlsx` data-driven format |
+| OpenCSV | 5.12.0 | Reads the `.csv` data-driven format |
+| Jackson | 2.22.3 | Reads the `.json` data-driven format |
+| SnakeYAML | 2.7 | Reads the `.yaml` data-driven format |
+| axe-core (Deque) | 4.13.0 | Accessibility (WCAG/GIGW-adjacent) scanning — `AccessibilityUtils` |
 | AShot | 1.5.4 | Pixel-level visual regression screenshots/diffing — `VisualRegressionUtils` |
-| Appium Java Client | 9.3.0 | Mobile automation (Android/iOS) — `com.automation.mobile` |
+| Appium Java Client | 10.1.1 | Mobile automation (Android/iOS) — `com.automation.mobile` |
 | JMeter (via `jmeter-maven-plugin`) | 3.8.0 | Opt-in performance smoke check (`mvn verify -Pperf`) |
-| Lombok | 1.18.46 | Boilerplate reduction (`@Getter` etc.) on select POJOs |
-| JaCoCo | 0.8.12 | Code coverage instrumentation + HTML report |
+| Lombok | 1.18.48 | Boilerplate reduction (`@Getter` etc.) on select POJOs |
+| JaCoCo | 0.8.15 | Code coverage instrumentation + HTML report |
 | Checkstyle | 3.5.0 (plugin) | Static analysis quality gate, opt-in via `mvn verify` |
-| WebDriverManager | 6.1.0 | Automatic browser driver download/version match |
-| Docker / Selenium Grid | 4.21.0 images | Optional containerized Chrome/Firefox/Edge nodes |
+| WebDriverManager | 6.4.0 | Automatic browser driver download/version match |
+| Docker / Selenium Grid | 4.49.0 images | Optional containerized Chrome/Firefox/Edge nodes |
 | Jenkins | Latest | CI/CD pipeline (local or server) |
 | GitHub Actions | — | CI/CD pipeline + Allure history on GitHub Pages |
 | GitLab CI | Latest | CI/CD pipeline |
@@ -156,6 +161,7 @@ selenium-automation-framework/
 ├── pom.xml                              # Maven dependencies and build config (incl. opt-in `perf` profile)
 ├── checkstyle.xml                       # Code-quality ruleset, enforced by `mvn verify`
 ├── KEYWORD_DRIVEN_TESTING.md            # Deep-dive on the keyword-driven engine (see below)
+├── BDD.md                               # Cucumber/Gherkin guide: features, shared steps, tags, hooks, CI
 ├── DOCKER.md                            # Selenium Grid setup in detail
 ├── README.md                            # This file
 │
@@ -172,6 +178,7 @@ selenium-automation-framework/
 │   ├── demoqa-visual.xml                # demoqa — opt-in AShot visual regression (visual group)
 │   ├── saucedemo-smoke.xml              # saucedemo — quick sanity checks
 │   ├── saucedemo-regression.xml         # saucedemo — full test suite
+│   ├── SAHMAT-smoke.xml / SAHMAT-regression.xml   # SAHMAT — keyword-driven login + forgot-password (plus -safari- variants for every site)
 │   ├── mobile-smoke.xml                 # mobile — opt-in Appium smoke check (smoke group)
 │   └── mobile-regression.xml            # mobile — opt-in Appium regression (regression group)
 │
@@ -272,7 +279,7 @@ selenium-automation-framework/
 ```
 
 > [!NOTE]
-> **Three modules live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST), and also carries the accessibility/visual-regression opt-in suites. `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. `mobile` is a separate Appium module for Android/iOS app testing, run with `-Dsite=mobile` rather than a browser. See [Keyword-Driven & Data-Driven Testing](docs/testing-guide.md#-keyword-driven--data-driven-testing) and [Mobile Testing (Appium)](docs/testing-guide.md#-mobile-testing-appium) in the Testing Guide.
+> **Several modules live here, not one.** `demoqa` is the deep Page-Object-Model suite (Elements/Forms/Widgets/Interactions/Book Store, UI + REST), and also carries the accessibility/visual-regression opt-in suites. `saucedemo` is smaller by page count but demonstrates the same login flow three different ways — plain, data-driven, and keyword-driven — as a working reference for whichever style a new test suite needs. `SAHMAT` is a keyword-driven module for a staging portal's login and forgot-password flows (one consolidated `LoginAndForgotPasswordKeywordTest`, CAPTCHA handling configured per site in `SAHMAT.properties` — see [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md)). `mobile` is a separate Appium module for Android/iOS app testing, run with `-Dsite=mobile` rather than a browser. See [Keyword-Driven & Data-Driven Testing](docs/testing-guide.md#-keyword-driven--data-driven-testing) and [Mobile Testing (Appium)](docs/testing-guide.md#-mobile-testing-appium) in the Testing Guide.
 
 ### 🧬 Module Map — how the pieces connect
 
@@ -367,6 +374,12 @@ mvn test -Dhuman.pause.min=2000 -Dhuman.pause.max=3000 -Dtest=ButtonsTest
 
 # Fast mode — disable all pauses
 mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+
+# BDD (Cucumber) — scenarios tagged @<site> in src/test/resources/features (see BDD.md)
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml -Dcucumber.filter.tags="@smoke"
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/bdd.xml          # API scenarios, no browser
+mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/bdd-mobile.xml            # needs Appium + a device/emulator
 ```
 
 ---
@@ -375,7 +388,7 @@ mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.x
 
 This started as a personal/portfolio framework, but it's structured to take contributions cleanly:
 
-1. **Before opening a PR**, run both gates locally — `mvn test` (must pass) and `mvn verify` (Checkstyle; see [🧹 Code Quality — Checkstyle](docs/reports-and-quality.md#-code-quality--checkstyle)). CI currently only runs the former, so `verify` catching something CI won't is expected, not a false positive.
+1. **Before opening a PR**, run the gates locally — `mvn test` (must pass), `mvn verify -Punit-tests` (JUnit 5 unit tests) and `mvn verify` (Checkstyle; see [🧹 Code Quality — Checkstyle](docs/reports-and-quality.md#-code-quality--checkstyle)). CI runs the browser suites and the unit-tests job on every push, so a local `verify` can still flag a style warning CI treats as soft; that is expected, not a false positive.
 2. **New site?** Use `Scripts/new-site.sh` rather than hand-rolling config — see [➕ Adding a New Site](docs/extending.md#-adding-a-new-site--auto-configured-across-all-3-testing-styles).
 3. **New Page Object method?** Route clicks/types through `HumanActions`, not raw `WebElement` calls — that's what keeps every action showing up as an Allure step for free.
 4. **Bug fixes**, especially ones like the DemoQA `200`-vs-`204` mismatch in [Common Errors and Fixes](docs/troubleshooting.md#-common-errors-and-fixes), are exactly the kind of PR this project wants — a one-line fix plus a one-line addition to that table so the next person doesn't re-discover it the hard way.

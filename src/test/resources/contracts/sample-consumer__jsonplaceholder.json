@@ -1,0 +1,39 @@
+{
+  "consumer": { "name": "sample-consumer" },
+  "provider": { "name": "jsonplaceholder" },
+  "interactions": [
+    {
+      "description": "a request for post 1",
+      "request": { "method": "GET", "path": "/posts/1" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": { "userId": 1, "id": 1, "title": "example title", "body": "example body" },
+        "matchingRules": {
+          "$.body.title": { "match": "type" },
+          "$.body.body": { "match": "type" }
+        }
+      }
+    },
+    {
+      "description": "a request for the posts of user 1",
+      "request": { "method": "GET", "path": "/posts", "query": "userId=1" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "body": [ { "userId": 1, "id": 1, "title": "example title", "body": "example body" } ],
+        "matchingRules": {
+          "$.body": { "match": "type", "min": 1 },
+          "$.body[*].userId": { "match": "integer" },
+          "$.body[*].id": { "match": "integer" }
+        }
+      }
+    },
+    {
+      "description": "a request for a post that does not exist",
+      "request": { "method": "GET", "path": "/posts/99999" },
+      "response": { "status": 404 }
+    }
+  ],
+  "metadata": { "pactSpecification": { "version": "2.0.0" } }
+}

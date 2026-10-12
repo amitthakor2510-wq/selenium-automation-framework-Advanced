@@ -105,7 +105,7 @@
       "stack": [
         "Maven 3.9 · Maven Wrapper",
         "maven-surefire-plugin + surefire-testng",
-        "JaCoCo 0.8.12 · Checkstyle",
+        "JaCoCo 0.8.15 · Checkstyle",
         "OWASP Dependency-Check",
         "jmeter-maven-plugin",
         "allure-maven"
@@ -170,7 +170,7 @@
       "source": "testng-suites/*.xml · pom.xml (surefire) · META-INF/services/org.testng.ITestNGListener",
       "summary": "Decides what runs and how in parallel. TestNG suite XML files select groups and classes; test-config.properties can switch individual tests off without touching code; retry and selection logic are plugged in through listeners.",
       "features": [
-        "TestNG 7.9.0 suites in `testng-suites/` (22 XMLs): smoke, regression, api, accessibility, perf, mobile, safari …",
+        "TestNG 7.12.0 suites in `testng-suites/` (26 XMLs): smoke, regression, api, accessibility, perf, mobile, safari …",
         "`parallel=\"classes\" thread-count=\"3\"` — one thread, one driver per class; methods stay sequential",
         "Group-driven selection: `smoke`, `regression`, `api`, `perf`, `accessibility`, `visual`, `keyword-driven`, `data-driven`, `synthetic-data`",
         "`RetryListener` (IAnnotationTransformer) attaches `RetryAnalyzer` to every `@Test` — registered in suite XML",
@@ -179,7 +179,7 @@
         "Safari suites are separate (macOS only, no headless, one session per machine)"
       ],
       "stack": [
-        "TestNG 7.9.0",
+        "TestNG 7.12.0",
         "ServiceLoader (`META-INF/services`)",
         "IAnnotationTransformer · IRetryAnalyzer",
         "Surefire `suiteXmlFiles`",
@@ -478,7 +478,7 @@
         "ExtentReports 5.1.2",
         "Allure 2.27.0",
         "ReportPortal (agent-java-testng)",
-        "JaCoCo 0.8.12",
+        "JaCoCo 0.8.15",
         "GitLab Pages / GitHub Pages"
       ],
       "neighbours": [

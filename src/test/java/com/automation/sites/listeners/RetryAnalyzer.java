@@ -3,6 +3,7 @@ package com.automation.sites.listeners;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.automation.core.budget.PerfBudgetEnforcer;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.ConfigException;
 import com.automation.core.exceptions.DataFileException;
@@ -19,6 +20,19 @@ public class RetryAnalyzer implements IRetryAnalyzer {
 
     @Override
     public boolean retry(ITestResult result) {
+        // A quarantined (known-flaky) test may fail without failing the build, so re-running it
+        // only costs time. Its failure is reported as "quarantined" instead.
+        if (QuarantineHandler.isQuarantined(result)) {
+            logger.info("Not retrying test [" + result.getName() + "] - it is quarantined.");
+            return false;
+        }
+        // A slow page/API call that broke its performance budget is a finding, not a flake: a
+        // retry would likely be faster and turn it into a green "flaky" pass.
+        if (PerfBudgetEnforcer.shouldSkipRetry()) {
+            logger.info("Not retrying test [" + result.getName() + "] - it exceeded a performance budget "
+                + "(set perf.budget.retry=true to retry such failures).");
+            return false;
+        }
         if (isDeterministicFailure(result.getThrowable())) {
             logger.info("Not retrying test [" + result.getName() + "] — "
                 + "failure is a deterministic authoring problem (bad config, bad keyword step, "

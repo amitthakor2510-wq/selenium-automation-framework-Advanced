@@ -97,7 +97,7 @@ public class BookStoreApplicationTest extends DemoQaBaseTest {
         ConfigReader.reset();
         // Store in BaseTest ThreadLocal so TestListener.onTestFailure can grab it
         driver.set(DriverFactory.createDriver());
-        getDriver().get(ConfigReader.get("url"));
+        timedGet(getDriver(), ConfigReader.get("url"));
 
         bookStorePage    = new BookStoreApplicationPage(getDriver());
         registrationPage = new RegistrationPage(getDriver());

@@ -1,12 +1,17 @@
 package com.automation.core.api;
 
 import com.automation.core.api.auth.AuthProvider;
+import com.automation.core.budget.ApiBudgetFilter;
 import com.automation.core.config.ConfigReader;
 import io.qameta.allure.restassured.AllureRestAssured;
 import io.restassured.RestAssured;
+import io.restassured.filter.Filter;
 import io.restassured.filter.log.RequestLoggingFilter;
 import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.specification.RequestSpecification;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Thin, reusable wrapper around RestAssured so API tests don't each
@@ -30,6 +35,8 @@ import io.restassured.specification.RequestSpecification;
  *                                BookStoreApiTest's 9-call sequence)
  *   api.retry.count / api.retry.backoffMs - see ApiConfig/ApiRetry
  *   api.responseTime.maxMs - see ApiConfig/ApiAssertions
+ *   perf.budget.*          - every call is timed and held to a budget automatically,
+ *                            see PerfBudget/PerfBudgetEnforcer
  */
 public final class ApiClient {
 
@@ -53,12 +60,24 @@ public final class ApiClient {
      */
     public static void configure() {
         RestAssured.baseURI = ApiConfig.baseUri();
-        RestAssured.filters(new AllureRestAssured());
+
+        // ONE filter list, set in one call. RestAssured.filters(...) REPLACES whatever was
+        // registered before, so the old two-call form (Allure first, then the logging filters in
+        // verbose mode) silently dropped the Allure filter whenever api.log.onFailureOnly=false -
+        // and calling configure() once per test class can no longer stack up duplicates.
+        // ApiBudgetFilter records each call's response time for the performance budget
+        // (see PerfBudgetEnforcer); it only measures, the verdict comes after the test.
+        List<Filter> filters = new ArrayList<>();
+        filters.add(new AllureRestAssured());
+        filters.add(new ApiBudgetFilter());
 
         if (ConfigReader.getBoolean("api.log.onFailureOnly", true)) {
+            RestAssured.filters(filters);
             RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
         } else {
-            RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
+            filters.add(new RequestLoggingFilter());
+            filters.add(new ResponseLoggingFilter());
+            RestAssured.filters(filters);
         }
     }
 

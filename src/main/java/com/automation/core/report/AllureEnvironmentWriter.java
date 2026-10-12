@@ -148,6 +148,11 @@ public final class AllureEnvironmentWriter {
         String json = """
                 [
                   {
+                    "name": "Slow response (performance budget exceeded)",
+                    "matchedStatuses": ["failed"],
+                    "messageRegex": "(?s).*Performance budget.*"
+                  },
+                  {
                     "name": "Product defects",
                     "matchedStatuses": ["failed"],
                     "messageRegex": ".*(AssertionError|expected.*but.*was|Expected.*but.*was).*"
@@ -166,6 +171,11 @@ public final class AllureEnvironmentWriter {
                     "name": "Driver / infrastructure issues",
                     "matchedStatuses": ["broken"],
                     "traceRegex": ".*(WebDriverException|SessionNotCreatedException|UnreachableBrowserException|NoSuchSessionException).*"
+                  },
+                  {
+                    "name": "Quarantined (known flaky - build not affected)",
+                    "matchedStatuses": ["skipped"],
+                    "messageRegex": "(?s)Quarantined - .*"
                   },
                   {
                     "name": "Ignored / skipped",

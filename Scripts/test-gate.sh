@@ -25,7 +25,7 @@
 #
 # Dependency-free (bash/grep/sed only), like Scripts/enabled-sites.sh.
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 cmd="${1:-}"
 shift || true

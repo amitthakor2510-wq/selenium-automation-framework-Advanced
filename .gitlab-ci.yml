@@ -435,6 +435,8 @@ test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/quarantine/
+      - target/perf-budget/
       - target/logs/
       - target/screenshots/
       - target/surefire-reports/
@@ -724,6 +726,8 @@ mobile-test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/quarantine/
+      - target/perf-budget/
       - target/logs/
       - target/screenshots/
       - target/surefire-reports/
@@ -800,6 +804,8 @@ accessibility-visual-test:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/quarantine/
+      - target/perf-budget/
       - target/logs/
       - target/screenshots/
       - target/surefire-reports/
@@ -997,6 +1003,79 @@ api-tests:
     paths:
       - target/allure-results/
       - target/extent-reports/
+      - target/quarantine/
+      - target/perf-budget/
+      - target/logs/
+      - target/surefire-reports/
+      - target/jacoco-artifacts/
+      - target/gate/
+    reports:
+      junit: target/surefire-reports/*.xml
+
+# ================================================================
+# BDD (Cucumber) Tests - features/<site>/*.feature via bdd.xml
+# ================================================================
+# Runs the Gherkin scenarios (see BDD.md) through the same Surefire/TestNG
+# path as every other job. One leg per site, each gated on its own site
+# flag from generate-pipeline-config. jsonplaceholder is @api (no
+# browser); saucedemo is @ui and needs Chrome, installed if missing the
+# same way the `test` job does. Mobile BDD scenarios (@mobile) are not run
+# here - they need the emulator the `mobile-test` job provisions; run them
+# locally with testng-suites/bdd-mobile.xml.
+# ================================================================
+bdd-tests:
+  stage: test
+  interruptible: true
+  needs: [ "generate-pipeline-config" ]
+  rules:
+    - if: '$SITE == "saucedemo" && $SITE_SAUCEDEMO_ENABLED == "false"'
+      when: never
+    - if: '$SITE == "jsonplaceholder" && $SITE_JSONPLACEHOLDER_ENABLED == "false"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+      when: on_success
+  parallel:
+    matrix:
+      - SITE: [ saucedemo, jsonplaceholder ]
+  script:
+    - 'echo "======= Running BDD Tests: site=$SITE ======="'
+    - |
+      if [ "$SITE" != "jsonplaceholder" ] && ! command -v google-chrome &> /dev/null; then
+        echo "Chrome not found - installing..."
+        if [ "$(id -u)" = "0" ]; then SUDO=""; elif sudo -n true 2>/dev/null; then SUDO="sudo"; else
+          echo "ERROR: Chrome not installed and no root/sudo to install it."; exit 1; fi
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq wget gnupg
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | $SUDO gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | $SUDO tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+        $SUDO apt-get update -qq
+        $SUDO apt-get install -y -qq google-chrome-stable
+      fi
+    - mvn -B test
+      -Dsite=$SITE
+      -DsuiteXmlFile=testng-suites/bdd.xml
+      -Dbrowser=chrome
+      -Dheadless=true
+      -Dhuman.pause.enabled=false
+      -Dretry.count=$RETRY_COUNT
+      -Dallure.results.directory=target/allure-results/$SITE-bdd
+      -Dwdm.cachePath=$WDM_CACHE_PATH
+      -Dreportportal.enable=$REPORTPORTAL_ENABLE
+      -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
+      -Dreportportal.project=$REPORTPORTAL_PROJECT
+      -Dreportportal.launch="Selenium Automation Framework"
+      -Dreportportal.attributes="site:$SITE;suite:bdd;ci:gitlab;pipeline:$CI_PIPELINE_ID"
+      -Dmaven.test.failure.ignore=true
+    - bash Scripts/test-gate.sh record "$SITE-bdd"
+    - mkdir -p target/jacoco-artifacts
+    - cp target/jacoco.exec target/jacoco-artifacts/$SITE-bdd.exec
+  artifacts:
+    name: "bdd-test-results-$SITE-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 7 days
+    paths:
+      - target/allure-results/
+      - target/cucumber-reports/
       - target/logs/
       - target/surefire-reports/
       - target/jacoco-artifacts/
@@ -1130,6 +1209,7 @@ coverage-gate:
     - test
     - mobile-test
     - api-tests
+    - bdd-tests
     - perf-tests
   only:
     - branches
@@ -1292,6 +1372,7 @@ report:
     - test
     - mobile-test
     - api-tests
+    - bdd-tests
     - perf-tests
   only:
     - branches
@@ -1353,6 +1434,9 @@ notify:
     - job: mobile-test
       optional: true
       artifacts: true
+    - job: bdd-tests
+      optional: true
+      artifacts: true
     - job: report
       optional: true
       artifacts: false
@@ -1383,6 +1467,9 @@ test-gate:
       optional: true
       artifacts: true
     - job: api-tests
+      optional: true
+      artifacts: true
+    - job: bdd-tests
       optional: true
       artifacts: true
   rules:

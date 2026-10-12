@@ -1,0 +1,15 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Generic BDD (Cucumber) suite - works for ANY site; the site is chosen by -Dsite and only
+     scenarios tagged @<site> run (see CucumberRunnerTest). Run with:
+       mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml
+       mvn test -Dsite=demoqa    -DsuiteXmlFile=testng-suites/bdd.xml -Dcucumber.filter.tags="@smoke"
+     data-provider-thread-count = scenarios run at once, each with its own browser.
+     Keep it <= docker-compose.yml's SE_NODE_MAX_SESSIONS (3). Set to 1 for sequential runs.
+     The site must also be enabled in pipeline-config.properties. -->
+<suite name="BDD Suite" data-provider-thread-count="2">
+  <test name="BDD Scenarios">
+    <classes>
+      <class name="com.automation.bdd.runner.CucumberRunnerTest"/>
+    </classes>
+  </test>
+</suite>

@@ -2,6 +2,7 @@ package com.automation.sites.core;
 
 import com.automation.core.api.CleanupRegistry;
 import com.automation.core.base.DriverProvider;
+import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.driver.DriverFactory;
 import com.automation.core.report.AllureEnvironmentWriter;
@@ -57,6 +58,17 @@ public class BaseTest implements DriverProvider {
     // under parallel="classes" a class's methods run sequentially on one thread.
     private final CleanupRegistry methodCleanup = new CleanupRegistry("method");
     private final CleanupRegistry classCleanup = new CleanupRegistry("class");
+
+    /**
+     * {@code driver.get(url)} that also records the load time for the performance budget (see
+     * PerfSamples / PerfBudgetEnforcer), so the first page every test opens in setUp is held to
+     * the same limit as pages opened later through BasePage.navigateTo().
+     */
+    protected static void timedGet(WebDriver webDriver, String url) {
+        long startedNanos = System.nanoTime();
+        webDriver.get(url);
+        PerfSamples.recordPageLoad(url, (System.nanoTime() - startedNanos) / 1_000_000L);
+    }
 
     @BeforeMethod(alwaysRun = true)
     public void setUp(Method testMethod, ITestContext context) {
@@ -180,13 +192,13 @@ public class BaseTest implements DriverProvider {
             } catch (Exception e) {
                 // non-fatal — worst case the old page's JS had a bit longer to run
             }
-            existing.get(ConfigReader.get("url"));
+            timedGet(existing, ConfigReader.get("url"));
             return;
         }
 
         WebDriver webDriver = DriverFactory.createDriver();
         driver.set(webDriver);
-        getDriver().get(ConfigReader.get("url"));
+        timedGet(getDriver(), ConfigReader.get("url"));
     }
 
     @AfterMethod(alwaysRun = true)

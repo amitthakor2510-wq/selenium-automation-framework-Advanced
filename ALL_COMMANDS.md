@@ -133,6 +133,49 @@ docker run --rm \
 
 ---
 
+## 3b. Flaky Quarantine & Performance Budgets (on by default)
+
+```bash
+# Unfiltered run: ignore every quarantine (e.g. nightly) — failures count again
+mvn test -Dquarantine.enabled=false
+
+# Use a different quarantine list for one run
+mvn test -Dquarantine.file=other-quarantine.properties
+
+# Slow pages / API calls become warnings instead of failures (e.g. while tuning limits)
+mvn test -Dperf.budget.handling=OPTIONAL
+
+# Switch the budget check off completely
+mvn test -Dperf.budget.enabled=false
+
+# Tighter / looser limits for one run (ms)
+mvn test -Dperf.budget.api.maxMs=2000 -Dperf.budget.pageLoad.maxMs=20000
+```
+Quarantined (known-flaky) tests are listed in `quarantine.properties` or marked `@Quarantine` — they
+still run but a failure is reported as skipped, not failed; every entry expires on a date you set.
+What failed under quarantine: `target/quarantine/summary-<site>.txt` (uploaded as a CI artifact).
+Tuning the limits: `target/perf-budget/summary-<site>.txt` lists the slowest calls and a suggested limit per endpoint.
+A test that breaks a performance budget is not retried (`perf.budget.retry=true` allows it).
+See [docs/testing-guide.md](docs/testing-guide.md#️-performance-budgets--slow-responses-fail-the-run).
+
+---
+
+## 3c. Database Assertions & Consumer Contracts
+
+```bash
+# Verify every consumer contract (Pact JSON in src/test/resources/contracts) against an API site
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-contracts.xml
+
+# Only the contracts of one provider
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-contracts.xml -Dcontract.provider=jsonplaceholder
+
+# Point the database assertions at a database for one run (read-only unless -Ddb.readOnly=false)
+mvn test -Dsite=<site> -Ddb.url=jdbc:postgresql://localhost:5432/qa_mantis -Ddb.user=qa -Ddb.password=<secret>
+```
+Details and examples: [docs/testing-guide.md](docs/testing-guide.md#️-database-assertions).
+
+---
+
 ## 4. Keyword-Driven & Data-Driven Tests
 
 ```bash
@@ -148,12 +191,61 @@ mvn test -Dtest=LoginDataDrivenTest
 
 ---
 
+## 4b. BDD (Cucumber / Gherkin) Tests
+
+Feature files live in `src/test/resources/features/<site>/*.feature`; the generic suite
+`testng-suites/bdd.xml` runs only the scenarios tagged `@<site>` for the `-Dsite` you pass
+(details: `BDD.md`).
+
+```bash
+# Web (@ui) — saucedemo
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml
+
+# API (@api) — jsonplaceholder (no browser)
+mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/bdd.xml
+
+# Only some scenarios — AND-ed with the site tag, never replaces it
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml -Dcucumber.filter.tags="@smoke"
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml -Dcucumber.filter.tags="@regression and not @no-code"
+
+# Headless / different browser (same flags as the TestNG suites)
+mvn test -Dsite=saucedemo -DsuiteXmlFile=testng-suites/bdd.xml -Dheadless=true -Dbrowser=firefox
+
+# Mobile (@mobile) — Appium server + one device/emulator must be running; sequential by design
+appium
+mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/bdd-mobile.xml
+
+# Mobile app other than the bundled Settings example — tag the feature "@mobile @<site>"
+# and put the mobile.* keys in config/<site>.properties
+mvn test -Dsite=<site> -DsuiteXmlFile=testng-suites/bdd-mobile.xml
+
+# Scenarios at once (default 2) — edit data-provider-thread-count in testng-suites/bdd.xml
+# (keep it <= SE_NODE_MAX_SESSIONS on the Grid; 1 = sequential)
+```
+Reports: Allure (`target/allure-results`), Extent (`target/extent-reports/<site>/...`) and
+`target/cucumber-reports/cucumber.json`. CI runs the saucedemo and jsonplaceholder legs as
+`bdd-tests` (GitLab, GitHub Actions) / `BDD Tests` (Jenkins); `@mobile` stays a local run.
+
+---
+
 ## 5. REST API Tests
 
 ```bash
 mvn test -Dtest=BookStoreApiTest
 mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/api-tests.xml
 mvn test -Dsite=jsonplaceholder -DsuiteXmlFile=testng-suites/api-tests-jsonplaceholder.xml
+```
+
+No-code API tests (request files or a Swagger/OpenAPI URL, no Java — full guide in
+[docs/API_NO_CODE_GUIDE.md](docs/API_NO_CODE_GUIDE.md)):
+
+```bash
+./Scripts/api-test.sh --example                       # public demo API, nothing to set up
+./Scripts/api-test.sh --init                          # creates src/test/resources/apitests/my-api.yml to edit
+./Scripts/api-test.sh                                 # run every spec in src/test/resources/apitests
+./Scripts/api-test.sh --openapi <URL> --token "$API_TOKEN"   # generate tests from an OpenAPI document
+# what it runs underneath:
+mvn test -Dsite=apitest -DsuiteXmlFile=testng-suites/api-spec.xml
 ```
 
 ---
@@ -296,7 +388,7 @@ data-file readers) — not wired into any CI pipeline, same as `perf`.
 
 ---
 
-## 13. Plain JUnit 5 Unit Tests (core/tia + core/data readers) — opt-in `unit-tests` profile
+## 13. Plain JUnit 5 Unit Tests (core/tia, core/data readers, verify, api/spec …) — opt-in `unit-tests` profile
 
 ```bash
 mvn verify -Punit-tests
@@ -305,11 +397,15 @@ Runs the JUnit 5 regression suites that have no other way to execute: `core/tia`
 unit tests (`GitDiffReaderTest`, `SiteMapperTest`, `TestClassDetectorTest`,
 `SourcePathResolverTest`, `ResourceReferenceIndexTest`, `CoverageMapTest`,
 `ClassFileScannerAndDependencyGraphTest`, `UnsafeChangeRulesTest`,
-`TestImpactAnalyzerIntegrationTest` — see docs/TEST_IMPACT_ANALYSIS.md) plus the same
-`core/data/readers` tests `-Pmutation` above targets. Uses Failsafe (not Surefire) so it
+`TestImpactAnalyzerIntegrationTest` — see docs/TEST_IMPACT_ANALYSIS.md), the soft-assert layer's
+`VerifyTest` / `VerifyResultIntegrationTest` (`core/verify`), `PerfBudgetTest` (`core/budget`) and
+`QuarantineRegistryTest` (`sites/listeners`), `DbClientTest` (`core/db`, in-memory H2), the `core/contract` tests, the no-code API engine's
+`ApiSpecEngineTest` (`core/api/spec`), plus the same `core/data/readers` tests `-Pmutation`
+above targets. The exact package list is the `<includes>` block of Failsafe in the profile —
+add a line there when you add JUnit 5 tests under a new package, or they silently never run. Uses Failsafe (not Surefire) so it
 never touches the TestNG provider pinned for the default `mvn test` — see the
-`unit-tests` profile's own comment in pom.xml for why that separation matters. Not wired
-into any CI pipeline yet, same as `perf`/`mutation`.
+`unit-tests` profile's own comment in pom.xml for why that separation matters. Runs as its own
+`unit-tests` job in GitHub Actions, GitLab CI and Jenkins (not `perf`/`mutation`, which stay opt-in).
 
 ---
 
@@ -462,6 +558,15 @@ git clone <repo-url> && cd selenium-automation-framework
 ```bash
 # GitHub Actions / GitLab CI security-scan job
 mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
+
+# Unit-test job (all three CIs)
+mvn -B verify -Punit-tests
+
+# Test gate — every pipeline passes -Dmaven.test.failure.ignore=true so reports still build,
+# which would otherwise make failing tests exit 0. These two calls are the missing gate:
+Scripts/test-gate.sh record <label> [reports-dir]   # after each mvn test run (never fails the job)
+Scripts/test-gate.sh check  [gate-dir]              # once, in the final gate job; exits 1 on any failing/empty leg
+# optional env for `check`: GATE_FAIL_ON_SKIPPED=true, GATE_ALLOW_EMPTY=true
 ```
 
 ---

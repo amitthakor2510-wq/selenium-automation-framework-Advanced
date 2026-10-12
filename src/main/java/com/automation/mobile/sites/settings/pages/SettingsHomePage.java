@@ -35,6 +35,19 @@ public class SettingsHomePage extends BaseMobilePage {
         return isDisplayed(SEARCH_BOX);
     }
 
+    /**
+     * True once the home screen's search bar has disappeared, i.e. we navigated into a
+     * sub-screen. Polls up to mobile.timeout seconds.
+     */
+    public boolean isSearchBarGone() {
+        try {
+            return Boolean.TRUE.equals(wait.until(
+                org.openqa.selenium.support.ui.ExpectedConditions.invisibilityOfElementLocated(SEARCH_BOX)));
+        } catch (org.openqa.selenium.TimeoutException e) {
+            return false;
+        }
+    }
+
     /** Opens the "Network & internet" row from the home list. */
     public void openNetworkAndInternet() {
         WebElement entry = waitClickable(NETWORK_INTERNET_ENTRY);

@@ -1,0 +1,38 @@
+# Copy this file to features/<site>/<name>.feature (drop ".example") and edit.
+# Rules:
+#  1. Tag the feature with the site's exact name (same as config/<site>.properties):
+#     that is how -Dsite=<site> picks which features run.
+#  2. Add ONE type tag so the hooks start the right thing:
+#       @ui      browser          @mobile   Appium session          @api   no driver
+#  3. Elements are inline locators or object-repository keys:
+#       css:#id   xpath://a   text:Sign in   id:user-name   accessibility:Login   login.username
+#  4. Use ${NAME} placeholders for secrets instead of typing them here.
+#  Full sentence list: BDD.md
+
+# ── WEB ──────────────────────────────────────────────────────────────────────
+@ui @mysite
+Feature: My web site
+
+  @smoke
+  Scenario: Search works
+    Given the user opens the home page
+    When the user types "shoes" into "css:input[name='q']"
+    And the user presses the "ENTER" key
+    Then the url should contain "search"
+    And the user should see "text:Results"
+
+# ── MOBILE (a separate feature file; tag @mobile + your app's site name, config in config/<site>.properties) ───
+# @mobile @myapp
+# Feature: My app
+#   Scenario: Login
+#     When the user types "demo" into "accessibility:username"
+#     And the user taps "accessibility:login"
+#     Then the user should see "text:Welcome"
+
+# ── API (a separate feature file) ────────────────────────────────────────────
+# @api @myapi
+# Feature: My API
+#   Scenario: Health
+#     Given the user sets the header "Authorization" to "Bearer ${API_TOKEN}"
+#     When the user sends a GET request to "/health"
+#     Then the response status should be 200
