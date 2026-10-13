@@ -452,6 +452,30 @@ pipeline {
             }
         }
 
+        stage('License Scan') {
+            // Dependency license compliance (see license-policy.properties and
+            // docs/EMAIL_AND_LICENSE.md). Reads every dependency's POM (and parent POMs)
+            // from the local Maven repository - offline and fast, so it runs on every
+            // build. Marks the build UNSTABLE (not FAILED) when a dependency's ONLY
+            // declared licenses are denied, same soft pattern as Checkstyle/Secret Scan
+            // above, so one dependency decision doesn't hide whether the suite passes.
+            // `test-compile` first: it resolves every dependency (and its POMs) into the
+            // local repository, which is what the scanner reads.
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp -q test-compile exec:java@license-scan -Plicense-check',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'License scan found a policy violation - see the license-report artifact.'
+                    }
+                    archiveArtifacts artifacts: 'target/license-report/**', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Test Impact Analysis') {
             // Jenkins equivalent of .github/workflows/github-ci.yml's own
             // `test-impact-analysis` job / .gitlab-ci.yml's job of the same
@@ -1836,6 +1860,25 @@ pipeline {
         // post{} still runs because post{always{}} executes regardless.
         // Mobile/perf/security stay report-only (UNSTABLE) by design.
         // Knob: GATE_FAIL_ON_SKIPPED=true on the sh line makes skips fail too.
+        stage('Email Report') {
+            // ONE consolidated report e-mail for the whole build (EmailReportCli, -Pemail-report):
+            // per-leg counts from target/gate/*.txt, the license summary, and the Extent
+            // reports + license report attached (size-capped). Opt-in: runs only when the
+            // Jenkins environment variable EMAIL_REPORT_ENABLED is 'true'. SMTP settings come
+            // from environment variables - EMAIL_SMTP_HOST, EMAIL_SMTP_USERNAME, EMAIL_FROM,
+            // EMAIL_TO and, bound from a Jenkins credential, EMAIL_SMTP_PASSWORD (never
+            // hard-code it here). Optional: EMAIL_SMTP_PORT, EMAIL_SMTP_SECURITY, EMAIL_SENDON.
+            // Placed before 'Test Gate' so it still runs when the gate is about to fail the
+            // build (that is exactly when the mail matters), and a mail problem can never
+            // fail the build: catchError downgrades it to an UNSTABLE stage at worst.
+            when { expression { env.EMAIL_REPORT_ENABLED == 'true' } }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    sh 'mvn -B -ntp -q test-compile exec:java@email-report -Pemail-report -Demail.enabled=true -Demail.results.dir=target/surefire-reports'
+                }
+            }
+        }
+
         stage('Test Gate') {
             steps {
                 script {

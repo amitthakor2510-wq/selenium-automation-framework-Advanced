@@ -39,3 +39,9 @@ com.epam.reportportal.testng.ReportPortalTestNGListener
 # here rather than in each suite XML so it also covers suites that don't list
 # RetryListener (the *-perf.xml ones) and any suite added later. See TestSelection.
 com.automation.sites.listeners.TestSelectionListener
+
+# PostRunReportListener (ISuiteListener) - opt-in end-of-run reporting: the dependency license scan
+# (license.scan.enabled) and the e-mail report (email.enabled). Registered here so it covers every suite
+# (web, mobile, API) without editing suite XML files; a complete no-op unless one of those two keys is
+# true, which is the default. See global.properties ("E-MAIL REPORT" / "LICENSE COMPLIANCE").
+com.automation.sites.listeners.PostRunReportListener

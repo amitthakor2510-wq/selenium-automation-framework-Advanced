@@ -220,6 +220,11 @@
          hasn't been build-verified here — run `mvn dependency:resolve
          -Pmutation` locally and bump if needed. -->
     <junit.version>5.12.2</junit.version>
+    <!-- Jakarta Mail (SMTP) for the e-mail report (core/mail, email.* keys in global.properties).
+         com.sun.mail:jakarta.mail is the reference implementation; it brings jakarta.activation
+         transitively. Not build-verified in the authoring sandbox (no Maven Central access) - run
+         `mvn dependency:resolve` once and bump if your repository mirror needs a newer 2.0.x. -->
+    <jakarta.mail.version>2.0.1</jakarta.mail.version>
     <!-- Cucumber (BDD) — see BDD.md. cucumber-java + cucumber-testng must share one version, and it must stay old enough for allure-cucumber7-jvm 2.27.0 (its gherkin needs io.cucumber:messages < 23). Raise it only together with allure.version. -->
     <cucumber.version>7.15.0</cucumber.version>
 
@@ -697,6 +702,14 @@
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
+    </dependency>
+
+    <!-- SMTP client for the e-mail report (com.automation.core.mail). Compile scope: the mail classes
+         live in src/main like the rest of core/. Nothing connects anywhere unless email.enabled=true. -->
+    <dependency>
+      <groupId>com.sun.mail</groupId>
+      <artifactId>jakarta.mail</artifactId>
+      <version>${jakarta.mail.version}</version>
     </dependency>
 
   </dependencies>
@@ -1537,6 +1550,8 @@
                 <include>**/core/db/**/*Test.java</include>
                 <include>**/core/contract/**/*Test.java</include>
                 <include>**/core/api/spec/**/*Test.java</include>
+                <include>**/core/license/**/*Test.java</include>
+                <include>**/core/mail/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>
               </includes>
             </configuration>
@@ -1816,6 +1831,76 @@
       <properties>
         <reportportal.enable>true</reportportal.enable>
       </properties>
+    </profile>
+
+    <!-- Dependency LICENSE compliance scan (core/license). Same "opt-in profile, not a plugin under
+         <build><plugins>" pattern as bug-crawler/prune-artifacts: `mvn test` is unaffected.
+         Reads every dependency jar's POM (and parent POMs) from the local Maven repository - fully
+         offline - and judges the declared licenses against license-policy.properties. Writes
+         target/license-report/{license-report.html,.json,.txt,license-summary.properties}.
+         Exit status is non-zero when the policy says a finding must fail (default: DENIED licenses).
+
+         Typical usage:
+           mvn -q test-compile exec:java@license-scan -Plicense-check
+           mvn -q test-compile exec:java@license-scan -Plicense-check -Dlicense.review.action=FAIL
+         `test-compile` first so the dependency jars are resolved into the local repository. -->
+    <profile>
+      <id>license-check</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>license-scan</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.license.LicenseScanCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- ONE consolidated report e-mail for a whole run (core/mail EmailReportCli): aggregates every
+         testng-results.xml under email.results.dir (default target), adds the license summary and the
+         report attachments, and sends with the email.* settings. Use it as the last CI step instead of
+         enabling email.enabled in every per-site/browser JVM (which would send one mail per JVM).
+         SMTP password: ALWAYS via the EMAIL_SMTP_PASSWORD environment variable / CI secret.
+
+         Typical usage:
+           mvn -q test-compile exec:java@email-report -Pemail-report -Demail.enabled=true
+           mvn -q test-compile exec:java@email-report -Pemail-report -Demail.enabled=true -Demail.dryRun=true -->
+    <profile>
+      <id>email-report</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>email-report</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.mail.EmailReportCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
   </profiles>
 </project>

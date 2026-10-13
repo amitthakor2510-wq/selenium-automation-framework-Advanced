@@ -104,6 +104,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | 🧪 [Testing Guide](docs/testing-guide.md) | Retry/resilience, coverage, REST API tests, keyword/data-driven testing, accessibility/visual/perf testing, mobile, smoke vs regression |
 | 🧩 [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md) | Automatic + keyword-driven CAPTCHA solving, setup (local/Docker/CI), how it's wired into every test style |
 | 🤖 [AI Features](docs/AI_FEATURES.md) | AI-assisted self-healing, AI root-cause failure analysis, AI-augmented bug crawler — model choice, config, usage |
+| ✉️ [E-mail report & license compliance](docs/EMAIL_AND_LICENSE.md) | Opt-in e-mail of the run summary + reports (SMTP, dry-run mode), and an offline dependency-license scan against `license-policy.properties` — config, CI wiring, safety notes |
 | ⚙️ [Configuration & Environments](docs/configuration.md) | `global.properties`, Dockerized Selenium Grid |
 | 🖥️ [Automation Console (Dashboard)](docs/dashboard.md) | Local web UI to toggle sites/tests and view the last run's results — no Java/Maven needed |
 | 📈 [Reports & Code Quality](docs/reports-and-quality.md) | Test reports, JaCoCo coverage, Checkstyle |
