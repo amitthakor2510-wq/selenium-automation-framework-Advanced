@@ -586,6 +586,15 @@
       <artifactId>json-schema-validator</artifactId>
       <version>5.4.0</version>
       <scope>test</scope>
+      <!-- json-schema-validator pulls in com.sun.mail:mailapi 1.6.2 (old javax.mail), which shadows jakarta.mail 2.0.1
+           (NoClassDefFoundError javax/activation/DataContentHandler, NoSuchMethodError MimeUtil.cleanContentType).
+           Only needed for "format": "email" in JSON schemas; none of this project's schemas use it. -->
+      <exclusions>
+        <exclusion>
+          <groupId>com.sun.mail</groupId>
+          <artifactId>mailapi</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!-- WireMock — offline API mocking (see <mock.enabled> property above,
@@ -710,6 +719,14 @@
       <groupId>com.sun.mail</groupId>
       <artifactId>jakarta.mail</artifactId>
       <version>${jakarta.mail.version}</version>
+    </dependency>
+
+    <!-- TestNG 7.12 does not pull Guice in transitively; ITestContext proxies need com.google.inject.Injector -->
+    <dependency>
+      <groupId>com.google.inject</groupId>
+      <artifactId>guice</artifactId>
+      <version>7.0.0</version>
+      <scope>test</scope>
     </dependency>
 
   </dependencies>
