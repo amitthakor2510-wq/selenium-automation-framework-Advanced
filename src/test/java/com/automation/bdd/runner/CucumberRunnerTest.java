@@ -40,7 +40,7 @@ public class CucumberRunnerTest extends AbstractTestNGCucumberTests {
 
     static {
         // Runs before Cucumber reads its options (that happens in the inherited @BeforeClass).
-        String site = System.getProperty("site", "demoqa");
+        String site = System.getProperty("site", "saucedemo");
         String user = System.getProperty("cucumber.filter.tags", "").trim();
         String expr = "@" + site + (user.isEmpty() ? "" : " and (" + user + ")");
         System.setProperty("cucumber.filter.tags", expr);

@@ -196,7 +196,7 @@ public record Contract(String consumer, String provider, List<Interaction> inter
                 query.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
             }
         } else if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> field = fields.next();
                 List<String> values = new ArrayList<>();
@@ -217,7 +217,7 @@ public record Contract(String consumer, String provider, List<Interaction> inter
 
     private static Map<String, String> strings(JsonNode node) {
         Map<String, String> map = new LinkedHashMap<>();
-        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             map.put(field.getKey(), field.getValue().asText());
@@ -234,7 +234,7 @@ public record Contract(String consumer, String provider, List<Interaction> inter
         if (matchingRules.has("body")) {
             addRules(rules, matchingRules.get("body"), "");
         }
-        Iterator<Map.Entry<String, JsonNode>> fields = matchingRules.fields();
+        Iterator<Map.Entry<String, JsonNode>> fields = matchingRules.properties().iterator();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             if (field.getKey().equals("$.body") || field.getKey().startsWith("$.body.")
@@ -246,7 +246,7 @@ public record Contract(String consumer, String provider, List<Interaction> inter
     }
 
     private static void addRules(Map<String, List<Rule>> rules, JsonNode byPath, String stripPrefix) {
-        Iterator<Map.Entry<String, JsonNode>> fields = byPath.fields();
+        Iterator<Map.Entry<String, JsonNode>> fields = byPath.properties().iterator();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             String path = field.getKey();

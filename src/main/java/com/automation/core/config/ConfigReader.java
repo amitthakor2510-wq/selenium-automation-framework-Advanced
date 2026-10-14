@@ -12,7 +12,7 @@ import java.util.Properties;
  *   2. config/{site}.properties         - site-specific overrides
  *   3. -Dkey=value JVM system properties - run-time overrides (Jenkins/CLI)
  *
- * The active site is chosen with -Dsite=<siteName> (defaults to "demoqa").
+ * The active site is chosen with -Dsite=<siteName> (defaults to "saucedemo").
  * Before any config is loaded, SiteRegistry.validate(site) checks the site
  * is registered and has every resource it requires (config file, and an
  * object repository if it runs keyword-driven tests) — so a missing piece
@@ -49,7 +49,7 @@ public class ConfigReader {
             return;
         }
 
-        String site = System.getProperty("site", "demoqa");
+        String site = System.getProperty("site", "saucedemo");
         activeSiteTL.set(site);
         SiteRegistry.validate(site);
         loadFromClasspath("config/global.properties", true);

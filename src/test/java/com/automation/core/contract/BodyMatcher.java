@@ -67,7 +67,7 @@ public final class BodyMatcher {
                 out.add(path + ": expected an object but was " + kind(actual));
                 return;
             }
-            Iterator<Map.Entry<String, JsonNode>> fields = expected.fields();
+            Iterator<Map.Entry<String, JsonNode>> fields = expected.properties().iterator();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> field = fields.next();
                 walk(path + "." + field.getKey(), field.getValue(), actual.get(field.getKey()), rules, types, out);

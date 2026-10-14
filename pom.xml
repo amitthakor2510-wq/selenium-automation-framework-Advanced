@@ -14,8 +14,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <!-- Run-time defaults — override on CLI e.g. -Dsite=demoqa -Dbrowser=chrome -->
-    <site>demoqa</site>
-    <suiteXmlFile>testng-suites/demoqa-regression.xml</suiteXmlFile>
+    <site>saucedemo</site>
+    <suiteXmlFile>testng-suites/saucedemo-regression.xml</suiteXmlFile>
     <browser>chrome</browser>
     <headless>false</headless>
     <human.pause.enabled>true</human.pause.enabled>
@@ -837,7 +837,11 @@
             <mock.record>${mock.record}</mock.record>
             <mock.record.target>${mock.record.target}</mock.record.target>
           </systemPropertyVariables>
-          <testFailureIgnore>true</testFailureIgnore>
+          <!-- testFailureIgnore is intentionally NOT hard-coded here. Every CI job (GitLab, Jenkins,
+               GitHub) and the helper scripts pass -Dmaven.test.failure.ignore=true explicitly so reports
+               and the test gate still run after a failure. A plain local `mvn test` or
+               `docker compose run tests` therefore now FAILS on a failing test instead of
+               ending in a misleading BUILD SUCCESS. -->
           <!-- AspectJ weaver is required for @Step and @Attachment annotations to work.
                java.util.logging.config.file points at src/test/resources/logging.properties,
                which silences Selenium's own harmless "Unable to find CDP implementation
@@ -1447,8 +1451,8 @@
          Bound to Failsafe's own integration-test/verify goals (not `test`)
          precisely so a plain `mvn test` — local or in any of the three CI
          systems — is completely unaffected by this profile even existing.
-         testFailureIgnore is deliberately NOT set here (unlike the main
-         TestNG execution above, which needs it so a driver/browser flake
+         testFailureIgnore is deliberately NOT set here (CI sets it for the main
+         TestNG execution via -Dmaven.test.failure.ignore=true so a driver/browser flake
          doesn't kill later per-site reporting steps) — these are pure-logic
          unit tests with no browser/network flakiness to tolerate, so a real
          failure should actually fail `mvn verify -Punit-tests`. -->

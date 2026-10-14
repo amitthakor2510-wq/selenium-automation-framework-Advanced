@@ -92,7 +92,7 @@ class ContractFuzzTest {
 
     private static void collectLeaves(JsonNode node, List<Object[]> out) {
         if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            Iterator<Map.Entry<String, JsonNode>> fields = node.properties().iterator();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> field = fields.next();
                 if (field.getValue().isContainerNode()) {

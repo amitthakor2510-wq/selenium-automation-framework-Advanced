@@ -92,14 +92,43 @@ services:
     ports:
       - "7902:7900"
 
+  # One-shot helper: (re)creates the report folders and makes them writable BEFORE the tests start.
+  # Without it, `mvn clean` (which deletes ./target) followed by `docker compose run tests` leaves
+  # Docker to auto-create the bind-mount folders as root, and the container's non-root user (uid 1000)
+  # then fails with "Could not write Allure test result container". Runs as root, exits immediately.
+  fix-perms:
+    image: busybox:1.36
+    user: root
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - >
+        mkdir -p /w/target/allure-results /w/target/extent-reports /w/target/surefire-reports
+        /w/target/debug-dumps /w/target/screenshots /w/self-healing-data &&
+        chmod -R a+rwX /w/target /w/self-healing-data
+    volumes:
+      - ./target:/w/target
+      - ./self-healing-data:/w/self-healing-data
+
   tests:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: selenium-tests
+    # The browser nodes must be up too, otherwise the hub has nothing to run the
+    # session on and the test just hangs ~3 min, then fails with SessionNotCreatedException.
     depends_on:
+      fix-perms:
+        condition: service_completed_successfully
       selenium-hub:
         condition: service_healthy
+      chrome:
+        condition: service_started
+      firefox:
+        condition: service_started
+      edge:
+        condition: service_started
     environment:
       - SITE=saucedemo
       - BROWSER=chrome
@@ -119,6 +148,9 @@ services:
       - GRID_URL=http://selenium-hub:4444/wd/hub
       - SUITE=testng-suites/saucedemo-smoke.xml
     volumes:
+      # Maven cache: a named volume is pre-filled from the image's /home/automation/.m2 on first use,
+      # then keeps every plugin/jar `docker compose run` downloads, so later runs skip the ~30 MB re-download.
+      - m2-cache:/home/automation/.m2
       # Persist reports/screenshots/allure-results back to the host after the run
       - ./target/allure-results:/workspace/target/allure-results
       - ./target/extent-reports:/workspace/target/extent-reports
@@ -133,3 +165,6 @@ services:
       # again — self-healing would silently never have anything to heal
       # against, the exact same bug as the target/ path it was moved out of.
       - ./self-healing-data:/workspace/self-healing-data
+
+volumes:
+  m2-cache:

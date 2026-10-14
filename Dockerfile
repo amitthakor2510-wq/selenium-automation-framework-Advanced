@@ -7,7 +7,7 @@
 # lets the browser versions be upgraded independently via docker-compose.
 # =============================================================================
 
-FROM maven:3.9.9-eclipse-temurin-17 AS build
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 
 WORKDIR /workspace
 
@@ -21,7 +21,7 @@ COPY . .
 # Runtime stage — keeps the final image lean (no need for the full Maven
 # local repo layer to persist beyond the build cache).
 # -----------------------------------------------------------------------------
-FROM maven:3.9.9-eclipse-temurin-17
+FROM maven:3.9.6-eclipse-temurin-17
 
 WORKDIR /workspace
 COPY --from=build /workspace /workspace
@@ -49,7 +49,11 @@ RUN apt-get update \
 # even after chown -R on its *contents*, a non-root user still can't
 # traverse into /root to reach them — the directory entry point itself
 # blocks it. Moving avoids doubling image size the way a copy would.
-RUN groupadd --gid 1000 automation \
+# Newer maven/temurin base images (Ubuntu 24.04) already ship a user+group with ID 1000
+# ("ubuntu"), which made `groupadd --gid 1000` fail. Free the ID first if it is taken.
+RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cut -d: -f1)" || true; fi \
+    && if getent group 1000 >/dev/null; then groupdel "$(getent group 1000 | cut -d: -f1)" || true; fi \
+    && groupadd --gid 1000 automation \
     && useradd --uid 1000 --gid automation --shell /bin/bash --create-home automation \
     && chown -R automation:automation /workspace \
     && mv /root/.m2 /home/automation/.m2 \

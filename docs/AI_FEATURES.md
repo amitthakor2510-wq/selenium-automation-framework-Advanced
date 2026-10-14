@@ -171,7 +171,7 @@ crawler.ai.enabled=false
 crawler.checklistFile=
 ```
 
-`-Dsite=<site>` (defaults to `demoqa`, same as the rest of the framework) still picks
+`-Dsite=<site>` (defaults to `saucedemo`, same as the rest of the framework) still picks
 which `browser`/`headless`/Grid config the crawler's own `WebDriver` uses — the crawler
 itself will happily crawl any host you point `crawler.startUrl` at, regardless of which
 site's config supplied the browser settings.

@@ -135,7 +135,7 @@ public class BaseTest implements DriverProvider {
         // Only reset if the site actually changed (multi-site runs).
         // For single-site runs (the normal case) ConfigReader stays loaded.
         String currentSite = ConfigReader.getActiveSite();
-        String requestedSite = System.getProperty("site", "demoqa");
+        String requestedSite = System.getProperty("site", "saucedemo");
         if (currentSite == null || !currentSite.equals(requestedSite)) {
             ConfigReader.reset();
         }

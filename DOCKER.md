@@ -43,6 +43,8 @@ docker compose up -d selenium-hub chrome firefox edge
 #     container's non-root user (uid 1000 — see "Running as Non-Root"
 #     below). Skip this and Docker will auto-create them owned by root on
 #     first run, which the container user then can't write into.
+# (Automatic now: the compose "fix-perms" helper does this before every `docker compose run tests`;
+#  only needed by hand with --no-deps.)
 mkdir -p target/{allure-results,extent-reports,surefire-reports,debug-dumps,screenshots}
 chmod -R 777 target
 

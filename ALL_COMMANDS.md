@@ -81,11 +81,11 @@ mvn test -Dcaptcha.autoDetect.enabled=false
 
 # Any global.properties key can be overridden with -Dkey=value (docs/configuration.md)
 
-# -Dsite defaults to "demoqa" (ConfigReader) if omitted entirely — both of
-# these are equivalent to the smoke/regression commands above, just relying
+# -Dsite defaults to "saucedemo" (ConfigReader) if omitted entirely — both of
+# these are equivalent to the saucedemo smoke/regression commands, just relying
 # on that default instead of stating it:
-mvn test -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
-mvn test -DsuiteXmlFile=testng-suites/demoqa-regression.xml
+mvn test -DsuiteXmlFile=testng-suites/saucedemo-smoke.xml
+mvn test -DsuiteXmlFile=testng-suites/saucedemo-regression.xml
 ```
 
 ---

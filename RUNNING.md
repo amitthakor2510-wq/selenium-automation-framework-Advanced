@@ -84,7 +84,7 @@ Scripts/run-SAHMAT-all-browsers.sh smoke
 mvn test -Dhuman.pause.min=2000 -Dhuman.pause.max=3000 -Dtest=ButtonsTest
 
 # Fast mode — disable all pacing pauses
-mvn test -Dhuman.pause.enabled=false -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
+mvn test -Dhuman.pause.enabled=false -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml
 
 # Disable retry — see a failure immediately instead of it re-running
 mvn test -Dretry.count=0 -Dtest=BookStoreApplicationTest
@@ -251,8 +251,8 @@ Three pipelines are included and runnable as-is — Jenkins, GitHub Actions, Git
 | Watch tests live in Docker | `docker compose run --rm -e HEADLESS=false tests` then open `localhost:7900` |
 | Keyword-driven | `mvn test -Dtest=KeywordDrivenTextBoxTest` |
 | API only | `mvn test -Dtest=BookStoreApiTest` |
-| Accessibility scan | `mvn test -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml` |
-| Visual regression | `mvn test -DsuiteXmlFile=testng-suites/demoqa-visual.xml` |
+| Accessibility scan | `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-accessibility.xml` |
+| Visual regression | `mvn test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-visual.xml` |
 | Performance smoke | `mvn verify -Pperf` |
 | Mobile | `mvn test -Dsite=mobile -DsuiteXmlFile=testng-suites/mobile-smoke.xml` |
 | SAHMAT — all browsers, one by one, locally | `Scripts/run-SAHMAT-all-browsers.sh regression` |

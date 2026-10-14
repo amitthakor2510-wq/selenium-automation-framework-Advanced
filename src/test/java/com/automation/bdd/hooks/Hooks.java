@@ -61,7 +61,7 @@ public class Hooks {
 
     @Before(value = "@ui", order = 0)
     public void startBrowser(Scenario scenario) {
-        selectSite("demoqa");
+        selectSite("saucedemo");
         logger.info("Starting @ui scenario '{}' on site '{}'", scenario.getName(), ConfigReader.getActiveSite());
         WebDriver webDriver = DriverFactory.createDriver();
         DRIVER.set(webDriver);
