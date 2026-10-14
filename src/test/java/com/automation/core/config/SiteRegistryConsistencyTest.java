@@ -46,7 +46,8 @@ class SiteRegistryConsistencyTest {
             pipeline.load(in);
         }
         assertAll(SiteRegistry.knownSiteKeys().stream().sorted().map(site -> () -> {
-            String value = pipeline.getProperty("site." + site + ".enabled");
+            String raw = pipeline.getProperty("site." + site + ".enabled");
+            String value = raw == null ? null : raw.trim();
             assertTrue("true".equals(value) || "false".equals(value),
                 "Site '" + site + "' has no site." + site + ".enabled=true|false line in "
                     + "pipeline-config.properties (found: " + value + "). A missing line is "

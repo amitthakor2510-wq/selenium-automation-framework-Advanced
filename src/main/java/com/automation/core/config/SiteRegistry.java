@@ -165,7 +165,12 @@ public final class SiteRegistry {
      */
     public static boolean isEnabled(String site) {
         Properties props = loadPipelineConfig();
-        return "true".equals(props.getProperty("site." + site + ".enabled"));
+        // trim(): java.util.Properties keeps trailing whitespace in values, but
+        // Scripts/enabled-sites.sh (which decides what CI schedules) tolerates it —
+        // without trimming here, "site.x.enabled=true " is scheduled by CI and then
+        // rejected by validate() as disabled.
+        String value = props.getProperty("site." + site + ".enabled");
+        return value != null && "true".equals(value.trim());
     }
 
     private static Properties loadPipelineConfig() {

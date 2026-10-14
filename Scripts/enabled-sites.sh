@@ -49,8 +49,8 @@ in_ci() {
 # CAPTCHA). A site with no "ci=" line is treated as ci=true, so nothing changes
 # for existing sites.
 ci_disabled() {
-    grep -E '^site\.[a-zA-Z0-9_-]+\.ci=false[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.ci=false[[:space:]]*$/\1/' || true
+    grep -E '^site\.[a-zA-Z0-9_-]+\.ci[[:space:]]*=[[:space:]]*false[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.ci[[:space:]]*=[[:space:]]*false[[:space:]]*$/\1/' || true
 }
 
 # Every "site.<name>.enabled=true" line (no inline comments, no spaces
@@ -60,8 +60,8 @@ ci_disabled() {
 # sites are disabled by default, never silently on.
 all_enabled() {
     local list
-    list=$(grep -E '^site\.[a-zA-Z0-9_-]+\.enabled=true[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled=true[[:space:]]*$/\1/' || true)
+    list=$(grep -E '^site\.[a-zA-Z0-9_-]+\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$/\1/' || true)
     if in_ci; then
         # Drop sites marked "site.<name>.ci=false" (see ci_disabled below).
         echo "$list" | grep -Fxvf <(ci_disabled) | grep -v '^$' || true
@@ -71,8 +71,8 @@ all_enabled() {
 }
 
 all_known() {
-    grep -E '^site\.[a-zA-Z0-9_-]+\.enabled=(true|false)[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled=(true|false)[[:space:]]*$/\1/'
+    grep -E '^site\.[a-zA-Z0-9_-]+\.enabled[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$/\1/'
 }
 
 # Sites tagged "site.<name>.type=api" — no browser/page-object involvement
@@ -86,8 +86,8 @@ all_known() {
 # — this is purely additive, opt-in per new API-only site, not a
 # behavior change for demoqa/saucedemo/SAHMAT/mobile.
 all_api_only() {
-    grep -E '^site\.[a-zA-Z0-9_-]+\.type=api[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.type=api[[:space:]]*$/\1/' || true
+    grep -E '^site\.[a-zA-Z0-9_-]+\.type[[:space:]]*=[[:space:]]*api[[:space:]]*$' "$CONFIG_FILE" \
+        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.type[[:space:]]*=[[:space:]]*api[[:space:]]*$/\1/' || true
 }
 
 to_json() {
