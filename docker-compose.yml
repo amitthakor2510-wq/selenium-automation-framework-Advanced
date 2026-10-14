@@ -101,7 +101,7 @@ services:
       selenium-hub:
         condition: service_healthy
     environment:
-      - SITE=demoqa
+      - SITE=saucedemo
       - BROWSER=chrome
       # NOTE: HEADLESS is left true here on purpose for unattended/CI-style
       # `docker compose run --rm tests` runs — it no longer matters for
@@ -117,7 +117,7 @@ services:
       - HEADLESS=true
       - GRID_ENABLED=true
       - GRID_URL=http://selenium-hub:4444/wd/hub
-      - SUITE=testng-suites/demoqa-smoke.xml
+      - SUITE=testng-suites/saucedemo-smoke.xml
     volumes:
       # Persist reports/screenshots/allure-results back to the host after the run
       - ./target/allure-results:/workspace/target/allure-results

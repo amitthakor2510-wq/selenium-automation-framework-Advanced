@@ -46,7 +46,7 @@ docker compose up -d selenium-hub chrome firefox edge
 mkdir -p target/{allure-results,extent-reports,surefire-reports,debug-dumps,screenshots}
 chmod -R 777 target
 
-# 2. Run the default suite (demoqa smoke, chrome, headless)
+# 2. Run the default suite (saucedemo smoke, chrome, headless - demoqa is switched off in pipeline-config.properties)
 docker compose run --rm tests
 
 # 3. Run something else by overriding env vars

@@ -106,7 +106,7 @@ docker compose up -d selenium-hub chrome firefox edge
 # 2. Confirm it's healthy
 docker compose ps
 
-# 3. Run the default suite (demoqa smoke, Chrome, headless)
+# 3. Run the default suite (saucedemo smoke, Chrome, headless - demoqa is switched off in pipeline-config.properties)
 docker compose run --rm tests
 
 # 4. Run a different browser/site/suite

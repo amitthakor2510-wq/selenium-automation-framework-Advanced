@@ -7,7 +7,7 @@
 # lets the browser versions be upgraded independently via docker-compose.
 # =============================================================================
 
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 
 WORKDIR /workspace
 
@@ -21,7 +21,7 @@ COPY . .
 # Runtime stage — keeps the final image lean (no need for the full Maven
 # local repo layer to persist beyond the build cache).
 # -----------------------------------------------------------------------------
-FROM maven:3.9.6-eclipse-temurin-17
+FROM maven:3.9.9-eclipse-temurin-17
 
 WORKDIR /workspace
 COPY --from=build /workspace /workspace
@@ -102,12 +102,12 @@ ENV HOME=/home/automation
 # Defaults — overridden via `docker compose run -e` or -D system props.
 # grid.enabled=true + grid.url tell DriverFactory to build a RemoteWebDriver
 # pointing at the selenium-hub service instead of a local browser binary.
-ENV SITE=demoqa \
+ENV SITE=saucedemo \
     BROWSER=chrome \
     HEADLESS=true \
     GRID_ENABLED=true \
     GRID_URL=http://selenium-hub:4444/wd/hub \
-    SUITE=testng-suites/demoqa-smoke.xml
+    SUITE=testng-suites/saucedemo-smoke.xml
 
 ENTRYPOINT ["sh", "-c", "mvn -B test \
     -Dsite=$SITE \

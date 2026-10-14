@@ -10,3 +10,17 @@ target/allure-results/
 target/allure-report/
 target/extent-reports/
 target/surefire-reports/
+
+# Local secrets and tooling caches must never be baked into the image
+# (COPY . . would otherwise copy .env with DASHBOARD_PASSWORD, plus ~60 MB of Allure CLI jars).
+.env
+*.env
+.allure/
+.m2/
+.wdm/
+allure-cli/
+allure-report/
+public/
+__pycache__/
+*.pyc
+.android-sdk/
