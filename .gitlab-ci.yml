@@ -37,6 +37,13 @@ stages:
 variables:
   SUITE_TYPE: "regression"
   BROWSER: "chrome"
+  # Duration-balanced test sharding — OFF by default (1 = run each suite whole,
+  # exactly as before). To split every site's suite into N shards: set this to N
+  # AND add a matching `SHARD: [ "1", ..., "N" ]` line under the `test` job's
+  # `parallel: matrix:` (GitLab matrix values must be static, so the two numbers
+  # have to be edited together). A suite with fewer classes than N just skips
+  # the extra shards. See docs/sharding.md.
+  SHARD_TOTAL: "1"
   HEADLESS: "true"
   RETRY_COUNT: "0"
   # Off by default — see global.properties' video.enabled comment for why
@@ -391,16 +398,43 @@ test:
     # that file, not just risk an artifact-merge ambiguity. This was
     # previously not set at all here, so every run silently used the
     # unscoped default from global.properties.
+    # Duration-balanced sharding (see SHARD_TOTAL under `variables:` and
+    # docs/sharding.md). With SHARD_TOTAL=1 this block only sets SUITE_FILE to the
+    # original suite and SHARD_SUFFIX to "" — nothing else changes. The same shell
+    # session runs every script line, so these variables reach the mvn call below
+    # and `exit 0` here ends the job cleanly (no tests ran -> no gate marker).
+    - |
+      SHARD="${SHARD:-1}"
+      SHARD_TOTAL="${SHARD_TOTAL:-1}"
+      SUITE_FILE="testng-suites/$SITE-$SUITE_TYPE.xml"
+      SHARD_SUFFIX=""
+      if [ "$SHARD_TOTAL" -gt 1 ]; then
+        if ! command -v python3 &> /dev/null; then
+          install_guard "python3"
+          $SUDO apt-get update -qq
+          $SUDO apt-get install -y -qq python3
+        fi
+        SHARD_EFFECTIVE=$(python3 Scripts/shard-tests.py count --suite "$SUITE_FILE" --max "$SHARD_TOTAL") \
+          || { echo "ERROR: cannot shard $SUITE_FILE"; exit 1; }
+        if [ "$SHARD" -gt "$SHARD_EFFECTIVE" ]; then
+          echo "$SUITE_FILE has only $SHARD_EFFECTIVE test class(es): shard $SHARD/$SHARD_TOTAL has nothing to run - skipping."
+          exit 0
+        fi
+        SUITE_FILE=$(python3 Scripts/shard-tests.py plan --suite "$SUITE_FILE" --shards "$SHARD_EFFECTIVE" --index "$SHARD") \
+          || { echo "ERROR: could not build shard $SHARD/$SHARD_EFFECTIVE of $SUITE_FILE"; exit 1; }
+        SHARD_SUFFIX="-shard${SHARD}of${SHARD_EFFECTIVE}"
+        echo "Running shard $SHARD of $SHARD_EFFECTIVE: $SUITE_FILE"
+      fi
     - $MVN_RUNNER mvn -B test
       -Dsite=$SITE
-      -DsuiteXmlFile=testng-suites/$SITE-$SUITE_TYPE.xml
+      -DsuiteXmlFile=$SUITE_FILE
       -Dbrowser=$BROWSER
       -Dheadless=$EFFECTIVE_HEADLESS
       -Dvideo.enabled=$RECORD_VIDEO
       -Dhuman.pause.enabled=false
       -Dretry.count=$RETRY_COUNT
-      -Dallure.results.directory=target/allure-results/$SITE-$BROWSER
-      -Dself-healing.report.path=target/self-healing/$SITE-$BROWSER-healing-report.json
+      -Dallure.results.directory=target/allure-results/$SITE-$BROWSER$SHARD_SUFFIX
+      -Dself-healing.report.path=target/self-healing/$SITE-$BROWSER$SHARD_SUFFIX-healing-report.json
       -Dwdm.cachePath=$WDM_CACHE_PATH
       -Dreportportal.enable=$REPORTPORTAL_ENABLE
       -Dreportportal.endpoint=$REPORTPORTAL_ENDPOINT
@@ -414,7 +448,10 @@ test:
     # testng-results.xml, it survives GitLab's artifact merge across matrix
     # legs. The `test-gate` job at the end of the pipeline fails on any leg
     # with failures. See Scripts/test-gate.sh.
-    - bash Scripts/test-gate.sh record "$SITE-$BROWSER"
+    - bash Scripts/test-gate.sh record "$SITE-$BROWSER$SHARD_SUFFIX"
+    # Per-class durations for duration-balanced sharding; the `shard-durations`
+    # job merges them. Best-effort — never affects the test result.
+    - python3 Scripts/shard-tests.py observe --reports target/surefire-reports --suite-key "$SITE-$SUITE_TYPE" --out "target/shard-timing/$SITE-$SUITE_TYPE-$BROWSER$SHARD_SUFFIX.json" || true
     # Same collision the comment above describes for surefire's
     # testng-results.xml applies to a bare target/jacoco.exec too — every
     # matrix instance would write that same path, and GitLab's artifact
@@ -426,13 +463,14 @@ test:
     - |
       if [ "$BROWSER" = "chrome" ]; then
         mkdir -p target/jacoco-artifacts
-        cp target/jacoco.exec target/jacoco-artifacts/$SITE.exec
+        cp target/jacoco.exec target/jacoco-artifacts/$SITE$SHARD_SUFFIX.exec
       fi
   artifacts:
     name: "test-results-$CI_JOB_NAME-$SITE-$BROWSER-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 7 days
     paths:
+      - target/shard-timing/
       - target/allure-results/
       - target/extent-reports/
       - target/quarantine/
@@ -1402,12 +1440,15 @@ pages:
     - branches
 
 # ================================================================
-# Chat notification (Slack / Microsoft Teams) — opt-in
+# Chat notification (Slack / Microsoft Teams / Telegram) — opt-in
 # ================================================================
-# Does nothing until a masked CI/CD variable named CHAT_WEBHOOK_URL exists
-# (Settings -> CI/CD -> Variables). Optional variables: CHAT_PROVIDER
-# (slack|teams, default: auto-detected from the URL) and NOTIFY_ON
-# (failure|always, default: failure — silent on an all-green run).
+# Does nothing until a masked CI/CD variable named CHAT_WEBHOOK_URL (Slack/Teams)
+# and/or the masked pair TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (Telegram) exists
+# (Settings -> CI/CD -> Variables; GitLab passes them to the job automatically).
+# Optional variables: CHAT_PROVIDER (slack|teams|telegram, default: auto-detected
+# from the webhook URL; telegram = Telegram only), TELEGRAM_THREAD_ID (forum
+# topic) and NOTIFY_ON (failure|always, default: failure — silent on an
+# all-green run).
 # The same script the GitHub Actions `notify` job uses; it reads GitLab's own
 # CI_* variables directly. `when: always` so a failed test job (which still
 # uploads its surefire reports, see `test`'s artifacts) is exactly the case
@@ -1476,3 +1517,38 @@ test-gate:
     - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
   script:
     - bash Scripts/test-gate.sh check
+
+# ================================================================
+# Shard duration history (report-only)
+# ================================================================
+# Merges every `test` instance's per-class timings into testng-suites/
+# shard-durations.json (moving average) and keeps it as an artifact. It never
+# commits: download the file and commit it when you want future runs balanced on
+# fresher data. allow_failure + its own stage-less position (report) mean it can
+# never block the gate or the Pages deploy. See docs/sharding.md.
+shard-durations:
+  stage: report
+  image: python:3.12-slim
+  interruptible: true
+  allow_failure: true
+  cache: []
+  needs:
+    - job: test
+      optional: true
+      artifacts: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+      when: always
+  script:
+    - |
+      FILES=$(ls target/shard-timing/*.json 2>/dev/null || true)
+      if [ -z "$FILES" ]; then
+        echo "No timing files produced this run - nothing to merge."
+        exit 0
+      fi
+      python3 Scripts/shard-tests.py merge --durations testng-suites/shard-durations.json --inputs $FILES
+  artifacts:
+    when: on_success
+    expire_in: 30 days
+    paths:
+      - testng-suites/shard-durations.json

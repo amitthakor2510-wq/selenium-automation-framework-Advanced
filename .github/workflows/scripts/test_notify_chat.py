@@ -129,6 +129,96 @@ class NotifyChatTest(unittest.TestCase):
         jk = notify_chat.ci_context({"JENKINS_URL": "https://j/", "BUILD_URL": "https://j/job/x/7/"})
         self.assertEqual(jk["run_url"], "https://j/job/x/7/")
 
+    # ------------------------------------------------------------------ Telegram
+    def tg_env(self, **extra):
+        # TELEGRAM_API_BASE points the Bot API call at the throwaway local server.
+        base = {"TELEGRAM_BOT_TOKEN": "123:SECRET-TOKEN", "TELEGRAM_CHAT_ID": "-1001",
+                "TELEGRAM_API_BASE": f"http://127.0.0.1:{self.server.server_port}",
+                "SUREFIRE_DIR": self.tmp.name}
+        base.update(extra)
+        return base
+
+    def test_telegram_url_never_double_slashes_and_uses_bot_prefix(self):
+        self.assertEqual(notify_chat.telegram_url("1:A", "https://x.test/"), "https://x.test/bot1:A/sendMessage")
+        self.assertEqual(notify_chat.telegram_url("1:A"), "https://api.telegram.org/bot1:A/sendMessage")
+
+    def test_telegram_failure_message_is_sent_with_buttons(self):
+        write_report(self.tmp.name, TESTCASE_PASS, TESTCASE_FAIL)
+        notify_chat.main(self.tg_env(REPORT_URL="https://reports.example/r", PIPELINE_RESULT="failure"))
+        self.assertEqual(len(_Recorder.received), 1)
+        p = _Recorder.received[0]
+        self.assertEqual(p["chat_id"], "-1001")
+        self.assertEqual(p["parse_mode"], "HTML")
+        self.assertIn("1 of 2 tests failed", p["text"])
+        self.assertIn("<code>com.x.LoginTest.bad</code>", p["text"])
+        urls = [b["url"] for b in p["reply_markup"]["inline_keyboard"][0]]
+        self.assertIn("https://reports.example/r", urls)
+
+    def test_telegram_green_run_is_silent_unless_notify_on_always(self):
+        write_report(self.tmp.name, TESTCASE_PASS)
+        notify_chat.main(self.tg_env())
+        self.assertEqual(_Recorder.received, [])
+        notify_chat.main(self.tg_env(NOTIFY_ON="always"))
+        self.assertEqual(len(_Recorder.received), 1)
+
+    def test_telegram_escapes_html_in_test_names(self):
+        bad = '<testcase classname="com.x.T" name="a&lt;b&gt;&amp;c"><failure/></testcase>'
+        write_report(self.tmp.name, bad)
+        notify_chat.main(self.tg_env())
+        text = _Recorder.received[0]["text"]
+        self.assertNotIn("<b>c", text)          # raw name must not inject tags
+        self.assertIn("&lt;", text)
+
+    def test_telegram_message_respects_4096_limit(self):
+        cases = [f'<testcase classname="com.x.{"L" * 200}" name="t{i}"><failure/></testcase>' for i in range(60)]
+        write_report(self.tmp.name, *cases)
+        notify_chat.main(self.tg_env(MAX_FAILURES_LISTED="60"))
+        text = _Recorder.received[0]["text"]
+        self.assertLessEqual(len(text), notify_chat.TELEGRAM_MAX_CHARS)
+        self.assertIn("more", text)             # the cut-off tests are counted, not silently lost
+        self.assertEqual(text.count("<code>"), text.count("</code>"))
+
+    def test_telegram_thread_id_is_sent_as_integer(self):
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        notify_chat.main(self.tg_env(TELEGRAM_THREAD_ID="77"))
+        self.assertEqual(_Recorder.received[0]["message_thread_id"], 77)
+
+    def test_telegram_bad_thread_id_is_ignored_not_fatal(self):
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        self.assertEqual(notify_chat.main(self.tg_env(TELEGRAM_THREAD_ID="abc")), 0)
+        self.assertNotIn("message_thread_id", _Recorder.received[0])
+
+    def test_half_configured_telegram_is_skipped(self):
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        env = self.tg_env()
+        del env["TELEGRAM_CHAT_ID"]
+        self.assertEqual(notify_chat.main(env), 0)
+        self.assertEqual(_Recorder.received, [])
+
+    def test_webhook_and_telegram_both_receive_a_message(self):
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        env = self.tg_env(CHAT_WEBHOOK_URL=self.url)
+        notify_chat.main(env)
+        self.assertEqual(len(_Recorder.received), 2)
+        self.assertEqual(sum(1 for r in _Recorder.received if "chat_id" in r), 1)
+
+    def test_provider_telegram_ignores_the_webhook(self):
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        notify_chat.main(self.tg_env(CHAT_WEBHOOK_URL=self.url, CHAT_PROVIDER="telegram"))
+        self.assertEqual(len(_Recorder.received), 1)
+        self.assertIn("chat_id", _Recorder.received[0])
+
+    def test_telegram_delivery_failure_never_fails_the_pipeline_or_leaks_token(self):
+        import io
+        import contextlib
+        write_report(self.tmp.name, TESTCASE_FAIL)
+        _Recorder.status = 401  # revoked bot token: 4xx, no retry
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = notify_chat.main(self.tg_env())
+        self.assertEqual(rc, 0)
+        self.assertNotIn("SECRET-TOKEN", buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Posts a one-message test-run summary to Slack or Microsoft Teams.
+Posts a one-message test-run summary to Slack, Microsoft Teams and/or Telegram.
 
 One script for all three CI systems this repo ships (GitHub Actions,
 GitLab CI, Jenkins) — it reads whichever CI's own built-in environment
@@ -8,15 +8,32 @@ variables are present, so no pipeline needs to translate anything for it.
 
 Configuration (all environment variables):
 
-  CHAT_WEBHOOK_URL   REQUIRED to do anything. Unset/blank -> the script prints
-                     "not configured" and exits 0, so wiring this into a
-                     pipeline is safe before anyone has created a webhook.
+  Slack / Teams (incoming webhook):
+  CHAT_WEBHOOK_URL   Webhook of the Slack/Teams channel. Unset/blank -> no
+                     Slack/Teams message (see "nothing configured" below).
                      Keep it in the CI system's secret store, never in a file.
   CHAT_PROVIDER      slack | teams | auto (default). auto picks Teams for
                      *.webhook.office.com / *.logic.azure.com /
                      *.powerplatform.com / *.api.powerplatform.com URLs and
                      Slack for everything else (which also covers
                      Slack-compatible endpoints such as Mattermost).
+                     telegram = send ONLY to Telegram and ignore the webhook.
+
+  Telegram (Bot API) - independent of the webhook, so both can be on at once:
+  TELEGRAM_BOT_TOKEN  Token from @BotFather. Secret - CI secret store only.
+  TELEGRAM_CHAT_ID    Target chat: a user/group id (groups are negative,
+                      e.g. -1001234567890) or @channelusername. The bot must
+                      already be a member of that group/channel.
+  TELEGRAM_THREAD_ID  Optional forum-topic id inside a supergroup.
+  TELEGRAM_API_BASE   Optional, default https://api.telegram.org (a self-hosted
+                      Bot API server, or a local test server).
+  Both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are needed; if only one is set the
+  script says so and skips Telegram. The token is never printed.
+
+  Nothing configured at all -> the script prints "not configured" and exits 0,
+  so wiring this into a pipeline is safe before anyone has created a webhook
+  or a bot.
+
   NOTIFY_ON          failure (default) | always. "failure" stays silent on an
                      all-green run so the channel is worth reading.
   PIPELINE_RESULT    Optional overall CI verdict (success/failure/cancelled),
@@ -31,6 +48,7 @@ Configuration (all environment variables):
 The script NEVER fails the pipeline: a webhook outage must not turn a green
 build red. Delivery problems are printed and the exit code stays 0.
 """
+import html
 import json
 import os
 import sys
@@ -180,6 +198,67 @@ def teams_payload(s):
                              "contentUrl": None, "content": card}]}
 
 
+TELEGRAM_MAX_CHARS = 4096  # Bot API hard limit for one sendMessage text
+TELEGRAM_DEFAULT_API = "https://api.telegram.org"
+
+
+def _tg_text(s, failures):
+    """HTML message text; Telegram parse_mode=HTML only allows a few tags, so every
+    dynamic value is escaped. Returns (text, failures_actually_listed)."""
+    esc = html.escape
+    meta = " \u00b7 ".join(x for x in (s["project"], s["ci"], s["branch"], s["commit"]) if x)
+
+    def render(shown):
+        lines = [f"<b>{esc(s['icon'] + ' ' + s['headline'])}</b>", esc(s["detail"])]
+        if meta:
+            lines.append(f"<i>{esc(meta)}</i>")
+        if shown:
+            lines.append("<b>Failed:</b>")
+            lines.extend(f"\u2022 <code>{esc(n)}</code>" for n in shown)
+            hidden = len(failures) - len(shown) + s["more"]
+            if hidden > 0:
+                lines.append(f"\u2026and {hidden} more")
+        return "\n".join(lines)
+
+    shown = list(failures)
+    text = render(shown)
+    while len(text) > TELEGRAM_MAX_CHARS and shown:
+        shown.pop()
+        text = render(shown)
+    if len(text) > TELEGRAM_MAX_CHARS:  # absurdly long headline/meta - hard cut, tags stay balanced
+        text = esc(s["headline"])[:TELEGRAM_MAX_CHARS]
+    return text, len(shown)
+
+
+def telegram_payload(s, chat_id, thread_id=""):
+    text, _ = _tg_text(s, s["failures"])
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    thread = str(thread_id or "").strip()
+    if thread:
+        try:
+            payload["message_thread_id"] = int(thread)
+        except ValueError:
+            print("notify_chat: TELEGRAM_THREAD_ID is not a number - sending without a topic.")
+    buttons = []
+    if s["run_url"]:
+        buttons.append({"text": "Open run", "url": s["run_url"]})
+    if s["report_url"]:
+        buttons.append({"text": "Test report", "url": s["report_url"]})
+    if buttons:
+        payload["reply_markup"] = {"inline_keyboard": [buttons]}
+    return payload
+
+
+def telegram_url(token, api_base=""):
+    base = (api_base or TELEGRAM_DEFAULT_API).strip().rstrip("/")
+    return f"{base}/bot{token}/sendMessage"
+
+
 def post_json(url, payload, attempts=3, timeout=15):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
@@ -205,15 +284,27 @@ def post_json(url, payload, attempts=3, timeout=15):
 def main(env=None):
     e = os.environ if env is None else env
     url = (e.get("CHAT_WEBHOOK_URL") or "").strip()
-    if not url:
-        print("notify_chat: CHAT_WEBHOOK_URL not set — skipping (notifications not configured).")
+    tg_token = (e.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    tg_chat = (e.get("TELEGRAM_CHAT_ID") or "").strip()
+    provider_req = (e.get("CHAT_PROVIDER") or "auto").strip().lower()
+
+    if provider_req == "telegram":
+        url = ""  # explicit: Telegram only
+    if bool(tg_token) != bool(tg_chat):
+        missing = "TELEGRAM_CHAT_ID" if tg_token else "TELEGRAM_BOT_TOKEN"
+        print(f"notify_chat: Telegram is half-configured ({missing} is missing) - skipping Telegram.")
+        tg_token = tg_chat = ""
+
+    if not url and not tg_token:
+        print("notify_chat: CHAT_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID not set - "
+              "skipping (notifications not configured).")
         return 0
 
     results, totals = parse_surefire_dir(e.get("SUREFIRE_DIR", "target/surefire-reports"))
     pipeline_result = e.get("PIPELINE_RESULT", "")
     send, is_failure = should_notify(totals, pipeline_result, e.get("NOTIFY_ON", "failure"))
     if not send:
-        print(f"notify_chat: run is green ({totals['passed']}/{totals['total']} passed) and NOTIFY_ON=failure — nothing to send.")
+        print(f"notify_chat: run is green ({totals['passed']}/{totals['total']} passed) and NOTIFY_ON=failure - nothing to send.")
         return 0
 
     failures = sorted(k for k, v in results.items() if v == "fail")
@@ -223,10 +314,16 @@ def main(env=None):
         max_listed = 10
     ctx = ci_context(e)
     summary = build_summary(totals, failures, ctx, e.get("REPORT_URL", ""), is_failure, pipeline_result, max_listed)
-    provider = detect_provider(url, e.get("CHAT_PROVIDER", "auto"))
-    payload = teams_payload(summary) if provider == "teams" else slack_payload(summary)
-    ok = post_json(url, payload)
-    print(f"notify_chat: {provider} notification {'sent' if ok else 'NOT delivered'}.")
+
+    if url:
+        provider = detect_provider(url, provider_req)
+        payload = teams_payload(summary) if provider == "teams" else slack_payload(summary)
+        ok = post_json(url, payload)
+        print(f"notify_chat: {provider} notification {'sent' if ok else 'NOT delivered'}.")
+    if tg_token:
+        payload = telegram_payload(summary, tg_chat, e.get("TELEGRAM_THREAD_ID", ""))
+        ok = post_json(telegram_url(tg_token, e.get("TELEGRAM_API_BASE", "")), payload)
+        print(f"notify_chat: telegram notification {'sent' if ok else 'NOT delivered'}.")
     return 0  # never fail the pipeline over a notification
 
 

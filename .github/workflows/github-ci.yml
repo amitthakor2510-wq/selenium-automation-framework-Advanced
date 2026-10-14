@@ -496,6 +496,10 @@ jobs:
           DISPATCH_BROWSER: ${{ inputs.browser }}
           RUN_SAFARI: ${{ inputs.run_safari }}
           ENABLED_SITES: ${{ steps.enabled.outputs.sites }}
+          # Optional repository Variable: default shard count for every site when
+          # pipeline-config.properties has no shard.count.<site> line for it. Unset = 1
+          # (no sharding, pipeline behaves exactly as before). See docs/sharding.md.
+          SHARD_COUNT: ${{ vars.SHARD_COUNT }}
         # Every line of the embedded python script below is indented to
         # match this step's own YAML block-scalar base indentation
         # (10 spaces) — a zero-indented python block nested in here
@@ -510,7 +514,7 @@ jobs:
         # indentation Python actually sees.
         run: |
           python3 -c "
-          import json, os
+          import json, os, subprocess, sys
           sites = json.loads(os.environ.get('ENABLED_SITES', '[]'))
           event = os.environ.get('EVENT_NAME', '')
           dispatch_browser = os.environ.get('DISPATCH_BROWSER', '') or 'chrome'
@@ -522,7 +526,48 @@ jobs:
           else:
               browsers = ['chrome', 'firefox', 'edge']
           os_for_browser = {'safari': 'macos-latest'}
-          combos = [{'site': s, 'browser': b, 'os': os_for_browser.get(b, 'ubuntu-latest')} for s in sites for b in browsers]
+          # Duration-balanced sharding (opt-in). Shard count per site, most specific wins:
+          # shard.count.<site> in pipeline-config.properties > repo variable SHARD_COUNT >
+          # shard.count in pipeline-config.properties > 1. A leg is only split when the
+          # count is above 1, and never into more shards than the suite has classes
+          # (an empty shard would read as zero tests to the test gate).
+          cfg = {}
+          try:
+              for line in open('pipeline-config.properties'):
+                  line = line.strip()
+                  if line and not line.startswith('#') and '=' in line:
+                      k, v = line.split('=', 1)
+                      cfg[k.strip()] = v.strip()
+          except OSError:
+              pass
+          suite_type = os.environ.get('SUITE_TYPE', 'regression') or 'regression'
+          def wanted(site):
+              raw = cfg.get('shard.count.' + site) or os.environ.get('SHARD_COUNT', '').strip() or cfg.get('shard.count') or '1'
+              try:
+                  return max(1, int(raw))
+              except ValueError:
+                  print('WARNING: shard count %r for %s is not a number - not sharding' % (raw, site), file=sys.stderr)
+                  return 1
+          def effective(site, browser):
+              n = wanted(site)
+              if n <= 1:
+                  return 1
+              suite = 'testng-suites/%s-%s%s.xml' % (site, 'safari-' if browser == 'safari' else '', suite_type)
+              r = subprocess.run(['python3', 'Scripts/shard-tests.py', 'count', '--suite', suite, '--max', str(n)], capture_output=True, text=True)
+              if r.returncode != 0:
+                  print('WARNING: cannot shard %s (%s) - running it whole' % (suite, r.stderr.strip()), file=sys.stderr)
+                  return 1
+              return int(r.stdout.strip())
+          combos = []
+          for s in sites:
+              for b in browsers:
+                  base = {'site': s, 'browser': b, 'os': os_for_browser.get(b, 'ubuntu-latest')}
+                  n = effective(s, b)
+                  if n <= 1:
+                      combos.append(base)
+                  else:
+                      for k in range(1, n + 1):
+                          combos.append(dict(base, shard=k, shards=n, leg='-shard%dof%d' % (k, n)))
           print('matrix=' + json.dumps({'include': combos}))
           " >> "$GITHUB_OUTPUT"
 
@@ -732,6 +777,21 @@ jobs:
               attempt=$((attempt + 1))
             done
           }
+          # Duration-balanced sharding: matrix-setup only sets matrix.shards when this
+          # site's suite is split (see docs/sharding.md). Every shard job derives its
+          # own file from the same suite + the same committed timing history, so the
+          # shards never overlap and never miss a class. No shards -> original suite.
+          if [ "${{ matrix.browser }}" = "safari" ]; then
+            SUITE_FILE="testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml"
+          else
+            SUITE_FILE="testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml"
+          fi
+          if [ -n "${{ matrix.shards }}" ] && [ "${{ matrix.shards }}" -gt 1 ]; then
+            SUITE_FILE=$(python3 Scripts/shard-tests.py plan --suite "$SUITE_FILE" \
+              --shards "${{ matrix.shards }}" --index "${{ matrix.shard }}") \
+              || { echo "::error::Could not build shard ${{ matrix.shard }}/${{ matrix.shards }} of $SUITE_FILE"; exit 1; }
+            echo "Running shard ${{ matrix.shard }} of ${{ matrix.shards }}: $SUITE_FILE"
+          fi
           if [ "${{ matrix.browser }}" = "safari" ]; then
             # Uses the dedicated *-safari-<suite>.xml suite files
             # (parallel="none") instead of the plain ones the other three
@@ -746,12 +806,12 @@ jobs:
             # job's download step needs every leg's folder name to differ.
             run_mvn_with_retry $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
-              -DsuiteXmlFile=testng-suites/${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}.xml \
+              -DsuiteXmlFile="$SUITE_FILE" \
               -Dbrowser=safari \
               -Dhuman.pause.enabled=false \
               -Dretry.count=${{ env.RETRY_COUNT }} \
-              -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari \
-              -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari-healing-report.json \
+              -Dallure.results.directory=target/allure-results/${{ matrix.site }}-safari${{ matrix.leg }} \
+              -Dself-healing.report.path=target/self-healing/${{ matrix.site }}-safari${{ matrix.leg }}-healing-report.json \
               -Dreportportal.enable=${{ env.REPORTPORTAL_ENABLE }} \
               -Dreportportal.endpoint=${{ secrets.RP_ENDPOINT }} \
               -Dreportportal.project=${{ secrets.RP_PROJECT }} \
@@ -760,7 +820,7 @@ jobs:
           else
             run_mvn_with_retry $MVN_RUNNER mvn -B test \
               -Dsite=${{ matrix.site }} \
-              -DsuiteXmlFile=testng-suites/${{ matrix.site }}-${{ env.SUITE_TYPE }}.xml \
+              -DsuiteXmlFile="$SUITE_FILE" \
               -Dbrowser=${{ matrix.browser }} \
               -Dheadless=${{ env.HEADLESS }} \
               -Dvideo.enabled=${{ env.RECORD_VIDEO }} \
@@ -783,7 +843,7 @@ jobs:
       # trips the gate. See Scripts/test-gate.sh.
       - name: Record test gate result
         if: always()
-        run: bash Scripts/test-gate.sh record "${{ matrix.site }}-${{ matrix.browser }}"
+        run: bash Scripts/test-gate.sh record "${{ matrix.site }}-${{ matrix.browser }}${{ matrix.leg }}"
 
       # Each matrix job's own runner/filesystem is already isolated from
       # the others, so there's no risk of two sites' results overwriting
@@ -808,7 +868,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results-${{ matrix.site }}-${{ matrix.browser }}
+          name: allure-results-${{ matrix.site }}-${{ matrix.browser }}${{ matrix.leg }}
           path: target/allure-results/
           retention-days: 7
 
@@ -823,7 +883,7 @@ jobs:
           # all that's actually needed here (these artifacts only need to
           # be found by the allure-report job further down in this same
           # run) and is guaranteed to never contain a path separator.
-          name: test-results-${{ matrix.site }}-${{ matrix.browser }}-${{ github.run_id }}
+          name: test-results-${{ matrix.site }}-${{ matrix.browser }}${{ matrix.leg }}-${{ github.run_id }}
           path: |
             target/extent-reports/
             target/quarantine/
@@ -836,11 +896,34 @@ jobs:
             target/self-healing/
           retention-days: 7
 
+      # Feeds duration-balanced sharding: how long each test class took on this leg.
+      # The `shard-durations` job below merges every leg's file into one history
+      # artifact. Best-effort (`|| true`) - never affects the test result.
+      - name: Record class durations for sharding
+        if: always()
+        run: |
+          if [ "${{ matrix.browser }}" = "safari" ]; then
+            KEY="${{ matrix.site }}-safari-${{ env.SUITE_TYPE }}"
+          else
+            KEY="${{ matrix.site }}-${{ env.SUITE_TYPE }}"
+          fi
+          python3 Scripts/shard-tests.py observe --reports target/surefire-reports \
+            --suite-key "$KEY" --out "target/shard-timing/$KEY-${{ matrix.browser }}${{ matrix.leg }}.json" || true
+
+      - name: Upload class durations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-timing-${{ matrix.site }}-${{ matrix.browser }}${{ matrix.leg }}
+          path: target/shard-timing/
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Upload test gate marker
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gate-${{ matrix.site }}-${{ matrix.browser }}
+          name: gate-${{ matrix.site }}-${{ matrix.browser }}${{ matrix.leg }}
           path: target/gate/
           retention-days: 7
           if-no-files-found: warn
@@ -855,10 +938,59 @@ jobs:
         if: always() && matrix.browser == 'chrome'
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-exec-${{ matrix.site }}
+          name: jacoco-exec-${{ matrix.site }}${{ matrix.leg }}
           path: target/jacoco.exec
           retention-days: 7
           if-no-files-found: warn
+
+  # ================================================================
+  # STAGE 2a - Shard duration history (report-only)
+  # ================================================================
+  # Merges every `test` leg's per-class timings into testng-suites/
+  # shard-durations.json (moving average) and publishes it as the
+  # `shard-durations` artifact plus a step summary. It never commits: download
+  # the file and commit it when you want future runs balanced on fresher data.
+  # Not in any `needs:` list, so it can never block the gate, the report or the
+  # notification. See docs/sharding.md.
+  shard-durations:
+    needs: [ test ]
+    if: always() && needs.test.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download class durations
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: shard-timing-*
+          path: target/shard-timing-in
+          merge-multiple: true
+
+      - name: Merge into history
+        run: |
+          shopt -s nullglob
+          FILES=(target/shard-timing-in/*.json)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No timing files produced this run - nothing to merge."
+            exit 0
+          fi
+          python3 Scripts/shard-tests.py merge --durations testng-suites/shard-durations.json --inputs "${FILES[@]}"
+          {
+            echo "### Shard duration history updated"
+            echo "Merged ${#FILES[@]} timing file(s). Download the **shard-durations** artifact and commit it as \`testng-suites/shard-durations.json\` to balance future runs with this data."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload merged history
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-durations
+          path: testng-suites/shard-durations.json
+          retention-days: 30
+          if-no-files-found: ignore
 
   # ================================================================
   # STAGE 2b - Mobile Test (Android emulator + Appium)
@@ -2150,13 +2282,15 @@ jobs:
           fi
 
   # ================================================================
-  # STAGE 4 - Chat notification (Slack / Microsoft Teams)
+  # STAGE 4 - Chat notification (Slack / Microsoft Teams / Telegram)
   # ================================================================
   # Opt-in: does nothing until a repository secret named CHAT_WEBHOOK_URL
-  # exists (Settings -> Secrets and variables -> Actions). Optional
-  # repository Variables: CHAT_PROVIDER (slack|teams, default: auto-detected
-  # from the URL) and NOTIFY_ON (failure|always, default: failure — silent on
-  # an all-green run). Runs after allure-report so the "Test report" link in
+  # (Slack/Teams) and/or the secret pair TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+  # (Telegram) exists (Settings -> Secrets and variables -> Actions). Optional
+  # repository Variables: CHAT_PROVIDER (slack|teams|telegram, default:
+  # auto-detected from the webhook URL; telegram = Telegram only),
+  # TELEGRAM_THREAD_ID (forum topic) and NOTIFY_ON (failure|always, default:
+  # failure — silent on an all-green run). Runs after allure-report so the "Test report" link in
   # the message is already live, and with `if: always()` so a crashed or
   # cancelled upstream job still produces a message instead of silence.
   # notify_chat.py never fails the job over a delivery problem — see its
@@ -2182,6 +2316,9 @@ jobs:
       - name: Send chat notification
         env:
           CHAT_WEBHOOK_URL: ${{ secrets.CHAT_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
           CHAT_PROVIDER: ${{ vars.CHAT_PROVIDER }}
           NOTIFY_ON: ${{ vars.NOTIFY_ON }}
           REPORT_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/

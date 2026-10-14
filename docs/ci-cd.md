@@ -19,6 +19,7 @@ a nightly OWASP dependency-vulnerability scan, and secret scanning
 - [🐙 GitHub Actions Pipeline](#-github-actions-pipeline)
 - [🦊 GitLab CI/CD Pipeline](#-gitlab-cicd-pipeline)
 - [💬 Chat Notifications (Slack / Teams)](#-chat-notifications-slack--teams)
+- [🧩 Test Sharding (duration-balanced)](#-test-sharding-duration-balanced)
 - [🖥️ Running Jenkins + GitLab + Appium on One Machine](#️-running-jenkins--a-self-hosted-gitlab--appiumemulator-on-one-local-machine)
 
 ---
@@ -456,6 +457,33 @@ All three pipelines can post a one-message run summary to Slack or Microsoft Tea
 - Tests for the script (local HTTP server, no network): `python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py' -v` — run automatically by the GitHub Actions `unit-tests` job.
 
 Not verified against a real Slack/Teams workspace (no webhook reachable from where this was built) — the payload shapes follow Slack Block Kit and the Adaptive Card 1.4 schema, and the delivery path is covered by the localhost tests above. Send one test run with `NOTIFY_ON=always` to confirm the first time.
+
+### Telegram
+
+The same script also posts to a **Telegram** chat through the Bot API — no webhook involved, so it is configured separately and can run alongside Slack/Teams (a run then sends one message to each).
+
+1. In Telegram, talk to **@BotFather**, send `/newbot`, and copy the token it gives you.
+2. Add the bot to your group or channel (a channel needs the bot as an admin that may post). Send any message there, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy `chat.id` — groups are negative numbers such as `-1001234567890`. A public channel can use `@channelusername` instead.
+3. Store both values in the CI system's secret store:
+
+| | GitHub Actions | GitLab CI | Jenkins |
+|---|---|---|---|
+| Bot token | repo secret `TELEGRAM_BOT_TOKEN` | masked CI/CD variable `TELEGRAM_BOT_TOKEN` | "Secret text" credential ID `telegram-bot-token` |
+| Chat id | repo secret `TELEGRAM_CHAT_ID` | masked CI/CD variable `TELEGRAM_CHAT_ID` | "Secret text" credential ID `telegram-chat-id` |
+| Optional forum topic | repo variable `TELEGRAM_THREAD_ID` | CI/CD variable `TELEGRAM_THREAD_ID` | env var `TELEGRAM_THREAD_ID` |
+
+- Both the token **and** the chat id are required; if only one is set the script says so and skips Telegram.
+- `CHAT_PROVIDER=telegram` sends to Telegram only and ignores `CHAT_WEBHOOK_URL`. `NOTIFY_ON`, `REPORT_URL` and `MAX_FAILURES_LISTED` behave exactly as for Slack/Teams.
+- The message is HTML-formatted with *Open run* / *Test report* buttons; every test name is escaped, and the list is trimmed to fit Telegram's 4096-character limit (the number of trimmed tests is still shown).
+- The bot token is never printed, and delivery problems never fail the pipeline.
+- Jenkins binds credentials with `withCredentials`, which fails when any listed credential does not exist, so the `post` block tries *all three*, then webhook-only, then Telegram-only, and stops at the first set that binds. If you configure only one of the two services, the other is simply skipped.
+- Covered by the same localhost tests (the `TELEGRAM_API_BASE` setting points the Bot API call at a throwaway server). Not verified against the real Telegram servers from where this was built — send one run with `NOTIFY_ON=always` the first time.
+
+---
+
+## 🧩 Test Sharding (duration-balanced)
+
+Pipelines used to split work only by site × browser, so one slow site set the length of the whole run. Sharding splits **one suite** across several parallel jobs, balanced by how long each test class took before. It is **opt-in** and changes nothing until you turn it on. Full guide: [docs/sharding.md](sharding.md).
 
 ---
 

@@ -2223,28 +2223,45 @@ for seg in segs:
                             fi
                         '''
 
-                    // ── Chat notification (Slack / Microsoft Teams) — opt-in ──
+                    // ── Chat notification (Slack / Microsoft Teams / Telegram) — opt-in ──
                     // Silent no-op until a Jenkins "Secret text" credential with ID
-                    // `chat-webhook-url` exists (Manage Jenkins -> Credentials) — a
-                    // missing credential is caught below and just logged, never
-                    // allowed to change the build result. Optional job parameters/env:
-                    // CHAT_PROVIDER (slack|teams, default: auto-detected from the URL)
-                    // and NOTIFY_ON (failure|always, default: failure — silent on an
-                    // all-green run). Same script the GitHub Actions/GitLab jobs use;
+                    // `chat-webhook-url` (Slack/Teams) and/or the pair `telegram-bot-token`
+                    // + `telegram-chat-id` (Telegram) exists (Manage Jenkins ->
+                    // Credentials). withCredentials throws if ANY listed credential is
+                    // missing, so the loop below tries all three, then webhook-only, then
+                    // Telegram-only, and stops at the first that binds — a missing
+                    // credential is caught and just logged, never allowed to change the
+                    // build result. Optional job parameters/env: CHAT_PROVIDER
+                    // (slack|teams|telegram, default: auto-detected from the URL),
+                    // TELEGRAM_THREAD_ID and NOTIFY_ON (failure|always, default: failure —
+                    // silent on an all-green run). Same script the GitHub Actions/GitLab jobs use;
                     // it reads Jenkins' own BUILD_URL/JOB_NAME/GIT_* variables and
                     // walks target/surefire-reports/** recursively, so the per-site
                     // report subdirectories this pipeline writes need no special
                     // handling. Runs BEFORE cleanWs() below, which deletes them.
-                    try {
-                        withCredentials([string(credentialsId: 'chat-webhook-url', variable: 'CHAT_WEBHOOK_URL')]) {
-                            def verdict = currentBuild.currentResult == 'FAILURE' ? 'failure'
-                                    : (currentBuild.currentResult == 'ABORTED' ? 'cancelled' : 'success')
-                            withEnv(["PIPELINE_RESULT=${verdict}", "REPORT_URL=${env.BUILD_URL}"]) {
-                                sh 'command -v python3 >/dev/null 2>&1 && python3 .github/workflows/scripts/notify_chat.py || echo "python3 not available — skipping chat notification"'
+                    def chatSent = false
+                    for (String chatAttempt : ['all', 'webhook', 'telegram']) {
+                        if (chatSent) { continue }
+                        try {
+                            def chatCreds = []
+                            if (chatAttempt != 'telegram') {
+                                chatCreds << string(credentialsId: 'chat-webhook-url', variable: 'CHAT_WEBHOOK_URL')
                             }
+                            if (chatAttempt != 'webhook') {
+                                chatCreds << string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN')
+                                chatCreds << string(credentialsId: 'telegram-chat-id', variable: 'TELEGRAM_CHAT_ID')
+                            }
+                            withCredentials(chatCreds) {
+                                def verdict = currentBuild.currentResult == 'FAILURE' ? 'failure'
+                                        : (currentBuild.currentResult == 'ABORTED' ? 'cancelled' : 'success')
+                                withEnv(["PIPELINE_RESULT=${verdict}", "REPORT_URL=${env.BUILD_URL}"]) {
+                                    sh 'command -v python3 >/dev/null 2>&1 && python3 .github/workflows/scripts/notify_chat.py || echo "python3 not available — skipping chat notification"'
+                                }
+                            }
+                            chatSent = true
+                        } catch (Exception notifyErr) {
+                            echo "Chat notification (${chatAttempt}) skipped: ${notifyErr.message}"
                         }
-                    } catch (Exception notifyErr) {
-                        echo "Chat notification skipped: ${notifyErr.message}"
                     }
 
                     // ── Workspace cleanup ───────────────────────────
