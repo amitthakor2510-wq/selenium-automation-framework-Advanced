@@ -597,6 +597,16 @@
       </exclusions>
     </dependency>
 
+    <!-- API-only javax.mail (no impl, no mailcap handlers): json-schema-validator's built-in
+         "email" format check references javax.mail.internet.AddressException at class-init,
+         even when no schema uses it. Unlike mailapi it cannot shadow jakarta.mail. -->
+    <dependency>
+      <groupId>javax.mail</groupId>
+      <artifactId>javax.mail-api</artifactId>
+      <version>1.6.2</version>
+      <scope>test</scope>
+    </dependency>
+
     <!-- WireMock — offline API mocking (see <mock.enabled> property above,
          core/mock/WireMockManager.java). "-standalone" is the shaded/fat
          jar: it relocates its own Jetty/Jackson/Guava internals under
