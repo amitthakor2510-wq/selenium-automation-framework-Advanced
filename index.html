@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Selenium Automation Framework - Test Reports</title>
+  <style>
+body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem auto; max-width: 760px; line-height: 1.6; padding: 0 1rem; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.3rem; }
+ul { padding-left: 1.2rem; }
+table { border-collapse: collapse; width: 100%; margin-top: 0.5rem; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #eee; }
+th { color: #555; font-weight: 600; }
+small { color: #666; }
+.muted { color: #888; font-style: italic; }
+.badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
+.badge-pass { background: #e6f4ea; color: #1e7e34; }
+.badge-fail { background: #fdecea; color: #c0392b; }
+.badge-skip { background: #f1f1f1; color: #666; }
+</style>
+</head>
+<body>
+  <h1>Selenium Automation Framework - Test Reports</h1>
+  <p><small>Last updated: 2026-10-17 06:52:19 UTC &middot; Run: 39011222238</small></p>
+
+  <h2>Allure</h2>
+  <ul><li><a href="allure-report/index.html"><strong>All Results (Combined)</strong></a></li></ul>
+
+  <h2>Extent</h2>
+  <ul><li><a href="extent-report/jsonplaceholder/chrome/api-tests-suite-jsonplaceholder/index.html">jsonplaceholder/chrome/api-tests-suite-jsonplaceholder</a></li><li><a href="extent-report/saucedemo/chrome/saucedemo-regression-suite/index.html">saucedemo/chrome/saucedemo-regression-suite</a></li><li><a href="extent-report/saucedemo/edge/saucedemo-regression-suite/index.html">saucedemo/edge/saucedemo-regression-suite</a></li><li><a href="extent-report/saucedemo/firefox/saucedemo-regression-suite/index.html">saucedemo/firefox/saucedemo-regression-suite</a></li></ul>
+
+  <h2>Coverage (core/)</h2>
+  <p><strong>39.56%</strong> line coverage on <code>com.automation.core.*</code> (2655/6712 lines) <span class="badge badge-fail">FAIL</span> against the 50.0% gate. <small>See the <code>jacoco-merged-report</code> artifact for the full drill-down.</small></p>
+
+  <h2>Test Impact Analysis</h2>
+  <p class="muted">No Test Impact Analysis data for this run — TIA only runs on pull requests.</p>
+
+  <h2>Self-Healing Locators</h2>
+  <p class="muted">No locators needed self-healing this run.</p>
+
+  <h2>Flaky Test Trend</h2>
+  <p><strong>6</strong> test(s) flip-flopped between pass and fail over the last 20 run(s).</p><table><thead><tr><th>Test</th><th>Passes</th><th>Fails</th><th>Recent (oldest &rarr; newest)</th></tr></thead><tbody><tr><td>com.automation.sites.demoqa.tests.SelectableTest.verifyMultiSelection</td><td>1</td><td>5</td><td><span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span></td></tr><tr><td>com.automation.sites.demoqa.tests.BrokenLinksImagesTest.verifyBrokenLinkResponse</td><td>2</td><td>4</td><td><span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span> <span class="badge badge-pass">pass</span></td></tr><tr><td>com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget</td><td>17</td><td>2</td><td><span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span> <span class="badge badge-fail">fail</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span></td></tr><tr><td>com.automation.sites.demoqa.tests.DroppableTest.verifyWillRevert</td><td>5</td><td>1</td><td><span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span></td></tr><tr><td>com.automation.sites.demoqa.tests.ProgressBarTest.verifyProgressBarReset</td><td>5</td><td>1</td><td><span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span></td></tr><tr><td>com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin</td><td>13</td><td>1</td><td><span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-fail">fail</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span> <span class="badge badge-pass">pass</span></td></tr></tbody></table>
+
+  <h2>Trends Over Time</h2>
+  <table><thead><tr><th>Date</th><th>Trigger</th><th>Coverage</th><th>Self-Healed</th><th>Flaky</th><th>TIA Selected</th></tr></thead><tbody><tr><td>2026-10-17</td><td>schedule</td><td>39.56%</td><td>0</td><td>6</td><td>&mdash;</td></tr><tr><td>2026-10-17</td><td>push</td><td>39.5%</td><td>0</td><td>8</td><td>&mdash;</td></tr><tr><td>2026-10-16</td><td>schedule</td><td>39.48%</td><td>0</td><td>8</td><td>&mdash;</td></tr><tr><td>2026-10-15</td><td>schedule</td><td>39.6%</td><td>0</td><td>19</td><td>&mdash;</td></tr><tr><td>2026-10-14</td><td>push</td><td>39.59%</td><td>0</td><td>18</td><td>&mdash;</td></tr><tr><td>2026-10-14</td><td>push</td><td>39.1%</td><td>0</td><td>17</td><td>&mdash;</td></tr><tr><td>2026-10-14</td><td>schedule</td><td>39.09%</td><td>0</td><td>17</td><td>&mdash;</td></tr><tr><td>2026-10-14</td><td>push</td><td>39.09%</td><td>0</td><td>17</td><td>&mdash;</td></tr><tr><td>2026-10-14</td><td>push</td><td>39.16%</td><td>0</td><td>17</td><td>&mdash;</td></tr><tr><td>2026-10-13</td><td>push</td><td>39.1%</td><td>0</td><td>22</td><td>&mdash;</td></tr><tr><td>2026-10-13</td><td>schedule</td><td>30.78%</td><td>0</td><td>23</td><td>&mdash;</td></tr><tr><td>2026-10-12</td><td>push</td><td>30.8%</td><td>0</td><td>23</td><td>&mdash;</td></tr><tr><td>2026-10-12</td><td>schedule</td><td>28.6%</td><td>0</td><td>23</td><td>&mdash;</td></tr><tr><td>2026-10-12</td><td>push</td><td>17.05%</td><td>0</td><td>23</td><td>&mdash;</td></tr><tr><td>2026-10-11</td><td>schedule</td><td>16.9%</td><td>0</td><td>23</td><td>&mdash;</td></tr></tbody></table><p><small>Last 20 run(s) retained. TIA columns show &mdash; on non-PR runs (expected — TIA only runs on pull requests).</small></p>
+</body>
+</html>

@@ -1,0 +1,2 @@
+OK        screen app launch  7054 ms (budget 60000 ms)
+OK        screen element AppiumBy.androidUIAutomator: new UiSelector().textContains("Network")  118 ms (budget 10000 ms)
