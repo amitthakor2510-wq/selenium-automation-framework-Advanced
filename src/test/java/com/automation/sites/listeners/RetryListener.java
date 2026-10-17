@@ -9,11 +9,22 @@ import java.lang.reflect.Method;
 
 public class RetryListener implements IAnnotationTransformer {
 
+    /**
+     * TestNG keeps exactly ONE IAnnotationTransformer: TestNG.setAnnotationTransformer() just
+     * overwrites the previous one (logging "AnnotationTransformer already set"). ServiceLoader
+     * listeners are installed first and suite-XML {@code <listeners>} second, so in every suite that
+     * lists RetryListener this class replaces TestSelectionListener (registered through
+     * META-INF/services) — and test-config.properties was silently ignored. Applying the selection
+     * rules from here too means whichever of the two TestNG keeps, both behaviours run.
+     */
+    private final TestSelectionListener selection = new TestSelectionListener();
+
     @Override
     public void transform(ITestAnnotation annotation,
                           Class testClass,
                           Constructor testConstructor,
                           Method testMethod) {
+        selection.transform(annotation, testClass, testConstructor, testMethod);
         // TestNG never leaves this null — an @Test with no retryAnalyzer set
         // still reports the IRetryAnalyzer marker interface itself as the
         // "class", not null. The old `== null` check was therefore always

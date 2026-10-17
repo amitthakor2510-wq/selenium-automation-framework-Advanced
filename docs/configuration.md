@@ -194,7 +194,7 @@ mvn test -Dtest.config.file=my-other-config.properties
 - It can only switch tests **off** among those the chosen suite XML already includes; it cannot add a test the suite doesn't list.
 - `run.only` narrows further but never re-enables something that is disabled.
 - A test method inherited from a base class is matched by the class that *declares* it — disable it by that class or by group.
-- Implemented by `TestSelectionListener` (an `IAnnotationTransformer` registered through `META-INF/services/org.testng.ITestNGListener`, so it also covers the `*-perf.xml` suites) and `TestSelection` (pure logic, covered by `TestSelectionTest`).
+- Implemented by `TestSelectionListener` (an `IAnnotationTransformer` registered through `META-INF/services/org.testng.ITestNGListener`, so it also covers the `*-perf.xml` suites). TestNG keeps only **one** annotation transformer (the last registered wins, with an `AnnotationTransformer already set` warning), and suite-XML `<listeners>` are installed after ServiceLoader ones — so `RetryListener` also applies the same selection rules itself; otherwise every suite listing `RetryListener` would silently ignore this file and `TestSelection` (pure logic, covered by `TestSelectionTest`).
 
 ---
 
