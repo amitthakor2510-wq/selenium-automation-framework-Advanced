@@ -30,6 +30,7 @@ public class KeywordStep {
     private final String testData;
     private final String expected;
     private final String description;
+    private String sourceFile;
 
     public KeywordStep(DataRow row) {
         this.testCase    = row.getRequired("testCase");
@@ -64,6 +65,11 @@ public class KeywordStep {
     /** expected exactly as written in the script (placeholders NOT expanded) - safe to log. */
     public String getRawExpected() { return expected; }
     public String getDescription() { return description; }
+
+    /** The script file this step was read from (used by CALL to resolve a bare test-case name), or null. */
+    public String getSourceFile() { return sourceFile; }
+
+    void setSourceFile(String sourceFile) { this.sourceFile = sourceFile; }
 
     @Override
     public String toString() {

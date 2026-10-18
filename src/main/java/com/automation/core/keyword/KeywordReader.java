@@ -43,6 +43,7 @@ public final class KeywordReader {
         Map<String, List<KeywordStep>> byTestCase = new LinkedHashMap<>();
         for (DataRow row : rows) {
             KeywordStep step = new KeywordStep(row);
+            step.setSourceFile(filePath);
             byTestCase.computeIfAbsent(step.getTestCase(), k -> new ArrayList<>()).add(step);
         }
 
