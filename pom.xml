@@ -1583,6 +1583,7 @@
                 <include>**/core/api/spec/**/*Test.java</include>
                 <include>**/core/license/**/*Test.java</include>
                 <include>**/core/mail/**/*Test.java</include>
+                <include>**/core/recorder/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>
               </includes>
             </configuration>
@@ -1691,6 +1692,43 @@
             </executions>
             <configuration>
               <mainClass>com.automation.core.crawler.CrawlerCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Record-and-playback — see com.automation.core.recorder.RecorderCli's javadoc and
+         RECORD_AND_PLAYBACK.md at the repo root. Same "profile, not a plugin under
+         build/plugins" pattern as tia and bug-crawler: mvn test is unaffected by its presence.
+         Opens a visible browser, records what you do, writes the keyword script and
+         object-repository entries, and replays the result once to prove it works. Needs a
+         terminal that can read ENTER (exec:java shares Maven's console), or use the Stop
+         button in the page.
+
+         Typical usage (options are listed in RECORD_AND_PLAYBACK.md):
+           Scripts/record.sh saucedemo TC_Login /
+         which runs:
+           mvn -q test-compile exec:java@recorder -Precorder -Dsite=saucedemo -Dexec.args="..." -->
+    <profile>
+      <id>recorder</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>recorder</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.recorder.RecorderCli</mainClass>
               <classpathScope>test</classpathScope>
             </configuration>
           </plugin>

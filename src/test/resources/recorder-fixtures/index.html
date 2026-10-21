@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recorder Lab</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; }
+  .row { margin: 8px 0; }
+  .radio-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  #menu { display: inline-block; position: relative; padding: 6px 12px; background: #def; }
+  #sub { display: none; position: absolute; left: 0; top: 100%; padding: 6px 12px; background: #fed; z-index: 5; }
+  #menu:hover #sub { display: block; }
+  #ctxmenu { display: none; padding: 6px; background: #eee; border: 1px solid #999; }
+  #drag { width: 70px; height: 30px; background: #9c9; display: inline-block; }
+  #drop { width: 120px; height: 50px; background: #cc9; display: inline-block; margin-left: 60px; }
+  .tile { display: inline-block; padding: 4px 10px; margin: 2px; background: #ddd; }
+</style>
+</head>
+<body>
+<h1 id="title">Recorder Lab</h1>
+
+<div class="row">
+  <input id="username" name="user" placeholder="Username" autocomplete="off">
+  <input id="password" name="pass" type="password" placeholder="Password" autocomplete="off">
+</div>
+<div class="row">
+  <select id="color" name="color">
+    <option value="">-- pick --</option>
+    <option value="r">Red</option>
+    <option value="g">Green</option>
+    <option value="b">Blue</option>
+  </select>
+  <input id="agree" name="agree" type="checkbox"> <span>I agree</span>
+</div>
+<div class="row">
+  <input class="radio-input" type="radio" id="rYes" name="choice" value="yes"><label for="rYes">Yes please</label>
+  <input class="radio-input" type="radio" id="rNo" name="choice" value="no"><label for="rNo">No thanks</label>
+</div>
+<div class="row">Plain radios: <input type="radio" id="vr1" name="vis" value="a"> A <input type="radio" id="vr2" name="vis" value="b"> B</div>
+<div class="row"><button id="dyn-btn" data-testid="save-button" type="button">Save</button></div>
+<div class="row"><button id="go" type="button">Submit</button></div>
+<div class="row">Result: <span id="result"></span></div>
+
+<div class="row" id="menu">Menu
+  <div id="sub"><a href="#" id="subItem" onclick="document.getElementById('result').textContent='menu-clicked';return false;">Sub item</a></div>
+</div>
+<div class="row"><span id="dbl" class="tile">dbl:0</span> <span id="ctx" class="tile">right-click me</span>
+  <div id="ctxmenu">Context menu opened</div></div>
+<div class="row"><button id="alertBtn" name="alert" class="btn btn-warn" type="button">Alert</button> <span id="alertOut"></span></div>
+<div class="row">Upload: <input type="file" id="file"> <span id="fileName"></span></div>
+<div class="row"><span id="drag" draggable="true">drag me</span><span id="drop">drop here</span> <span id="dropped"></span></div>
+<div class="row"><a id="toPage2" href="page2.html">Go to page two</a> |
+  <a id="toPopup" href="popup.html" target="_blank">Open popup</a></div>
+<iframe id="frame1" src="frame.html" width="420" height="90"></iframe>
+<ul id="items"><li class="item">one</li><li class="item">two</li><li class="item">three</li></ul>
+
+<script>
+  // The id of #dyn-btn is regenerated on every load, like many frameworks do; data-testid stays stable.
+  document.getElementById('dyn-btn').id = 'btn-' + Math.floor(Math.random() * 900000 + 100000) + '-x';
+  var val = function (id) { return document.getElementById(id); };
+  var radio = function () { var c = document.querySelector('input[name=choice]:checked'); return c ? c.value : 'none'; };
+  val('go').addEventListener('click', function () {
+    val('result').textContent = 'user=' + val('username').value + ';pass=' + val('password').value.length
+      + ';color=' + val('color').value + ';agree=' + val('agree').checked + ';radio=' + radio();
+  });
+  document.querySelector('[data-testid=save-button]').addEventListener('click', function () {
+    val('result').textContent = 'saved';
+  });
+  var count = 0;
+  val('dbl').addEventListener('dblclick', function () { count += 1; val('dbl').textContent = 'dbl:' + count; });
+  val('ctx').addEventListener('contextmenu', function (e) { e.preventDefault(); val('ctxmenu').style.display = 'block'; });
+  val('alertBtn').addEventListener('click', function () { alert('Hello from alert'); val('alertOut').textContent = 'alert-shown'; });
+  val('file').addEventListener('change', function () {
+    var f = val('file').files[0]; val('fileName').textContent = f ? f.name : '';
+  });
+  val('drag').addEventListener('dragstart', function (e) { e.dataTransfer.setData('text/plain', 'x'); });
+  val('drop').addEventListener('dragover', function (e) { e.preventDefault(); });
+  val('drop').addEventListener('drop', function (e) { e.preventDefault(); val('dropped').textContent = 'dropped'; });
+  // ?drift simulates a release that renamed an id (after the page's own wiring): self-healing must find the
+  // element through its other attributes.
+  if (location.search.indexOf('drift') >= 0) { document.getElementById('alertBtn').id = 'alert-trigger'; }
+</script>
+</body>
+</html>

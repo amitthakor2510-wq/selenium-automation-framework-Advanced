@@ -121,6 +121,21 @@ public final class SelfHealingEngine {
 
     // ── Resolution ────────────────────────────────────────────────────────────
 
+    /**
+     * Stores {@code fingerprint} as the known-good match for {@code locator} on {@code pageUrl},
+     * exactly as a successful find would have. The recorder calls this with what it observed
+     * while the user performed the step, so a freshly recorded locator already has a baseline
+     * to heal against on its very first replay instead of only after a first green run.
+     */
+    public static void seedBaseline(String pageUrl, By locator, ElementFingerprint fingerprint) {
+        LocatorRepository.put(elementKey(pageUrl, locator), fingerprint);
+    }
+
+    /** The attributes copied into a fingerprint, so callers building one by hand stay consistent. */
+    public static List<String> trackedAttributes() {
+        return List.of(TRACKED_ATTRIBUTES);
+    }
+
     private static WebElement resolve(WebDriver driver, WebDriverWait wait, By locator,
                                       java.util.function.Function<By, ExpectedCondition<WebElement>> condition,
                                       boolean requireClickable) {
@@ -593,9 +608,20 @@ public final class SelfHealingEngine {
      * transient state (IDs, filters) rather than a different page layout.
      */
     static String elementKey(WebDriver driver, By locator) {
+        String url;
+        try {
+            url = driver.getCurrentUrl();
+        } catch (Exception e) {
+            url = null;
+        }
+        return elementKey(url, locator);
+    }
+
+    /** Same key as {@link #elementKey(WebDriver, By)} for a page URL that is already known. */
+    public static String elementKey(String pageUrl, By locator) {
         String pagePath;
         try {
-            URI uri = URI.create(driver.getCurrentUrl());
+            URI uri = URI.create(pageUrl);
             pagePath = uri.getScheme() + "://" + uri.getHost() + uri.getPath();
         } catch (Exception e) {
             pagePath = "unknown-page";

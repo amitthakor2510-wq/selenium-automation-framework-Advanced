@@ -47,6 +47,7 @@
 | 🧩 **Sites Covered** | demoqa.com (Elements, Forms, Widgets, Interactions, Book Store — UI + REST) · saucedemo.com (data-driven + keyword-driven reference site) · SAHMAT (keyword-driven login / forgot-password flows with CAPTCHA solving, staging portal) — demoqa and saucedemo also show the keyword-driven style (`KeywordDrivenTextBoxTest`, `KeywordDrivenLoginTest`) |
 | 📊 **Data-Driven Formats** | Excel · CSV · JSON · YAML · ZIP — same `DataRow` shape from every format |
 | 🧵 **Keyword-Driven Testing** | CSV-scripted test cases (`NAVIGATE`, `TYPE`, `CLICK`, `VERIFY_*`, ...) resolved against a locator `ObjectRepository` — new scenarios need no Java. See [`KEYWORD_DRIVEN_TESTING.md`](KEYWORD_DRIVEN_TESTING.md) |
+| 🎬 **Record & Playback** | Record a browser session into a keyword-driven test (script rows + object-repository locators with fallbacks, secrets kept out, self-healing baselines seeded) and replay it to prove it works — `Scripts/record.sh <site> <TestCase>`. See [`RECORD_AND_PLAYBACK.md`](RECORD_AND_PLAYBACK.md) |
 | 🌐 **API Testing** | Rest-Assured — pure-HTTP Book Store flow (`BookStoreApiTest`), independent of the browser tests. **No-code runner:** `./Scripts/api-test.sh --openapi <url>` or YAML/JSON/CSV specs → one HTML report ([guide](docs/API_NO_CODE_GUIDE.md)) |
 | ♿ **Accessibility** | axe-core (WCAG/GIGW-adjacent) scanning — opt-in `accessibility` group, `testng-suites/demoqa-accessibility.xml` |
 | 🖼️ **Visual Regression** | AShot pixel-diff screenshots — opt-in `visual` group, `testng-suites/demoqa-visual.xml` |
@@ -162,6 +163,7 @@ selenium-automation-framework/
 ├── pom.xml                              # Maven dependencies and build config (incl. opt-in `perf` profile)
 ├── checkstyle.xml                       # Code-quality ruleset, enforced by `mvn verify`
 ├── KEYWORD_DRIVEN_TESTING.md            # Deep-dive on the keyword-driven engine (see below)
+├── RECORD_AND_PLAYBACK.md               # Record a session into a keyword test: usage, what is captured, limits
 ├── BDD.md                               # Cucumber/Gherkin guide: features, shared steps, tags, hooks, CI
 ├── DOCKER.md                            # Selenium Grid setup in detail
 ├── README.md                            # This file

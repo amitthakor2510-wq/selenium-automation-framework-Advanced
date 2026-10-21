@@ -17,13 +17,22 @@ import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.remote.LocalFileDetector;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +65,15 @@ public class KeywordEngine {
     // no other step needs to pay for.
     private CaptchaSolver captchaSolver;
 
+    /** CALL nesting guard: "file#testCase" of every script currently being executed via CALL. */
+    private final Deque<String> callStack = new ArrayDeque<>();
+    private static final int MAX_CALL_DEPTH = 10;
+    /** "x,y", "x;y" or "xXy" pixel offset for DRAG_AND_DROP; ';' and 'x' avoid quoting the comma in a CSV cell. */
+    private static final Pattern DRAG_OFFSET =
+        Pattern.compile("(-?\\d+)\\s*[,;xX]\\s*(-?\\d+)");
+
     public KeywordEngine(WebDriver driver, ObjectRepository repo) {
+        KeywordVariables.clear();
         this.driver = driver;
         this.repo = repo;
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getInt("timeout", 10)));
@@ -108,6 +125,23 @@ public class KeywordEngine {
             case SOLVE_MATH_CAPTCHA -> captchaSolver().solveMathCaptcha(driver, waitVisible(locator(step)), captchaInputField(step));
             case SOLVE_CAPTCHA_WITH_AI -> captchaSolver().solveWithAI(driver, waitVisible(locator(step)), captchaInputField(step));
             case SOLVE_TEXT_CAPTCHA_IF_PRESENT -> solveTextCaptchaIfPresent(step);
+            case DOUBLE_CLICK -> new Actions(driver).doubleClick(clickable(locator(step))).perform();
+            case RIGHT_CLICK -> new Actions(driver).contextClick(clickable(locator(step))).perform();
+            case JS_CLICK -> jsClick(locator(step));
+            case CHECK -> setChecked(step, true);
+            case UNCHECK -> setChecked(step, false);
+            case SELECT_BY_INDEX -> new Select(waitVisible(locator(step))).selectByIndex(parseInt(step, step.getTestData()));
+            case UPLOAD_FILE -> uploadFile(step);
+            case DRAG_AND_DROP -> dragAndDrop(step);
+            case SWITCH_TO_WINDOW -> switchToWindow(step);
+            case CLOSE_WINDOW -> closeWindow();
+            case SWITCH_TO_PARENT_FRAME -> driver.switchTo().parentFrame();
+            case WAIT_FOR_VISIBLE -> waitFor(step, true);
+            case WAIT_FOR_NOT_VISIBLE -> waitFor(step, false);
+            case VERIFY_ATTRIBUTE -> verifyAttribute(step);
+            case VERIFY_ELEMENT_COUNT -> verifyElementCount(step);
+            case STORE_TEXT -> storeText(step);
+            case CALL -> call(step);
             default -> throw new KeywordExecutionException("[KeywordEngine] Unhandled keyword: " + step.getKeyword());
         }
     }
@@ -408,6 +442,265 @@ public class KeywordEngine {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // -- Added for record-and-playback ---------------------------
+
+    private WebElement clickable(By locator) {
+        return SelfHealingEngine.findClickable(driver, wait, locator);
+    }
+
+    private void jsClick(By locator) {
+        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
+    }
+
+    private void setChecked(KeywordStep step, boolean desired) {
+        By target = locator(step);
+        WebElement element = waitVisible(target);
+        String tag = element.getTagName();
+        String type = element.getAttribute("type");
+        boolean stateful = "input".equalsIgnoreCase(tag) && type != null
+            && ("checkbox".equalsIgnoreCase(type) || "radio".equalsIgnoreCase(type));
+        if (!stateful) {
+            throw new KeywordExecutionException("[KeywordEngine] " + step.getKeyword() + " needs a locator that points at an "
+                + "<input type=checkbox|radio>, but '" + step.getLocatorKey() + "' is <" + tag + (type == null ? "" : " type=" + type)
+                + ">. For a custom-styled control use CLICK on its visible label instead.");
+        }
+        if (!desired && "radio".equalsIgnoreCase(type)) {
+            throw new KeywordExecutionException("[KeywordEngine] UNCHECK cannot be applied to a radio button ('"
+                + step.getLocatorKey() + "'): a radio group is only changed by selecting another option.");
+        }
+        if (element.isSelected() == desired) {
+            return;
+        }
+        HumanActions.click(driver, target);
+        if (waitVisible(target).isSelected() != desired) {
+            throw new KeywordExecutionException("[KeywordEngine] " + step.getKeyword() + " clicked '" + step.getLocatorKey()
+                + "' but it is still " + (desired ? "unchecked" : "checked"));
+        }
+    }
+
+    private int parseInt(KeywordStep step, String raw) {
+        try {
+            return Integer.parseInt(raw.trim());
+        } catch (NumberFormatException e) {
+            throw new KeywordExecutionException("[KeywordEngine] " + step.getKeyword() + " needs a whole number but got '"
+                + raw + "' (step " + step.getStepNo() + " of " + step.getTestCase() + ")");
+        }
+    }
+
+    private void uploadFile(KeywordStep step) {
+        String raw = step.getTestData();
+        if (raw.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] UPLOAD_FILE requires testData = the file path");
+        }
+        Path file = Path.of(raw);
+        if (!file.isAbsolute()) {
+            file = Path.of("").toAbsolutePath().resolve(file);
+        }
+        file = file.normalize();
+        if (!Files.isRegularFile(file)) {
+            throw new KeywordExecutionException("[KeywordEngine] UPLOAD_FILE: file not found: " + file
+                + " (relative paths resolve against the project root)");
+        }
+        // File inputs are very often visually hidden behind a styled button, so wait for presence only.
+        WebElement input = wait.until(ExpectedConditions.presenceOfElementLocated(locator(step)));
+        if (driver instanceof RemoteWebDriver remote) {
+            try {
+                remote.setFileDetector(new LocalFileDetector());
+            } catch (RuntimeException e) {
+                logger.debug("[KeywordEngine] Local driver needs no file detector: {}", e.getMessage());
+            }
+        }
+        input.sendKeys(file.toString());
+    }
+
+    private void dragAndDrop(KeywordStep step) {
+        String spec = step.getTestData().trim();
+        if (spec.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] DRAG_AND_DROP requires testData = target "
+                + "ObjectRepository key, or a pixel offset like 40;0 (use ';' or 'x' so a CSV cell needs no quotes)");
+        }
+        WebElement source = waitVisible(locator(step));
+        Actions actions = new Actions(driver).clickAndHold(source).pause(Duration.ofMillis(150));
+        Matcher offset = DRAG_OFFSET.matcher(spec);
+        if (offset.matches()) {
+            int dx = Integer.parseInt(offset.group(1));
+            int dy = Integer.parseInt(offset.group(2));
+            int steps = 8;
+            for (int i = 0; i < steps; i++) {
+                actions.moveByOffset(dx / steps, dy / steps).pause(Duration.ofMillis(30));
+            }
+            actions.moveByOffset(dx - (dx / steps) * steps, dy - (dy / steps) * steps);
+        } else {
+            WebElement target = waitVisible(repo.get(spec));
+            actions.moveByOffset(5, 5).pause(Duration.ofMillis(100))
+                .moveToElement(target).pause(Duration.ofMillis(100))
+                .moveByOffset(1, 1).pause(Duration.ofMillis(100));
+        }
+        actions.release().perform();
+    }
+
+    private void switchToWindow(KeywordStep step) {
+        String raw = step.getTestData().trim();
+        final String spec = raw.isEmpty() ? "NEW" : raw;
+        String current = currentHandleOrNull();
+        String target;
+        try {
+            target = wait.until(d -> findWindow(d, spec, current));
+        } catch (TimeoutException e) {
+            restoreWindow(current);
+            throw new KeywordExecutionException("[KeywordEngine] SWITCH_TO_WINDOW: no window matched '" + spec
+                + "' within the timeout. Open windows: " + driver.getWindowHandles().size());
+        }
+        driver.switchTo().window(target);
+    }
+
+    private void closeWindow() {
+        driver.close();
+        List<String> remaining = new ArrayList<>(driver.getWindowHandles());
+        if (remaining.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] CLOSE_WINDOW closed the last open window");
+        }
+        driver.switchTo().window(remaining.get(remaining.size() - 1));
+    }
+
+    /** A title:/url: search switches windows to inspect them; put the driver back if nothing matched. */
+    private void restoreWindow(String handle) {
+        if (handle == null) {
+            return;
+        }
+        try {
+            driver.switchTo().window(handle);
+        } catch (RuntimeException e) {
+            logger.debug("[KeywordEngine] Could not restore window {}: {}", handle, e.getMessage());
+        }
+    }
+
+    private String currentHandleOrNull() {
+        try {
+            return driver.getWindowHandle();
+        } catch (RuntimeException e) {
+            return null; // the current window was closed; "NEW" then means "any remaining window"
+        }
+    }
+
+    private static String findWindow(WebDriver d, String spec, String current) {
+        List<String> handles = new ArrayList<>(d.getWindowHandles());
+        String lower = spec.toLowerCase(Locale.ROOT);
+        if (lower.equals("new")) {
+            for (int i = handles.size() - 1; i >= 0; i--) {
+                if (!handles.get(i).equals(current)) {
+                    return handles.get(i);
+                }
+            }
+            return null;
+        }
+        if (lower.equals("last")) {
+            return handles.isEmpty() ? null : handles.get(handles.size() - 1);
+        }
+        if (lower.equals("main") || lower.equals("first")) {
+            return handles.isEmpty() ? null : handles.get(0);
+        }
+        if (spec.matches("\\d+")) {
+            int index = Integer.parseInt(spec);
+            return index < handles.size() ? handles.get(index) : null;
+        }
+        boolean byTitle = lower.startsWith("title:");
+        boolean byUrl = lower.startsWith("url:");
+        if (byTitle || byUrl) {
+            String needle = spec.substring(spec.indexOf(':') + 1).trim();
+            for (String handle : handles) {
+                d.switchTo().window(handle);
+                String haystack = byTitle ? d.getTitle() : d.getCurrentUrl();
+                if (haystack != null && haystack.contains(needle)) {
+                    return handle;
+                }
+            }
+            return null;
+        }
+        throw new KeywordExecutionException("[KeywordEngine] SWITCH_TO_WINDOW testData must be NEW, LAST, MAIN, "
+            + "a 0-based index, title:<text> or url:<text> - got '" + spec + "'");
+    }
+
+    private void waitFor(KeywordStep step, boolean visible) {
+        int seconds = ConfigReader.getInt("timeout", 10);
+        String override = step.getTestData();
+        if (!override.isBlank()) {
+            seconds = parseInt(step, override);
+        }
+        WebDriverWait custom = new WebDriverWait(driver, Duration.ofSeconds(seconds));
+        By target = locator(step);
+        if (visible) {
+            SelfHealingEngine.find(driver, custom, target);
+        } else {
+            custom.until(ExpectedConditions.invisibilityOfElementLocated(target));
+        }
+    }
+
+    private void verifyAttribute(KeywordStep step) {
+        String attribute = step.getTestData().trim();
+        if (attribute.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] VERIFY_ATTRIBUTE requires testData = the attribute name");
+        }
+        String actual = waitVisible(locator(step)).getAttribute(attribute);
+        String expected = step.getExpected();
+        if (actual == null || (!expected.isEmpty() && !actual.contains(expected))) {
+            throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
+                + ": expected attribute '" + attribute + "' of " + step.getLocatorKey()
+                + (expected.isEmpty() ? " to exist" : " to contain '" + step.getRawExpected() + "'")
+                + " but was " + (actual == null ? "absent" : "'" + actual + "'"));
+        }
+    }
+
+    private void verifyElementCount(KeywordStep step) {
+        int expected = parseInt(step, step.getExpected());
+        By target = locator(step);
+        try {
+            wait.until(d -> d.findElements(target).size() == expected);
+        } catch (TimeoutException e) {
+            throw new AssertionError("[KeywordEngine] " + step.getTestCase() + " step " + step.getStepNo()
+                + ": expected " + expected + " element(s) for " + step.getLocatorKey() + " but found "
+                + driver.findElements(target).size());
+        }
+    }
+
+    private void storeText(KeywordStep step) {
+        String name = step.getRawTestData().trim();
+        if (name.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] STORE_TEXT requires testData = the variable name");
+        }
+        WebElement element = waitVisible(locator(step));
+        String attribute = step.getRawExpected().trim();
+        String value = attribute.isEmpty() ? element.getText().trim() : element.getAttribute(attribute);
+        KeywordVariables.put(name, value);
+    }
+
+    private void call(KeywordStep step) {
+        String spec = step.getRawTestData().trim();
+        if (spec.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] CALL requires testData = 'TestCaseName' or "
+                + "'path/to/script.csv#TestCaseName'");
+        }
+        int hash = spec.indexOf('#');
+        String file = hash >= 0 ? spec.substring(0, hash).trim() : step.getSourceFile();
+        String testCase = hash >= 0 ? spec.substring(hash + 1).trim() : spec;
+        if (file == null || file.isEmpty() || testCase.isEmpty()) {
+            throw new KeywordExecutionException("[KeywordEngine] CALL could not work out which script/test case to run from '"
+                + spec + "' - use 'path/to/script.csv#TestCaseName'");
+        }
+        String id = file + "#" + testCase;
+        if (callStack.contains(id) || callStack.size() >= MAX_CALL_DEPTH) {
+            throw new KeywordExecutionException("[KeywordEngine] CALL cycle or nesting deeper than " + MAX_CALL_DEPTH
+                + " at " + id + " (call chain: " + callStack + ")");
+        }
+        callStack.push(id);
+        try {
+            run(KeywordReader.readTestCase(file, testCase));
+        } finally {
+            callStack.pop();
+        }
+    }
 
     private By locator(KeywordStep step) {
         if (step.getLocatorKey().isEmpty()) {

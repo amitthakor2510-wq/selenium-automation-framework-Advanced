@@ -59,6 +59,24 @@ public enum Keyword {
     // CAPTCHA is only sometimes present/slow to render (e.g. SAHMAT's login
     // sub-module) and the script shouldn't hard-fail because of that.
     SOLVE_TEXT_CAPTCHA_IF_PRESENT,
+    // ---- Added for record-and-playback and heavier keyword-driven use ------------------
+    DOUBLE_CLICK,          // locator required
+    RIGHT_CLICK,           // locator required (opens the context menu)
+    JS_CLICK,              // locator required; clicks via JavaScript - for elements a normal click cannot reach
+    CHECK,                 // locator = <input type=checkbox|radio>; clicks only if it is not already checked
+    UNCHECK,               // locator = <input type=checkbox>; clicks only if it is currently checked
+    SELECT_BY_INDEX,       // locator + testData = 0-based option index
+    UPLOAD_FILE,           // locator = <input type=file> (may be hidden); testData = file path (relative to project root, or absolute)
+    DRAG_AND_DROP,         // locator = source; testData = ObjectRepository key of the target, or a pixel offset "40;0" / "40x0" / "40,0" (quote the last one in CSV)
+    SWITCH_TO_WINDOW,      // testData = NEW (default) | LAST | MAIN | <0-based index> | title:<text> | url:<text>
+    CLOSE_WINDOW,          // closes the current window/tab, then switches to the last remaining one
+    SWITCH_TO_PARENT_FRAME,
+    WAIT_FOR_VISIBLE,      // locator required; testData = optional timeout in seconds
+    WAIT_FOR_NOT_VISIBLE,  // locator required; testData = optional timeout in seconds
+    VERIFY_ATTRIBUTE,      // locator + testData = attribute name + expected (contains); empty expected = attribute must exist
+    VERIFY_ELEMENT_COUNT,  // locator + expected = exact number of matching elements
+    STORE_TEXT,            // locator + testData = variable name; expected (optional) = attribute to store instead of the text
+    CALL,                  // testData = "TestCaseName" (same script file) or "path/to/script.csv#TestCaseName" - runs those steps inline
     SCREENSHOT;             // testData = label used in the saved filename (optional)
 
     /**
