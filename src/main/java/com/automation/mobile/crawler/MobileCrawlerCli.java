@@ -7,6 +7,8 @@ import com.automation.mobile.core.AppiumDriverFactory;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.nio.file.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Command-line entry point for the mobile app bug crawler.
@@ -28,6 +30,8 @@ import java.nio.file.Path;
  */
 public final class MobileCrawlerCli {
 
+    private static final Logger logger = LoggerFactory.getLogger(MobileCrawlerCli.class);
+
     private MobileCrawlerCli() {
     }
 
@@ -35,8 +39,7 @@ public final class MobileCrawlerCli {
         try {
             run();
         } catch (Exception e) {
-            System.err.println("[MobileBugCrawler] Failed: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[MobileBugCrawler] Failed: {}", e.getMessage(), e);
             System.exit(1);
         }
     }

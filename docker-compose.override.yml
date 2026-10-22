@@ -52,6 +52,6 @@
 services:
   selenium-hub:
     ports: !override
-      - "4462:4442"
-      - "4463:4443"
-      - "4464:4444"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4462:4442"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4463:4443"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4464:4444"

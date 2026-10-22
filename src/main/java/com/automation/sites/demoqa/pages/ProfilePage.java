@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +129,7 @@ public class ProfilePage extends BasePage {
      */
     public boolean isBookListed(String title) {
         return getBookTitles().stream()
-            .anyMatch(rowText -> rowText.toLowerCase().contains(title.toLowerCase()));
+            .anyMatch(rowText -> rowText.toLowerCase(Locale.ROOT).contains(title.toLowerCase(Locale.ROOT)));
     }
 
     /**
@@ -170,7 +171,7 @@ public class ProfilePage extends BasePage {
             row = wait.until(d -> d.findElements(tableRows).stream()
                 .filter(r -> {
                     try {
-                        return r.getText().toLowerCase().contains(title.toLowerCase());
+                        return r.getText().toLowerCase(Locale.ROOT).contains(title.toLowerCase(Locale.ROOT));
                     } catch (StaleElementReferenceException e) {
                         return false;
                     }

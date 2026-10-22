@@ -39,6 +39,8 @@ public final class EmailSettings {
     private final SendOn sendOn;
     private final boolean attachReports;
     private final boolean attachLicenseReport;
+    private final boolean attachPdf;
+    private final Path pdfDir;
     private final long maxAttachmentBytes;
     private final int timeoutMillis;
     private final boolean failOnError;
@@ -64,6 +66,8 @@ public final class EmailSettings {
         this.sendOn = sendOn(str(lookup, env, "email.sendOn", "always"));
         this.attachReports = bool(lookup, env, "email.attach.reports", true);
         this.attachLicenseReport = bool(lookup, env, "email.attach.licenseReport", true);
+        this.attachPdf = bool(lookup, env, "email.attach.pdf", true);
+        this.pdfDir = Path.of(str(lookup, env, "report.pdf.output.dir", "target/pdf-reports"));
         this.maxAttachmentBytes = Math.max(0, integer(lookup, env, "email.attach.maxTotalMb", 10)) * 1024L * 1024L;
         this.timeoutMillis = Math.max(1000, integer(lookup, env, "email.timeoutMs", 20000));
         this.failOnError = bool(lookup, env, "email.failOnError", false);
@@ -216,6 +220,16 @@ public final class EmailSettings {
 
     public boolean attachLicenseReport() {
         return attachLicenseReport;
+    }
+
+    /** Attach the PDF report(s) written by the PDF report feature ({@code email.attach.pdf}). */
+    public boolean attachPdf() {
+        return attachPdf;
+    }
+
+    /** Where the PDF reports live ({@code report.pdf.output.dir}). */
+    public Path pdfDir() {
+        return pdfDir;
     }
 
     public long maxAttachmentBytes() {

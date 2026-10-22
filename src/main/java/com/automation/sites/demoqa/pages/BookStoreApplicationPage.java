@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.Locale;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -203,7 +204,7 @@ public class BookStoreApplicationPage extends BasePage {
             List<Object> matches = (List<Object>) js.executeScript(
                 "var out = []; " +
                     "document.querySelectorAll('[id]').forEach(function(el) { " +
-                    "  if (el.id.toLowerCase().indexOf('username') !== -1) { " +
+                    "  if (el.id.toLowerCase(Locale.ROOT).indexOf('username') !== -1) { " +
                     "    out.push({tag: el.tagName, id: el.id, text: el.textContent, " +
                     "              visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)}); " +
                     "  } " +
@@ -344,7 +345,7 @@ public class BookStoreApplicationPage extends BasePage {
         // uppercase, everything else is lowercase ("author-wrapper", etc).
         String wrapperId = "ISBN".equalsIgnoreCase(label)
             ? "ISBN-wrapper"
-            : label.toLowerCase() + "-wrapper";
+            : label.toLowerCase(Locale.ROOT) + "-wrapper";
         By valueLocator = By.cssSelector("#" + wrapperId + " .col-md-9 label");
         try {
             return wait.until(ExpectedConditions.visibilityOfElementLocated(valueLocator))

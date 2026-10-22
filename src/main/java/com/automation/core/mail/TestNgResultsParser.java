@@ -1,16 +1,16 @@
 package com.automation.core.mail;
 
+import static com.automation.core.report.TestNgXml.key;
+import static com.automation.core.report.TestNgXml.parse;
+import static com.automation.core.report.TestNgXml.parseLong;
+import static com.automation.core.report.TestNgXml.simpleName;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -128,40 +128,7 @@ public final class TestNgResultsParser {
             EmailReportBuilder.sanitizeMessage(message));
     }
 
-    private static String key(String className, Element method) {
-        StringBuilder params = new StringBuilder();
-        NodeList p = method.getElementsByTagName("params");
-        for (int i = 0; i < p.getLength(); i++) {
-            params.append(p.item(i).getTextContent().replaceAll("\\s+", " ").trim());
-        }
-        return className + "|" + method.getAttribute("signature") + "|" + params;
-    }
 
-    private static String simpleName(String className) {
-        int dot = className.lastIndexOf('.');
-        return dot < 0 ? className : className.substring(dot + 1);
-    }
 
-    private static long parseLong(String s) {
-        try {
-            return Long.parseLong(s.trim());
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
 
-    private static Document parse(String xml) throws IOException {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setXIncludeAware(false);
-            factory.setExpandEntityReferences(false);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            builder.setErrorHandler(new org.xml.sax.helpers.DefaultHandler());
-            return builder.parse(new InputSource(new StringReader(xml)));
-        } catch (Exception e) {
-            throw new IOException("Cannot parse testng-results.xml: " + e.getMessage(), e);
-        }
-    }
 }

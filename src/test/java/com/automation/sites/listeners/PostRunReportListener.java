@@ -11,6 +11,10 @@ import com.automation.core.mail.EmailService;
 import com.automation.core.mail.EmailReportBuilder;
 import com.automation.core.mail.EmailSettings;
 import com.automation.core.mail.RunSummary;
+import com.automation.core.report.pdf.PdfEvidenceStore;
+import com.automation.core.report.pdf.PdfReportData;
+import com.automation.core.report.pdf.PdfReportSettings;
+import com.automation.core.report.pdf.PdfReportWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.ISuite;
@@ -23,12 +27,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * End-of-run reporting hooks, both opt-in and both strictly best-effort (a problem here is logged and
+ * End-of-run reporting hooks, all opt-in and all strictly best-effort (a problem here is logged and
  * never changes a test result or fails the run):
  *
  * <ol>
@@ -36,6 +41,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *       the test classpath against {@code license-policy.properties} and writes
  *       {@code target/license-report/}. A policy violation is logged as an ERROR here; use the
  *       {@code license-check} Maven profile when it must fail the build.</li>
+ *   <li><b>PDF report</b> - {@code report.pdf.enabled=true}: writes a PDF summary of the suite (counts,
+ *       failures with screenshots, full results table) to {@code report.pdf.output.dir}. Runs before the
+ *       e-mail step so the PDF is attached to the e-mail (see {@code email.attach.pdf}).</li>
  *   <li><b>E-mail report</b> - {@code email.enabled=true}: mails the pass/fail summary, the failed tests,
  *       the license summary and the report files (see the {@code email.*} keys in global.properties).</li>
  * </ol>
@@ -66,6 +74,14 @@ public class PostRunReportListener implements ISuiteListener {
             runLicenseScanIfEnabled();
         } catch (Throwable t) {
             logger.warn("[PostRunReport] License scan failed: {}", t.getMessage());
+        }
+        try {
+            writePdfIfEnabled(suite, started);
+        } catch (Throwable t) {
+            logger.warn("[PostRunReport] PDF report failed: {}", t.getMessage());
+        } finally {
+            // The screenshots were only kept for the PDF; do not hold them for the rest of the JVM's life.
+            PdfEvidenceStore.clear();
         }
         try {
             sendEmailIfEnabled(suite, started);
@@ -111,6 +127,41 @@ public class PostRunReportListener implements ISuiteListener {
         for (DependencyLicense d : result.violations()) {
             logger.error("[PostRunReport] License policy violation: {} -> {}", d.coordinates(), d.licenseIds());
         }
+    }
+
+    private void writePdfIfEnabled(ISuite suite, Instant started) throws Exception {
+        PdfReportSettings settings = PdfReportSettings.of(PostRunReportListener::config, System.getenv());
+        if (!settings.enabled()) {
+            return;
+        }
+        String site = "";
+        String browser = "";
+        try {
+            site = ConfigReader.getActiveSite();
+            browser = ConfigReader.get("browser", "");
+        } catch (RuntimeException e) {
+            logger.debug("[PostRunReport] site/browser not available for the PDF: {}", e.getMessage());
+        }
+        PdfReportData data = PdfReportSuiteAdapter.fromSuite(suite, started, settings, site, browser,
+            environment(suite, site, browser));
+        Path file = settings.outputDir().resolve(PdfReportWriter.fileName(data));
+        PdfReportWriter.write(data, settings, file);
+        logger.info("[PostRunReport] PDF report: {} ({} passed, {} failed, {} skipped) -> {}", data.status(),
+            data.passed(), data.failed(), data.skipped(), file.toAbsolutePath());
+    }
+
+    /** Same facts the Extent report lists under "System info". */
+    private static Map<String, String> environment(ISuite suite, String site, String browser) {
+        Map<String, String> env = new LinkedHashMap<>();
+        env.put("Site", site);
+        env.put("Browser", browser);
+        env.put("Suite", suite.getName());
+        env.put("Headless", configOr("headless", "false"));
+        env.put("OS", System.getProperty("os.name", ""));
+        env.put("Java", System.getProperty("java.version", ""));
+        env.put("Retry", configOr("retry.count", "0"));
+        env.values().removeIf(v -> v == null || v.isBlank());
+        return env;
     }
 
     private void sendEmailIfEnabled(ISuite suite, Instant started) {

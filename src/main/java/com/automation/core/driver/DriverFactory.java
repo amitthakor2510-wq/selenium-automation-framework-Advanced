@@ -1,5 +1,6 @@
 package com.automation.core.driver;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -246,7 +247,7 @@ public final class DriverFactory {
     }
 
     public static WebDriver createDriver() {
-        String browser = ConfigReader.get("browser", "chrome").toLowerCase();
+        String browser = ConfigReader.get("browser", "chrome").toLowerCase(Locale.ROOT);
         boolean headless = ConfigReader.getBoolean("headless", false);
 
         BrowserProvider provider = PROVIDERS.get(browser);
@@ -732,7 +733,7 @@ public final class DriverFactory {
      */
     private static File tryBuildLogFile() {
         try {
-            String browser = ConfigReader.get("browser", "chrome").toLowerCase();
+            String browser = ConfigReader.get("browser", "chrome").toLowerCase(Locale.ROOT);
             File logDir = new File(System.getProperty("user.dir") + File.separator
                 + "target" + File.separator + "logs" + File.separator + safeSiteName());
             // mkdirs() returns false when another parallel session created the folder between the
@@ -1027,12 +1028,12 @@ public final class DriverFactory {
         // one match (one per line), so only the first line is taken instead
         // of treating the whole (possibly multi-line) output as a single path.
         try {
-            String whichCmd = System.getProperty("os.name").toLowerCase().contains("win")
-                ? "where firefox" : "which firefox";
-            Process p = Runtime.getRuntime().exec(whichCmd);
+            String finder = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")
+                ? "where" : "which";
+            Process p = new ProcessBuilder(finder, "firefox").start();
             String output;
             try (InputStream in = p.getInputStream()) {
-                output = new String(in.readAllBytes());
+                output = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             } finally {
                 p.waitFor();
                 p.destroy();

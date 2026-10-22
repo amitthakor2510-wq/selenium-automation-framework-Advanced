@@ -1,5 +1,6 @@
 package com.automation.core.utils;
 
+import java.util.Locale;
 import com.automation.core.config.ConfigReader;
 import com.deque.html.axecore.results.Results;
 import com.deque.html.axecore.results.Rule;
@@ -88,11 +89,11 @@ public final class AccessibilityUtils {
         attachReportToAllure(pageName, results);
 
         Set<String> failOnImpacts = Set.of(
-            ConfigReader.get("a11y.failOn", "critical,serious").toLowerCase().split("\\s*,\\s*"));
+            ConfigReader.get("a11y.failOn", "critical,serious").toLowerCase(Locale.ROOT).split("\\s*,\\s*"));
         Set<String> acceptedRuleIds = Set.of(acceptedKnownIssueRuleIds);
 
         List<Rule> atOrAboveThreshold = violations.stream()
-            .filter(rule -> rule.getImpact() != null && failOnImpacts.contains(rule.getImpact().toLowerCase()))
+            .filter(rule -> rule.getImpact() != null && failOnImpacts.contains(rule.getImpact().toLowerCase(Locale.ROOT)))
             .collect(Collectors.toList());
 
         List<Rule> suppressed = atOrAboveThreshold.stream()

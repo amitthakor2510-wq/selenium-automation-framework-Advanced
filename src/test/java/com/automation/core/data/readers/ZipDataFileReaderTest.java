@@ -1,6 +1,7 @@
 package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
+import com.automation.core.exceptions.DataFileException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +15,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Real zip files on disk, read back through the real registry. Guards the macOS case: Finder/zip
@@ -53,6 +55,22 @@ class ZipDataFileReaderTest {
         assertEquals(1, rows.get(0).getRowIndex());
         assertEquals(2, rows.get(1).getRowIndex());
         assertEquals(3, rows.get(2).getRowIndex());
+    }
+
+    /** 51 MB of zeros deflates to ~50 KB, so this is a cheap zip bomb - it must be refused, not extracted. */
+    @Test
+    void oversizedEntryIsRefused(@TempDir Path tempDir) throws IOException {
+        File zip = tempDir.resolve("bomb.zip").toFile();
+        try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip.toPath()))) {
+            out.putNextEntry(new ZipEntry("big.csv"));
+            byte[] chunk = new byte[1024 * 1024];
+            for (int i = 0; i < 51; i++) {
+                out.write(chunk);
+            }
+            out.closeEntry();
+        }
+
+        assertThrows(DataFileException.class, () -> registry.readAll(zip));
     }
 
     private static void put(ZipOutputStream out, String name, String content) throws IOException {

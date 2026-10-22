@@ -1971,5 +1971,36 @@
         </plugins>
       </build>
     </profile>
+
+    <!-- PDF report: builds ONE consolidated PDF from every testng-results.xml under report.pdf.results.dir
+         (default target/) - the CI "report" job's counterpart of the per-run PDF each test JVM writes
+         when report.pdf.enabled=true. No extra dependency: the PDF writer is plain Java (core/report/pdf).
+         Needs only the resources (global.properties), not a test compile:
+           mvn -q process-test-resources compile exec:java@pdf-report -Ppdf-report
+         Optional: -Dreport.pdf.results.dir=... -Dreport.pdf.output.file=... -Dsite=... -Dbrowser=... -->
+    <profile>
+      <id>pdf-report</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>pdf-report</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.report.pdf.PdfReportCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>

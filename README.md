@@ -57,7 +57,7 @@
 | ⏱️ **Performance Budgets** | Every page load and API call is timed automatically; one over its limit fails the test (`perf.budget.*`, per-endpoint overrides) — see [testing guide](docs/testing-guide.md) |
 | ⏱️ **Performance Smoke** | JMeter response-time/response-code check — opt-in `mvn verify -Pperf` |
 | 📱 **Mobile (Appium)** | `AndroidDriver`/`IOSDriver` via `com.automation.mobile` — working example against Android's built-in Settings app, `-Dsite=mobile`. See [`mobile/README.md`](src/main/java/com/automation/mobile/README.md) |
-| 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) |
+| 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) + optional PDF summary ([PDF_REPORT.md](PDF_REPORT.md)) |
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
 | 🔒 **Dependency Vulnerability Scan** | OWASP Dependency-Check — opt-in `mvn verify -Psecurity`, HTML+JSON report at `target/dependency-check-report.html`. Report-only by default (`failBuildOnCVSS=11`); pass `-DfailBuildOnCVSS=7` to gate a build on High/Critical CVEs once the team's ready to enforce it |

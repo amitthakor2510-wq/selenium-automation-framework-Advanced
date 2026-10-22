@@ -1,5 +1,6 @@
 package com.automation.core.utils;
 
+import java.util.Locale;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.ConfigException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -171,7 +172,7 @@ public class CaptchaSolver {
     // "content" block array) and needs no API key — so this is a real
     // branch below, not just a different endpoint URL plugged into the same
     // Anthropic-shaped request.
-    private final String aiProvider = ConfigReader.get("captcha.ai.provider", "anthropic").trim().toLowerCase();
+    private final String aiProvider = ConfigReader.get("captcha.ai.provider", "anthropic").trim().toLowerCase(Locale.ROOT);
     private final boolean isOllama = "ollama".equals(aiProvider);
     private final String aiApiKey = ConfigReader.get("captcha.ai.apiKey",
         System.getenv().getOrDefault("ANTHROPIC_API_KEY", ""));
@@ -2761,8 +2762,8 @@ public class CaptchaSolver {
         }
 
         String base64Image = encodeImageToBase64(captchaFile);
-        String mediaType = captchaFile.getName().toLowerCase().endsWith(".jpg")
-            || captchaFile.getName().toLowerCase().endsWith(".jpeg") ? "image/jpeg" : "image/png";
+        String mediaType = captchaFile.getName().toLowerCase(Locale.ROOT).endsWith(".jpg")
+            || captchaFile.getName().toLowerCase(Locale.ROOT).endsWith(".jpeg") ? "image/jpeg" : "image/png";
         String promptText = buildVisionPrompt(expectedLength, previousAttempt);
 
         // Visible at the default INFO log level (not DEBUG) — this is the
@@ -3114,49 +3115,47 @@ public class CaptchaSolver {
      * accidentally proceed to screenshot/solve a known-broken image.
      */
     private void waitForCaptchaImageLoaded(WebDriver driver, WebElement imgElement) throws IOException {
-        long deadline = System.currentTimeMillis()
-            + java.time.Duration.ofSeconds(captchaImageLoadTimeoutSeconds).toMillis();
-        Long lastNaturalWidth = null;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                Object result = ((JavascriptExecutor) driver).executeScript(
-                    "var img = arguments[0];"
-                        + "if (img.complete) { return img.naturalWidth; }"
-                        + "return null;",
-                    imgElement);
-                if (result != null) {
-                    long width = (result instanceof Number) ? ((Number) result).longValue() : 0L;
-                    if (width > 0) {
-                        return;
+        // Polls until the browser reports img.complete; the value is then the final
+        // naturalWidth (> 0 loaded, 0 = browser is DONE and the image is genuinely broken).
+        Long naturalWidth = null;
+        try {
+            naturalWidth = new WebDriverWait(driver, Duration.ofSeconds(captchaImageLoadTimeoutSeconds))
+                .pollingEvery(Duration.ofMillis(100))
+                .until(d -> {
+                    try {
+                        Object result = ((JavascriptExecutor) d).executeScript(
+                            "var img = arguments[0];"
+                                + "if (img.complete) { return img.naturalWidth; }"
+                                + "return null;",
+                            imgElement);
+                        return result instanceof Number ? ((Number) result).longValue() : null;
+                    } catch (StaleElementReferenceException staleEx) {
+                        throw new IllegalStateException(staleEx);
+                    } catch (Exception jsEx) {
+                        log.debug("Could not poll CAPTCHA image load state ({}) - retrying", jsEx.getMessage());
+                        return null;
                     }
-                    // .complete==true with naturalWidth==0 means the browser
-                    // is DONE trying (successfully or not) — a real broken
-                    // image, not "still loading". No point burning the rest
-                    // of the timeout polling something that's already
-                    // final; fail fast with a clear message instead.
-                    lastNaturalWidth = width;
-                    break;
-                }
-            } catch (StaleElementReferenceException staleEx) {
+                });
+        } catch (TimeoutException timeout) {
+            // fall through to the "never finished loading" error below
+        } catch (IllegalStateException wrapped) {
+            if (wrapped.getCause() instanceof StaleElementReferenceException) {
                 throw new IOException("[CaptchaSolver] CAPTCHA image element went stale while waiting for it "
-                    + "to load — the page likely re-rendered the CAPTCHA out from under this call. "
-                    + "Re-locate the element and retry.", staleEx);
-            } catch (Exception jsEx) {
-                log.debug("Could not poll CAPTCHA image load state ({}) — retrying", jsEx.getMessage());
+                    + "to load - the page likely re-rendered the CAPTCHA out from under this call. "
+                    + "Re-locate the element and retry.", wrapped.getCause());
             }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                throw new IOException("[CaptchaSolver] Interrupted while waiting for the CAPTCHA image to load");
-            }
+            throw wrapped;
         }
+        if (naturalWidth != null && naturalWidth > 0) {
+            return;
+        }
+        // naturalWidth == 0 with .complete == true: browser is DONE trying, a real broken image.
         throw new IOException("[CaptchaSolver] CAPTCHA image never finished loading within "
             + captchaImageLoadTimeoutSeconds + "s (naturalWidth stayed "
-            + (lastNaturalWidth != null ? lastNaturalWidth : "unresolved") + ") — screenshotting/solving it now "
+            + (naturalWidth != null ? naturalWidth : "unresolved") + ") - screenshotting/solving it now "
             + "would just read a broken-image placeholder (icon + alt text), not an actual CAPTCHA. This "
             + "usually means the page's own JS renders the CAPTCHA image asynchronously, later than "
-            + "document.readyState=='complete' — increase captcha.image.load.timeout if the CAPTCHA is just "
+            + "document.readyState=='complete' - increase captcha.image.load.timeout if the CAPTCHA is just "
             + "slow to render, or check the page/network if it never loads at all.");
     }
 
@@ -3814,7 +3813,7 @@ public class CaptchaSolver {
      * already whitelists Tesseract to upper+lower+digits+symbols via
      * textCaptchaCharset specifically so mixed-case CAPTCHAs (e.g. the
      * india.ai site, which renders a genuine mix of upper and lower case
-     * letters) can be read correctly — forcing .toUpperCase() here silently
+     * letters) can be read correctly — forcing .toUpperCase(Locale.ROOT) here silently
      * threw that case information away right after OCR, which is why every
      * answer still came out as all-caps even though Tesseract itself was
      * reading the correct characters. Only strip characters OUTSIDE the

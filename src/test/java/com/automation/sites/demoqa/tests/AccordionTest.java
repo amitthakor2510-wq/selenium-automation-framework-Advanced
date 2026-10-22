@@ -4,21 +4,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.automation.sites.core.BaseTest;
-import com.automation.sites.demoqa.pages.AccordianPage;
+import com.automation.sites.demoqa.pages.AccordionPage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class AccordianTest extends BaseTest {
+public class AccordionTest extends BaseTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(AccordianTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(AccordionTest.class);
 
     @Test(priority = 1,
         groups = {"smoke", "regression"},
-        description = "Accordian - Section 1 Is Open By Default")
+        description = "Accordion - Section 1 Is Open By Default")
     public void verifySection1OpenByDefault() {
-        AccordianPage page = new AccordianPage(getDriver());
+        AccordionPage page = new AccordionPage(getDriver());
 
-        page.navigateToAccordian();
+        page.navigateToAccordion();
 
         String header = page.getSection1HeaderText();
         logger.info("Section 1 header: " + header);
@@ -36,11 +36,11 @@ public class AccordianTest extends BaseTest {
 
     @Test(priority = 2,
         groups = {"regression"},
-        description = "Accordian - Section 2 Opens On Click")
+        description = "Accordion - Section 2 Opens On Click")
     public void verifySection2OpensOnClick() {
-        AccordianPage page = new AccordianPage(getDriver());
+        AccordionPage page = new AccordionPage(getDriver());
 
-        page.navigateToAccordian();
+        page.navigateToAccordion();
         page.openSection2();
 
         Assert.assertTrue(
@@ -51,11 +51,11 @@ public class AccordianTest extends BaseTest {
 
     @Test(priority = 3,
         groups = {"regression"},
-        description = "Accordian - Section 3 Opens On Click")
+        description = "Accordion - Section 3 Opens On Click")
     public void verifySection3OpensOnClick() {
-        AccordianPage page = new AccordianPage(getDriver());
+        AccordionPage page = new AccordionPage(getDriver());
 
-        page.navigateToAccordian();
+        page.navigateToAccordion();
         page.openSection3();
 
         Assert.assertTrue(
@@ -66,11 +66,11 @@ public class AccordianTest extends BaseTest {
 
     @Test(priority = 4,
         groups = {"regression"},
-        description = "Accordian - Only One Section Open At A Time")
+        description = "Accordion - Only One Section Open At A Time")
     public void verifyOnlyOneSectionOpenAtTime() {
-        AccordianPage page = new AccordianPage(getDriver());
+        AccordionPage page = new AccordionPage(getDriver());
 
-        page.navigateToAccordian();
+        page.navigateToAccordion();
 
         // Section 1 is open by default
         Assert.assertTrue(page.isSection1ContentVisible(),
@@ -93,11 +93,11 @@ public class AccordianTest extends BaseTest {
 
     @Test(priority = 5,
         groups = {"regression"},
-        description = "Accordian - Section Closes When Clicked Again")
+        description = "Accordion - Section Closes When Clicked Again")
     public void verifySectionToggles() {
-        AccordianPage page = new AccordianPage(getDriver());
+        AccordionPage page = new AccordionPage(getDriver());
 
-        page.navigateToAccordian();
+        page.navigateToAccordion();
         page.openSection2();
 
         Assert.assertTrue(page.isSection2ContentVisible(),

@@ -3,9 +3,13 @@ package com.automation.sites.demoqa.pages;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import org.openqa.selenium.By;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+import java.time.Duration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,32 +80,25 @@ public class BrokenLinksImagesPage extends BasePage {
      * directly instead of guessing at a fixed delay.
      */
     private boolean waitForImageLoaded(WebElement imgElement) {
-        long deadline = System.currentTimeMillis() + java.time.Duration.ofSeconds(10).toMillis();
-        while (System.currentTimeMillis() < deadline) {
-            Object result = js.executeScript(
-                "var img = arguments[0];" +
-                    "if (img.complete) { return img.naturalWidth; }" +
-                    "return null;",
-                imgElement
-            );
-            if (result != null) {
-                // Browser has finished attempting to load this image (either
-                // successfully or with an error) — this is the final answer,
-                // return immediately instead of burning the rest of the
-                // timeout, whether the image loaded or genuinely failed to.
-                long width = (result instanceof Long) ? (Long) result : 0L;
-                return width > 0;
-            }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
+        try {
+            // Returns null (= keep polling) until the browser reports img.complete;
+            // after that the value is the final naturalWidth, loaded or genuinely failed.
+            Long width = new WebDriverWait(driver, Duration.ofSeconds(10))
+                .pollingEvery(Duration.ofMillis(100))
+                .until(d -> {
+                    Object result = js.executeScript(
+                        "var img = arguments[0];" +
+                            "if (img.complete) { return img.naturalWidth; }" +
+                            "return null;",
+                        imgElement
+                    );
+                    return result instanceof Number ? ((Number) result).longValue() : null;
+                });
+            return width > 0;
+        } catch (TimeoutException e) {
+            // Browser never reported img.complete at all - treat as "did not load".
+            return false;
         }
-        // Timed out with the browser never reporting img.complete at all —
-        // treat the same as "did not load".
-        return false;
     }
 
     public String clickValidLinkAndGetUrl() {

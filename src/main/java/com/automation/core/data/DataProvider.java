@@ -1,5 +1,6 @@
 package com.automation.core.data;
 
+import java.util.Locale;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.data.readers.DataFileReaderRegistry;
 import com.automation.core.exceptions.DataFileException;
@@ -109,7 +110,7 @@ public class DataProvider {
     public static List<DataRow> readWithTags(String filePath, String... tags) {
         Set<String> wanted = new HashSet<>();
         for (String t : tags) {
-            wanted.add(t.trim().toLowerCase());
+            wanted.add(t.trim().toLowerCase(Locale.ROOT));
         }
         List<DataRow> rows = new ArrayList<>();
         for (DataRow row : filterExecuteOnly(readAll(filePath))) {
@@ -167,7 +168,7 @@ public class DataProvider {
 
         for (DataRow row : rows) {
             if (row.has(executeColumn)) {
-                String value = row.get(executeColumn).trim().toLowerCase();
+                String value = row.get(executeColumn).trim().toLowerCase(Locale.ROOT);
                 if (!value.isEmpty() && FALSY.contains(value)) {
                     skipped++;
                     logger.info("[DataProvider] Skipping row " + row.getRowIndex()
@@ -193,7 +194,7 @@ public class DataProvider {
         }
         for (String t : raw.split(",")) {
             if (!t.trim().isEmpty()) {
-                tags.add(t.trim().toLowerCase());
+                tags.add(t.trim().toLowerCase(Locale.ROOT));
             }
         }
         return tags;
@@ -208,7 +209,7 @@ public class DataProvider {
         }
         String raw = row.get("tags");
         for (String candidate : raw.split("[,|]")) {
-            if (wanted.contains(candidate.trim().toLowerCase())) {
+            if (wanted.contains(candidate.trim().toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }

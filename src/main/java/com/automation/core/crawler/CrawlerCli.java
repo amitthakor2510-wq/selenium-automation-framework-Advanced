@@ -5,6 +5,8 @@ import com.automation.core.driver.DriverFactory;
 import org.openqa.selenium.WebDriver;
 
 import java.nio.file.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Command-line entry point for the AI bug crawler.
@@ -23,6 +25,8 @@ import java.nio.file.Path;
  */
 public final class CrawlerCli {
 
+    private static final Logger logger = LoggerFactory.getLogger(CrawlerCli.class);
+
     private CrawlerCli() {
     }
 
@@ -30,8 +34,7 @@ public final class CrawlerCli {
         try {
             run(args);
         } catch (Exception e) {
-            System.err.println("[BugCrawler] Failed: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[BugCrawler] Failed: {}", e.getMessage(), e);
             System.exit(1);
         }
     }

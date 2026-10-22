@@ -1,5 +1,6 @@
 package com.automation.core.data.readers;
 
+import java.util.Locale;
 import com.automation.core.data.DataRow;
 import com.automation.core.exceptions.DataFileException;
 
@@ -75,7 +76,7 @@ public final class DataFileReaderRegistry {
     }
 
     private static String extensionOf(File file) {
-        String name = file.getName().toLowerCase();
+        String name = file.getName().toLowerCase(Locale.ROOT);
         int dot = name.lastIndexOf('.');
         return dot >= 0 ? name.substring(dot + 1) : "";
     }

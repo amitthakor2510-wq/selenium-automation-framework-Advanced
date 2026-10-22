@@ -7,7 +7,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-public class AccordianPage extends BasePage {
+public class AccordionPage extends BasePage {
 
     // ✅ CORRECT locators for DemoQA Accordion
     // Section headers (the clickable part)
@@ -49,13 +49,13 @@ public class AccordianPage extends BasePage {
     private final By section3Content = By.cssSelector(
         "#accordianContainer > div > div:nth-child(3) > div");
 
-    public AccordianPage(WebDriver driver) {
+    public AccordionPage(WebDriver driver) {
         super(driver);
     }
 
     // ── Navigation ──────────────────────────────────────────────────────────────
 
-    public void navigateToAccordian() {
+    public void navigateToAccordion() {
         navigateTo("/accordian");
         wait.until(ExpectedConditions.visibilityOfElementLocated(section1Header));
         HumanActions.pause();

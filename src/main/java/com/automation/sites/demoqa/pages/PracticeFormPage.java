@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.Locale;
 import com.automation.core.base.BasePage;
 import com.automation.core.components.BootstrapModalComponent;
 import com.automation.core.components.ReactDatePickerComponent;
@@ -97,7 +98,7 @@ public class PracticeFormPage extends BasePage {
     // ── Gender ─────────────────────────────────────────────────────────────────
 
     public void selectGender(String gender) {
-        switch (gender.toLowerCase()) {
+        switch (gender.toLowerCase(Locale.ROOT)) {
             case "male":
                 scrollAndClick(genderMaleLabel);
                 break;

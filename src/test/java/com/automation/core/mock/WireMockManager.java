@@ -1,5 +1,6 @@
 package com.automation.core.mock;
 
+import java.util.Locale;
 import static com.github.tomakehurst.wiremock.client.WireMock.any;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
@@ -220,7 +221,7 @@ public final class WireMockManager {
         String pathRegex = ConfigReader.getNonBlank("mock.record.urlPattern", ".*");
 
         RequestMethod requestMethod = "ANY".equalsIgnoreCase(method)
-            ? RequestMethod.ANY : RequestMethod.fromString(method.toUpperCase());
+            ? RequestMethod.ANY : RequestMethod.fromString(method.toUpperCase(Locale.ROOT));
 
         target.startRecording(recordSpec()
             .forTarget(realUrl)

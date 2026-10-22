@@ -1,5 +1,6 @@
 package com.automation.core.keyword;
 
+import java.util.Locale;
 import com.automation.core.exceptions.KeywordExecutionException;
 import org.openqa.selenium.By;
 
@@ -129,7 +130,7 @@ public class ObjectRepository {
             throw new KeywordExecutionException("[ObjectRepository] Locator for '" + key
                 + "' must be in 'type:value' form, got: '" + raw + "'");
         }
-        String type = raw.substring(0, sep).trim().toLowerCase();
+        String type = raw.substring(0, sep).trim().toLowerCase(Locale.ROOT);
         String value = raw.substring(sep + 1).trim();
 
         switch (type) {

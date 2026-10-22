@@ -1,5 +1,6 @@
 package com.automation.core.api.generic;
 
+import java.util.Locale;
 import com.automation.core.api.ApiClient;
 import com.automation.core.api.ApiSecurityChecks;
 import com.automation.core.api.auth.RefreshingBearerAuthProvider;
@@ -45,7 +46,7 @@ public class GenericApiSecurityChecks extends BaseApiTest {
     }
 
     private static String method() {
-        return ConfigReader.get("api.security.method", "GET").trim().toUpperCase();
+        return ConfigReader.get("api.security.method", "GET").trim().toUpperCase(Locale.ROOT);
     }
 
     private static void requireValue(String value, String configKey) {

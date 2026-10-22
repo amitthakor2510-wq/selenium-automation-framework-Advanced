@@ -1,5 +1,6 @@
 package com.automation.core.api.generic;
 
+import java.util.Locale;
 import com.automation.core.api.postman.NewmanRunner;
 import com.automation.core.config.ConfigReader;
 import com.automation.sites.listeners.TestListener;
@@ -55,7 +56,7 @@ public class PostmanCollectionRunner {
         List<Path> found = new ArrayList<>();
         if (Files.isDirectory(dir)) {
             try (Stream<Path> files = Files.list(dir)) {
-                files.filter(p -> p.getFileName().toString().toLowerCase().endsWith(suffix)).sorted().forEach(found::add);
+                files.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(suffix)).sorted().forEach(found::add);
             }
         }
         return found;
@@ -63,9 +64,9 @@ public class PostmanCollectionRunner {
 
     @DataProvider(name = "collections")
     public Object[][] collections() throws IOException {
-        String only = ConfigReader.get("postman.collection", "").trim().toLowerCase();
+        String only = ConfigReader.get("postman.collection", "").trim().toLowerCase(Locale.ROOT);
         List<Path> collections = filesEndingWith(dir(), ".postman_collection.json").stream()
-            .filter(p -> only.isEmpty() || p.getFileName().toString().toLowerCase().contains(only))
+            .filter(p -> only.isEmpty() || p.getFileName().toString().toLowerCase(Locale.ROOT).contains(only))
             .toList();
         if (collections.isEmpty()) {
             return new Object[][] {{null}};

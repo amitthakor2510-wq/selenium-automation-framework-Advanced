@@ -2,6 +2,8 @@ package com.automation.core.license;
 
 import java.nio.file.Path;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Command-line entry point for the dependency license scan.
@@ -19,6 +21,8 @@ import java.util.List;
  */
 public final class LicenseScanCli {
 
+    private static final Logger logger = LoggerFactory.getLogger(LicenseScanCli.class);
+
     private LicenseScanCli() {
     }
 
@@ -27,8 +31,7 @@ public final class LicenseScanCli {
         try {
             status = run();
         } catch (Exception e) {
-            System.err.println("[LicenseScan] Failed: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[LicenseScan] Failed: {}", e.getMessage(), e);
             status = 2;
         }
         if (status != 0) {

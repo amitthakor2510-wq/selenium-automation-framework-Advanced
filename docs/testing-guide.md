@@ -233,7 +233,7 @@ How a response is judged: the status must be equal; each header in the contract 
 
 | Page | Description | Groups |
 |---|---|---|
-| Accordian | Section 1 default open, open section 2, open section 3 | smoke, regression |
+| Accordion | Section 1 default open, open section 2, open section 3 | smoke, regression |
 | Auto Complete | Multi color select, single color select | smoke, regression |
 | Date Picker | Select specific date from calendar | smoke, regression |
 | Slider | Set value to 50, set value to 75 | smoke, regression |

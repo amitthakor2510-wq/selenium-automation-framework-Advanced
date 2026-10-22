@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.pages;
 
+import java.util.Locale;
 import com.automation.core.base.BasePage;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -92,7 +93,7 @@ public class RegistrationPage extends BasePage {
                 "    return origFetch.apply(this, args).then(function(res) {" +
                 "      try {" +
                 "        var url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';" +
-                "        if (url.toLowerCase().indexOf('account') !== -1) {" +
+                "        if (url.toLowerCase(Locale.ROOT).indexOf('account') !== -1) {" +
                 "          res.clone().text().then(function(body) {" +
                 "            window.__lastRegisterResponse = {url:url, status:res.status, body:body};" +
                 "          });" +
@@ -111,7 +112,7 @@ public class RegistrationPage extends BasePage {
                 "    var xhr = this;" +
                 "    xhr.addEventListener('load', function() {" +
                 "      try {" +
-                "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase().indexOf('account') !== -1) {" +
+                "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase(Locale.ROOT).indexOf('account') !== -1) {" +
                 "          window.__lastRegisterResponse = {url:xhr.__capturedUrl, status:xhr.status, body:xhr.responseText};" +
                 "        }" +
                 "      } catch(e) {}" +
@@ -375,7 +376,7 @@ public class RegistrationPage extends BasePage {
      * as a fallback in case DemoQA's behavior changes.
      */
     public boolean isRegistrationSuccessful() {
-        String alert = lastAlertText.toLowerCase();
+        String alert = lastAlertText.toLowerCase(Locale.ROOT);
 
         if (alert.contains("success")) {
             logger.info("  Alert confirmed success: " + lastAlertText);
@@ -388,7 +389,7 @@ public class RegistrationPage extends BasePage {
 
         // #name error text (no alert case) — this is where DemoQA actually
         // surfaces "Please verify ReCaptcha!" and "User already exists!".
-        String serverError = lastServerErrorText.toLowerCase();
+        String serverError = lastServerErrorText.toLowerCase(Locale.ROOT);
         if (serverError.contains("captcha")) {
             logger.warn("  Registration blocked by DemoQA's ReCaptcha check: '"
                 + lastServerErrorText + "'. This is a server-side rate-limit/bot-detection "
@@ -430,7 +431,7 @@ public class RegistrationPage extends BasePage {
 
     /** True only when the last registration attempt was blocked by DemoQA's ReCaptcha check. */
     public boolean isBlockedByRecaptcha() {
-        return lastServerErrorText.toLowerCase().contains("captcha");
+        return lastServerErrorText.toLowerCase(Locale.ROOT).contains("captcha");
     }
 
     public void clickBackToLogin() {

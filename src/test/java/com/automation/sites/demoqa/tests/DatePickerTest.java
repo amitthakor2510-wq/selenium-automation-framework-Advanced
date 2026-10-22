@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,11 +45,11 @@ public class DatePickerTest extends BaseTest {
 
         // Verify that the date and time components are in the result
         Assert.assertTrue(
-            selected.toLowerCase().contains("may") || selected.contains("05") || selected.contains("1999"),
+            selected.toLowerCase(Locale.ROOT).contains("may") || selected.contains("05") || selected.contains("1999"),
             "Date portion should contain May, 05, or 1999. Got: " + selected
         );
         Assert.assertTrue(
-            selected.contains("10:30") && selected.toUpperCase().contains("PM"),
+            selected.contains("10:30") && selected.toUpperCase(Locale.ROOT).contains("PM"),
             "Time portion should be 10:30 PM. Got: " + selected
         );
     }

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Chooses the files to attach: the report ZIP when it exists, otherwise each Extent {@code index.html}
+ * Chooses the files to attach: the PDF report(s), the report ZIP when it exists, otherwise each Extent {@code index.html}
  * (self-contained - the framework enables Extent offline mode), plus the license report. Only files
  * modified since the run started are considered, so a stale report from an earlier run is never mailed
  * as if it were this one. Anything over the total size cap is left out and reported in {@link #notes()}.
@@ -37,6 +37,10 @@ public final class EmailAttachments {
         EmailAttachments result = new EmailAttachments();
         long budget = settings.maxAttachmentBytes();
 
+        // PDFs first: they are the readable summary and small, so they get the size budget before the zip.
+        if (settings.attachPdf()) {
+            budget = addPdfs(settings, notBefore, result, budget);
+        }
         if (settings.attachReports()) {
             budget = addReports(settings, notBefore, result, budget);
         }
@@ -47,6 +51,34 @@ public final class EmailAttachments {
             }
         }
         return result;
+    }
+
+    /** Every PDF in {@code report.pdf.output.dir} written since the run started (stale ones are never sent). */
+    private static long addPdfs(EmailSettings settings, Instant notBefore, EmailAttachments result, long budget) {
+        long remaining = budget;
+        Path dir = settings.pdfDir();
+        if (!Files.isDirectory(dir)) {
+            return remaining;
+        }
+        List<Path> pdfs = new ArrayList<>();
+        try (Stream<Path> list = Files.list(dir)) {
+            list.filter(p -> p.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".pdf"))
+                .filter(p -> isFresh(p, notBefore)).sorted().forEach(pdfs::add);
+        } catch (IOException e) {
+            result.notes.add("Could not list " + dir + ": " + e.getMessage());
+            return remaining;
+        }
+        for (Path pdf : pdfs) {
+            long size = sizeOf(pdf);
+            if (size <= remaining) {
+                result.items.add(new Item(pdf, pdf.getFileName().toString()));
+                remaining -= size;
+            } else {
+                result.notes.add("PDF report " + pdf.getFileName() + " was not attached (" + mb(size)
+                    + " MB would exceed the " + mb(budget) + " MB limit).");
+            }
+        }
+        return remaining;
     }
 
     private static long addReports(EmailSettings settings, Instant notBefore, EmailAttachments result, long budget) {

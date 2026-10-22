@@ -21,6 +21,7 @@ class EmailAttachmentsTest {
         m.put("email.reports.dir", dir.resolve("extent").toString());
         m.put("report.zip.output", dir.resolve("zip/all.zip").toString());
         m.put("license.out", dir.resolve("lic").toString());
+        m.put("report.pdf.output.dir", dir.resolve("pdf").toString());
         m.putAll(extra);
         return EmailSettings.of(m::get, Map.of());
     }
@@ -88,5 +89,34 @@ class EmailAttachmentsTest {
         EmailAttachments a = EmailAttachments.collect(settings(dir, Map.of()), null);
         assertTrue(a.items().isEmpty());
         assertTrue(a.notes().isEmpty());
+    }
+
+    @Test
+    void freshPdfReportsAreAttachedFirstAndStaleOnesAreNot(@TempDir Path dir) throws Exception {
+        write(dir.resolve("pdf/demoqa-chrome-report.pdf"), "%PDF-1.4");
+        Path stale = write(dir.resolve("pdf/old-report.pdf"), "%PDF-1.4");
+        Files.setLastModifiedTime(stale, FileTime.from(Instant.now().minusSeconds(3600)));
+        write(dir.resolve("pdf/notes.txt"), "not a pdf");
+        write(dir.resolve("extent/demoqa/chrome/smoke/index.html"), "<html/>");
+        EmailAttachments a = EmailAttachments.collect(settings(dir, Map.of()), Instant.now().minusSeconds(60));
+        assertEquals(List.of("demoqa-chrome-report.pdf", "demoqa-chrome-smoke-index.html"),
+            a.items().stream().map(EmailAttachments.Item::name).toList());
+    }
+
+    @Test
+    void pdfAttachmentCanBeSwitchedOff(@TempDir Path dir) throws Exception {
+        write(dir.resolve("pdf/r.pdf"), "%PDF-1.4");
+        EmailAttachments a = EmailAttachments.collect(
+            settings(dir, Map.of("email.attach.pdf", "false")), Instant.now().minusSeconds(60));
+        assertEquals(0, a.items().size());
+    }
+
+    @Test
+    void oversizedPdfIsLeftOutWithANote(@TempDir Path dir) throws Exception {
+        write(dir.resolve("pdf/big.pdf"), "x".repeat(2 * 1024 * 1024));
+        EmailAttachments a = EmailAttachments.collect(
+            settings(dir, Map.of("email.attach.maxTotalMb", "1")), Instant.now().minusSeconds(60));
+        assertEquals(0, a.items().size());
+        assertTrue(a.notes().get(0).contains("big.pdf"), a.notes().toString());
     }
 }

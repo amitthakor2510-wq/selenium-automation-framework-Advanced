@@ -670,3 +670,13 @@ every script under `Scripts/` and `.github/workflows/scripts/`,
 `.githooks/pre-commit`, `pom.xml` profiles, and the CI workflow files. If a
 command isn't here, it isn't documented anywhere in the repo either — worth
 adding wherever it actually lives rather than only in this file.</sub>
+
+
+## PDF report
+
+See [PDF_REPORT.md](PDF_REPORT.md).
+
+```bash
+mvn test -Dsite=demoqa -Dreport.pdf.enabled=true                      # PDF per suite -> target/pdf-reports/
+mvn -q process-test-resources compile exec:java@pdf-report -Ppdf-report   # one consolidated PDF from testng-results.xml
+```

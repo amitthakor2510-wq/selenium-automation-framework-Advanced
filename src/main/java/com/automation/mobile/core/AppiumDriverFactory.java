@@ -1,5 +1,6 @@
 package com.automation.mobile.core;
 
+import java.util.Locale;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.DriverInitializationException;
 import io.appium.java_client.android.AndroidDriver;
@@ -47,7 +48,7 @@ public final class AppiumDriverFactory {
     }
 
     public static RemoteWebDriver createDriver() {
-        String platform = ConfigReader.get("mobile.platform", "android").toLowerCase();
+        String platform = ConfigReader.get("mobile.platform", "android").toLowerCase(Locale.ROOT);
         String serverUrl = ConfigReader.get("appium.server.url", "http://127.0.0.1:4723");
 
         return switch (platform) {

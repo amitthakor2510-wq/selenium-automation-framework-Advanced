@@ -3,6 +3,8 @@ package com.automation.core.tia;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Command-line entry point, invoked via {@code mvn exec:java@tia} (see the {@code tia} profile
@@ -25,6 +27,8 @@ import java.util.List;
  */
 public final class TiaCli {
 
+    private static final Logger logger = LoggerFactory.getLogger(TiaCli.class);
+
     private TiaCli() {
     }
 
@@ -32,8 +36,7 @@ public final class TiaCli {
         try {
             run(args);
         } catch (Exception e) {
-            System.err.println("[TIA] Failed: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("[TIA] Failed: {}", e.getMessage(), e);
             System.exit(1);
         }
     }

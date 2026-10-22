@@ -1,5 +1,6 @@
 package com.automation.sites.demoqa.tests;
 
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,7 +233,7 @@ public class BookStoreApplicationTest extends DemoQaBaseTest {
             "Expected an error message for invalid login but got none"
         );
         Assert.assertTrue(
-            errorMsg.toLowerCase().contains("invalid") || errorMsg.toLowerCase().contains("incorrect"),
+            errorMsg.toLowerCase(Locale.ROOT).contains("invalid") || errorMsg.toLowerCase(Locale.ROOT).contains("incorrect"),
             "Unexpected error message text: " + errorMsg
         );
         logger.info("✓ Test 4 PASS — Invalid login correctly rejected");
@@ -309,7 +310,7 @@ public class BookStoreApplicationTest extends DemoQaBaseTest {
             "Expected at least 1 book matching 'Git'"
         );
         Assert.assertTrue(
-            titles.stream().anyMatch(t -> t.toLowerCase().contains("git")),
+            titles.stream().anyMatch(t -> t.toLowerCase(Locale.ROOT).contains("git")),
             "No book title contains 'git'. Titles: " + titles
         );
         logger.info("✓ Test 7 PASS — Search filtered to " + filteredCount + " books");

@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.config.SiteRegistry;
@@ -12,6 +11,7 @@ import com.github.tomakehurst.wiremock.common.Json;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 import java.io.IOException;
 import java.net.URI;
@@ -30,7 +30,16 @@ import java.util.UUID;
  * API; if one of those test classes changes what it asserts, this is the place to keep the fake
  * in step.
  */
+// Class-level condition (not assumeTrue in @BeforeAll): when demoqa is switched off in
+// pipeline-config.properties, every test below is REPORTED as skipped with this reason,
+// instead of the whole class silently showing "Tests run: 0".
+@EnabledIf(value = "demoQaEnabled",
+    disabledReason = "demoqa is disabled in pipeline-config.properties - skipping its fake-server test")
 class DemoQaBookStoreFakeTest {
+
+    static boolean demoQaEnabled() {
+        return SiteRegistry.isEnabled("demoqa");
+    }
 
     private static final String PASSWORD = "Password123!@";
     private static final String GIT_POCKET_GUIDE = "9781449325862";
@@ -43,10 +52,6 @@ class DemoQaBookStoreFakeTest {
 
     @BeforeAll
     static void startServer() {
-        // The fake only exists for site=demoqa, and demoqa is a switch in pipeline-config.properties:
-        // when it is off, skip (not fail) - same rule every other demoqa test follows.
-        assumeTrue(SiteRegistry.isEnabled("demoqa"),
-            "demoqa is disabled in pipeline-config.properties - skipping its fake-server test");
         previousSite = System.getProperty("site");
         System.setProperty("site", "demoqa");
         siteOverridden = true;

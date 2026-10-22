@@ -1,5 +1,6 @@
 package com.automation.core.api.auth;
 
+import java.util.Locale;
 import com.automation.core.config.ConfigReader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -139,7 +140,7 @@ public final class RefreshingBearerAuthProvider implements AuthProvider {
      * tokenUrl / loginUrl may be relative ("/auth/login") — resolved against the site's url.
      */
     public static Optional<RefreshingBearerAuthProvider> fromConfig() {
-        String type = ConfigReader.get("api.auth.type", "").trim().toLowerCase();
+        String type = ConfigReader.get("api.auth.type", "").trim().toLowerCase(Locale.ROOT);
         return switch (type) {
             case "", "none" -> Optional.empty();
             case "bearer" -> {

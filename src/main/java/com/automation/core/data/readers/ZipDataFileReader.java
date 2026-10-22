@@ -103,15 +103,29 @@ public class ZipDataFileReader implements DataFileReader {
         return base.startsWith("._");
     }
 
+    /** A data file bigger than this inside a ZIP is refused (guards against zip bombs). */
+    private static final long MAX_ENTRY_BYTES = 50L * 1024 * 1024;
+
     private static File extractToTemp(ZipInputStream zis, String entryName) throws IOException {
         String ext = entryName.substring(entryName.lastIndexOf('.'));
         File tempFile = File.createTempFile("ddt_", ext);
-
+        boolean complete = false;
         try (FileOutputStream fos = new FileOutputStream(tempFile)) {
             byte[] buffer = new byte[4096];
+            long total = 0;
             int len;
             while ((len = zis.read(buffer)) > 0) {
+                total += len;
+                if (total > MAX_ENTRY_BYTES) {
+                    throw new IOException("ZIP entry '" + entryName + "' is larger than "
+                        + (MAX_ENTRY_BYTES / (1024 * 1024)) + " MB - refusing to extract it");
+                }
                 fos.write(buffer, 0, len);
+            }
+            complete = true;
+        } finally {
+            if (!complete) {
+                tempFile.delete();
             }
         }
         return tempFile;

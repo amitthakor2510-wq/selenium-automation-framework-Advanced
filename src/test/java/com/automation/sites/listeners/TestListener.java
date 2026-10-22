@@ -9,6 +9,8 @@ import com.automation.core.budget.PerfSamples;
 import com.automation.core.config.ConfigReader;
 import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
+import com.automation.core.report.pdf.PdfEvidenceStore;
+import com.automation.core.report.pdf.PdfReportSettings;
 import com.automation.core.utils.FailureDiagnostics;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -613,6 +615,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 test.get().fail(result.getThrowable());
 
                 byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(getDriver(result));
+                recordPdfEvidence(result, bytes);
                 if (bytes.length > 0) {
                     test.get().addScreenCaptureFromBase64String(
                         "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
@@ -648,6 +651,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
                 }
 
                 byte[] bytes = ScreenshotUtil.captureScreenshotAsBytes(getDriver(result));
+                recordPdfEvidence(result, bytes);
                 if (bytes.length > 0) {
                     test.get().addScreenCaptureFromBase64String(
                         "data:image/png;base64," + ScreenshotUtil.toBase64(bytes),
@@ -660,6 +664,27 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         } finally {
             test.remove();
             videoForExtent.remove();
+        }
+    }
+
+    /**
+     * Keeps a copy of the screenshot just captured for the end-of-run PDF report (see
+     * {@code PostRunReportListener}). A complete no-op unless {@code report.pdf.enabled} and
+     * {@code report.pdf.screenshots} are on, so a normal run holds no extra images in memory.
+     */
+    private static void recordPdfEvidence(ITestResult result, byte[] bytes) {
+        try {
+            if (bytes == null || bytes.length == 0) {
+                return;
+            }
+            PdfReportSettings pdf = PdfReportSettings.of(key -> ConfigReader.get(key, ""), System.getenv());
+            if (!pdf.enabled() || !pdf.screenshots()) {
+                return;
+            }
+            PdfEvidenceStore.put(PdfEvidenceStore.key(result.getTestClass().getName(),
+                result.getMethod().getMethodName(), result.getParameters()), bytes);
+        } catch (RuntimeException e) {
+            logger.debug("[TestListener] Could not keep the screenshot for the PDF report: {}", e.getMessage());
         }
     }
 

@@ -1,5 +1,6 @@
 package com.automation.core.contract;
 
+import java.util.Locale;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -143,7 +144,7 @@ public record Contract(String consumer, String provider, List<Interaction> inter
         }
         List<Path> files;
         try (Stream<Path> listing = Files.list(dir)) {
-            files = listing.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".json")).sorted().toList();
+            files = listing.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".json")).sorted().toList();
         }
         for (Path file : files) {
             contracts.add(load(file));

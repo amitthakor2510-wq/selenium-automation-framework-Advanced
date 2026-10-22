@@ -1,5 +1,6 @@
 package com.automation.core.api;
 
+import java.util.Locale;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.testng.Assert;
@@ -103,7 +104,7 @@ public final class ApiSecurityChecks {
         if (nosniff == null || !nosniff.equalsIgnoreCase("nosniff")) {
             findings.add("X-Content-Type-Options: nosniff is missing");
         }
-        if (ApiConfig.realBaseUri().toLowerCase().startsWith("https")
+        if (ApiConfig.realBaseUri().toLowerCase(Locale.ROOT).startsWith("https")
                 && response.getHeader("Strict-Transport-Security") == null) {
             findings.add("Strict-Transport-Security (HSTS) is missing on an HTTPS API");
         }
@@ -138,7 +139,7 @@ public final class ApiSecurityChecks {
         for (String payload : INJECTION_PAYLOADS) {
             Response response = ApiClient.request().queryParam(queryParam, payload).when().get(path);
             String body = safeBody(response);
-            String contentType = String.valueOf(response.getContentType()).toLowerCase();
+            String contentType = String.valueOf(response.getContentType()).toLowerCase(Locale.ROOT);
             if (response.statusCode() >= 500) {
                 findings.add("HTTP " + response.statusCode() + " for payload [" + payload + "]");
             }
@@ -148,7 +149,7 @@ public final class ApiSecurityChecks {
             if (contentType.contains("html") && body.contains(payload)) {
                 findings.add("Payload reflected unescaped in an HTML response: [" + payload + "]");
             }
-            if (body.contains("root:x:0:0") || body.toLowerCase().contains("[fonts]")) {
+            if (body.contains("root:x:0:0") || body.toLowerCase(Locale.ROOT).contains("[fonts]")) {
                 findings.add("Path traversal payload returned file content: [" + payload + "]");
             }
         }

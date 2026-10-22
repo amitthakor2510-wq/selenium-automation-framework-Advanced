@@ -32,15 +32,18 @@
 # up containerized nodes) and must be run separately. For a normal local
 # run, Safari goes through DriverFactory's local (non-Grid) path instead —
 # see testng-suites/*-safari-*.xml and the Safari section of docs/ci-cd.md.
+# SECURITY: a Selenium Grid has no authentication - anyone who can reach port 4444 can start browsers (and
+# run code) on this machine. The Grid and noVNC ports are therefore published on 127.0.0.1 only. To reach
+# them from another machine, set GRID_BIND_ADDRESS=0.0.0.0 (only on a trusted network / behind a firewall).
 services:
 
   selenium-hub:
     image: selenium/hub:4.49.0-20260909
     container_name: selenium-hub
     ports:
-      - "4442:4442"
-      - "4443:4443"
-      - "4444:4444"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4442:4442"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4443:4443"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:4444:4444"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4444/wd/hub/status"]
       interval: 10s
@@ -60,7 +63,7 @@ services:
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
       - SE_NODE_MAX_SESSIONS=3
     ports:
-      - "7900:7900"   # noVNC — watch the browser live at http://localhost:7900 (pwd: secret)
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:7900:7900"   # noVNC — watch the browser live at http://localhost:7900 (pwd: secret)
 
   firefox:
     image: selenium/node-firefox:4.49.0-20260909
@@ -75,7 +78,7 @@ services:
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
       - SE_NODE_MAX_SESSIONS=3
     ports:
-      - "7901:7900"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:7901:7900"
 
   edge:
     image: selenium/node-edge:4.49.0-20260909
@@ -90,7 +93,7 @@ services:
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
       - SE_NODE_MAX_SESSIONS=3
     ports:
-      - "7902:7900"
+      - "${GRID_BIND_ADDRESS:-127.0.0.1}:7902:7900"
 
   # One-shot helper: (re)creates the report folders and makes them writable BEFORE the tests start.
   # Without it, `mvn clean` (which deletes ./target) followed by `docker compose run tests` leaves
