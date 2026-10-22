@@ -1583,6 +1583,7 @@
                 <include>**/core/api/spec/**/*Test.java</include>
                 <include>**/core/license/**/*Test.java</include>
                 <include>**/core/mail/**/*Test.java</include>
+                <include>**/core/report/**/*Test.java</include>
                 <include>**/core/recorder/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>
               </includes>
