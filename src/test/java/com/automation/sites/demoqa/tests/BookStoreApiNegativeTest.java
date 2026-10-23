@@ -126,8 +126,9 @@ public class BookStoreApiNegativeTest extends BaseApiTest {
             .when()
             .post("/Account/v1/Authorized")
             .then()
-            .statusCode(200)
-            .body(equalTo("false"));
+            .statusCode(404)
+            .body("code", equalTo("1207"))
+            .body("message", equalTo("User not found!"));
 
         logger.info("✓ isAuthorized_WithWrongPassword_ShouldReturnFalse PASS");
     }
@@ -163,7 +164,7 @@ public class BookStoreApiNegativeTest extends BaseApiTest {
             .then()
             .statusCode(400)
             .body("code", equalTo("1205"))
-            .body("message", equalTo("ISBN supplied is not available in the Books Collection!"));
+            .body("message", equalTo("ISBN supplied is not available in Books Collection!"));
 
         logger.info("✓ getBookByIsbn_WithInvalidIsbn_ShouldReturn400 PASS");
     }
@@ -184,7 +185,7 @@ public class BookStoreApiNegativeTest extends BaseApiTest {
             .then()
             .statusCode(400)
             .body("code", equalTo("1205"))
-            .body("message", equalTo("ISBN supplied is not available in the Books Collection!"));
+            .body("message", equalTo("ISBN supplied is not available in Books Collection!"));
 
         logger.info("✓ addBookToCollection_WithInvalidIsbn_ShouldReturn400 PASS");
     }
@@ -204,7 +205,7 @@ public class BookStoreApiNegativeTest extends BaseApiTest {
         ApiClient.authorizedRequest(validToken).body(addBody).when().post("/BookStore/v1/Books")
             .then()
             .statusCode(400)
-            .body("code", equalTo("1215"))
+            .body("code", equalTo("1210"))
             .body("message", equalTo("ISBN already present in the User's Collection!"));
 
         logger.info("✓ addBookToCollection_DuplicateIsbn_ShouldReturn400 PASS");

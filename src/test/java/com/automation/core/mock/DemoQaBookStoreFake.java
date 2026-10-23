@@ -173,7 +173,7 @@ public class DemoQaBookStoreFake implements ResponseDefinitionTransformerV2 {
     private ResponseDefinition authorized(Request request) {
         Map<?, ?> body = readBody(request);
         Account account = authenticate(text(body, "userName"), text(body, "password"));
-        if (account == null && !accountsByName.containsKey(text(body, "userName"))) {
+        if (account == null) {
             return respond(404, "{\"code\":\"1207\",\"message\":\"User not found!\"}");
         }
         return respond(200, String.valueOf(account != null));
@@ -249,7 +249,7 @@ public class DemoQaBookStoreFake implements ResponseDefinitionTransformerV2 {
             }
             if (account.isbns.contains(isbn)) {
                 return respond(400,
-                    "{\"code\":\"1215\",\"message\":\"ISBN already present in the User's Collection!\"}");
+                    "{\"code\":\"1210\",\"message\":\"ISBN already present in the User's Collection!\"}");
             }
         }
         account.isbns.addAll(requested);
@@ -326,7 +326,7 @@ public class DemoQaBookStoreFake implements ResponseDefinitionTransformerV2 {
     }
 
     private static String notInCatalogue() {
-        return "{\"code\":\"1205\",\"message\":\"ISBN supplied is not available in the Books Collection!\"}";
+        return "{\"code\":\"1205\",\"message\":\"ISBN supplied is not available in Books Collection!\"}";
     }
 
     private static ResponseDefinition respond(int status, String body) {

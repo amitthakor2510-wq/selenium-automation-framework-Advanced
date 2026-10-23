@@ -156,7 +156,7 @@ class DemoQaBookStoreFakeTest {
         assertEquals(201, call("POST", "/BookStore/v1/Books", add, token).statusCode());
         HttpResponse<String> again = call("POST", "/BookStore/v1/Books", add, token);
         assertEquals(400, again.statusCode());
-        assertEquals("1215", json(again).get("code"));
+        assertEquals("1210", json(again).get("code"));
     }
 
     @Test
