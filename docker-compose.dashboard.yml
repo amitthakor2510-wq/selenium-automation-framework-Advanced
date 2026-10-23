@@ -30,7 +30,10 @@ services:
     profiles:
       - dashboard
     ports:
-      - "${DASHBOARD_HOST_PORT:-5057}:5057"
+      # Published on loopback only, like the Selenium Grid ports in docker-compose.yml: the dashboard
+      # can rewrite your test/pipeline config. Set DASHBOARD_BIND_ADDRESS=0.0.0.0 to share it on the LAN
+      # (and use a long DASHBOARD_PASSWORD when you do).
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:${DASHBOARD_HOST_PORT:-5057}:5057"
     environment:
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD before starting the dashboard — see docs/dashboard.md}
     # Live bind mount of the whole repo (read-write): the dashboard's own

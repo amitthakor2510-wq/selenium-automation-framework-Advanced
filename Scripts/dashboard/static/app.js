@@ -313,7 +313,7 @@
       const disabledCount = section.tests.filter((t) => !t.enabled).length;
       head.innerHTML = `
         <span class="test-section-caret"></span>
-        <span class="test-section-title" style="flex:1;margin-left:6px;">${escapeHtml(section.title)}</span>
+        <span class="test-section-title">${escapeHtml(section.title)}</span>
         <span class="test-section-count">${section.tests.length - disabledCount}/${section.tests.length} on</span>
         <span class="test-section-actions">
           <button type="button" class="section-bulk-btn" data-bulk="on">Enable all</button>

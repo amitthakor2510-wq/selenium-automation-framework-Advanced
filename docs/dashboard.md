@@ -62,13 +62,13 @@ HTTP Basic Auth, username `dashboard`. Two ways to set the password:
 
 Docker Compose **refuses to start** without `DASHBOARD_PASSWORD` set (`environment: DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?...}` in `docker-compose.dashboard.yml`) — a container is far more likely to end up tunnelled or shared than a foreground terminal, so there's no silent-random-password fallback there.
 
-12 failed attempts from the same IP within 60 seconds locks that IP out for the rest of the window, correct password included — a basic brake against someone hammering a shared/tunnelled URL, not a substitute for a real password.
+10 failed attempts from the same IP within 60 seconds locks that IP out for the rest of the window, correct password included — a basic brake against someone hammering a shared/tunnelled URL, not a substitute for a real password.
 
 ---
 
 ## 🌍 Sharing It (ngrok / SSH tunnel / LAN)
 
-The dashboard listens on `0.0.0.0` by default so it's reachable from other machines, but treat the link like any other credential-protected internal tool:
+The dashboard listens on `127.0.0.1` (this machine only) by default, because it can rewrite your test and pipeline config. To reach it from other machines, opt in explicitly: `--host 0.0.0.0` / `DASHBOARD_HOST=0.0.0.0` for the script, or `DASHBOARD_BIND_ADDRESS=0.0.0.0` for Docker (the published port is bound to `127.0.0.1` unless you set it). Basic Auth travels unencrypted over plain HTTP, so treat the link like any other credential-protected internal tool:
 
 - **ngrok:** `ngrok http 5057`, then share the ngrok URL — the Basic-Auth prompt still applies on top of it. Set a real `DASHBOARD_PASSWORD` first; don't rely on the random generated one when tunnelling, since anyone who has the URL now also needs the exact password from your terminal at that moment.
 - **SSH tunnel** (no public exposure at all): `ssh -L 5057:localhost:5057 user@the-box`, then open `http://localhost:5057` on your own machine.
@@ -76,7 +76,7 @@ The dashboard listens on `0.0.0.0` by default so it's reachable from other machi
 
 Write requests (every toggle, preset, undo and snapshot import) must be same-origin `application/json` POSTs — the dashboard's own page already sends them that way. A request with any other content type, or with an `Origin` header whose host differs from the `Host` header, is answered `403`; this stops an unrelated web page you have open in the same browser from silently flipping your test switches using the credentials the browser has cached for this site. Plain `curl` calls (no `Origin` header) still work as long as they send `-H 'Content-Type: application/json'`. If you put the dashboard behind a reverse proxy, make sure it forwards the original `Host` header. Only requests that actually send a wrong password count towards the 10-per-minute lockout; the browser's initial no-credentials request and the Docker healthcheck do not.
 
-Edits keep the properties files' existing permissions and owner (including when the dashboard runs as root in Docker against the bind-mounted repo), so your host `mvn test` can still read and write them afterwards. Startup prints a warning if `DASHBOARD_PASSWORD` is shorter than 8 characters.
+Edits keep the properties files' existing permissions and owner (including when the dashboard runs as root in Docker against the bind-mounted repo), so your host `mvn test` can still read and write them afterwards. Startup prints a warning if `DASHBOARD_PASSWORD` is shorter than 8 characters. Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and a same-origin `Content-Security-Policy`, so the page cannot be framed by another site (clickjacking on the toggle buttons).
 
 It is deliberately not HTTPS (plain HTTP, stdlib `http.server`) — fine on `localhost` or over an SSH tunnel, but a Basic-Auth password sent over plain LAN or ngrok's HTTP is only as private as that network. ngrok's own tunnel is TLS-terminated at ngrok's edge, which covers the public leg; prefer HTTPS everywhere it's an option for anything beyond a quick local look.
 
@@ -170,7 +170,7 @@ Every entry in an imported snapshot is validated before anything is written — 
 
 | Symptom | Likely cause |
 |---|---|
-| Browser keeps re-prompting for a password | Wrong password, or that IP is locked out (12 failed attempts/60s) — wait a minute and retry |
+| Browser keeps re-prompting for a password | Wrong password, or that IP is locked out (10 failed attempts/60s) — wait a minute and retry |
 | "No test results yet" | No `target/surefire-reports` — run `mvn test` (against any site) once, then **Refresh** |
 | Coverage tile missing | No `target/coverage-summary.json` and no `target/site/jacoco/jacoco.xml` — run `mvn verify -Pjacoco-check` (or the CI coverage-gate job) at least once |
 | A toggle doesn't seem to take effect | Confirm the dashboard's repo root (`/api/health`) matches the checkout your `mvn test` runs from — under Docker this is whatever `docker-compose.dashboard.yml`'s bind mount points at |

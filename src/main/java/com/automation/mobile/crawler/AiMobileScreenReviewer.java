@@ -1,13 +1,12 @@
 package com.automation.mobile.crawler;
 
 import com.automation.core.ai.OllamaClient;
-import com.automation.core.crawler.CrawlIssue;
+import com.automation.core.crawler.AiFindings;
 import com.automation.core.crawler.PageResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Locale;
 
 /**
  * Mobile counterpart to the web bug crawler's {@code AiPageReviewer} —
@@ -48,47 +47,12 @@ final class AiMobileScreenReviewer {
         if (pageSourceXml == null || pageSourceXml.isBlank()) {
             return;
         }
-        try {
-            String prompt = "Screen: " + screenLabel + "\n\nUI hierarchy XML (trimmed):\n"
-                + truncate(pageSourceXml, MAX_SOURCE_CHARS);
-            String reply = OllamaClient.chat(SYSTEM_PROMPT, prompt);
-            JsonNode json = OllamaClient.extractJsonObject(reply);
-            if (json == null) {
-                return;
-            }
-            JsonNode findings = json.get("findings");
-            if (findings == null || !findings.isArray()) {
-                return;
-            }
-            for (JsonNode finding : findings) {
-                String severityRaw = finding.hasNonNull("severity") ? finding.get("severity").asText() : "info";
-                String description = finding.hasNonNull("description") ? finding.get("description").asText() : null;
-                if (description == null || description.isBlank()) {
-                    continue;
-                }
-                result.addIssue(toSeverity(severityRaw), "ai-review", description);
-            }
-        } catch (Exception e) {
-            logger.debug("[MobileAppCrawler][AI] Screen review call failed for {} ({}) — continuing without it.",
-                screenLabel, e.getMessage());
+        String prompt = "Screen: " + screenLabel + "\n\nUI hierarchy XML (trimmed):\n"
+            + AiFindings.truncate(pageSourceXml, MAX_SOURCE_CHARS);
+        JsonNode json = AiFindings.askForJson(() -> OllamaClient.chat(SYSTEM_PROMPT, prompt),
+            logger, "[MobileAppCrawler][AI]", "Screen review call", screenLabel);
+        if (json != null) {
+            AiFindings.addFindings(json, "ai-review", result);
         }
-    }
-
-    private static CrawlIssue.Severity toSeverity(String raw) {
-        if (raw == null) {
-            return CrawlIssue.Severity.INFO;
-        }
-        switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "error":
-                return CrawlIssue.Severity.ERROR;
-            case "warning":
-                return CrawlIssue.Severity.WARNING;
-            default:
-                return CrawlIssue.Severity.INFO;
-        }
-    }
-
-    private static String truncate(String s, int max) {
-        return s.length() <= max ? s : s.substring(0, max) + "... [truncated]";
     }
 }

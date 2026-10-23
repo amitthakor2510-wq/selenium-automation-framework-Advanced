@@ -36,39 +36,35 @@ final class AiChecklistReviewer {
         if (pageSource == null || pageSource.isBlank() || checklist == null || checklist.isEmpty()) {
             return;
         }
-        try {
-            String reply = OllamaClient.chat(buildSystemPrompt(checklist), buildUserPrompt(url, pageSource));
-            JsonNode json = OllamaClient.extractJsonObject(reply);
-            if (json == null) {
-                logger.debug("[SiteCrawler][AI] Checklist reply had no parseable JSON for {} — skipping.", url);
-                return;
+        JsonNode json = AiFindings.askForJson(
+            () -> OllamaClient.chat(buildSystemPrompt(checklist), buildUserPrompt(url, pageSource)),
+            logger, "[SiteCrawler][AI]", "Checklist review call", url);
+        if (json == null) {
+            logger.debug("[SiteCrawler][AI] Checklist reply had no parseable JSON for {} — skipping.", url);
+            return;
+        }
+        JsonNode results = json.get("results");
+        if (results == null || !results.isArray()) {
+            return;
+        }
+        for (JsonNode entry : results) {
+            if (!entry.hasNonNull("item") || !entry.hasNonNull("status")) {
+                continue;
             }
-            JsonNode results = json.get("results");
-            if (results == null || !results.isArray()) {
-                return;
+            int itemIndex = entry.get("item").asInt(-1);
+            if (itemIndex < 0 || itemIndex >= checklist.size()) {
+                continue;
             }
-            for (JsonNode entry : results) {
-                if (!entry.hasNonNull("item") || !entry.hasNonNull("status")) {
-                    continue;
-                }
-                int itemIndex = entry.get("item").asInt(-1);
-                if (itemIndex < 0 || itemIndex >= checklist.size()) {
-                    continue;
-                }
-                String status = entry.get("status").asText("").trim().toLowerCase(java.util.Locale.ROOT);
-                if (!"present".equals(status)) {
-                    // "absent" and "uncertain" are both non-findings for report purposes —
-                    // only a confident positive match is worth a human's attention here.
-                    continue;
-                }
-                String evidence = entry.hasNonNull("evidence") ? entry.get("evidence").asText() : "";
-                String description = checklist.get(itemIndex)
-                    + (evidence.isBlank() ? "" : " — evidence: " + evidence);
-                result.addIssue(CrawlIssue.Severity.WARNING, "checklist", description);
+            String status = entry.get("status").asText("").trim().toLowerCase(java.util.Locale.ROOT);
+            if (!"present".equals(status)) {
+                // "absent" and "uncertain" are both non-findings for report purposes —
+                // only a confident positive match is worth a human's attention here.
+                continue;
             }
-        } catch (Exception e) {
-            logger.debug("[SiteCrawler][AI] Checklist review call failed for {} ({}) — continuing without it.",
-                url, e.getMessage());
+            String evidence = entry.hasNonNull("evidence") ? entry.get("evidence").asText() : "";
+            String description = checklist.get(itemIndex)
+                + (evidence.isBlank() ? "" : " — evidence: " + evidence);
+            result.addIssue(CrawlIssue.Severity.WARNING, "checklist", description);
         }
     }
 
@@ -91,10 +87,6 @@ final class AiChecklistReviewer {
     }
 
     private static String buildUserPrompt(String url, String pageSource) {
-        return "URL: " + url + "\n\nPage HTML (trimmed):\n" + truncate(pageSource, MAX_PAGE_SOURCE_CHARS);
-    }
-
-    private static String truncate(String s, int max) {
-        return s.length() <= max ? s : s.substring(0, max) + "... [truncated]";
+        return "URL: " + url + "\n\nPage HTML (trimmed):\n" + AiFindings.truncate(pageSource, MAX_PAGE_SOURCE_CHARS);
     }
 }

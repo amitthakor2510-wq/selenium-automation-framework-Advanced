@@ -2,7 +2,6 @@ package com.automation.core.ai;
 
 import com.automation.core.config.ConfigReader;
 import com.automation.core.exceptions.ConfigException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,11 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 
 /**
  * Shared image+text LLM client for AI features that need to look at a
@@ -47,10 +42,7 @@ import java.time.Duration;
 public final class AiVisionClient {
 
     private static final Logger log = LoggerFactory.getLogger(AiVisionClient.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final HttpClient httpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
+    private static final ObjectMapper objectMapper = LlmHttp.MAPPER;
 
     private AiVisionClient() {
     }
@@ -107,10 +99,7 @@ public final class AiVisionClient {
         int timeoutSeconds = ConfigReader.getInt("ai.vision.timeout.seconds", 60);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .timeout(Duration.ofSeconds(timeoutSeconds))
-            .header("Content-Type", "application/json");
+        HttpRequest.Builder requestBuilder = LlmHttp.newJsonRequest(endpoint, timeoutSeconds);
 
         if (anthropic) {
             String apiKey = resolveApiKey();
@@ -149,19 +138,12 @@ public final class AiVisionClient {
             messages.add(userMessage);
             requestBody.set("messages", messages);
 
-            requestBuilder.header("x-api-key", apiKey);
-            requestBuilder.header("anthropic-version", "2023-06-01");
+            LlmHttp.addAnthropicHeaders(requestBuilder, apiKey);
         } else {
             requestBody.put("model", model);
             requestBody.put("stream", false);
 
-            ArrayNode messages = objectMapper.createArrayNode();
-            if (systemPrompt != null && !systemPrompt.isBlank()) {
-                ObjectNode systemMessage = objectMapper.createObjectNode();
-                systemMessage.put("role", "system");
-                systemMessage.put("content", systemPrompt);
-                messages.add(systemMessage);
-            }
+            ArrayNode messages = LlmHttp.ollamaMessages(systemPrompt);
             ObjectNode userMessage = objectMapper.createObjectNode();
             userMessage.put("role", "user");
             userMessage.put("content", userPrompt);
@@ -175,58 +157,14 @@ public final class AiVisionClient {
             options.put("temperature", 0);
             requestBody.set("options", options);
 
-            // Most local Ollama setups need no auth at all; only sent if
-            // explicitly configured (e.g. a reverse proxy adding its own).
-            String apiKey = ConfigReader.get("ai.vision.apiKey", "");
-            if (!apiKey.isBlank()) {
-                requestBuilder.header("Authorization", "Bearer " + apiKey);
-            }
+            LlmHttp.addBearerIfPresent(requestBuilder, ConfigReader.get("ai.vision.apiKey", ""));
         }
 
-        HttpRequest request = requestBuilder
-            .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
-            .build();
+        HttpRequest request = LlmHttp.post(requestBuilder, requestBody);
 
         log.info("🤖 AI vision call: provider={}, model={}, endpoint={}",
             anthropic ? "anthropic" : "ollama", model, endpoint);
 
-        HttpResponse<String> response;
-        try {
-            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("AI vision call interrupted: " + e.getMessage(), e);
-        }
-
-        if (response.statusCode() != 200) {
-            throw new IOException("AI vision call returned HTTP " + response.statusCode() + ": " + response.body());
-        }
-
-        JsonNode root = objectMapper.readTree(response.body());
-        if (anthropic) {
-            JsonNode contentArray = root.get("content");
-            if (contentArray == null || !contentArray.isArray() || contentArray.isEmpty()) {
-                throw new IOException("AI vision response had no content block: " + response.body());
-            }
-            StringBuilder sb = new StringBuilder();
-            for (JsonNode block : contentArray) {
-                JsonNode textNode = block.get("text");
-                if (textNode != null) {
-                    sb.append(textNode.asText());
-                }
-            }
-            return sb.toString();
-        } else {
-            // {"model":"...", "message":{"role":"assistant","content":"..."}, "done":true, ...}
-            JsonNode messageNode = root.get("message");
-            JsonNode contentNode = messageNode == null ? null : messageNode.get("content");
-            if (contentNode == null) {
-                JsonNode errorNode = root.get("error");
-                String detail = errorNode != null ? errorNode.asText() : response.body();
-                throw new IOException("Ollama /api/chat vision response had no usable message.content field: "
-                    + detail);
-            }
-            return contentNode.asText();
-        }
+        return LlmHttp.execute(request, anthropic, "AI vision", "vision ");
     }
 }

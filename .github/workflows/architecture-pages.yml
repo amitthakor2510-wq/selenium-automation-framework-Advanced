@@ -23,7 +23,7 @@ jobs:
       - name: Validate architecture.json
         run: python3 -c "import json;json.load(open('docs/architecture-site/architecture.json'))"
       - name: Deploy to gh-pages/architecture
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/architecture-site

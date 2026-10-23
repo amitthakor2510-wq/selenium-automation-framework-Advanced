@@ -1,12 +1,10 @@
 package com.automation.core.crawler;
 
 import com.automation.core.ai.AiVisionClient;
-import com.automation.core.ai.OllamaClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Locale;
 
 /**
  * Optional visual AI pass shared by both bug crawlers (web:
@@ -63,42 +61,11 @@ public final class AiScreenshotReviewer {
         if (base64Png == null || base64Png.isBlank() || !AiVisionClient.isConfigured()) {
             return;
         }
-        try {
-            String userPrompt = "Screenshot of: " + label;
-            String reply = AiVisionClient.review(SYSTEM_PROMPT, userPrompt, base64Png);
-            JsonNode json = OllamaClient.extractJsonObject(reply);
-            if (json == null) {
-                return;
-            }
-            JsonNode findings = json.get("findings");
-            if (findings == null || !findings.isArray()) {
-                return;
-            }
-            for (JsonNode finding : findings) {
-                String severityRaw = finding.hasNonNull("severity") ? finding.get("severity").asText() : "info";
-                String description = finding.hasNonNull("description") ? finding.get("description").asText() : null;
-                if (description == null || description.isBlank()) {
-                    continue;
-                }
-                result.addIssue(toSeverity(severityRaw), "ai-visual-review", description);
-            }
-        } catch (Exception e) {
-            logger.debug("[AiScreenshotReviewer] Visual review call failed for {} ({}) — continuing without it.",
-                label, e.getMessage());
-        }
-    }
-
-    private static CrawlIssue.Severity toSeverity(String raw) {
-        if (raw == null) {
-            return CrawlIssue.Severity.INFO;
-        }
-        switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "error":
-                return CrawlIssue.Severity.ERROR;
-            case "warning":
-                return CrawlIssue.Severity.WARNING;
-            default:
-                return CrawlIssue.Severity.INFO;
+        String userPrompt = "Screenshot of: " + label;
+        JsonNode json = AiFindings.askForJson(() -> AiVisionClient.review(SYSTEM_PROMPT, userPrompt, base64Png),
+            logger, "[AiScreenshotReviewer]", "Visual review call", label);
+        if (json != null) {
+            AiFindings.addFindings(json, "ai-visual-review", result);
         }
     }
 }

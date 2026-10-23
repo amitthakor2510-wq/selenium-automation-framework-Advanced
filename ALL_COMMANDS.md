@@ -604,6 +604,11 @@ DASHBOARD_HOST_PORT=8080 DASHBOARD_PASSWORD=choose-a-password \
   docker compose -f docker-compose.yml -f docker-compose.dashboard.yml \
   --profile dashboard up dashboard
 
+# Docker — reachable from other machines (default is 127.0.0.1 only; use a long password)
+DASHBOARD_BIND_ADDRESS=0.0.0.0 DASHBOARD_PASSWORD=choose-a-long-password \
+  docker compose -f docker-compose.yml -f docker-compose.dashboard.yml \
+  --profile dashboard up dashboard
+
 # Stop the Docker dashboard
 docker compose -f docker-compose.yml -f docker-compose.dashboard.yml --profile dashboard down
 

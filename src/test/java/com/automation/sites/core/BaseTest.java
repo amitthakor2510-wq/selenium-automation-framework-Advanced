@@ -231,7 +231,7 @@ public class BaseTest implements DriverProvider {
                 // real app/test bug. DriverFactory.quitDriver() does the
                 // identical quit() on the happy path, but forcibly kills the
                 // leftover process tree on failure instead of just logging
-                // it. See DriverFactory.CURRENT_DRIVER_SERVICE's comment for
+                // it. See DriverCleanup.CURRENT_DRIVER_SERVICE's comment for
                 // the full history.
                 try {
                     DriverFactory.quitDriver(getDriver());

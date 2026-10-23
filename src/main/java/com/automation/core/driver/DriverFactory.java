@@ -19,21 +19,22 @@ import org.openqa.selenium.edge.EdgeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
-import org.openqa.selenium.remote.service.DriverService;
 import org.openqa.selenium.safari.SafariDriver;
 import org.openqa.selenium.safari.SafariDriverService;
 import org.openqa.selenium.safari.SafariOptions;
 
 import java.io.File;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
+
+import static com.automation.core.driver.BrowserBinaryLocator.findBraveBinary;
+import static com.automation.core.driver.BrowserBinaryLocator.findFirefoxBinary;
+import static com.automation.core.driver.DriverStartupRetry.candidatePort;
+import static com.automation.core.driver.DriverStartupRetry.createWithPortConflictRetry;
+import static com.automation.core.driver.DriverStartupRetry.safeSiteName;
 
 /**
  * Single place responsible for creating a WebDriver instance.
@@ -327,236 +328,6 @@ public final class DriverFactory {
         }
     }
 
-    // ── Local-driver port-race retry (Chrome / Brave / Edge) ───────────────────
-    //
-    // ROOT CAUSE (confirmed via a real parallel regression run, not a guess):
-    // Selenium's PortProber.findFreePort() finds a "free" ephemeral port by
-    // opening a ServerSocket on port 0, reading the OS-assigned port number,
-    // then immediately closing that socket — the driver service binds to
-    // that same port number a moment later, in a separate step. That gap is
-    // a classic time-of-check/time-of-use race: under this project's
-    // parallel="classes" thread-count="3" TestNG config, three
-    // Chrome/Edge driver processes can each ask the OS for a free port
-    // within milliseconds of each other, and the OS can legitimately hand
-    // out the *same* just-closed port to more than one of them before any
-    // of them has actually bound it. Whichever process loses that race
-    // fails immediately with RuntimeException("Unable to find a free
-    // port..."), from inside Selenium's own DriverService.Builder — there is
-    // no hook to intervene earlier, since the ChromeDriver/EdgeDriver
-    // constructor does the whole find-port-then-bind sequence internally.
-    //
-    // UPDATED (Jenkins build failure, 2026-08-05): the "three at once"
-    // assumption above only accounted for a single suite's own
-    // thread-count="3". It didn't account for the Jenkinsfile's "Run Tests
-    // Per Site" stage, which runs multiple sites' suites concurrently as
-    // separate `parallel branches` (e.g. demoqa + saucedemo at the same
-    // time) — each branch is its own `mvn test` JVM with its own
-    // thread-count="3". Two sites racing at once means up to *six*
-    // concurrent ChromeDriver/EdgeDriver launches on the same box, not
-    // three, which was enough to exhaust the old 4-attempt retry budget
-    // outright (LinksTest/ProgressBarTest both failed after 4/4 attempts).
-    // Attempts and jitter widened below so the retry budget matches actual
-    // cross-site concurrency instead of just one suite's thread-count.
-    //
-    // This is not fixable by changing driver options or Chrome flags — it's
-    // a race in ephemeral port allocation itself, which is why simply
-    // asking the OS again (a fresh findFreePort() call gets a *different*
-    // ephemeral port almost certainly, since the OS won't immediately
-    // re-hand-out one it just gave to someone else) reliably resolves it on
-    // retry. A short random jitter before each retry additionally
-    // de-synchronizes threads that raced each other on the previous
-    // attempt, so they don't just re-race at the same instant again.
-    //
-    // Serializing all browser launches with a global lock would eliminate
-    // the race entirely, but would also serialize away the whole point of
-    // parallel="classes" — so retry-with-jitter was the first fix tried,
-    // not a lock. Raised from 8 to 12 (2026-08-07): on a CPU-constrained
-    // shared Jenkins box, 8 attempts (each with 200-800ms jitter, so ~4s of
-    // budget) was still getting exhausted repeatedly under 6 concurrent
-    // chromedriver launches — see testng-suites/*-regression.xml, which was
-    // also lowered from thread-count=3 to 2 the same day for the same
-    // reason.
-    //
-    // ROOT CAUSE FIX (2026-08-07, second build the same day — the 12-attempt
-    // budget above was STILL exhausted, this time by
-    // LoginDataDrivenTest specifically): that class launches a brand-new
-    // session per data row (CSV/XLSX/JSON/YAML/ZIP — 15+ rows), back-to-back
-    // with no pacing, in the exact window demoqa's own "classes" threads are
-    // also launching sessions — retry-with-jitter is a PROBABILISTIC
-    // mitigation for PortProber's find-then-bind race, and probability
-    // alone stopped being good enough once launch frequency got this high.
-    // Purely widening the retry budget again would only buy a bit more
-    // runway before the same exhaustion recurs at the next busier suite.
-    //
-    // Instead, each concurrent "launch slot" (site JVM x TestNG thread) now
-    // gets its own small, non-overlapping range of EXPLICIT candidate ports
-    // (see candidatePort() below), passed to DriverService.Builder.usingPort()
-    // instead of leaving port=0. Selenium's PortProber.findFreePort() is
-    // only invoked internally when the requested port is 0 — supplying an
-    // explicit port bypasses that TOCTOU-prone lookup entirely for the
-    // build() step, so two of our OWN threads can no longer legitimately be
-    // handed the same "free" port to race over. The per-site offset
-    // (candidatePort() hashes ConfigReader.getActiveSite()) guards against
-    // the same class of collision already fixed for the per-thread
-    // chromedriver log path: demoqa's and saucedemo's separate `mvn test`
-    // JVMs each start counting thread slots from 0, so without a
-    // site-specific offset their slot-0 threads would still compute the
-    // identical port. Retry-with-jitter remains as a defensive fallback
-    // (e.g. an unrelated process already happens to hold our computed
-    // port), which is why the loop and its attempt budget stay in place —
-    // it just isn't the primary defense anymore.
-    private static final int DRIVER_CREATION_MAX_ATTEMPTS = 12;
-
-    // Small, dense, per-JVM slot index (0, 1, 2, ...) — deliberately NOT
-    // Thread.currentThread().getId(), which is unbounded and not guaranteed
-    // small, so it can't be used directly to size a bounded port range.
-    private static final java.util.concurrent.atomic.AtomicInteger THREAD_SLOT_COUNTER =
-        new java.util.concurrent.atomic.AtomicInteger(0);
-    private static final ThreadLocal<Integer> THREAD_SLOT =
-        ThreadLocal.withInitial(THREAD_SLOT_COUNTER::getAndIncrement);
-
-    private static final int PORT_RANGE_BASE = 20000;
-    private static final int PORTS_PER_SITE = 200;
-    private static final int PORTS_PER_SLOT = 20;
-    private static final int SLOTS_PER_SITE = PORTS_PER_SITE / PORTS_PER_SLOT;
-
-    /**
-     * Deterministic candidate port for this thread's Nth driver-launch
-     * attempt. Distinct (site, thread-slot, attempt) triples never
-     * collide with each other; only an unrelated external process already
-     * sitting on the same computed port can still cause a bind failure,
-     * which {@link #isPortAllocationRace} treats the same as the old
-     * find-a-free-port race so the retry loop still recovers from it.
-     */
-    private static int candidatePort(int attempt) {
-        int siteOffset = Math.floorMod(safeSiteName().hashCode(), 50) * PORTS_PER_SITE;
-        int slotOffset = (THREAD_SLOT.get() % SLOTS_PER_SITE) * PORTS_PER_SLOT;
-        int attemptOffset = (attempt - 1) % PORTS_PER_SLOT;
-        return PORT_RANGE_BASE + siteOffset + slotOffset + attemptOffset;
-    }
-
-    private static String safeSiteName() {
-        try {
-            String site = ConfigReader.getActiveSite();
-            return site != null ? site : "default";
-        } catch (RuntimeException e) {
-            // Config not yet initialized (e.g. a unit test calling
-            // DriverFactory directly) — fall back to a fixed bucket rather
-            // than letting port computation itself throw.
-            return "default";
-        }
-    }
-
-    private static WebDriver createWithPortConflictRetry(String browserLabel,
-                                                         java.util.function.IntFunction<WebDriver> creator) {
-        RuntimeException lastFailure = null;
-        for (int attempt = 1; attempt <= DRIVER_CREATION_MAX_ATTEMPTS; attempt++) {
-            try {
-                if (attempt > 1) {
-                    try {
-                        Thread.sleep(200L + (long) (Math.random() * 600));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    logger.warn("[DriverFactory] " + browserLabel + " driver: retrying after a free-port"
-                        + " allocation race (attempt " + attempt + "/" + DRIVER_CREATION_MAX_ATTEMPTS + ").");
-                }
-                return creator.apply(attempt);
-            } catch (RuntimeException e) {
-                if (!isPortAllocationRace(e)) {
-                    throw e;
-                }
-                lastFailure = e;
-            }
-        }
-        throw new DriverInitializationException(
-            "[DriverFactory] " + browserLabel + " driver failed to start after " + DRIVER_CREATION_MAX_ATTEMPTS
-                + " attempts, each hitting a port allocation race despite explicit deterministic port"
-                + " assignment (see candidatePort()). If this becomes frequent (not just occasional under"
-                + " heavy load), consider lowering the parallel thread-count in the TestNG suite XML being run.",
-            lastFailure);
-    }
-
-    private static boolean isPortAllocationRace(RuntimeException e) {
-        // Walk the cause chain too — SessionNotCreatedException's own
-        // getMessage() is just "Could not start a new session...";  the
-        // actually diagnostic text ("Driver server process died
-        // prematurely") lives on its cause, not concatenated into the
-        // outer message. Checking only e.getMessage() (as this method used
-        // to) meant that specific, very-much-related-to-the-same-race
-        // failure was never recognized as retryable at all.
-        Throwable current = e;
-        int guard = 0;
-        while (current != null && guard++ < 10) {
-            if (matchesRetryableText(current.getMessage())) {
-                return true;
-            }
-            Throwable next = current.getCause();
-            current = (next == current) ? null : next;
-        }
-        return false;
-    }
-
-    private static boolean matchesRetryableText(String message) {
-        if (message == null) {
-            return false;
-        }
-        String lower = message.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("unable to find a free port")
-            || lower.contains("address already in use")
-            || lower.contains("port is already allocated")
-            || lower.contains("eaddrinuse")
-            || lower.contains("cannot bind")) {
-            return true;
-        }
-        // BUG FIX (2026-08-07 build — ProgressBarTest.setUp): under exactly
-        // the same heavy concurrent-launch conditions that cause the port
-        // race above, chromedriver's OWN process can also die before it
-        // even gets to respond to the session-creation POST — Selenium
-        // then throws SessionNotCreatedException wrapping "Driver server
-        // process died prematurely" (see WebDriverException/DriverService),
-        // a message that never mentions "port" at all. Because that string
-        // didn't match any check above, this exact failure was falling
-        // straight through createWithPortConflictRetry's catch and
-        // propagating on the FIRST attempt — burning zero retries — while
-        // every sibling failure in the same run correctly consumed a
-        // 12-attempt budget first. It's the identical root cause (too many
-        // concurrent chromedriver launches contending for process/CPU
-        // resources on a constrained box) manifesting as a process crash
-        // instead of a bind failure, so it gets the same retry-with-jitter
-        // treatment rather than being treated as a distinct, non-retryable
-        // failure mode.
-        //
-        // ROOT CAUSE FIX (found reviewing a "Chrome instance exited" build
-        // log): this method used to ALSO match plain
-        // "could not start a new session" — but that string is not a
-        // symptom of anything in particular, it's Selenium's own generic
-        // SessionNotCreatedException wrapper text
-        // ("Could not start a new session. Response code %s. Message:
-        // %s"), present verbatim on the OUTER exception of every single
-        // Chrome/Edge/Brave launch failure regardless of cause. Since
-        // isPortAllocationRace() checks e.getMessage() at the top of the
-        // cause chain first, that one clause alone made this method return
-        // true for 100% of SessionNotCreatedExceptions — a bad
-        // --start-maximized launch on a display-less runner, a corrupted
-        // profile dir, a chromedriver/Chrome version mismatch, an OOM
-        // kill — every one of them got misdiagnosed as a "port allocation
-        // race", burned the full 12-attempt/jitter budget for nothing
-        // (~10s+ wasted per failing test, no less flaky for it), and then
-        // surfaced createWithPortConflictRetry's port-specific error
-        // message and "lower the parallel thread-count" advice, which is
-        // actively misleading for a failure that was never about ports or
-        // concurrency at all. Removed; "chrome not reachable" and "driver
-        // server process died prematurely" are the only patterns that were
-        // ever actually confirmed (via isolated single-cause testing) to
-        // correlate with the free-port TOCTOU race, so those are the only
-        // ones left here. A genuinely non-retryable launch failure now
-        // propagates on the FIRST attempt with its real message intact,
-        // instead of being disguised as a port race for 12 attempts.
-        return lower.contains("driver server process died prematurely")
-            || lower.contains("chrome not reachable");
-    }
-
     // ── Chrome ────────────────────────────────────────────────────────────────
 
     // NOTE: pinning chromedriver to an older build (149.x) was tried and did
@@ -577,7 +348,7 @@ public final class DriverFactory {
         // that never got far enough to actually launch Chrome, since the
         // port failure happens after options are built) — one throwaway
         // directory per attempt, never cleaned up until JVM exit (see
-        // TEMP_PROFILE_DIRS below), which meant a saucedemo test class
+        // DriverCleanup.TEMP_PROFILE_DIRS), which meant a saucedemo test class
         // burning through 12 failed attempts x 15+ data rows could leave
         // 150+ empty directories on disk mid-run. That extra filesystem
         // churn adds I/O contention on an already CPU-constrained box,
@@ -600,9 +371,9 @@ public final class DriverFactory {
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
             // Tracked so quitDriver()/forceKillOrphanedDriverProcess() can
             // force this specific service's process down if quit() later
-            // proves unreliable — see CURRENT_DRIVER_SERVICE's class-level
+            // proves unreliable — see DriverCleanup's class-level
             // comment for why this matters.
-            CURRENT_DRIVER_SERVICE.set(service);
+            DriverCleanup.track(service);
             return new ChromeDriver(service, options);
         });
     }
@@ -640,14 +411,14 @@ public final class DriverFactory {
             ChromeOptions options = buildChromeOptions(headless, tempProfile, false);
             options.setBinary(braveBinary);
             ChromeDriverService service = buildDriverService(candidatePort(attempt));
-            CURRENT_DRIVER_SERVICE.set(service);
+            DriverCleanup.track(service);
             return new ChromeDriver(service, options);
         });
     }
 
     /**
      * Builds a ChromeDriverService bound to an explicit, deterministic port
-     * (see {@link #candidatePort}), with best-effort verbose logging to
+     * (see {@link DriverStartupRetry#candidatePort}), with best-effort verbose logging to
      * target/logs/&lt;site&gt;/chromedriver-&lt;browser&gt;-thread-&lt;id&gt;.log. A
      * failure to set up the log file never blocks a run or affects the
      * port used — see the note inside this method. History below.
@@ -670,7 +441,7 @@ public final class DriverFactory {
      * BUG FIX (Jenkins build failure, 2026-08-06): {@code .build()} below
      * performs its own {@code PortProber.findFreePort()} call to pick a
      * port for this diagnostic service — the exact same free-port race
-     * documented on {@link #createWithPortConflictRetry}. This method used
+     * documented on {@link DriverStartupRetry#createWithPortConflictRetry}. This method used
      * to wrap the ENTIRE body (directory setup AND {@code .build()}) in one
      * broad {@code catch (Exception e)}, so under heavy parallel load that
      * race got silently swallowed right here and logged as a mere "logging
@@ -681,7 +452,7 @@ public final class DriverFactory {
      * fallback path, which does its OWN independent
      * {@code createDefaultService()} free-port lookup — i.e. TWO
      * find-a-free-port attempts per retry instead of one, roughly doubling
-     * contention and burning through {@link #DRIVER_CREATION_MAX_ATTEMPTS}
+     * contention and burning through {@link DriverStartupRetry#DRIVER_CREATION_MAX_ATTEMPTS}
      * twice as fast. That's why saucedemo's login tests (whose classes all
      * launch a driver, sequentially, many times over via their data
      * providers, right in the busiest opening seconds of the parallel
@@ -691,7 +462,7 @@ public final class DriverFactory {
      * the directory/config setup (genuine, non-racy failure modes) and
      * letting {@code .build()}'s RuntimeException propagate straight out
      * of this method and up through the {@code createChromeDriver}/
-     * {@code createBraveDriver} lambdas, so {@link #createWithPortConflictRetry}
+     * {@code createBraveDriver} lambdas, so {@link DriverStartupRetry#createWithPortConflictRetry}
      * sees and retries it exactly once per attempt — the same single
      * lookup every other failure mode already goes through.
      */
@@ -753,36 +524,6 @@ public final class DriverFactory {
         }
     }
 
-    private static String findBraveBinary() {
-        // Allow explicit override via system property
-        String override = System.getProperty("brave.binary");
-        if (override != null && new File(override).exists()) {
-            return override;
-        }
-
-        String[] candidates = {
-            // Linux
-            "/usr/bin/brave-browser",
-            "/usr/bin/brave",
-            "/opt/brave.com/brave/brave",
-            // macOS
-            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-            // Windows
-            System.getenv("LOCALAPPDATA") != null
-                ? System.getenv("LOCALAPPDATA") + "\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
-                : null,
-            "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
-            "C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
-        };
-
-        for (String path : candidates) {
-            if (path != null && new File(path).exists()) {
-                return path;
-            }
-        }
-        return null;
-    }
-
     /**
      * Creates (and registers for JVM-exit cleanup) a fresh, isolated
      * --user-data-dir for one driver-creation call. Called ONCE per
@@ -798,7 +539,7 @@ public final class DriverFactory {
         try {
             java.nio.file.Path tempProfile =
                 java.nio.file.Files.createTempDirectory("selenium-profile-");
-            registerTempProfileCleanup(tempProfile);
+            DriverCleanup.registerTempProfileCleanup(tempProfile);
             return tempProfile;
         } catch (java.io.IOException e) {
             logger.warn("[DriverFactory] Could not create temp profile dir: "
@@ -985,70 +726,6 @@ public final class DriverFactory {
         return driver;
     }
 
-    private static String findFirefoxBinary() {
-        // 1. Explicit -Dfirefox.binary=... CLI/pom override
-        String override = System.getProperty("firefox.binary");
-        if (override != null && !override.trim().isEmpty() && new File(override).exists()) {
-            return override;
-        }
-
-        // 2. Probe common install paths (order matters — most common first per OS)
-        String[] candidates = {
-            // Ubuntu 22+/24 Snap install (most common on modern Ubuntu)
-            "/snap/bin/firefox",
-            // Ubuntu/Debian apt install
-            "/usr/bin/firefox",
-            // Older Ubuntu/Fedora
-            "/usr/lib/firefox/firefox",
-            "/usr/lib64/firefox/firefox",
-            // Fedora/RHEL flatpak
-            "/var/lib/flatpak/exports/bin/org.mozilla.firefox",
-            // macOS
-            "/Applications/Firefox.app/Contents/MacOS/firefox",
-            "/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox",
-            "/Applications/Firefox Nightly.app/Contents/MacOS/firefox",
-            // Windows
-            System.getenv("PROGRAMFILES") != null
-                ? System.getenv("PROGRAMFILES") + "\\Mozilla Firefox\\firefox.exe" : null,
-            System.getenv("PROGRAMFILES(X86)") != null
-                ? System.getenv("PROGRAMFILES(X86)") + "\\Mozilla Firefox\\firefox.exe" : null,
-        };
-
-        for (String path : candidates) {
-            if (path != null && new File(path).exists()) {
-                return path;
-            }
-        }
-
-        // 3. Try finding firefox on PATH via which/where command
-        //
-        // Process streams/handles are explicitly closed and the process is
-        // waited on and destroyed — leaving them open leaks file descriptors
-        // over a long test run. "where" on Windows can also print more than
-        // one match (one per line), so only the first line is taken instead
-        // of treating the whole (possibly multi-line) output as a single path.
-        try {
-            String finder = System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")
-                ? "where" : "which";
-            Process p = new ProcessBuilder(finder, "firefox").start();
-            String output;
-            try (InputStream in = p.getInputStream()) {
-                output = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            } finally {
-                p.waitFor();
-                p.destroy();
-            }
-            String firstLine = output.lines().findFirst().orElse("").trim();
-            if (!firstLine.isEmpty() && new File(firstLine).exists()) {
-                return firstLine;
-            }
-        } catch (Exception ignored) {
-            // fall through — geckodriver will search PATH itself
-        }
-
-        return null;  // geckodriver will attempt to find Firefox itself
-    }
-
     // ── Edge ──────────────────────────────────────────────────────────────────
 
     private static WebDriver createEdgeDriver(boolean headless) {
@@ -1098,7 +775,7 @@ public final class DriverFactory {
             EdgeDriverService service = new EdgeDriverService.Builder()
                 .usingPort(candidatePort(attempt))
                 .build();
-            CURRENT_DRIVER_SERVICE.set(service);
+            DriverCleanup.track(service);
             return new EdgeDriver(service, options);
         });
     }
@@ -1150,165 +827,29 @@ public final class DriverFactory {
             SafariDriverService service = new SafariDriverService.Builder()
                 .usingPort(candidatePort(attempt))
                 .build();
-            CURRENT_DRIVER_SERVICE.set(service);
+            DriverCleanup.track(service);
             return new SafariDriver(service, options);
         });
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
 
-    // Every --user-data-dir temp profile created by buildChromeOptions() is
-    // tracked here so a single JVM shutdown hook can clean all of them up at
-    // once. Without this, each session's temp dir (created fresh per test to
-    // guarantee quit() can actually kill the browser — see the comment in
-    // buildChromeOptions()) was never deleted, leaking one directory per test
-    // run indefinitely. Deleting at JVM-exit time (not right after quit())
-    // avoids racing Chrome's own child process, which can still hold a lock
-    // on profile files for a moment after the WebDriver session reports closed.
-    private static final List<File> TEMP_PROFILE_DIRS =
-        Collections.synchronizedList(new ArrayList<>());
-    private static volatile boolean cleanupHookRegistered = false;
-
-    // ── Orphaned browser/driver-process cleanup ─────────────────────────────────
-    //
-    // ROOT CAUSE (confirmed against both the local and Jenkins regression
-    // runs): a sizeable, growing fraction of test failures in a long run were
-    // NOT genuine test/app bugs at all — they were UnreachableBrowserException
-    // / "Error communicating with the remote browser. It may have died." /
-    // "HTTP/1.1 header parser received no bytes", hitting completely
-    // unrelated test classes later in the same run, in a widening cascade.
-    // The trigger every time was a PRECEDING "[BaseTest] driver.quit() failed:
-    // Timed out waiting for driver server to stop." warning: Selenium's own
-    // DriverService.stop() has an internal timeout waiting for the
-    // chromedriver process (and the real browser process it launched) to
-    // actually exit, and throws instead of blocking forever once that
-    // timeout is hit — but BaseTest.tearDown() only logged that exception,
-    // it never did anything about the process the exception says didn't
-    // stop. That left a real chromedriver + Chrome process (plus its own
-    // renderer/GPU child processes) running and holding memory for the rest
-    // of the JVM's lifetime, once per occurrence. On a run with 100+ tests
-    // this accumulates: each leaked instance is 100-300MB+, and once enough
-    // of them pile up the box runs out of memory/file descriptors, so even
-    // a BRAND-NEW, otherwise-healthy Chrome session for the next test can
-    // get OOM-killed or fail to complete its own HTTP handshake with
-    // chromedriver mid-test — exactly the symptom seen cascading across
-    // dozens of unrelated tests in both logs. This tracks enough state per
-    // thread (the DriverService that owns the process, plus the browser's
-    // own OS PID via the `goog:processID` capability every Chromium-based
-    // driver reports) to forcibly kill the whole process tree the moment
-    // quit() proves it didn't shut down cleanly, instead of leaving it to
-    // linger and slowly starve the rest of the run.
-    private static final ThreadLocal<DriverService> CURRENT_DRIVER_SERVICE = new ThreadLocal<>();
-
     /**
-     * Central replacement for calling {@code driver.quit()} directly.
-     * Behaves identically to a normal quit() on the (overwhelmingly common)
-     * happy path, but on failure — instead of just letting the exception
-     * propagate for the caller to log and move on from, as
-     * {@link com.automation.sites.core.BaseTest#tearDown()} used to do —
-     * forcibly kills the underlying chromedriver/browser process tree so it
-     * cannot linger and consume memory for the remainder of the run. See the
-     * class-level comment on {@link #CURRENT_DRIVER_SERVICE} for the full
-     * root-cause history. Safe to call with a null/already-quit driver.
+     * Central replacement for calling {@code driver.quit()} directly: quits
+     * normally and, on failure, force-kills the underlying chromedriver/browser
+     * process tree so it cannot linger. Safe to call with a null/already-quit
+     * driver. See {@link DriverCleanup} for the full root-cause history.
      */
     public static void quitDriver(WebDriver driver) {
-        if (driver == null) {
-            return;
-        }
-        try {
-            driver.quit();
-        } catch (Exception e) {
-            logger.warn("[DriverFactory] driver.quit() did not shut down cleanly (" + e.getMessage()
-                + ") — force-killing the underlying browser/driver process tree so it doesn't linger"
-                + " and starve later tests of memory.");
-            forceKillOrphanedDriverProcess(driver);
-        } finally {
-            CURRENT_DRIVER_SERVICE.remove();
-        }
+        DriverCleanup.quitDriver(driver);
     }
 
     /**
-     * Kills the browser process (and every child process it spawned —
-     * renderer, GPU, utility processes, etc.) plus the chromedriver/
-     * geckodriver/msedgedriver/safaridriver server process itself, using
-     * whatever identifying information is still available for a driver
-     * whose own quit() has already proven unreliable. Best-effort by
-     * design: this runs precisely when the driver is in a broken state, so
-     * every step here tolerates the corresponding lookup or kill failing
-     * silently rather than throwing a second exception on top of the
-     * original quit() failure.
+     * Kills the browser process (and its children) plus the driver server
+     * process for a driver whose own quit() has proven unreliable. Best-effort.
      */
     public static void forceKillOrphanedDriverProcess(WebDriver driver) {
-        Long browserPid = extractBrowserProcessId(driver);
-        if (browserPid != null) {
-            ProcessHandle.of(browserPid).ifPresent(ph -> {
-                // Kill descendants (renderer/GPU/utility child processes a
-                // real browser launches under its own main PID) before the
-                // main process itself, so nothing is left holding memory.
-                ph.descendants().forEach(ProcessHandle::destroyForcibly);
-                ph.destroyForcibly();
-            });
-        }
-
-        DriverService service = CURRENT_DRIVER_SERVICE.get();
-        if (service != null) {
-            try {
-                service.close();
-            } catch (Exception ignored) {
-                // The goal here is just making sure the OS process is
-                // actually gone — a second failure trying to shut it down
-                // "cleanly" isn't itself a new problem worth surfacing.
-            }
-        }
-        CURRENT_DRIVER_SERVICE.remove();
-    }
-
-    private static Long extractBrowserProcessId(WebDriver driver) {
-        try {
-            if (driver instanceof RemoteWebDriver) {
-                Object pid = ((RemoteWebDriver) driver).getCapabilities().getCapability("goog:processID");
-                if (pid instanceof Number) {
-                    return ((Number) pid).longValue();
-                }
-            }
-        } catch (Exception e) {
-            // The session is exactly why we're here — capabilities being
-            // unreachable on an already-broken driver is expected, not an
-            // additional failure to report.
-            logger.debug("[DriverFactory] Could not read goog:processID from the broken session: "
-                + e.getMessage());
-        }
-        return null;
-    }
-
-    private static synchronized void registerTempProfileCleanup(java.nio.file.Path tempProfile) {
-        TEMP_PROFILE_DIRS.add(tempProfile.toFile());
-        if (!cleanupHookRegistered) {
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                for (File dir : TEMP_PROFILE_DIRS) {
-                    deleteRecursively(dir);
-                }
-            }, "selenium-profile-cleanup"));
-            cleanupHookRegistered = true;
-        }
-    }
-
-    private static void deleteRecursively(File file) {
-        if (file == null || !file.exists()) {
-            return;
-        }
-        File[] children = file.listFiles();
-        if (children != null) {
-            for (File child : children) {
-                deleteRecursively(child);
-            }
-        }
-        if (!file.delete()) {
-            // Best-effort only — a lingering lock file or open handle here
-            // just means one leftover temp dir, not a build failure.
-            logger.debug("[DriverFactory] Could not delete temp profile file/dir: "
-                + file.getAbsolutePath());
-        }
+        DriverCleanup.forceKillOrphanedDriverProcess(driver);
     }
 
     /**

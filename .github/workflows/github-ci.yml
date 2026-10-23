@@ -400,7 +400,7 @@ jobs:
           cache: 'maven'
 
       - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1.7.3
 
       - name: Build coverage map for ${{ matrix.site }}
         env:
@@ -1081,7 +1081,7 @@ jobs:
       # src/main/java/com/automation/mobile/README.md's Quick Start), so
       # no app-under-test APK needs to be built or downloaded first.
       - name: Run Mobile Tests on Android Emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 30
           target: default
@@ -1791,7 +1791,7 @@ jobs:
 
       - name: Run gitleaks (full history)
         continue-on-error: true
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -2165,7 +2165,7 @@ jobs:
         run: python3 .github/workflows/scripts/generate_landing_page.py
 
       - name: Deploy Reports to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/gh-pages-publish

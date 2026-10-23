@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Locale;
 
 /**
  * Optional per-page AI pass for the bug crawler ({@code crawler.ai.enabled},
@@ -41,47 +40,12 @@ final class AiPageReviewer {
         if (pageSource == null || pageSource.isBlank()) {
             return;
         }
-        try {
-            String prompt = "URL: " + url + "\n\nPage HTML (trimmed):\n"
-                + truncate(pageSource, MAX_PAGE_SOURCE_CHARS);
-            String reply = OllamaClient.chat(SYSTEM_PROMPT, prompt);
-            JsonNode json = OllamaClient.extractJsonObject(reply);
-            if (json == null) {
-                return;
-            }
-            JsonNode findings = json.get("findings");
-            if (findings == null || !findings.isArray()) {
-                return;
-            }
-            for (JsonNode finding : findings) {
-                String severityRaw = finding.hasNonNull("severity") ? finding.get("severity").asText() : "info";
-                String description = finding.hasNonNull("description") ? finding.get("description").asText() : null;
-                if (description == null || description.isBlank()) {
-                    continue;
-                }
-                result.addIssue(toSeverity(severityRaw), "ai-review", description);
-            }
-        } catch (Exception e) {
-            logger.debug("[SiteCrawler][AI] Page review call failed for {} ({}) — continuing without it.",
-                url, e.getMessage());
+        String prompt = "URL: " + url + "\n\nPage HTML (trimmed):\n"
+            + AiFindings.truncate(pageSource, MAX_PAGE_SOURCE_CHARS);
+        JsonNode json = AiFindings.askForJson(() -> OllamaClient.chat(SYSTEM_PROMPT, prompt),
+            logger, "[SiteCrawler][AI]", "Page review call", url);
+        if (json != null) {
+            AiFindings.addFindings(json, "ai-review", result);
         }
-    }
-
-    private static CrawlIssue.Severity toSeverity(String raw) {
-        if (raw == null) {
-            return CrawlIssue.Severity.INFO;
-        }
-        switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "error":
-                return CrawlIssue.Severity.ERROR;
-            case "warning":
-                return CrawlIssue.Severity.WARNING;
-            default:
-                return CrawlIssue.Severity.INFO;
-        }
-    }
-
-    private static String truncate(String s, int max) {
-        return s.length() <= max ? s : s.substring(0, max) + "... [truncated]";
     }
 }

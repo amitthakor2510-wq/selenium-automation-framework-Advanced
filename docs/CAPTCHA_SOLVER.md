@@ -245,7 +245,7 @@ Whenever AI Vision is disabled or its API call fails, `CaptchaSolver` no longer 
 
 2. **Whole-string OCR (`identifyText()`)** — the original PSM 7 (falling back to PSM 8) pass, run either as the primary result (segmentation disabled/inapplicable) or discarded in favour of the segmented read when both succeed.
 
-`preprocessImage()` also gained three passes ahead of the existing median-filter denoise + Otsu threshold, all of which help segmentation produce cleaner, separable character blobs (not just whole-string OCR accuracy):
+`CaptchaImagePreprocessor.preprocess()` also gained three passes ahead of the existing median-filter denoise + Otsu threshold, all of which help segmentation produce cleaner, separable character blobs (not just whole-string OCR accuracy):
 - **Contrast normalization** — stretches a washed-out/low-contrast image to the full black-white range before anything else runs.
 - **Line removal** — erases long, thin decorative strike-through/underline lines some CAPTCHA generators draw specifically to defeat OCR (only ones that don't already merge with a character stroke into one connected shape — a line that cuts straight through a glyph can't be distinguished from the glyph itself this way).
 - **Deskew** — searches a small rotation range and straightens a CAPTCHA rendered at a slight angle, which otherwise throws off both segmentation's bounding boxes and whole-string OCR's baseline assumption.
@@ -330,7 +330,7 @@ Checklist if it's not picking up an answer:
    needs `OLLAMA_HOST=0.0.0.0` (systemd override) and its firewall must
    allow the port; `curl`-ing `/` alone only proves Ollama is running
    locally on its own box, not that it's reachable from elsewhere.
-4. Watch the log line on failure — `resolveWithVisionApi()` logs the raw
+4. Watch the log line on failure — `CaptchaVisionClient.resolve()` logs the raw
    HTTP status/body on a non-200 response and retries 429/5xx up to 3
    times before falling back to OCR, so a bad model name, wrong port, or
    unreachable host shows up there.
@@ -380,5 +380,5 @@ See also the general [🩹 Troubleshooting & Glossary](troubleshooting.md) for e
 
 - **Why two modes instead of one?** Auto-detect (Mode 1) optimizes for *never having to write CAPTCHA-specific test code* — it's a safety net that quietly does nothing on the ~95% of pages without a CAPTCHA. Explicit keywords (Mode 2) optimize for *determinism* — when you know a specific test's CAPTCHA locator and want a hard failure if it ever breaks, rather than a silent skip.
 - **Why not attempt reCAPTCHA/hCaptcha at all, even partially?** Those aren't OCR problems — they're either invisible risk-scoring challenges or image-classification challenges served by Google/hCaptcha's own infrastructure, with anti-automation detection built in. Attempting them wastes a screenshot/OCR cycle for a guaranteed failure and risks tripping bot-detection harder than just not trying. Treat a page blocked by one as a test scenario to assert on (`isBlockedByRecaptcha()`-style), not something to defeat.
-- **AI Vision solving (already wired in):** `CaptchaSolver.solveWithAI()` screenshots the element (with a safety margin so edge pixels aren't cut off) and sends it through `resolveWithVisionApi()`, falling back to OCR only if the API call itself fails. Turn it on with `captcha.ai.enabled=true` plus `captcha.ai.apiKey` (or the `ANTHROPIC_API_KEY` environment variable) and `captcha.ai.model` in `global.properties` / the site's properties file; with it off, `solveWithAI()` behaves like the plain OCR path. Keep the `(WebDriver, WebElement, WebElement) -> String` signature so `KeywordEngine`'s wiring doesn't change.
+- **AI Vision solving (already wired in):** `CaptchaSolver.solveWithAI()` screenshots the element (with a safety margin so edge pixels aren't cut off) and sends it through `CaptchaVisionClient.resolve()`, falling back to OCR only if the API call itself fails. Turn it on with `captcha.ai.enabled=true` plus `captcha.ai.apiKey` (or the `ANTHROPIC_API_KEY` environment variable) and `captcha.ai.model` in `global.properties` / the site's properties file; with it off, `solveWithAI()` behaves like the plain OCR path. Keep the `(WebDriver, WebElement, WebElement) -> String` signature so `KeywordEngine`'s wiring doesn't change.
 - **Extending auto-detect's pattern list:** `CAPTCHA_IMAGE_LOCATORS` / `CAPTCHA_INPUT_LOCATORS` / `UNSOLVABLE_CAPTCHA_LOCATORS` in `CaptchaSolver.java` are plain `List<By>` constants — add a `By.cssSelector(...)` entry for a site-specific naming convention you keep running into, and every Page Object/keyword test benefits immediately without any other change.

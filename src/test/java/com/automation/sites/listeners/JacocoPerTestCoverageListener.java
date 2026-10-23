@@ -150,6 +150,13 @@ public class JacocoPerTestCoverageListener implements IClassListener, ISuiteList
      */
     @Override
     public void onFinish(ISuite suite) {
+        // Capture is opt-in (-Djacoco.jmx=true). On an ordinary run the MBean is absent, the class
+        // hooks above are complete no-ops, and a "0 files written ... capture was likely never
+        // active" line per suite is just noise that reads like a failure - stay silent instead.
+        // runtime() has already logged the one-time "capture disabled" notice in that case.
+        if (runtime() == null) {
+            return;
+        }
         int count = FILES_WRITTEN.get();
         System.out.println("[coverage-capture] Suite \"" + suite.getName() + "\" finished — "
             + count + " per-class .exec file(s) written to " + OUTPUT_DIR.toAbsolutePath()

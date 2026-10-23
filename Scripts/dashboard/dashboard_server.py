@@ -97,11 +97,29 @@ def _record_failed_auth(client_ip):
         _failed_auth.setdefault(client_ip, []).append(time.time())
 
 
+_SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("X-Frame-Options", "DENY"),
+    ("Referrer-Policy", "no-referrer"),
+    ("Content-Security-Policy",
+     "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
+)
+
+# Largest request body any endpoint accepts (a snapshot import is the biggest).
+_MAX_BODY_BYTES = 1_000_000
+
+
 def make_handler(password):
     expected_header = "Basic " + base64.b64encode(f"dashboard:{password}".encode("utf-8")).decode("ascii")
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "FrameworkDashboard/1.0"
+
+        def _security_headers(self):
+            """Sent with EVERY response: no framing (clickjacking on the toggle buttons), no MIME
+            sniffing, and a same-origin-only CSP (the page ships no inline script or style)."""
+            for name, value in _SECURITY_HEADERS:
+                self.send_header(name, value)
 
         def log_message(self, fmt, *args):
             print(f"[dashboard] {self.client_address[0]} - {fmt % args}")
@@ -130,6 +148,7 @@ def make_handler(password):
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="Automation Framework Dashboard"')
             self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self._security_headers()
             self.end_headers()
             self.wfile.write(b"Authentication required.")
             return False
@@ -141,12 +160,17 @@ def make_handler(password):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            self._security_headers()
             self.end_headers()
             self.wfile.write(body)
 
         def _read_json_body(self):
-            length = int(self.headers.get("Content-Length", 0) or 0)
-            if length <= 0 or length > 1_000_000:
+            try:
+                length = int(self.headers.get("Content-Length", 0) or 0)
+            except ValueError:
+                # A non-numeric header used to escape as an unhandled exception (dropped connection).
+                return {}
+            if length <= 0 or length > _MAX_BODY_BYTES:
                 return {}
             raw = self.rfile.read(length)
             try:
@@ -176,6 +200,7 @@ def make_handler(password):
             self.send_response(200)
             self.send_header("Content-Type", _STATIC_MIME.get(ext, "application/octet-stream"))
             self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
             self.end_headers()
             self.wfile.write(body)
 
@@ -213,6 +238,7 @@ def make_handler(password):
                     self.send_header("Content-Disposition", 'attachment; filename="dashboard-snapshot.json"')
                     self.send_header("Content-Length", str(len(body)))
                     self.send_header("Cache-Control", "no-store")
+                    self._security_headers()
                     self.end_headers()
                     self.wfile.write(body)
                 else:
@@ -397,7 +423,9 @@ def _resolve_password():
 def main():
     parser = argparse.ArgumentParser(description="Selenium Automation Framework — local dashboard")
     parser.add_argument("--port", type=int, default=int(os.environ.get("DASHBOARD_PORT", "5057")))
-    parser.add_argument("--host", default=os.environ.get("DASHBOARD_HOST", "0.0.0.0"))
+    # Loopback by default: this server can rewrite the test/pipeline config, so exposing it on every
+    # interface is an explicit choice (--host 0.0.0.0 / DASHBOARD_HOST=0.0.0.0), never the default.
+    parser.add_argument("--host", default=os.environ.get("DASHBOARD_HOST", "127.0.0.1"))
     args = parser.parse_args()
 
     password, generated = _resolve_password()
@@ -422,8 +450,8 @@ def main():
         if len(password) < 8:
             banner_lines += [
                 "  WARNING   : DASHBOARD_PASSWORD is shorter than 8 characters. This port",
-                "              can edit your test config and listens on every interface —",
-                "              use a longer password, especially before tunnelling it.",
+                "              can edit your test config - use a longer password, above all",
+                "              before binding it beyond localhost or tunnelling it.",
             ]
     width = max(len(line) for line in banner_lines) + 4
     print("=" * width)

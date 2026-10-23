@@ -226,7 +226,7 @@ a { color: var(--accent); }
   user-select: none;
 }
 .test-section-head:hover { filter: brightness(1.08); }
-.test-section-title { font-size: 13px; font-weight: 600; }
+.test-section-title { font-size: 13px; font-weight: 600; flex: 1; margin-left: 6px; }
 .test-section-count { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
 .test-section-caret {
   width: 8px; height: 8px;
