@@ -1575,6 +1575,8 @@
                 <include>**/core/mock/**/*Test.java</include>
                 <include>**/core/tia/**/*Test.java</include>
                 <include>**/core/utils/**/*Test.java</include>
+                <include>**/core/driver/**/*Test.java</include>
+                <include>**/core/crawler/**/*Test.java</include>
                 <include>**/core/verify/**/*Test.java</include>
                 <include>**/core/budget/**/*Test.java</include>
                 <include>**/core/api/postman/**/*Test.java</include>

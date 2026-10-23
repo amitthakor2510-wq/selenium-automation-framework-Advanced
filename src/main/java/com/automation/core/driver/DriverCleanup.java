@@ -167,7 +167,7 @@ final class DriverCleanup {
         }
     }
 
-    private static void deleteRecursively(File file) {
+    static void deleteRecursively(File file) {
         if (file == null || !file.exists()) {
             return;
         }
