@@ -1,0 +1,263 @@
+[
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "saucedemo",
+    "slug": "saucedemo",
+    "count": 57,
+    "reportPath": "target/allure-segmented/site/saucedemo/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "chrome",
+    "slug": "chrome",
+    "count": 27,
+    "reportPath": "target/allure-segmented/browser/chrome/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "SauceDemo Regression Suite",
+    "slug": "saucedemo-regression-suite",
+    "count": 60,
+    "reportPath": "target/allure-segmented/testType/saucedemo-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "data-driven",
+    "slug": "data-driven",
+    "count": 45,
+    "reportPath": "target/allure-segmented/category/data-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "regression",
+    "slug": "regression",
+    "count": 74,
+    "reportPath": "target/allure-segmented/category/regression/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "severity",
+    "dimensionLabel": "By Severity",
+    "value": "normal",
+    "slug": "normal",
+    "count": 70,
+    "reportPath": "target/allure-segmented/severity/normal/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "firefox",
+    "slug": "firefox",
+    "count": 19,
+    "reportPath": "target/allure-segmented/browser/firefox/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyword-driven",
+    "slug": "keyword-driven",
+    "count": 9,
+    "reportPath": "target/allure-segmented/category/keyword-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "edge",
+    "slug": "edge",
+    "count": 19,
+    "reportPath": "target/allure-segmented/browser/edge/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "keyboard-driven",
+    "slug": "keyboard-driven",
+    "count": 3,
+    "reportPath": "target/allure-segmented/category/keyboard-driven/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "smoke",
+    "slug": "smoke",
+    "count": 10,
+    "reportPath": "target/allure-segmented/category/smoke/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "severity",
+    "dimensionLabel": "By Severity",
+    "value": "critical",
+    "slug": "critical",
+    "count": 7,
+    "reportPath": "target/allure-segmented/severity/critical/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "unknown-site",
+    "slug": "unknown-site",
+    "count": 10,
+    "reportPath": "target/allure-segmented/site/unknown-site/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "unknown-browser",
+    "slug": "unknown-browser",
+    "count": 10,
+    "reportPath": "target/allure-segmented/browser/unknown-browser/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "uncategorized",
+    "slug": "uncategorized",
+    "count": 3,
+    "reportPath": "target/allure-segmented/category/uncategorized/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "mobile",
+    "slug": "mobile",
+    "count": 2,
+    "reportPath": "target/allure-segmented/site/mobile/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "browser",
+    "dimensionLabel": "By Browser",
+    "value": "android",
+    "slug": "android",
+    "count": 2,
+    "reportPath": "target/allure-segmented/browser/android/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "Mobile Regression Suite",
+    "slug": "mobile-regression-suite",
+    "count": 2,
+    "reportPath": "target/allure-segmented/testType/mobile-regression-suite/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "mobile",
+    "slug": "mobile",
+    "count": 2,
+    "reportPath": "target/allure-segmented/category/mobile/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "site",
+    "dimensionLabel": "By Site / App",
+    "value": "jsonplaceholder",
+    "slug": "jsonplaceholder",
+    "count": 8,
+    "reportPath": "target/allure-segmented/site/jsonplaceholder/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "API Tests Suite - jsonplaceholder",
+    "slug": "api-tests-suite-jsonplaceholder",
+    "count": 8,
+    "reportPath": "target/allure-segmented/testType/api-tests-suite-jsonplaceholder/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "api",
+    "slug": "api",
+    "count": 10,
+    "reportPath": "target/allure-segmented/category/api/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "SauceDemo login (no-code steps)",
+    "slug": "saucedemo-login-no-code-steps",
+    "count": 2,
+    "reportPath": "target/allure-segmented/testType/saucedemo-login-no-code-steps/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "ui",
+    "slug": "ui",
+    "count": 5,
+    "reportPath": "target/allure-segmented/category/ui/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "saucedemo",
+    "slug": "saucedemo",
+    "count": 5,
+    "reportPath": "target/allure-segmented/category/saucedemo/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "no-code",
+    "slug": "no-code",
+    "count": 2,
+    "reportPath": "target/allure-segmented/category/no-code/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "SauceDemo login",
+    "slug": "saucedemo-login",
+    "count": 3,
+    "reportPath": "target/allure-segmented/testType/saucedemo-login/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "testType",
+    "dimensionLabel": "By Test Type",
+    "value": "JSONPlaceholder posts API",
+    "slug": "jsonplaceholder-posts-api",
+    "count": 2,
+    "reportPath": "target/allure-segmented/testType/jsonplaceholder-posts-api/report/index.html",
+    "generated": false
+  },
+  {
+    "dimension": "category",
+    "dimensionLabel": "By Category",
+    "value": "jsonplaceholder",
+    "slug": "jsonplaceholder",
+    "count": 2,
+    "reportPath": "target/allure-segmented/category/jsonplaceholder/report/index.html",
+    "generated": false
+  }
+]

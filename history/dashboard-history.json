@@ -1,0 +1,182 @@
+[
+  {
+    "run_id": "38226736079",
+    "event": "schedule",
+    "timestamp": "2026-10-12T09:08:47Z",
+    "coverage_pct": 28.6,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38230770334",
+    "event": "push",
+    "timestamp": "2026-10-12T09:41:40Z",
+    "coverage_pct": 30.8,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38374601336",
+    "event": "schedule",
+    "timestamp": "2026-10-13T09:16:28Z",
+    "coverage_pct": 30.78,
+    "self_healing_count": 0,
+    "flaky_count": 23,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38392907738",
+    "event": "push",
+    "timestamp": "2026-10-13T11:58:35Z",
+    "coverage_pct": 39.1,
+    "self_healing_count": 0,
+    "flaky_count": 22,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38513600194",
+    "event": "push",
+    "timestamp": "2026-10-14T04:59:15Z",
+    "coverage_pct": 39.16,
+    "self_healing_count": 0,
+    "flaky_count": 17,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38519574163",
+    "event": "push",
+    "timestamp": "2026-10-14T06:07:24Z",
+    "coverage_pct": 39.09,
+    "self_healing_count": 0,
+    "flaky_count": 17,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38527905846",
+    "event": "schedule",
+    "timestamp": "2026-10-14T07:26:59Z",
+    "coverage_pct": 39.09,
+    "self_healing_count": 0,
+    "flaky_count": 17,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38559826366",
+    "event": "push",
+    "timestamp": "2026-10-14T12:01:45Z",
+    "coverage_pct": 39.1,
+    "self_healing_count": 0,
+    "flaky_count": 17,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38564683337",
+    "event": "push",
+    "timestamp": "2026-10-14T12:42:04Z",
+    "coverage_pct": 39.59,
+    "self_healing_count": 0,
+    "flaky_count": 18,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38697320341",
+    "event": "schedule",
+    "timestamp": "2026-10-15T07:20:01Z",
+    "coverage_pct": 39.6,
+    "self_healing_count": 0,
+    "flaky_count": 19,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "38864121282",
+    "event": "schedule",
+    "timestamp": "2026-10-16T07:01:05Z",
+    "coverage_pct": 39.48,
+    "self_healing_count": 0,
+    "flaky_count": 8,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39007244457",
+    "event": "push",
+    "timestamp": "2026-10-17T05:50:27Z",
+    "coverage_pct": 39.5,
+    "self_healing_count": 0,
+    "flaky_count": 8,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39011222238",
+    "event": "schedule",
+    "timestamp": "2026-10-17T06:52:19Z",
+    "coverage_pct": 39.56,
+    "self_healing_count": 0,
+    "flaky_count": 6,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39105108366",
+    "event": "push",
+    "timestamp": "2026-10-18T06:51:28Z",
+    "coverage_pct": 40.99,
+    "self_healing_count": 0,
+    "flaky_count": 6,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39554746687",
+    "event": "push",
+    "timestamp": "2026-10-21T06:28:30Z",
+    "coverage_pct": 40.96,
+    "self_healing_count": 0,
+    "flaky_count": 6,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39904820698",
+    "event": "push",
+    "timestamp": "2026-10-23T05:23:44Z",
+    "coverage_pct": 47.04,
+    "self_healing_count": 0,
+    "flaky_count": 5,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39916707305",
+    "event": "schedule",
+    "timestamp": "2026-10-23T07:21:34Z",
+    "coverage_pct": 47.05,
+    "self_healing_count": 0,
+    "flaky_count": 5,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39948045753",
+    "event": "push",
+    "timestamp": "2026-10-23T11:51:09Z",
+    "coverage_pct": 46.83,
+    "self_healing_count": 0,
+    "flaky_count": 2,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "39951269891",
+    "event": "push",
+    "timestamp": "2026-10-23T12:18:31Z",
+    "coverage_pct": 51.04,
+    "self_healing_count": 0,
+    "flaky_count": 2,
+    "tia_impacted_pct": null
+  },
+  {
+    "run_id": "40072764337",
+    "event": "schedule",
+    "timestamp": "2026-10-24T07:09:47Z",
+    "coverage_pct": 51.24,
+    "self_healing_count": 0,
+    "flaky_count": 3,
+    "tia_impacted_pct": null
+  }
+]
