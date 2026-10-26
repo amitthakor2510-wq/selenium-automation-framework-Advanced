@@ -41,7 +41,7 @@ or a key from `objectrepository/<site>.properties` (site prefix optional: `login
 | `the user clicks "element"` / `taps "element"` | Click / tap |
 | `the user types "text" into "element"` | Type (human-paced on web) |
 | `clears "element"`, `selects "x" from "element"`, `hovers over`, `scrolls to` | Other actions |
-| `the user presses the "ENTER" key`, `waits 2 seconds`, `waits for the page to load` | Keys, waiting |
+| `the user presses the "ENTER" key`, `waits for the page to load` | Keys, page-load wait (no fixed "wait N seconds" step - use `should see` / `should not see`, which poll until ready) |
 | `the user swipes up` / `swipes down`, `navigates back` | Mobile gestures, back |
 | `the user switches to the frame "element"` / `switches back to the main page`, `accepts / dismisses the alert` | Frames, alerts |
 | `the user should see / should not see "element"` | Visibility |

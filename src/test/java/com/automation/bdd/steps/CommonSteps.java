@@ -93,14 +93,10 @@ public class CommonSteps extends StepBase {
         waitFor().until(d -> "complete".equals(((RemoteWebDriver) d).executeScript("return document.readyState")));
     }
 
-    @When("the user waits {int} seconds")
-    public void waitsSeconds(int seconds) {
-        try {
-            Thread.sleep(seconds * 1000L);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
+    // There is deliberately no "the user waits N seconds" step: a fixed pause is either too short
+    // (flaky) or too long (slow). Wait for a condition instead - "the user should see ..." and
+    // "the user should not see ..." both poll until the element appears or disappears, every
+    // click/type step waits for its element, and "the user waits for the page to load" is above.
 
     // ═════════════════ Web and mobile: actions ═════════════════
 
