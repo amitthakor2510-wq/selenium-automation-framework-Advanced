@@ -1929,6 +1929,17 @@ jobs:
             echo "No previous history found - first run"
           fi
 
+      # Allure's Categories tab (failures sorted into product defect / element not
+      # found / timeout / infrastructure ...) needs a categories.json next to the
+      # results. AllureEnvironmentWriter writes one at test start, but results merged
+      # from several jobs, or from a job that never ran it, would otherwise show
+      # "Can't find information about categories". This copies the one canonical file
+      # (src/main/resources/categories.json) in wherever it's missing; it never
+      # overwrites an existing one and never fails the job.
+      - name: Ensure Allure categories.json
+        continue-on-error: true
+        run: bash Scripts/ensure-allure-categories.sh target/allure-results
+
       # NEITHER released tag of this action currently works — pinned to
       # a specific master commit instead. History, so nobody "fixes"
       # this back to a tag without re-reading it first:

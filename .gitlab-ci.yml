@@ -1296,6 +1296,9 @@ report:
     # above) rides along in that same glob purely to carry its history/
     # subfolder in — Allure looks for a "history" folder INSIDE whichever
     # results directory has one, not as a results dir passed on its own.
+    # Make sure every results folder has a categories.json so the report's Categories tab
+    # isn't empty (never overwrites an existing one; see Scripts/ensure-allure-categories.sh).
+    - bash Scripts/ensure-allure-categories.sh target/allure-results
     - allure generate target/allure-results/*/ --clean -o public/allure-report
     # Extent's HTML report was being uploaded as a plain job artifact
     # (target/extent-reports/) but never copied into public/ — GitLab
