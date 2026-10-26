@@ -97,6 +97,11 @@ for BROWSER in "${BROWSERS[@]}"; do
   fi
 done
 
+# The merge loop above deliberately does not copy categories.json (it is the same file for
+# every browser), so the combined folder had none and Allure showed "Can't find information
+# about categories". Add the canonical one.
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ensure-allure-categories.sh" "$COMBINED_DIR"
+
 echo ""
 echo "==================================================================="
 echo " SAHMAT ${SUITE_TYPE} — all browsers finished"

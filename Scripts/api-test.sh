@@ -100,6 +100,7 @@ if $OPEN; then
   (xdg-open "$REPORT" || open "$REPORT") >/dev/null 2>&1 || true
 fi
 if $ALLURE; then
+  bash "$(cd "$(dirname "$0")" && pwd)/ensure-allure-categories.sh" target/allure-results
   "$MVN" -q allure:serve
 fi
 

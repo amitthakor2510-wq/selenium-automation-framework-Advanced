@@ -5,17 +5,8 @@
 
 **A production-grade, multi-site Java test automation framework** built on Selenium 4 + TestNG + Maven — with dual reporting, data-driven testing across 5 file formats, keyword-driven scripting, BDD (Cucumber/Gherkin) feature files, accessibility & visual-regression checks, an opt-in performance smoke test, a mobile/Appium module, human-like interaction simulation, a Dockerized Selenium Grid, and a triple CI/CD pipeline.
 
-<!--
-  CI Status badge below is a static placeholder — the dynamic GitHub Actions
-  badge (…/actions/workflows/github-ci.yml/badge.svg) only resolves once
-  this repo is pushed to GitHub as a public (or at least badge-visible)
-  repo. Swap the line below for:
-    <img alt="CI Status" src="https://github.com/<your-org>/<your-repo>/actions/workflows/github-ci.yml/badge.svg">
-  once that's true — until then the dynamic badge just renders as a broken
-  image, which is why it's a static one here instead.
--->
 <p>
-  <img alt="CI Status" src="https://img.shields.io/badge/CI-passing-2ea44f?style=flat-square&logo=githubactions&logoColor=white">
+  <a href="https://github.com/amitthakor2510-wq/selenium-automation-framework-Advanced/actions/workflows/github-ci.yml"><img alt="CI Status" src="https://github.com/amitthakor2510-wq/selenium-automation-framework-Advanced/actions/workflows/github-ci.yml/badge.svg?branch=main"></a>
   <img alt="Java" src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk&logoColor=white">
   <img alt="Selenium" src="https://img.shields.io/badge/Selenium-4.50.0-43B02A?style=flat-square&logo=selenium&logoColor=white">
   <img alt="TestNG" src="https://img.shields.io/badge/TestNG-7.12.0-orange?style=flat-square">
@@ -209,7 +200,7 @@ selenium-automation-framework/
     │   │   │   └── KeywordEngine.java       # Executes a List<KeywordStep> against a live WebDriver
     │   │   ├── report/
     │   │   │   ├── ExtentManager.java           # Creates HTML report (singleton)
-    │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json
+    │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json (rules: src/main/resources/allure/categories.json)
     │   │   ├── utils/
     │   │   │   ├── HumanActions.java            # Human-like delays on every action
     │   │   │   ├── ScreenshotUtil.java           # Captures screenshots on pass/failure

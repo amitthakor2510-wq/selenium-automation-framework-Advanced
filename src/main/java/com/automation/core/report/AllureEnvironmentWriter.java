@@ -143,46 +143,35 @@ public final class AllureEnvironmentWriter {
         }
     }
 
-    private static void writeCategories(Path resultsDir) throws IOException {
+    /**
+     * Classpath location of the single source of truth for the Categories tab rules. It must sit at
+     * the classpath ROOT: the allure-maven plugin looks for exactly "categories.json" there and logs
+     * "Can't find information about categories" when it is absent.
+     */
+    static final String CATEGORIES_RESOURCE = "/categories.json";
+
+    /** Used only if the resource above can't be read — keeps the tab populated instead of empty. */
+    private static final String FALLBACK_CATEGORIES = "[{\"name\":\"Failures\","
+            + "\"matchedStatuses\":[\"failed\",\"broken\"]},"
+            + "{\"name\":\"Ignored / skipped\",\"matchedStatuses\":[\"skipped\"]}]";
+
+    /**
+     * Copies src/main/resources/categories.json into the results directory. Keeping the
+     * rules in a real JSON file (instead of a Java string) means CI scripts
+     * (Scripts/ensure-allure-categories.sh) can place the exact same file next to results that
+     * were produced without this writer running, so Allure never shows
+     * "Can't find information about categories".
+     */
+    static void writeCategories(Path resultsDir) throws IOException {
         Path file = resultsDir.resolve("categories.json");
-        String json = """
-                [
-                  {
-                    "name": "Slow response (performance budget exceeded)",
-                    "matchedStatuses": ["failed"],
-                    "messageRegex": "(?s).*Performance budget.*"
-                  },
-                  {
-                    "name": "Product defects",
-                    "matchedStatuses": ["failed"],
-                    "messageRegex": ".*(AssertionError|expected.*but.*was|Expected.*but.*was).*"
-                  },
-                  {
-                    "name": "Element not found / stale",
-                    "matchedStatuses": ["broken", "failed"],
-                    "traceRegex": ".*(NoSuchElementException|StaleElementReferenceException|ElementClickInterceptedException|ElementNotInteractableException).*"
-                  },
-                  {
-                    "name": "Timeouts",
-                    "matchedStatuses": ["broken", "failed"],
-                    "traceRegex": ".*(TimeoutException|WaitTimedOutException).*"
-                  },
-                  {
-                    "name": "Driver / infrastructure issues",
-                    "matchedStatuses": ["broken"],
-                    "traceRegex": ".*(WebDriverException|SessionNotCreatedException|UnreachableBrowserException|NoSuchSessionException).*"
-                  },
-                  {
-                    "name": "Quarantined (known flaky - build not affected)",
-                    "matchedStatuses": ["skipped"],
-                    "messageRegex": "(?s)Quarantined - .*"
-                  },
-                  {
-                    "name": "Ignored / skipped",
-                    "matchedStatuses": ["skipped"]
-                  }
-                ]
-                """;
-        Files.writeString(file, json, StandardCharsets.UTF_8);
+        try (java.io.InputStream in = AllureEnvironmentWriter.class.getResourceAsStream(CATEGORIES_RESOURCE)) {
+            if (in != null) {
+                Files.copy(in, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                return;
+            }
+        }
+        logger.warn("Allure categories resource " + CATEGORIES_RESOURCE
+                + " not found on classpath - writing minimal fallback categories.json");
+        Files.writeString(file, FALLBACK_CATEGORIES, StandardCharsets.UTF_8);
     }
 }

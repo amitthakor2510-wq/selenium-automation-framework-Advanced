@@ -2010,6 +2010,9 @@ pipeline {
                     resultDirs += ['demoqa-perf', 'jsonplaceholder-perf']
                             .findAll { fileExists("target/allure-results/${it}") }
                             .collect { [path: "target/allure-results/${it}"] }
+                    // Make sure every results folder has a categories.json so the report's
+                    // Categories tab isn't empty (never overwrites an existing one).
+                    sh 'bash Scripts/ensure-allure-categories.sh target/allure-results || true'
                     allure([
                             includeProperties: false,
                             jdk: '',

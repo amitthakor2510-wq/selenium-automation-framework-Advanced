@@ -677,6 +677,29 @@ command isn't here, it isn't documented anywhere in the repo either — worth
 adding wherever it actually lives rather than only in this file.</sub>
 
 
+## Allure Categories tab — failures sorted by type
+
+The rules are in `src/main/resources/allure/categories.json`. Copy them next to any results folder
+that lacks one (safe to re-run, never overwrites):
+
+```bash
+Scripts/ensure-allure-categories.sh                        # target/allure-results
+Scripts/ensure-allure-categories.sh target/allure-results  # same, explicit; also handles per-site subfolders
+```
+
+Check it works end to end (needs Java; the Allure CLI is already bundled in `.allure/`):
+
+```bash
+mvn -B verify -Punit-tests -Dit.test=AllureCategoriesTest        # validates the JSON + sample classifications
+mvn -B test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml -Dheadless=true
+ls target/allure-results/categories.json                         # must exist
+.allure/allure-2.27.0/bin/allure generate target/allure-results -o target/allure-report --clean
+python3 -m json.tool target/allure-report/data/categories.json | head -40   # category names appear here
+.allure/allure-2.27.0/bin/allure open target/allure-report       # Categories tab should list your failures
+```
+
+---
+
 ## PDF report
 
 See [PDF_REPORT.md](PDF_REPORT.md).
