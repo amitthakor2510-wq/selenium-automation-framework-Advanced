@@ -369,8 +369,6 @@ final class CaptchaSegmenter {
                 return null;
             }
 
-            // ... (keep the rest of the existing for-loop exactly as it is) ...
-
             StringBuilder text = new StringBuilder();
             List<Double> confidences = new ArrayList<>();
             List<CharGuess> rawGuesses = new ArrayList<>();
