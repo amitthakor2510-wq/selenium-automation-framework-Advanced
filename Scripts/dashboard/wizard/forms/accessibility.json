@@ -1,0 +1,56 @@
+{
+  "type": "accessibility",
+  "title": "Accessibility scan (axe-core)",
+  "description": "Run the framework's axe-core accessibility suite.",
+  "target": [
+    {
+      "id": "site",
+      "label": "Site",
+      "type": "site",
+      "required": true,
+      "siteSuites": "accessibility"
+    },
+    {
+      "id": "baseUrl",
+      "label": "Base URL override",
+      "type": "url",
+      "required": false
+    },
+    {
+      "id": "browser",
+      "label": "Browser",
+      "type": "select",
+      "options": [
+        "chrome",
+        "firefox",
+        "edge"
+      ],
+      "default": "chrome"
+    },
+    {
+      "id": "headless",
+      "label": "Headless",
+      "type": "checkbox",
+      "default": true,
+      "help": "No visible browser window. Turn off only when watching the run on a desktop."
+    }
+  ],
+  "details": [
+    {
+      "id": "failOn",
+      "label": "Fail the test on impact",
+      "type": "multiselect",
+      "required": true,
+      "options": [
+        "minor",
+        "moderate",
+        "serious",
+        "critical"
+      ],
+      "default": [
+        "serious",
+        "critical"
+      ]
+    }
+  ]
+}

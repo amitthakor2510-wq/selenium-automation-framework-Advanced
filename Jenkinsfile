@@ -375,6 +375,28 @@ pipeline {
             }
         }
 
+        stage('SAST (SpotBugs + FindSecBugs)') {
+            // Static security analysis of src/main bytecode. Compiles first
+            // but never runs the suite (named execution invoked directly,
+            // like Checkstyle above). Fails the stage's result to UNSTABLE
+            // on findings at/above <spotbugs.threshold> in pom.xml (default
+            // High); the full all-severity report is archived either way.
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp compile spotbugs:check@spotbugs-check',
+                            returnStatus: true
+                    )
+                    sh 'mvn -B -ntp -Dspotbugs.threshold=Low spotbugs:spotbugs || true'
+                    archiveArtifacts artifacts: 'target/spotbugsXml.xml,target/spotbugs.html', allowEmptyArchive: true
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'SpotBugs/FindSecBugs reported findings above the threshold — see the archived report.'
+                    }
+                }
+            }
+        }
+
         stage('Unit Tests') {
             // BUG FIX: this stage didn't exist before. The "unit-tests"
             // Maven profile (pom.xml, Failsafe + junit-jupiter-engine) is
@@ -1650,7 +1672,7 @@ pipeline {
             // target/jacoco-artifacts/<key>.exec (see -Djacoco.destFile
             // above) is already on disk. Each individual branch only
             // exercises the slice of core/ its own suite touches, so
-            // checking any single one against the 50% core/ threshold in
+            // checking any single one against the 60% core/ threshold in
             // pom.xml would fail unfairly — merge them into one
             // target/jacoco.exec first, then gate on the union. Marked
             // UNSTABLE (not a hard failure) on a threshold breach, same
@@ -1681,7 +1703,7 @@ pipeline {
                     )
                     if (exitCode != 0) {
                         currentBuild.result = 'UNSTABLE'
-                        echo 'Coverage gate failed — com.automation.core.* line coverage is under the 50% threshold. See target/site/jacoco/index.html.'
+                        echo 'Coverage gate failed — com.automation.core.* line coverage is under the 60% threshold. See target/site/jacoco/index.html.'
                     }
                 }
             }

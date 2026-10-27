@@ -1,0 +1,58 @@
+{
+  "type": "crawler",
+  "title": "Site crawler (bug finder)",
+  "description": "Crawl a site from a start URL and report broken pages, console errors and accessibility issues.",
+  "target": [
+    {
+      "id": "browser",
+      "label": "Browser",
+      "type": "select",
+      "options": [
+        "chrome",
+        "firefox",
+        "edge"
+      ],
+      "default": "chrome"
+    },
+    {
+      "id": "headless",
+      "label": "Headless",
+      "type": "checkbox",
+      "default": true,
+      "help": "No visible browser window. Turn off only when watching the run on a desktop."
+    }
+  ],
+  "details": [
+    {
+      "id": "startUrl",
+      "label": "Start URL",
+      "type": "url",
+      "required": true
+    },
+    {
+      "id": "maxPages",
+      "label": "Max pages",
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "max": 500,
+      "default": 50
+    },
+    {
+      "id": "maxDepth",
+      "label": "Max depth",
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 10,
+      "default": 3
+    },
+    {
+      "id": "a11yEnabled",
+      "label": "Include accessibility scan",
+      "type": "checkbox",
+      "default": true
+    }
+  ],
+  "notes": "The crawler follows links from the start URL. Only crawl sites you own or have permission to scan."
+}

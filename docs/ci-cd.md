@@ -87,7 +87,7 @@ Mobile Test              → only runs when a mobile-<SUITE_TYPE>.xml suite exis
                            for this stage to tolerate a slower local emulator boot under
                            resource contention (Jenkins + GitLab + Appium sharing one box)
 Coverage Gate             → merges every branch's jacoco-artifacts/*.exec (jacoco:merge),
-                           then jacoco:check enforces 50% line coverage on
+                           then jacoco:check enforces 60% line coverage on
                            com.automation.core.* against the merged union — UNSTABLE on
                            breach, not a hard failure. Report published via HTML Publisher.
 Nightly Extra Coverage   → demoqa accessibility + visual suites, only on the cron trigger
@@ -243,7 +243,7 @@ mobile-test                 → separate job: enables KVM, installs Appium + uia
 coverage-gate                → downloads every jacoco-exec-* artifact from unit-tests/test/mobile-test/api-tests/perf-tests,
                               merges them (jacoco:merge@jacoco-merge — no single job
                               exercises all of core/ alone), then jacoco:check@jacoco-check
-                              enforces 50% line coverage on com.automation.core.* against
+                              enforces 60% line coverage on com.automation.core.* against
                               the union. Merged HTML report published as an artifact
 accessibility-visual-test   → nightly only (gated on the schedule trigger): demoqa
                               accessibility + visual suites
@@ -384,7 +384,7 @@ secret-scan                  → runs on every push/MR: gitleaks against the wor
                               pass across history/fixtures is triaged
 coverage-gate                → stage: report, dependencies: [unit-tests, test, mobile-test, api-tests, perf-tests] — merges
                               every target/jacoco-artifacts/*.exec (jacoco:merge@jacoco-
-                              merge), then jacoco:check@jacoco-check enforces 50% line
+                              merge), then jacoco:check@jacoco-check enforces 60% line
                               coverage on com.automation.core.* against the union. Merged
                               HTML report published as an artifact
 report                       → merges every job's Allure results into one report, publishes

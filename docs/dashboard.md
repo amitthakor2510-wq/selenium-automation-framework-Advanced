@@ -19,6 +19,7 @@
 - [📄 Raw File Viewer & CSV Export](#-raw-file-viewer--csv-export)
 - [📋 Copy Run Command](#-copy-run-command)
 - [💾 Snapshot Export/Import](#-snapshot-exportimport)
+- [🧙 Test Wizard](#-test-wizard)
 - [🚫 What It Deliberately Doesn't Do](#-what-it-deliberately-doesnt-do)
 - [🧩 How It Works](#-how-it-works)
 - [🩹 Troubleshooting](#-troubleshooting)
@@ -151,9 +152,26 @@ Every entry in an imported snapshot is validated before anything is written — 
 
 ---
 
+## 🧙 Test Wizard
+
+`/wizard` is a six-step page for people who don't write Java: **1 Test type → 2 Target → 3 Details → 4 Reports & evidence → 5 Review → 6 Run.** Types: UI (browser steps), API (REST requests), performance, site crawler, accessibility. Every field is validated live (URL, XPath/CSS locators, required fields, numeric limits) **and again on the server** when you save or run — the browser check is a convenience, never the gate.
+
+- **Templates** — save a setup on the Review step; each save is a new version (`data/templates/<name>/vNNNN.json`); load, re-run, or (lead+) delete from step 1.
+- **UI scenarios** become a keyword script + object repository + suite XML in the run's own folder and are replayed by `WizardKeywordRunTest` through the normal keyword engine. API specs become an `api-test.sh` spec; performance and accessibility pick the site's existing suite and set `perf.*` / `a11y.*`; the crawler sets `crawler.*`.
+- **Secrets never go in a spec.** Password/token fields take a reference — `${secret:NAME}` (encrypted store, admin-managed) or `${env:NAME}` (from the dashboard's environment). The save/run validators reject anything that looks like a literal credential. A secret store needs `pip install cryptography` and `DASHBOARD_SECRET_KEY` (a Fernet key); without them it stays disabled (fails closed) and `${env:…}` still works.
+- **Running is OFF by default.** Set `DASHBOARD_RUNNER_ENABLED=1` to allow *Run now*. The runner can execute only the commands in `runner/allowlist.py` — fixed programs, `-Dkey=value` arguments whose key is on a per-type list and whose value matches a strict pattern, no shell. Runs are queued (FIFO, **one at a time** by default — they share the repo's `target/`; `DASHBOARD_MAX_PARALLEL` raises it), time-limited, cancellable, get a clean environment (only `PATH`, `HOME`, … plus the secrets/env vars the spec names), and keep the newest 30 runs / 14 days under `data/runs/<id>/` (`spec.json`, `properties.generated`, `status.json`, `run.log`, `summary.html`, report zips).
+- **CI trigger** (lead+) starts the repo's own GitHub Actions / GitLab / Jenkins pipeline with suite type, browser and headless. Configure with `DASHBOARD_CI_*` environment variables (see `runner/ci_trigger.py`). It can't ship a wizard-built scenario to CI — that only exists on this machine.
+- **Accounts & roles** — create `tester` / `lead` / `admin` users with `python3 Scripts/dashboard/auth/users.py add NAME ROLE`. Once `auth/users.json` exists, per-user logins are required (plus the old shared `dashboard` login, which counts as admin) and the existing site/test toggles need `lead`. Testers can build, save and run; leads can also delete templates, cancel anyone's run and trigger CI; admins manage secrets.
+- **Audit** — spec saves, run starts/cancels, CI triggers and secret changes (names only, never values) are logged to `target/dashboard-wizard-audit.jsonl`, separate from the config log so *Undo last change* is unaffected.
+- **Viewing results** — the run page shows live status and log; each run has a `summary.html` and a zip per report folder. Allure/Extent reports are offered as zips because the console's strict CSP (no inline scripts) would break them if served inline.
+
+Tests: `python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashboard` (also run in CI).
+
+---
+
 ## 🚫 What It Deliberately Doesn't Do
 
-**There is no "Run tests" button.** The dashboard only ever reads `target/` and edits the two properties files — it never shells out to Maven, git, or anything else, and it never executes anything the browser sends it (see `dashboard_server.py`'s module docstring). Running `mvn test` from a web request is a materially different security posture than editing two config files — arbitrary-ish command execution reachable over a network, versus a handful of regex-validated property writes — and the second one is what this tool commits to. Kick off the actual run yourself (`mvn test ...`, a CI pipeline, Jenkins) after toggling what you want; hit **Refresh** once it finishes.
+**By default there is no "Run tests" button.** The original dashboard only reads `target/` and edits the two properties files — it never shells out to Maven, git, or anything else, and it never executes anything the browser sends it (see `dashboard_server.py`'s module docstring). Running `mvn test` from a web request is a materially different security posture than editing two config files. The [🧙 Test Wizard](#-test-wizard) can change that, but only if you set `DASHBOARD_RUNNER_ENABLED=1` yourself, and then only through the fixed allowlist described above. Leave it unset and nothing here can run a process; kick off runs yourself (`mvn test ...`, a CI pipeline, Jenkins) and hit **Refresh**. Whatever you choose, keep the dashboard on loopback or behind a tunnel with a strong password — see [🔐 Authentication](#-authentication).
 
 ---
 

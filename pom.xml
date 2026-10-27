@@ -115,7 +115,7 @@
          Scripts/coverage-headroom.py parse it from here, so the dashboard tile
          and the gate can never disagree). Override one-off without editing:
          -Djacoco.core.minLineCoverage=0.40 -->
-    <jacoco.core.minLineCoverage>0.50</jacoco.core.minLineCoverage>
+    <jacoco.core.minLineCoverage>0.60</jacoco.core.minLineCoverage>
 
     <!-- WireMock — offline API mocking (see core/mock/WireMockManager.java,
          src/test/resources/wiremock/, docs/api-mocking.md). Off by default so
@@ -200,6 +200,16 @@
          with long Mozilla bugzilla reference URLs (e.g. CVE-2026-6785/
          6786) on 10.0.4. -->
     <dependency-check.version>13.0.0</dependency-check.version>
+
+    <!-- SAST: SpotBugs + FindSecBugs (security rules). Bump together with care —
+         findsecbugs-plugin must be compatible with the SpotBugs engine version the
+         maven plugin bundles. spotbugs.threshold is what fails the build:
+         High = only high-confidence findings (initial, low-noise setting); lower to
+         Medium once the baseline is clean (see docs/reports-and-quality.md). One-off:
+         -Dspotbugs.threshold=Medium -->
+    <spotbugs-maven-plugin.version>4.8.6.6</spotbugs-maven-plugin.version>
+    <findsecbugs-plugin.version>1.13.0</findsecbugs-plugin.version>
+    <spotbugs.threshold>High</spotbugs.threshold>
 
     <!-- JUnit 5 — used ONLY for the small set of fast, WebDriver-free unit
          tests under src/test/java/com/automation/core/data/** (DataRow,
@@ -1110,6 +1120,46 @@
         </executions>
       </plugin>
 
+      <!-- SpotBugs + FindSecBugs — static application security testing (SAST) on
+           src/main (core/, page objects, mobile). Same shape as checkstyle above:
+           bound to verify, and CI invokes the named execution directly so it never
+           re-runs the test suite:
+             mvn -B compile spotbugs:check@spotbugs-check
+           Reports: target/spotbugsXml.xml (+ target/spotbugs.html via spotbugs:spotbugs).
+           failThreshold comes from <spotbugs.threshold> (default High). Test sources
+           are not scanned (includeTests=false): test code legitimately holds fixture
+           credentials/URLs that FindSecBugs would flag. Known-noisy patterns live in
+           spotbugs-exclude.xml, each with the reason. -->
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${spotbugs-maven-plugin.version}</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>${spotbugs.threshold}</threshold>
+          <failOnError>true</failOnError>
+          <includeTests>false</includeTests>
+          <xmlOutput>true</xmlOutput>
+          <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+          <plugins>
+            <plugin>
+              <groupId>com.h3xstream.findsecbugs</groupId>
+              <artifactId>findsecbugs-plugin</artifactId>
+              <version>${findsecbugs-plugin.version}</version>
+            </plugin>
+          </plugins>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotbugs-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- Javadoc — deliberately declared with NO <executions>, so it is not
            bound to any lifecycle phase: `mvn test`/`mvn verify` (CI included)
            are completely unaffected, same opt-in spirit as the perf/security/
@@ -1506,7 +1556,7 @@
            @{jacocoArgLine}, writing to -Djacoco.destFile (CI points that at
            target/jacoco-artifacts/unit.exec, same convention as every other
            job), and (2) only the per-job `jacoco-check` execution is skipped,
-           because the 50% threshold applies to the MERGED union, never to the
+           because the 60% threshold applies to the MERGED union, never to the
            unit-test slice alone. -->
       <properties>
         <checkstyle.skip>true</checkstyle.skip>

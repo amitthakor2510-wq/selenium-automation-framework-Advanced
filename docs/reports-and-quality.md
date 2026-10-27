@@ -83,7 +83,7 @@ things are true at once here:
    goes further than just the segmented Allure links — it's the framework's
    unified test-health dashboard, one bookmarkable page combining: the
    Allure/Extent report links above, **Coverage** (line % on `core/.*`
-   against the 50% gate, from `../.github/workflows/scripts/compute_coverage_summary.py`), **Test Impact
+   against the 60% gate, from `../.github/workflows/scripts/compute_coverage_summary.py`), **Test Impact
    Analysis** (selected/total test classes on PR runs, from `ReportWriter`'s
    `impact-summary.json`), **Self-Healing Locators** (this run's drifted-and-
    recovered locators, from `compute_self_healing_summary.py`), **Flaky Test
@@ -252,7 +252,7 @@ open target/site/jacoco/index.html   # macOS
 
 ### Coverage gate (CI)
 
-`mvn test` alone still only *reports* coverage — informational, not a gate. The actual gate is a `jacoco:check` execution (`com.automation.core.*`, 50% minimum line coverage) that CI invokes directly as `jacoco:check@jacoco-check`, after first merging every job/branch's `jacoco.exec` via `jacoco:merge@jacoco-merge`. The merge step exists because no single job exercises all of core/ — the demoqa job never touches `AccessibilityUtils`, the mobile job never touches the browser `DriverFactory` path, and so on — so checking any one job alone against a 50% threshold would fail unfairly.
+`mvn test` alone still only *reports* coverage — informational, not a gate. The actual gate is a `jacoco:check` execution (`com.automation.core.*`, 60% minimum line coverage) that CI invokes directly as `jacoco:check@jacoco-check`, after first merging every job/branch's `jacoco.exec` via `jacoco:merge@jacoco-merge`. The merge step exists because no single job exercises all of core/ — the demoqa job never touches `AccessibilityUtils`, the mobile job never touches the browser `DriverFactory` path, and so on — so checking any one job alone against a 60% threshold would fail unfairly.
 
 | Pipeline | Where it runs | On breach |
 |---|---|---|
@@ -262,9 +262,9 @@ open target/site/jacoco/index.html   # macOS
 
 All three merge the same set of inputs — the JUnit 5 `unit.exec`, every UI site's `.exec`, the mobile `.exec`, each `<site>-api.exec`, and (nightly only) each `<site>-perf.exec` — so the union, and therefore the pass/fail result, is the same on every pipeline.
 
-The `unit.exec` input comes from `mvn verify -Punit-tests`: that profile attaches the JaCoCo agent to Failsafe (it only skips the per-job `jacoco-check`, since the 50% threshold applies to the merged union, never to one slice). The JUnit 5 classes cover `core/tia`, `core/data`, `core/keyword` and part of `core/utils` — code no browser or API suite touches. Run it locally with `mvn -B verify -Punit-tests -Djacoco.destFile=target/jacoco-raw/unit.exec`.
+The `unit.exec` input comes from `mvn verify -Punit-tests`: that profile attaches the JaCoCo agent to Failsafe (it only skips the per-job `jacoco-check`, since the 60% threshold applies to the merged union, never to one slice). The JUnit 5 classes cover `core/tia`, `core/data`, `core/keyword` and part of `core/utils` — code no browser or API suite touches. Run it locally with `mvn -B verify -Punit-tests -Djacoco.destFile=target/jacoco-raw/unit.exec`.
 
-The threshold is a single Maven property, `<jacoco.core.minLineCoverage>` in `pom.xml` (default `0.50`); the gate, the dashboard's coverage tile and the helper below all read it. Override once without editing with `-Djacoco.core.minLineCoverage=0.40`.
+The threshold is a single Maven property, `<jacoco.core.minLineCoverage>` in `pom.xml` (default `0.60`); the gate, the dashboard's coverage tile and the helper below all read it. Override once without editing with `-Djacoco.core.minLineCoverage=0.40`.
 
 To check how much headroom you have before CI tells you, after a merge + report (`mvn jacoco:merge@jacoco-merge jacoco:report@jacoco-report`) run:
 
@@ -316,3 +316,16 @@ All three pipelines now run Checkstyle on every push/PR/build, invoking the name
 <sub>⬆️ <a href="#-reports--code-quality">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
 
 </div>
+
+---
+
+## 🔒 SAST — SpotBugs + FindSecBugs
+
+Static application security testing of `src/main` (core/, page objects, mobile). SpotBugs finds bug patterns in the compiled bytecode; the FindSecBugs plugin adds the security rules (injection, weak crypto, hardcoded credentials, path traversal, insecure randomness and so on).
+
+- **Config:** `spotbugs-maven-plugin` in `pom.xml` (execution `spotbugs-check`, bound to `verify`), exclusions in `spotbugs-exclude.xml` (each entry has a reason).
+- **Run locally:** `mvn compile spotbugs:check@spotbugs-check` (no tests run). Full all-severity report: `mvn -Dspotbugs.threshold=Low spotbugs:spotbugs` → `target/spotbugsXml.xml`, `target/spotbugs.html`.
+- **Threshold:** `<spotbugs.threshold>` in `pom.xml`, default `High` (high-confidence findings fail the build). Lower it to `Medium` once the baseline is clean, or override once with `-Dspotbugs.threshold=Medium`.
+- **CI:** `sast` job (GitHub Actions / GitLab CI) and `SAST` stage (Jenkins, marks the build UNSTABLE). The full report is uploaded as the `sast-spotbugs-report` artifact either way.
+- **Suppressing a finding:** fix it, or suppress that one class/method with `@SuppressFBWarnings(value = "PATTERN", justification = "...")`. Do not add broad security patterns to `spotbugs-exclude.xml`.
+

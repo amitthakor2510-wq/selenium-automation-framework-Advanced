@@ -1940,49 +1940,37 @@ jobs:
         continue-on-error: true
         run: bash Scripts/ensure-allure-categories.sh target/allure-results
 
-      # NEITHER released tag of this action currently works — pinned to
-      # a specific master commit instead. History, so nobody "fixes"
-      # this back to a tag without re-reading it first:
-      #
-      #   @v1.13 — upstream PR #69 ("Updated docker image and workflows")
-      #     moved the Docker base image to amazoncorretto:8 but only
-      #     `yum install`s tar/wget/gzip, not findutils. `allure generate`
-      #     shells out through `xargs` internally, so the container fails
-      #     at runtime with "xargs is not available" and never writes
-      #     target/allure-report (the `cp: cannot stat
-      #     './target/allure-report/...'` errors are just the downstream
-      #     symptom of that, not a second bug).
-      #
-      #   @v1.12 — predates that image change, so no xargs problem, BUT
-      #     its Dockerfile is `FROM openjdk:8-jre-alpine`. Docker Hub
-      #     deprecated the whole `openjdk` official-image repo in July
-      #     2022, and that specific tag is no longer pullable at all —
-      #     `docker build` for this action now fails outright ("Docker
-      #     build failed with exit code 1") before the action ever runs.
-      #     This isn't a transient registry hiccup; the tag is gone.
-      #
-      #   master (commit 385367c, unreleased) — already carries the fix
-      #     for both: same amazoncorretto:8 base as v1.13, but
-      #     `yum install`s findutils too (diff'd entrypoint.sh/action.yml
-      #     against v1.13: identical — only the Dockerfile changed).
-      #     Pinned to this exact commit SHA (not the `master` branch
-      #     name, which is mutable and could move again without notice)
-      #     since there's no tagged release with this fix yet. Re-check
-      #     upstream for a new tag past v1.13 that includes this same
-      #     Dockerfile before switching off the SHA pin.
+      # Allure CLI is installed directly instead of via
+      # simple-elf/allure-report-action. That action is a Docker container
+      # action, so every run rebuilt its Dockerfile and pulled
+      # public.ecr.aws/amazoncorretto/amazoncorretto:8 — which ECR Public
+      # rate-limits (HTTP 429 "toomanyrequests: Data limit exceeded") on
+      # shared GitHub-hosted runner IPs, failing this job before any
+      # report was generated. The action was only used to run
+      # `allure generate`; trend history is already seeded into
+      # target/allure-results/history by the "Copy Previous History" step
+      # above, and retention is handled by gh-pages-retention.yml plus the
+      # orphan-commit publish below — so nothing it did is lost.
+      # Version matches <allure.version> in pom.xml. ubuntu-latest ships
+      # a JDK, which the Allure CLI needs.
+      - name: Install Allure CLI
+        env:
+          ALLURE_VERSION: "2.27.0"
+        run: |
+          set -euo pipefail
+          url="https://repo1.maven.org/maven2/io/qameta/allure/allure-commandline/${ALLURE_VERSION}/allure-commandline-${ALLURE_VERSION}.zip"
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o /tmp/allure.zip "$url"
+          sudo unzip -q /tmp/allure.zip -d /opt
+          echo "/opt/allure-${ALLURE_VERSION}/bin" >> "$GITHUB_PATH"
+
       - name: Generate Allure Report
-        uses: simple-elf/allure-report-action@385367cde61ac68c2568a117f7579f7f148dc459
-        with:
-          allure_results: target/allure-results
-          allure_report: target/allure-report
-          allure_history: allure-history
-          keep_reports: 20
+        run: allure generate target/allure-results --clean -o target/allure-report
 
       # Builds the browser-wise/site-wise/test-type-wise/category-wise Allure
       # reports alongside the combined one generated just above — see
       # .github/workflows/scripts/generate_segmented_reports.py's own docstring for why a
       # single merged report isn't enough to tell tests apart at a glance.
-      # --skip-combined since simple-elf/allure-report-action already built
+      # --skip-combined since the "Generate Allure Report" step above already built
       # target/allure-report from the same target/allure-results.
       # --landing-page "" since generate_landing_page.py (next job) already
       # builds a richer landing page for GitHub Pages (self-healing/flaky

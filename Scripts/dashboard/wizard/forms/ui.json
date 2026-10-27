@@ -1,0 +1,223 @@
+{
+  "type": "ui",
+  "title": "UI test (browser)",
+  "description": "Build a browser scenario step by step. It runs through the framework's keyword engine \u2014 no Java.",
+  "target": [
+    {
+      "id": "site",
+      "label": "Site",
+      "type": "site",
+      "required": true,
+      "help": "Which configured site (pipeline-config.properties) the run targets."
+    },
+    {
+      "id": "baseUrl",
+      "label": "Base URL override",
+      "type": "url",
+      "required": false,
+      "help": "Leave empty to use the site's own URL."
+    },
+    {
+      "id": "browser",
+      "label": "Browser",
+      "type": "select",
+      "options": [
+        "chrome",
+        "firefox",
+        "edge"
+      ],
+      "default": "chrome"
+    },
+    {
+      "id": "headless",
+      "label": "Headless",
+      "type": "checkbox",
+      "default": true,
+      "help": "No visible browser window. Turn off only when watching the run on a desktop."
+    },
+    {
+      "id": "retryCount",
+      "label": "Retries for failed tests",
+      "type": "integer",
+      "min": 0,
+      "max": 5,
+      "default": 0
+    }
+  ],
+  "details": [
+    {
+      "id": "scenarioName",
+      "label": "Scenario name",
+      "type": "text",
+      "required": true,
+      "pattern": "^[A-Za-z][A-Za-z0-9_ -]{2,59}$",
+      "help": "3-60 characters: letters, digits, space, - and _."
+    },
+    {
+      "id": "steps",
+      "label": "Steps",
+      "type": "steps",
+      "required": true,
+      "min": 1,
+      "max": 100,
+      "help": "Locators look like id:user-name, css:.btn, xpath://button[@type='submit']. For passwords use ${secret:NAME} or ${env:NAME}, never the value itself."
+    }
+  ],
+  "stepKeywords": {
+    "NAVIGATE": {
+      "locator": "no",
+      "data": "req",
+      "expected": "no"
+    },
+    "CLICK": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "DOUBLE_CLICK": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "RIGHT_CLICK": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "TYPE": {
+      "locator": "req",
+      "data": "req",
+      "expected": "no"
+    },
+    "SET_TEXT": {
+      "locator": "req",
+      "data": "req",
+      "expected": "no"
+    },
+    "CLEAR": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "SELECT_BY_TEXT": {
+      "locator": "req",
+      "data": "req",
+      "expected": "no"
+    },
+    "SELECT_BY_VALUE": {
+      "locator": "req",
+      "data": "req",
+      "expected": "no"
+    },
+    "SELECT_BY_INDEX": {
+      "locator": "req",
+      "data": "req",
+      "expected": "no",
+      "dataType": "integer"
+    },
+    "CHECK": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "UNCHECK": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "HOVER": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "SCROLL_TO": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "PRESS_KEY": {
+      "locator": "opt",
+      "data": "req",
+      "expected": "no"
+    },
+    "WAIT_SECONDS": {
+      "locator": "no",
+      "data": "req",
+      "expected": "no",
+      "dataType": "number"
+    },
+    "WAIT_FOR_PAGE_LOAD": {
+      "locator": "no",
+      "data": "opt",
+      "expected": "no",
+      "dataType": "number"
+    },
+    "WAIT_FOR_VISIBLE": {
+      "locator": "req",
+      "data": "opt",
+      "expected": "no",
+      "dataType": "number"
+    },
+    "WAIT_FOR_NOT_VISIBLE": {
+      "locator": "req",
+      "data": "opt",
+      "expected": "no",
+      "dataType": "number"
+    },
+    "VERIFY_TEXT": {
+      "locator": "req",
+      "data": "no",
+      "expected": "req"
+    },
+    "VERIFY_DISPLAYED": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "VERIFY_NOT_DISPLAYED": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "VERIFY_URL_CONTAINS": {
+      "locator": "no",
+      "data": "no",
+      "expected": "req"
+    },
+    "VERIFY_TITLE_CONTAINS": {
+      "locator": "no",
+      "data": "no",
+      "expected": "req"
+    },
+    "SWITCH_TO_FRAME": {
+      "locator": "req",
+      "data": "no",
+      "expected": "no"
+    },
+    "SWITCH_TO_DEFAULT_CONTENT": {
+      "locator": "no",
+      "data": "no",
+      "expected": "no"
+    },
+    "ACCEPT_ALERT": {
+      "locator": "no",
+      "data": "no",
+      "expected": "no"
+    },
+    "DISMISS_ALERT": {
+      "locator": "no",
+      "data": "no",
+      "expected": "no"
+    }
+  },
+  "locatorTypes": [
+    "id",
+    "name",
+    "css",
+    "xpath",
+    "class",
+    "linktext",
+    "partiallinktext",
+    "tag"
+  ]
+}

@@ -36,6 +36,12 @@ enable/disable of a whole test section in one write, a Groups panel,
 a read-only raw-file viewer, and an audit log of every dashboard-made
 change with an "undo last change" action. See docs/dashboard.md.
 
+TEST WIZARD (added later, opt-in): /wizard builds test specs, saves templates, and — only when
+DASHBOARD_RUNNER_ENABLED=1 — starts runs through runner/allowlist.py, which can execute nothing but
+a few fixed commands with validated arguments (no shell, no free-form input). The "never runs a
+subprocess" guarantee above therefore holds in the default configuration and is a deliberate,
+documented switch otherwise. See docs/dashboard.md.
+
 Auth: HTTP Basic, username "dashboard", password from the
 DASHBOARD_PASSWORD environment variable. If that variable is unset, the
 server generates a random one-time password and prints it to stdout at
@@ -64,6 +70,8 @@ import presets as ps  # noqa: E402
 import results as res  # noqa: E402
 import snapshot as snap  # noqa: E402
 import suites as su  # noqa: E402
+from auth import users as auth_users  # noqa: E402
+from wizard.api import WizardApi  # noqa: E402
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SUITES_DIR = os.path.join(REPO_ROOT, "testng-suites")
@@ -109,7 +117,7 @@ _SECURITY_HEADERS = (
 _MAX_BODY_BYTES = 1_000_000
 
 
-def make_handler(password):
+def make_handler(password, wizard=None):
     expected_header = "Basic " + base64.b64encode(f"dashboard:{password}".encode("utf-8")).decode("ascii")
 
     class Handler(BaseHTTPRequestHandler):
@@ -129,18 +137,31 @@ def make_handler(password):
             if _rate_limited(self.client_address[0]):
                 return False
             given = self.headers.get("Authorization", "")
+            self.user = None
             # hmac.compare_digest: constant-time, avoids leaking the
             # password's length/prefix through response-timing.
-            ok = hmac.compare_digest(given.encode("utf-8"), expected_header.encode("utf-8"))
+            if hmac.compare_digest(given.encode("utf-8"), expected_header.encode("utf-8")):
+                # the original shared login keeps working and is an admin
+                self.user = {"name": auth_users.LEGACY_USER, "role": "admin"}
+                return True
+            if given.startswith("Basic ") and auth_users.per_user_mode():
+                try:
+                    name, _, pw = base64.b64decode(given[6:], validate=True).decode("utf-8").partition(":")
+                except (ValueError, UnicodeDecodeError):
+                    name, pw = "", ""
+                role = auth_users.verify(name, pw) if name and name != auth_users.LEGACY_USER else None
+                if role:
+                    self.user = {"name": name, "role": role}
+                    return True
             # Only a request that actually SENT credentials counts as a failed
             # attempt. Every browser's first request, and the Docker
             # healthcheck, arrive with no Authorization header at all (that is
             # how Basic auth's challenge round works) — counting those would
             # burn the 10-per-minute budget on ordinary page loads and lock
             # out the real user (all ngrok/ssh-tunnel traffic shares one IP).
-            if not ok and given:
+            if given:
                 _record_failed_auth(self.client_address[0])
-            return ok
+            return False
 
         def _require_auth(self):
             if self._authorized():
@@ -204,6 +225,35 @@ def make_handler(password):
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_file(self, full, mime, disposition="inline"):
+            with open(full, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Disposition", f'{disposition}; filename="{os.path.basename(full)}"')
+            self.send_header("Cache-Control", "no-store")
+            self._security_headers()
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _wizard(self, method, parsed, body):
+            """Forward /wizard, /wizard/static/*, /api/wizard/*, /api/templates*, /api/runs*, /api/ci/*, /api/secrets*."""
+            if wizard is None:
+                return False
+            p = parsed.path
+            if not (p.startswith(("/wizard", "/api/wizard/", "/api/templates", "/api/runs", "/api/ci/", "/api/secrets"))):
+                return False
+            result = wizard.handle(method, p, parse_qs(parsed.query), body, self.user)
+            if result[0] == "page":
+                ext = os.path.splitext(result[1])[1]
+                self._send_file(result[1], _STATIC_MIME.get(ext, "application/octet-stream"))
+            elif result[0] == "file":
+                self._send_file(result[1], result[2], result[3])
+            else:
+                self._send_json(result[0], result[1])
+            return True
+
         # ── routing ─────────────────────────────────────────────
         def do_GET(self):
             if not self._require_auth():
@@ -211,6 +261,8 @@ def make_handler(password):
             parsed = urlparse(self.path)
             path = parsed.path
             try:
+                if self._wizard("GET", parsed, {}):
+                    return
                 if path == "/api/health":
                     self._send_json(200, {"status": "ok", "repo_root": REPO_ROOT})
                 elif path == "/api/pipeline-config":
@@ -250,7 +302,7 @@ def make_handler(password):
 
         def _audit(self, action, target, field, old_value, new_value):
             try:
-                audit.record(REPO_ROOT, actor=self.client_address[0], action=action,
+                audit.record(REPO_ROOT, actor=f"{self.user['name']}@{self.client_address[0]}", action=action,
                              target=target, field=field, old_value=old_value, new_value=new_value)
             except OSError as e:
                 # The config write already succeeded by the time this runs —
@@ -288,9 +340,15 @@ def make_handler(password):
             if not self._csrf_ok():
                 self._send_json(403, {"error": "POST requests must be same-origin with Content-Type: application/json"})
                 return
-            path = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            path = parsed.path
             body = self._read_json_body()
             try:
+                if self._wizard("POST", parsed, body):
+                    return
+                if auth_users.per_user_mode() and not auth_users.allowed(self.user["role"], "config.edit"):
+                    self._send_json(403, {"error": f"your role ({self.user['role']}) can't change the test configuration"})
+                    return
                 if path == "/api/pipeline-config/site":
                     name, enabled = body.get("name"), bool(body.get("enabled"))
                     before = cf.PropertiesFile(PIPELINE_CONFIG).get(f"site.{name}.enabled")
@@ -429,15 +487,21 @@ def main():
     args = parser.parse_args()
 
     password, generated = _resolve_password()
-    handler = make_handler(password)
+    wizard = WizardApi(REPO_ROOT, PIPELINE_CONFIG, SUITES_DIR)
+    handler = make_handler(password, wizard)
     httpd = ThreadingHTTPServer((args.host, args.port), handler)
 
+    from runner import runner_service
     banner_lines = [
         "Selenium Automation Framework — Dashboard",
         f"  Repo root : {REPO_ROOT}",
         f"  Listening : http://{args.host}:{args.port}  (open http://localhost:{args.port} locally)",
         "  Username  : dashboard",
+        f"  Test wizard: http://localhost:{args.port}/wizard  (running tests from it: "
+        + ("ON" if runner_service.enabled() else "off — set DASHBOARD_RUNNER_ENABLED=1") + ")",
     ]
+    if auth_users.per_user_mode():
+        banner_lines.append(f"  Accounts  : per-user logins from {auth_users.users_path()} (plus the shared 'dashboard' admin)")
     if generated:
         banner_lines += [
             f"  Password  : {password}   <-- generated (set DASHBOARD_PASSWORD to fix this)",

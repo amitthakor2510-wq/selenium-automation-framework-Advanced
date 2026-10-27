@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Coverage-gate headroom check — answers "is the 50% com.automation.core.*
+Coverage-gate headroom check — answers "is the 60% com.automation.core.*
 threshold actually achievable with today's tests, and by how much?" without
 waiting for a CI run to go red.
 
@@ -38,9 +38,9 @@ def pom_threshold_pct():
     try:
         text = open(POM, encoding="utf-8").read()
     except OSError:
-        return 50.0
+        return 60.0
     m = re.search(r"<jacoco\.core\.minLineCoverage>\s*([0-9.]+)\s*</jacoco\.core\.minLineCoverage>", text)
-    return round(float(m.group(1)) * 100.0, 2) if m else 50.0
+    return round(float(m.group(1)) * 100.0, 2) if m else 60.0
 
 
 def main():

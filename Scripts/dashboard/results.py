@@ -86,7 +86,7 @@ def coverage_summary(repo_root):
         return None
     pct = round(100.0 * covered / total, 2)
     return {"line_covered": covered, "line_missed": missed, "line_total": total,
-            "line_pct": pct, "threshold_pct": 50.0, "passed": pct >= 50.0,
+            "line_pct": pct, "threshold_pct": 60.0, "passed": pct >= 60.0,
             "scope": "com.automation.core.*", "source": "jacoco.xml (local fallback)"}
 
 

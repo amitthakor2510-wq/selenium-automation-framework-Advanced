@@ -51,6 +51,8 @@
 | 📈 **Reporting** | Allure (interactive) + Extent (self-contained HTML) + optional PDF summary ([PDF_REPORT.md](PDF_REPORT.md)) |
 | 📊 **Code Coverage** | JaCoCo — HTML report at `target/site/jacoco/index.html` on every `mvn test` |
 | 🧹 **Code Quality Gate** | Checkstyle (`checkstyle.xml`) — opt-in via `mvn verify` |
+| 🔒 **SAST** | SpotBugs + FindSecBugs (`spotbugs-exclude.xml`) — `mvn compile spotbugs:check@spotbugs-check`, `sast` CI job |
+| 🧙 **Test Wizard** | No-code UI/API/perf/crawler/accessibility test builder, templates, optional run-from-dashboard — `/wizard` in the dashboard, see [docs/dashboard.md](docs/dashboard.md#-test-wizard) |
 | 🔒 **Dependency Vulnerability Scan** | OWASP Dependency-Check — opt-in `mvn verify -Psecurity`, HTML+JSON report at `target/dependency-check-report.html`. Report-only by default (`failBuildOnCVSS=11`); pass `-DfailBuildOnCVSS=7` to gate a build on High/Critical CVEs once the team's ready to enforce it |
 | 🔁 **Resilience** | Auto-retry on failure (`RetryAnalyzer`), human-like pacing, auto screenshot, page-source dump on locator failure, self-healing locators (`SelfHealingEngine` — automatic DOM-similarity recovery on every page object with an opt-in visual/screenshot-hash fallback, `SmartLocator` for explicit hand-picked fallbacks) |
 | 🐳 **Local Grid** | `docker-compose.yml` — Selenium Hub + Chrome/Firefox/Edge nodes with live noVNC viewing |
@@ -133,6 +135,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | Lombok | 1.18.48 | Boilerplate reduction (`@Getter` etc.) on select POJOs |
 | JaCoCo | 0.8.15 | Code coverage instrumentation + HTML report |
 | Checkstyle | 3.5.0 (plugin) | Static analysis quality gate, opt-in via `mvn verify` |
+| SpotBugs + FindSecBugs | 4.8.6.6 (plugin) / 1.13.0 | SAST security gate, opt-in via `mvn verify` |
 | WebDriverManager | 6.4.0 | Automatic browser driver download/version match |
 | Docker / Selenium Grid | 4.49.0 images | Optional containerized Chrome/Firefox/Edge nodes |
 | Jenkins | Latest | CI/CD pipeline (local or server) |

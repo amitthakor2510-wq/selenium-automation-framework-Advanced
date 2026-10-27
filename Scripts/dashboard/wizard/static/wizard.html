@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Test Wizard — Automation Console</title>
+<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/wizard/static/wizard.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <span class="brand-name">Test Wizard</span>
+          <span class="brand-sub">Build, save and run a test without writing code</span>
+        </div>
+      </div>
+      <div class="topbar-status">
+        <span id="whoami" class="pill pill-muted">…</span>
+        <a class="btn btn-ghost" href="/">← Console</a>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <ol id="stepper" class="stepper" aria-label="Wizard steps"></ol>
+    <div id="banner" class="wz-banner" hidden></div>
+    <section class="panel panel-wide wz-panel">
+      <div class="panel-head"><h2 id="stepTitle"></h2><p id="stepSub" class="panel-sub"></p></div>
+      <div id="stepBody" class="wz-body"></div>
+      <div id="errorSummary" class="wz-errors" role="alert" hidden></div>
+      <div class="wz-nav">
+        <button id="backBtn" class="btn btn-ghost" type="button">Back</button>
+        <button id="nextBtn" class="btn btn-primary" type="button">Next</button>
+      </div>
+    </section>
+  </main>
+  <script src="/wizard/static/wizard.js"></script>
+</body>
+</html>

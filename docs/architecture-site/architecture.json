@@ -1272,7 +1272,7 @@
         },
         {
           "t": "Coverage",
-          "d": "JaCoCo needs 50% core coverage"
+          "d": "JaCoCo needs 60% core coverage"
         },
         {
           "t": "Report",

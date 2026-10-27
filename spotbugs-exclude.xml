@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusion filter — used by the spotbugs-maven-plugin in pom.xml.
+  Only add an entry here with a reason; security (FindSecBugs) patterns should
+  be fixed or narrowly suppressed per class/method, not excluded wholesale.
+-->
+<FindBugsFilter>
+
+  <!-- Page objects and config holders deliberately hold/return references to
+       WebDriver, WebElement and shared collections. EI_EXPOSE_REP / _REP2 are
+       "mutable object exposed" style warnings with no security impact here and
+       would flag nearly every class in the framework. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
+
+  <!-- Singleton/static-state style helpers (DriverFactory, ThreadLocal holders)
+       are intentional in a TestNG parallel framework. -->
+  <Match>
+    <Bug pattern="MS_EXPOSE_REP"/>
+  </Match>
+
+</FindBugsFilter>

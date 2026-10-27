@@ -1,0 +1,67 @@
+{
+  "type": "api",
+  "title": "API test (REST)",
+  "description": "Describe requests and expected responses. Runs through Scripts/api-test.sh.",
+  "target": [
+    {
+      "id": "baseUrl",
+      "label": "Base URL",
+      "type": "url",
+      "required": true,
+      "help": "e.g. https://jsonplaceholder.typicode.com"
+    },
+    {
+      "id": "authType",
+      "label": "Authentication",
+      "type": "select",
+      "options": [
+        "none",
+        "bearer"
+      ],
+      "default": "none"
+    },
+    {
+      "id": "authToken",
+      "label": "Bearer token reference",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "bearer"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}. Never paste the token."
+    },
+    {
+      "id": "maxTimeMs",
+      "label": "Fail responses slower than (ms)",
+      "type": "integer",
+      "min": 0,
+      "max": 120000,
+      "default": 5000
+    }
+  ],
+  "details": [
+    {
+      "id": "suiteName",
+      "label": "Suite name",
+      "type": "text",
+      "required": true,
+      "pattern": "^[A-Za-z][A-Za-z0-9_ -]{2,59}$"
+    },
+    {
+      "id": "requests",
+      "label": "Requests",
+      "type": "requests",
+      "required": true,
+      "min": 1,
+      "max": 100,
+      "help": "Each request: method, path, expected status, optional JSON body, optional text the response must contain."
+    }
+  ],
+  "methods": [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE"
+  ]
+}

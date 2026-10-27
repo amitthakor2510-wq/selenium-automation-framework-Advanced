@@ -28,11 +28,15 @@ MAX_ENTRIES = 200  # oldest entries are dropped once the log passes this size
 _lock = threading.Lock()
 
 
-def _log_path(repo_root):
-    return os.path.join(repo_root, "target", "dashboard-audit.jsonl")
+def _log_path(repo_root, channel="config"):
+    """channel="config" is the original log behind "Recent changes" / "Undo last change".
+    Other channels (e.g. "wizard": spec saves, run starts, CI triggers) get their own file so
+    their entries can never become the "last change" that Undo then refuses to revert."""
+    name = "dashboard-audit.jsonl" if channel == "config" else f"dashboard-{channel}-audit.jsonl"
+    return os.path.join(repo_root, "target", name)
 
 
-def record(repo_root, *, actor, action, target, field, old_value, new_value):
+def record(repo_root, *, actor, action, target, field, old_value, new_value, channel="config"):
     """
     actor: client IP (all this tool can identify a person by — there's no
            login system, see dashboard_server.py's auth model)
@@ -48,7 +52,7 @@ def record(repo_root, *, actor, action, target, field, old_value, new_value):
         "old_value": old_value,
         "new_value": new_value,
     }
-    path = _log_path(repo_root)
+    path = _log_path(repo_root, channel)
     with _lock:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         lines = []
@@ -62,9 +66,9 @@ def record(repo_root, *, actor, action, target, field, old_value, new_value):
     return entry
 
 
-def recent(repo_root, limit=50):
+def recent(repo_root, limit=50, channel="config"):
     """Newest first."""
-    path = _log_path(repo_root)
+    path = _log_path(repo_root, channel)
     if not os.path.exists(path):
         return []
     with open(path, encoding="utf-8") as f:
