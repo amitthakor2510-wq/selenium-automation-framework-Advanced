@@ -56,6 +56,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -111,6 +112,9 @@ def fetch_grid_state(hub_url, timeout=10):
     unreachable (mid-restart, host under load) should make this poll a
     no-op, not crash the daemon loop."""
     url = hub_url.rstrip("/") + "/graphql"
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        log(f"WARNING: grid URL must be http(s), got: {url}")
+        return None
     payload = json.dumps({"query": GRAPHQL_QUERY}).encode("utf-8")
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
     try:

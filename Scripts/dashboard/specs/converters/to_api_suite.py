@@ -1,7 +1,6 @@
 """API spec -> an api-test.sh spec file (JSON is valid YAML, so json.dumps output is written as .yml)."""
 import json
 import os
-import re
 
 from specs.converters import common
 

@@ -5,7 +5,7 @@ import unittest
 
 from tests import _helpers as h
 from auth import secrets_store
-from runner import allowlist, runner_service as rs, workspace
+from runner import runner_service as rs, workspace
 from runner.queue import QueueFull, RunQueue
 
 
@@ -143,7 +143,7 @@ class RunnerTests(RunnerBase):
         workspace.KEEP_LAST = 2
         try:
             ids = []
-            for i in range(4):
+            for _ in range(4):
                 rid = self.svc.start(h.perf_spec(), "alice")
                 self.wait(rid)
                 ids.append(rid)
@@ -167,7 +167,6 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(done, [f"r{i}" for i in range(5)])
 
     def test_queue_full(self):
-        gate = []
         q = RunQueue(lambda rid: time.sleep(5), max_parallel=1)
         try:
             q.submit("first")

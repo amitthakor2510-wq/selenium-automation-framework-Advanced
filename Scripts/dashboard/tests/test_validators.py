@@ -1,4 +1,3 @@
-import copy
 import unittest
 
 from tests import _helpers as h

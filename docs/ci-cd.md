@@ -516,6 +516,13 @@ and `sudo gitlab-ctl tail sidekiq` during a push.
 >   `qemu-system-x86_64` processes and stale AVD/adb lock files left by a
 >   previous crashed run — see the Pipeline stages diagram above.
 
+## DAST and SBOM (optional)
+
+- **ZAP baseline (DAST):** `.github/workflows/zap-baseline.yml` runs a passive OWASP ZAP baseline scan, report-only.
+  Set the repository variable `ZAP_TARGET_URL` (a site you own or are authorised to test) to enable the weekly run,
+  or start it manually with the `target_url` input. The report is uploaded as the `zap-baseline-report` artifact.
+- **SBOM:** `./mvnw -Psbom -DskipTests verify` writes a CycloneDX bill of materials to `target/bom.json` / `target/bom.xml`.
+
 <div align="center">
 
 <sub>⬆️ <a href="#-cicd-pipelines">Back to top</a> · <a href="../README.md">← Back to README</a></sub>

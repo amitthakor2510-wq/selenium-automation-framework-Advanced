@@ -67,6 +67,8 @@ def clean_params(params):
 
 def http_request(method, url, headers=None, body=None, ca_file=None):
     """-> (status, headers_dict, parsed_json_or_None). Isolated so tests can stub it."""
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        raise CiError("CI server URL must start with http:// or https://")
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers=dict(headers or {}))
     if data is not None:

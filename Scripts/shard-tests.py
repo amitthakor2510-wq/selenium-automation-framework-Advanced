@@ -95,7 +95,7 @@ def parse_suite(path):
     try:
         tree = ET.parse(path, parser=parser)
     except ET.ParseError as e:
-        raise ShardError(f"{path} is not valid XML: {e}")
+        raise ShardError(f"{path} is not valid XML: {e}") from e
     root = tree.getroot()
     if root.tag != "suite":
         raise ShardError(f"{path}: root element is <{root.tag}>, expected <suite>")

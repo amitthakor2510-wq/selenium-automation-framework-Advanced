@@ -19,6 +19,15 @@ COPY Scripts/dashboard/ Scripts/dashboard/
 COPY .github/workflows/scripts/_junit_utils.py .github/workflows/scripts/_junit_utils.py
 COPY pipeline-config.properties test-config.properties ./
 
+# Run as an unprivileged user instead of root. The repo is bind-mounted read-write (see
+# docker-compose.dashboard.yml), so files the dashboard writes must stay owned by the host
+# user: build with `--build-arg APP_UID=$(id -u) --build-arg APP_GID=$(id -g)` if yours isn't 1000.
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd --gid "${APP_GID}" dashboard \
+    && useradd --uid "${APP_UID}" --gid "${APP_GID}" --no-create-home --shell /usr/sbin/nologin dashboard
+USER dashboard
+
 EXPOSE 5057
 
 ENV DASHBOARD_PORT=5057 \

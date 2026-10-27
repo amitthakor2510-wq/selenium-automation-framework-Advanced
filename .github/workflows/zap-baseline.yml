@@ -1,0 +1,82 @@
+name: ZAP baseline scan (DAST)
+
+# Passive OWASP ZAP baseline scan: it spiders the target and reports missing security
+# headers, exposed files, cookie flags etc. It does NOT attack the site. Report-only:
+# findings never fail the run (ZAP's -I flag), they land in the uploaded artifact.
+#
+# Only scan sites you own or are authorised to test. For that reason nothing runs on a
+# schedule until you set the repository variable ZAP_TARGET_URL (Settings > Secrets and
+# variables > Actions > Variables), e.g. https://staging.example.com
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Site to scan (must be yours or explicitly authorised)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-baseline
+  cancel-in-progress: false
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TARGET_URL: ${{ inputs.target_url || vars.ZAP_TARGET_URL }}
+    steps:
+      - name: Check target
+        id: gate
+        run: |
+          if [ -z "$TARGET_URL" ]; then
+            echo "No target (set repo variable ZAP_TARGET_URL or pass target_url) - skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            case "$TARGET_URL" in
+              http://*|https://*) echo "run=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "::error::target must start with http:// or https://"; exit 1 ;;
+            esac
+          fi
+
+      - name: Run ZAP baseline
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          docker run --rm -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "$TARGET_URL" -r zap-report.html -J zap-report.json -m 5 -I
+
+      - name: Summarise
+        if: steps.gate.outputs.run == 'true' && always()
+        run: |
+          {
+            echo "### ZAP baseline: $TARGET_URL"
+            if [ -f zap-out/zap-report.json ]; then
+              python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("zap-out/zap-report.json"))
+          counts = {}
+          for site in d.get("site", []):
+              for a in site.get("alerts", []):
+                  r = a.get("riskdesc", "unknown").split(" ")[0]
+                  counts[r] = counts.get(r, 0) + 1
+          print(", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "no alerts")
+          PY
+            else
+              echo "No report produced."
+            fi
+          }
+
+      - name: Upload report
+        if: steps.gate.outputs.run == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-out/
+          retention-days: 30

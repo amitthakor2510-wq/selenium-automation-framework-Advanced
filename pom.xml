@@ -2055,5 +2055,37 @@
         </plugins>
       </build>
     </profile>
+
+    <!-- SBOM (software bill of materials) in CycloneDX format, next to the existing OWASP
+         Dependency-Check ("security") and license-scan work. Opt-in so the normal build is
+         unchanged. Run:  ./mvnw -Psbom -DskipTests verify
+         Output: target/bom.json and target/bom.xml (attach to releases / feed to a scanner). -->
+    <profile>
+      <id>sbom</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.cyclonedx</groupId>
+            <artifactId>cyclonedx-maven-plugin</artifactId>
+            <version>2.9.1</version>
+            <executions>
+              <execution>
+                <id>cyclonedx-bom</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>makeBom</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <projectType>application</projectType>
+              <schemaVersion>1.5</schemaVersion>
+              <outputFormat>all</outputFormat>
+              <outputName>bom</outputName>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>

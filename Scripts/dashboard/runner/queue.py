@@ -6,8 +6,11 @@ Raise DASHBOARD_MAX_PARALLEL only for types that don't share output (e.g. API ru
 queue itself doesn't know which, so it's a deliberate admin setting, not automatic.
 """
 import collections
+import logging
 import os
 import threading
+
+log = logging.getLogger(__name__)
 
 MAX_QUEUED = 20
 
@@ -76,7 +79,7 @@ class RunQueue:
             try:
                 self._execute(run_id)
             except Exception:  # noqa: BLE001 — a failing job must never kill the worker
-                pass
+                log.exception("run %s failed in the queue worker", run_id)
             finally:
                 with self._cv:
                     self._active.discard(run_id)
