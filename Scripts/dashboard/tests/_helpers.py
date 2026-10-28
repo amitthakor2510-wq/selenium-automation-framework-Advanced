@@ -54,3 +54,15 @@ def a11y_spec():
 
 def tmpdir():
     return tempfile.TemporaryDirectory()
+
+
+def read(path, encoding="utf-8"):
+    """Read a whole text file and close it (a bare open(...).read() leaks a handle -> ResourceWarning)."""
+    with open(path, encoding=encoding) as f:
+        return f.read()
+
+
+def write(path, text="", encoding="utf-8"):
+    """Write (or create empty) a text file and close it."""
+    with open(path, "w", encoding=encoding) as f:
+        f.write(text)

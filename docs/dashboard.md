@@ -77,7 +77,7 @@ The dashboard listens on `127.0.0.1` (this machine only) by default, because it 
 
 Write requests (every toggle, preset, undo and snapshot import) must be same-origin `application/json` POSTs — the dashboard's own page already sends them that way. A request with any other content type, or with an `Origin` header whose host differs from the `Host` header, is answered `403`; this stops an unrelated web page you have open in the same browser from silently flipping your test switches using the credentials the browser has cached for this site. Plain `curl` calls (no `Origin` header) still work as long as they send `-H 'Content-Type: application/json'`. If you put the dashboard behind a reverse proxy, make sure it forwards the original `Host` header. Only requests that actually send a wrong password count towards the 10-per-minute lockout; the browser's initial no-credentials request and the Docker healthcheck do not.
 
-Edits keep the properties files' existing permissions and owner (including when the dashboard runs as root in Docker against the bind-mounted repo), so your host `mvn test` can still read and write them afterwards. Startup prints a warning if `DASHBOARD_PASSWORD` is shorter than 8 characters. Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and a same-origin `Content-Security-Policy`, so the page cannot be framed by another site (clickjacking on the toggle buttons).
+Edits keep the properties files' existing permissions and owner (including when the dashboard runs as root in Docker against the bind-mounted repo), so your host `mvn test` can still read and write them afterwards. Startup prints a warning if `DASHBOARD_PASSWORD` is shorter than 8 characters. Every response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and a same-origin `Content-Security-Policy`, so the page cannot be framed by another site (clickjacking on the toggle buttons). A POST body that is larger than 1 MB, not valid JSON, or not a JSON object is rejected with `413`/`400` and changes nothing (it is never treated as an empty request), and `/api/snapshot/import` refuses an object that has none of `sites`/`tests`/`groups`/`run_only`.
 
 It is deliberately not HTTPS (plain HTTP, stdlib `http.server`) — fine on `localhost` or over an SSH tunnel, but a Basic-Auth password sent over plain LAN or ngrok's HTTP is only as private as that network. ngrok's own tunnel is TLS-terminated at ngrok's edge, which covers the public leg; prefer HTTPS everywhere it's an option for anything beyond a quick local look.
 
@@ -169,6 +169,36 @@ Tests: `python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashb
 
 ---
 
+## 🕹️ Control Center (every feature, no commands)
+
+`http://localhost:5057/control` lists **every runnable capability of the framework as a card with switches** —
+all 30 TestNG suites (UI, API, BDD, mobile, accessibility, visual, performance, Safari), plus API spec runs, unit
+tests, Checkstyle, OWASP/SBOM/mutation/license scans, the bug crawlers, the recorder, Allure / segmented / PDF /
+e-mail reports, Test Impact Analysis, coverage map, artifact pruning, the project audit and (opt-in) Docker grid and
+site scaffolding.
+
+Start it with **one command** (it turns the runner on for you):
+
+```bash
+Scripts/start-dashboard.sh                    # then open http://localhost:5057/control
+DASHBOARD_RUNNER_ALLOW_SYSTEM=1 Scripts/start-dashboard.sh   # also enables Docker-grid + scaffolding buttons
+```
+
+* **Run switches** (top of the page) — browser, headless, retries, video, AI failure analysis, PDF report,
+  quarantine, performance budgets, self-healing, CAPTCHA auto-detect, Selenium Grid. They apply to every test card
+  that supports them; only switches you actually change are sent, everything else keeps the framework default.
+* **Cards** — each has its own *Switches* drawer (site, tags, load profile, crawl depth, dry-run …) and a **Run** button.
+  Cards that can't run here say why (no Docker, Appium not reachable, macOS-only Safari …).
+* **Bundles** — queue several features back-to-back (quick demo, UI showcase, quality gate).
+* **Runs panel** — live log, Cancel, Re-run, run summary and zipped reports for the selected run.
+
+Safety model: each card maps to one fixed program (`mvn`, `bash Scripts/…`, `python3 …`, `docker compose …`). The browser can
+only send switch *values*, and each is validated by type (bool / enum / whole number / http(s) URL / git ref / name) before it
+becomes a `-Dkey=value` or flag. No free-form command or argument can be passed; runs use `shell=False`.
+Risky actions are safe by default (e-mail and artifact pruning are **dry-run** unless you switch that off) and
+system-level actions need `DASHBOARD_RUNNER_ALLOW_SYSTEM=1`. Catalog: `Scripts/dashboard/features/catalog.py`
+(add a card by adding one entry); tests: `Scripts/dashboard/tests/test_features.py`.
+
 ## 🚫 What It Deliberately Doesn't Do
 
 **By default there is no "Run tests" button.** The original dashboard only reads `target/` and edits the two properties files — it never shells out to Maven, git, or anything else, and it never executes anything the browser sends it (see `dashboard_server.py`'s module docstring). Running `mvn test` from a web request is a materially different security posture than editing two config files. The [🧙 Test Wizard](#-test-wizard) can change that, but only if you set `DASHBOARD_RUNNER_ENABLED=1` yourself, and then only through the fixed allowlist described above. Leave it unset and nothing here can run a process; kick off runs yourself (`mvn test ...`, a CI pipeline, Jenkins) and hit **Refresh**. Whatever you choose, keep the dashboard on loopback or behind a tunnel with a strong password — see [🔐 Authentication](#-authentication).
@@ -190,6 +220,6 @@ Tests: `python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashb
 |---|---|
 | Browser keeps re-prompting for a password | Wrong password, or that IP is locked out (10 failed attempts/60s) — wait a minute and retry |
 | "No test results yet" | No `target/surefire-reports` — run `mvn test` (against any site) once, then **Refresh** |
-| Coverage tile missing | No `target/coverage-summary.json` and no `target/site/jacoco/jacoco.xml` — run `mvn verify -Pjacoco-check` (or the CI coverage-gate job) at least once |
+| Coverage tile missing | No `target/coverage-summary.json` and no `target/site/jacoco/jacoco.xml` — run `mvn verify -Punit-tests` (or the CI coverage-gate job) at least once |
 | A toggle doesn't seem to take effect | Confirm the dashboard's repo root (`/api/health`) matches the checkout your `mvn test` runs from — under Docker this is whatever `docker-compose.dashboard.yml`'s bind mount points at |
 | `docker compose --profile dashboard up` starts nothing | The `dashboard` profile is opt-in on purpose — `--profile dashboard` must be passed explicitly, plain `docker compose up` skips it |

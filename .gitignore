@@ -6,10 +6,6 @@ target/
 
 ### IntelliJ IDEA ###
 .idea/
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
 *.iws
 *.iml
 *.ipr
@@ -101,8 +97,20 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.env
 docs/obsidian-vault/.obsidian/
 
-# Local secrets (e.g. DASHBOARD_PASSWORD) — never commit
+# Local secrets (e.g. DASHBOARD_PASSWORD) — never commit (.env.example is the tracked template)
 .env
+*.env
+
+### Automation Console (Scripts/dashboard) runtime state — never commit ###
+# users.json holds per-user PBKDF2 hashes (auth/users.py says it is gitignored, but nothing
+# ignored it); secrets.enc.json is the encrypted login/token store (auth/secrets_store.py);
+# data/ holds saved specs and run workspaces (spec.json, properties.generated, run.log) which
+# can embed internal URLs and test credentials. Only the .gitkeep placeholder stays tracked.
+Scripts/dashboard/auth/users.json
+Scripts/dashboard/auth/secrets.enc.json
+Scripts/dashboard/data/*
+!Scripts/dashboard/data/templates/
+Scripts/dashboard/data/templates/*
+!Scripts/dashboard/data/templates/.gitkeep

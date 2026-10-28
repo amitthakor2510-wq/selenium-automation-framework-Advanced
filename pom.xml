@@ -237,6 +237,9 @@
     <jakarta.mail.version>2.0.1</jakarta.mail.version>
     <!-- Cucumber (BDD) — see BDD.md. cucumber-java + cucumber-testng must share one version, and it must stay old enough for allure-cucumber7-jvm 2.27.0 (its gherkin needs io.cucumber:messages < 23). Raise it only together with allure.version. -->
     <cucumber.version>7.15.0</cucumber.version>
+    <!-- REST Assured: rest-assured and json-schema-validator are released together and must share ONE version.
+         One property means they can no longer drift apart when only one literal is bumped. -->
+    <rest-assured.version>5.4.0</rest-assured.version>
 
     <!-- PIT (pitest) mutation testing — see the "mutation" profile below.
          Kept as its own properties for the same reason dependency-check.version
@@ -509,7 +512,7 @@
          AlterSuiteForCoverageMapListener; no @Listeners/suite-XML entry
          needed. Runs as a complete no-op unless rp.enable=true — see
          reportportal.properties and this file's <reportportal.*>
-         properties above. Pinned to the current latest (5.6.5) rather than
+         properties above. Pinned to an exact version (5.6.8) rather than
          a range, same pinning discipline as every other dependency here. -->
     <dependency>
       <groupId>com.epam.reportportal</groupId>
@@ -578,7 +581,7 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
-      <version>5.4.0</version>
+      <version>${rest-assured.version}</version>
       <scope>test</scope>
     </dependency>
 
@@ -594,7 +597,7 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>json-schema-validator</artifactId>
-      <version>5.4.0</version>
+      <version>${rest-assured.version}</version>
       <scope>test</scope>
       <!-- json-schema-validator pulls in com.sun.mail:mailapi 1.6.2 (old javax.mail), which shadows jakarta.mail 2.0.1
            (NoClassDefFoundError javax/activation/DataContentHandler, NoSuchMethodError MimeUtil.cleanContentType).

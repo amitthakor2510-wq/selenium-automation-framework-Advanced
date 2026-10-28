@@ -70,6 +70,11 @@ def validate(snapshot, known_sites=None, known_tests=None):
     if not isinstance(snapshot, dict):
         return None, ["not a JSON object"]
 
+    # An object carrying none of the snapshot's sections (e.g. "{}" from a malformed or empty request)
+    # must not be "applied": apply() always writes run.only, so it would silently clear the filter.
+    if not any(k in snapshot for k in ("sites", "tests", "groups", "run_only")):
+        return None, ["not a dashboard snapshot (no sites, tests, groups or run_only section)"]
+
     problems = []
     clean = {"sites": {}, "tests": {}, "groups": {}, "run_only": ""}
 

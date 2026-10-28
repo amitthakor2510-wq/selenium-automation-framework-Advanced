@@ -1,5 +1,7 @@
 package com.automation.core.ai;
 
+import com.automation.core.config.ConfigReader;
+import com.automation.core.utils.CredentialTransportGuard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -66,9 +68,14 @@ final class LlmHttp {
     }
 
     static HttpRequest post(HttpRequest.Builder builder, ObjectNode body) throws IOException {
-        return builder
+        HttpRequest request = builder
             .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
             .build();
+        boolean carriesCredential = request.headers().firstValue("x-api-key").isPresent()
+            || request.headers().firstValue("Authorization").isPresent();
+        CredentialTransportGuard.requireSecure(request.uri(), carriesCredential,
+            ConfigReader.getBoolean("ai.allowInsecureTransport", false), "LLM call");
+        return request;
     }
 
     /**
@@ -88,14 +95,16 @@ final class LlmHttp {
         }
 
         if (response.statusCode() != 200) {
-            throw new IOException(label + " call returned HTTP " + response.statusCode() + ": " + response.body());
+            throw new IOException(label + " call returned HTTP " + response.statusCode() + ": "
+                + CredentialTransportGuard.abbreviate(response.body()));
         }
 
         JsonNode root = MAPPER.readTree(response.body());
         if (anthropic) {
             JsonNode contentArray = root.get("content");
             if (contentArray == null || !contentArray.isArray() || contentArray.isEmpty()) {
-                throw new IOException(label + " response had no content block: " + response.body());
+                throw new IOException(label + " response had no content block: "
+                    + CredentialTransportGuard.abbreviate(response.body()));
             }
             StringBuilder sb = new StringBuilder();
             for (JsonNode block : contentArray) {
@@ -111,7 +120,7 @@ final class LlmHttp {
         JsonNode contentNode = messageNode == null ? null : messageNode.get("content");
         if (contentNode == null) {
             JsonNode errorNode = root.get("error");
-            String detail = errorNode != null ? errorNode.asText() : response.body();
+            String detail = errorNode != null ? errorNode.asText() : CredentialTransportGuard.abbreviate(response.body());
             throw new IOException("Ollama /api/chat " + kind + "response had no usable message.content field: "
                 + detail);
         }

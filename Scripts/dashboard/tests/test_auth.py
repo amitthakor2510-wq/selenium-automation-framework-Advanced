@@ -21,7 +21,7 @@ class UserTests(unittest.TestCase):
 
     def test_file_has_no_plaintext_and_is_private(self):
         au.add_user("bob", "lead", "a-long-password-1", self.path)
-        text = open(self.path).read()
+        text = h.read(self.path)
         self.assertNotIn("a-long-password-1", text)
         self.assertEqual(oct(os.stat(self.path).st_mode & 0o777), "0o600")
 
@@ -63,7 +63,7 @@ class SecretsTests(unittest.TestCase):
     def test_roundtrip_and_encrypted_at_rest(self):
         ss.set_secret("DB_PW", "p@ss-w0rd!")
         self.assertEqual(ss.get_secret("DB_PW"), "p@ss-w0rd!")
-        self.assertNotIn("p@ss-w0rd!", open(os.environ["DASHBOARD_SECRETS_FILE"]).read())
+        self.assertNotIn("p@ss-w0rd!", h.read(os.environ["DASHBOARD_SECRETS_FILE"]))
         self.assertEqual(ss.list_names(), ["DB_PW"])
         self.assertEqual(ss.resolve("${secret:DB_PW}"), "p@ss-w0rd!")
         ss.delete_secret("DB_PW")

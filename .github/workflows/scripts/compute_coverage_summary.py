@@ -1,7 +1,7 @@
 """
 Writes target/coverage-summary.json — a machine-readable line-coverage
 summary scoped to com.automation.core.* (the same bundle/package scope
-jacoco:check@jacoco-check in pom.xml enforces the 50% gate against), read
+jacoco:check@jacoco-check in pom.xml enforces the coverage gate against), read
 back by generate_landing_page.py for the unified dashboard.
 
 jacoco:report's own target/site/jacoco/jacoco.xml already contains this
@@ -30,7 +30,7 @@ JACOCO_XML_PATH = "target/site/jacoco/jacoco.xml"
 OUTPUT_PATH = "target/coverage-summary.json"
 CORE_PACKAGE_PREFIX = "com/automation/core"
 POM_PATH = "pom.xml"
-DEFAULT_THRESHOLD_PCT = 50.0
+DEFAULT_THRESHOLD_PCT = 60.0  # only used if pom.xml can't be read; keep equal to <jacoco.core.minLineCoverage>
 
 
 def read_threshold_pct():

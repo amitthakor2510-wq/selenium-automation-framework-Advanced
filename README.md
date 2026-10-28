@@ -203,7 +203,7 @@ selenium-automation-framework/
     │   │   │   └── KeywordEngine.java       # Executes a List<KeywordStep> against a live WebDriver
     │   │   ├── report/
     │   │   │   ├── ExtentManager.java           # Creates HTML report (singleton)
-    │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json (rules: src/main/resources/allure/categories.json)
+    │   │   │   └── AllureEnvironmentWriter.java # Writes environment.properties + categories.json (rules: src/main/resources/categories.json)
     │   │   ├── utils/
     │   │   │   ├── HumanActions.java            # Human-like delays on every action
     │   │   │   ├── ScreenshotUtil.java           # Captures screenshots on pass/failure

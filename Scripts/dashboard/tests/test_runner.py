@@ -27,7 +27,7 @@ class RunnerBase(unittest.TestCase):
         self.repo = os.path.join(root, "repo")
         os.makedirs(os.path.join(self.repo, "testng-suites"))
         for fn in ("demoqa-perf.xml", "demoqa-accessibility.xml"):
-            open(os.path.join(self.repo, "testng-suites", fn), "w").close()
+            h.write(os.path.join(self.repo, "testng-suites", fn))
         self.bin = os.path.join(root, "bin")
         os.makedirs(self.bin)
         self.mvn = os.path.join(self.bin, "mvn")
@@ -85,13 +85,13 @@ class RunnerTests(RunnerBase):
         st = self.wait(self.svc.start(h.ui_spec(), "alice"))
         self.assertEqual(st["state"], "passed", st)
         d = workspace.path_for(st["id"])
-        log = open(os.path.join(d, "run.log"), encoding="utf-8").read()
+        log = h.read(os.path.join(d, "run.log"))
         self.assertIn("ARGS: -B -ntp test -DsuiteXmlFile=", log)
         self.assertIn("SECRET_SEEN: ***", log)           # the child got it, the log doesn't show it
         self.assertNotIn("s3cr3t-value", log)
         self.assertIn("LEAK_CHECK: absent", log)         # dashboard's own env stays out of the run
         for fn in ("spec.json", "properties.generated", "status.json", "summary.html", "report-link.txt"):
-            self.assertNotIn("s3cr3t-value", open(os.path.join(d, fn), encoding="utf-8").read(), fn)
+            self.assertNotIn("s3cr3t-value", h.read(os.path.join(d, fn)), fn)
         self.assertTrue(os.path.isfile(os.path.join(d, "report", "extent-reports.zip")))
         self.assertEqual(st["reportLink"], f"/api/runs/{st['id']}/files/summary.html")
 
@@ -130,6 +130,38 @@ class RunnerTests(RunnerBase):
         self.assertEqual(self.svc.status(b)["state"], "cancelled")
         self.svc.cancel(a)
         self.wait(a)
+
+    def test_cancel_before_process_starts_is_not_dropped(self):
+        """A run a worker has picked up but whose process is not spawned yet must still be cancellable.
+
+        status.json already says "running" at that point, so a UI (or this suite) that cancels as
+        soon as it sees "running" used to hit cancel() with no process registered: it returned
+        False and the run went ahead. Hold the worker inside build_command() to hit the window
+        deterministically instead of racing it.
+        """
+        import threading
+        from runner import allowlist
+        reached, release = threading.Event(), threading.Event()
+        real = allowlist.build_command
+
+        def slow_build_command(*args, **kwargs):
+            reached.set()
+            release.wait(10)
+            return real(*args, **kwargs)
+
+        allowlist.build_command = slow_build_command
+        try:
+            os.environ["FAKE_SLEEP"] = "30"
+            rid = self.svc.start(h.perf_spec(), "alice")
+            self.assertTrue(reached.wait(10), "worker never reached build_command")
+            self.assertTrue(self.svc.cancel(rid), "cancel before the process started was dropped")
+            release.set()
+            st = self.wait(rid, secs=10)
+            self.assertEqual(st["state"], "cancelled")
+            self.assertNotIn("ARGS:", self.svc.log_tail(rid)["text"], "the cancelled run still started its command")
+        finally:
+            allowlist.build_command = real
+            release.set()
 
     def test_log_tail_offsets(self):
         rid = self.svc.start(h.perf_spec(), "alice")
@@ -186,10 +218,14 @@ class QueueTests(unittest.TestCase):
             if rid == "boom":
                 raise RuntimeError("x")
         q = RunQueue(ex, max_parallel=1)
-        q.submit("boom")
-        q.submit("after")
-        time.sleep(0.3)
+        # The worker logs the (deliberate) failure; capture it so it neither spams the test output
+        # nor goes unchecked.
+        with self.assertLogs("runner.queue", level="ERROR") as logs:
+            q.submit("boom")
+            q.submit("after")
+            time.sleep(0.3)
         q.shutdown()
+        self.assertTrue(any("boom" in m for m in logs.output))
         self.assertEqual(seen, ["boom", "after"])
 
 

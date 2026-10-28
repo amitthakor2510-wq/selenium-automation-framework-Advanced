@@ -123,6 +123,11 @@ def make_handler(password, wizard=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "FrameworkDashboard/1.0"
 
+        def version_string(self):
+            # BaseHTTPRequestHandler appends "Python/x.y.z" to the Server header; send only our own
+            # token so the response does not advertise the interpreter version (and no trailing space).
+            return self.server_version
+
         def _security_headers(self):
             """Sent with EVERY response: no framing (clickjacking on the toggle buttons), no MIME
             sniffing, and a same-origin-only CSP (the page ships no inline script or style)."""
@@ -186,21 +191,42 @@ def make_handler(password, wizard=None):
             self.wfile.write(body)
 
         def _read_json_body(self):
+            """Returns the parsed JSON object, {} for a request with no body, or None after having
+            already sent a 400/413 for a body that is oversized, non-numeric-length, not valid JSON
+            or not a JSON object. Callers must stop on None: treating a rejected body as "{}" let
+            handlers such as /api/snapshot/import and /api/test-config/run-only act on an empty
+            request and silently overwrite config (e.g. clearing run.only) while answering 200."""
             try:
                 length = int(self.headers.get("Content-Length", 0) or 0)
             except ValueError:
-                # A non-numeric header used to escape as an unhandled exception (dropped connection).
+                self._send_json(400, {"error": "invalid Content-Length header"})
+                return None
+            if length <= 0:
                 return {}
-            if length <= 0 or length > _MAX_BODY_BYTES:
-                return {}
+            if length > _MAX_BODY_BYTES:
+                # Drain (a bounded amount of) the unread body first: answering and closing while the
+                # client is still sending makes the OS reset the connection, and the client then sees
+                # a broken pipe instead of this 413.
+                remaining = min(length, 8 * _MAX_BODY_BYTES)
+                while remaining > 0:
+                    chunk = self.rfile.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                self._send_json(413, {"error": f"request body too large (limit {_MAX_BODY_BYTES} bytes)"})
+                return None
             raw = self.rfile.read(length)
             try:
                 parsed = json.loads(raw)
             except (json.JSONDecodeError, UnicodeDecodeError):
-                return {}
+                self._send_json(400, {"error": "request body is not valid JSON"})
+                return None
             # Handlers call body.get(...) — a JSON array/string/number would
             # raise AttributeError and surface as a confusing 500.
-            return parsed if isinstance(parsed, dict) else {}
+            if not isinstance(parsed, dict):
+                self._send_json(400, {"error": "request body must be a JSON object"})
+                return None
+            return parsed
 
         def _serve_static(self, path):
             if path == "/":
@@ -238,11 +264,11 @@ def make_handler(password, wizard=None):
             self.wfile.write(body)
 
         def _wizard(self, method, parsed, body):
-            """Forward /wizard, /wizard/static/*, /api/wizard/*, /api/templates*, /api/runs*, /api/ci/*, /api/secrets*."""
+            """Forward /wizard, /wizard/static/*, /control, /control/static/*, /api/features*, /api/wizard/*, /api/templates*, /api/runs*, /api/ci/*, /api/secrets*."""
             if wizard is None:
                 return False
             p = parsed.path
-            if not (p.startswith(("/wizard", "/api/wizard/", "/api/templates", "/api/runs", "/api/ci/", "/api/secrets"))):
+            if not (p.startswith(("/wizard", "/control", "/api/wizard/", "/api/features", "/api/templates", "/api/runs", "/api/ci/", "/api/secrets"))):
                 return False
             result = wizard.handle(method, p, parse_qs(parsed.query), body, self.user)
             if result[0] == "page":
@@ -343,6 +369,8 @@ def make_handler(password, wizard=None):
             parsed = urlparse(self.path)
             path = parsed.path
             body = self._read_json_body()
+            if body is None:
+                return
             try:
                 if self._wizard("POST", parsed, body):
                     return
@@ -497,6 +525,7 @@ def main():
         f"  Repo root : {REPO_ROOT}",
         f"  Listening : http://{args.host}:{args.port}  (open http://localhost:{args.port} locally)",
         "  Username  : dashboard",
+        f"  Control Center: http://localhost:{args.port}/control  (every framework feature as a switch/button)",
         f"  Test wizard: http://localhost:{args.port}/wizard  (running tests from it: "
         + ("ON" if runner_service.enabled() else "off — set DASHBOARD_RUNNER_ENABLED=1") + ")",
     ]

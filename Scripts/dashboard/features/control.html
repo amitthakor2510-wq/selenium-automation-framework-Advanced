@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Control Center — Automation Console</title>
+<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/control/static/control.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <span class="brand-name">Control Center</span>
+          <span class="brand-sub">Every framework feature — switch it, press Run, watch it live</span>
+        </div>
+      </div>
+      <div class="topbar-status">
+        <span id="whoami" class="pill pill-muted">…</span>
+        <span id="runnerPill" class="pill pill-muted">runner…</span>
+        <a class="btn btn-ghost" href="/wizard">Test Wizard</a>
+        <a class="btn btn-ghost" href="/">← Console</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap cc-layout">
+    <div class="cc-main">
+      <div id="banner" class="cc-banner" hidden></div>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>Run switches</h2>
+          <p class="panel-sub">Apply to every test run below that supports them. Only switches you change are sent; the rest keep the framework's own defaults.</p>
+        </div>
+        <div class="panel-body cc-globals" id="globals"></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-head">
+          <h2>One-click bundles</h2>
+          <p class="panel-sub">Several features queued back-to-back — good for a live demo.</p>
+        </div>
+        <div class="panel-body cc-bundles" id="bundles"></div>
+      </section>
+
+      <div class="cc-toolbar">
+        <input id="search" class="cc-search" type="search" placeholder="Search features (e.g. api, perf, report, mobile)…" aria-label="Search features" />
+        <div id="chips" class="cc-chips"></div>
+      </div>
+
+      <div id="groups"></div>
+    </div>
+
+    <aside class="cc-side" aria-label="Runs">
+      <section class="panel">
+        <div class="panel-head"><h2>Runs</h2><p class="panel-sub">Newest first. Click one to watch its log.</p></div>
+        <div class="panel-body" id="runs"></div>
+      </section>
+      <section class="panel" id="logPanel" hidden>
+        <div class="panel-head">
+          <h2 id="logTitle">Run</h2>
+          <p class="panel-sub" id="logMeta"></p>
+        </div>
+        <div class="cc-log-actions" id="logActions"></div>
+        <pre class="cc-log" id="log" tabindex="0"></pre>
+        <div class="cc-links" id="logLinks"></div>
+      </section>
+    </aside>
+  </main>
+  <script src="/control/static/control.js"></script>
+</body>
+</html>

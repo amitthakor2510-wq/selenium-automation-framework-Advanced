@@ -2,7 +2,9 @@ package com.automation.core.data.readers;
 
 import com.automation.core.data.DataRow;
 import com.automation.core.exceptions.DataFileException;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,7 +39,8 @@ public class YamlDataFileReader implements DataFileReader {
         List<DataRow> rows = new ArrayList<>();
 
         try (InputStream is = new FileInputStream(file)) {
-            Yaml yaml = new Yaml();
+            // SafeConstructor: data files hold plain maps/lists/scalars only; never instantiate arbitrary types.
+            Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
             Object loaded = yaml.load(is);
 
             if (!(loaded instanceof List)) {

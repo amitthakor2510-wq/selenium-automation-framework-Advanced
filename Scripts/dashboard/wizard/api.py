@@ -16,6 +16,7 @@ import config_files as cf
 import suites as su
 from auth import secrets_store, users
 from reports import evidence_options, report_options
+from features import service as features
 from runner import ci_trigger, workspace
 from runner.queue import QueueFull
 from runner.runner_service import RunnerDisabled, RunnerService
@@ -24,6 +25,7 @@ from wizard import validators
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(_HERE, "static")
+CONTROL_DIR = os.path.join(os.path.dirname(_HERE), "features", "static")
 _MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".json": "application/json", ".log": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8",
          ".zip": "application/zip", ".generated": "text/plain; charset=utf-8"}
@@ -93,6 +95,20 @@ class WizardApi:
             if rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full):
                 raise FileNotFoundError("not found")
             return "page", full
+        if path in ("/control", "/control/"):
+            return "page", os.path.join(CONTROL_DIR, "control.html")
+        if path.startswith("/control/static/"):
+            rel = os.path.normpath(path[len("/control/static/"):])
+            full = os.path.join(CONTROL_DIR, rel)
+            if rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full):
+                raise FileNotFoundError("not found")
+            return "page", full
+        if path == "/api/features":
+            need("run.view")
+            data = features.describe(self.runner.feature_ctx())
+            data.update({"runnerEnabled": self._enabled(), "user": user["name"], "role": user["role"],
+                         "permissions": {p: users.allowed(user["role"], p) for p in ("run.start", "run.cancel", "run.cancel.any")}})
+            return 200, data
         if path == "/api/wizard/options":
             return 200, self._options(user)
         m = re.fullmatch(r"/api/wizard/forms/([a-z]+)", path)
@@ -157,6 +173,29 @@ class WizardApi:
             spec_store.delete(m.group(1))
             self._audit(user, "template-delete", m.group(1))
             return 200, {"deleted": m.group(1)}
+        if path == "/api/features/run":
+            need("run.start")
+            run_id = self.runner.start_feature(body.get("feature"), body.get("options"), user["name"])
+            self._audit(user, "feature-run", run_id, str(body.get("feature")))
+            return 200, self.runner.status(run_id)
+        if path == "/api/features/bundle":
+            need("run.start")
+            ctx = self.runner.feature_ctx()
+            bundle, steps = features.bundle_steps(body.get("bundle"), body.get("options"))
+            shared = body.get("options") if isinstance(body.get("options"), dict) else {}
+            started = []
+            try:
+                for fid, step_opts in steps:
+                    opts = features.filter_options(fid, shared, ctx)
+                    opts.update(step_opts)
+                    started.append(self.runner.start_feature(fid, opts, user["name"]))
+            except (QueueFull, ValueError, features.FeatureError) as e:
+                if not started:
+                    raise
+                self._audit(user, "bundle-run", bundle["id"], f"partial: {len(started)} of {len(steps)} ({e})")
+                return 200, {"bundle": bundle["id"], "runs": [self.runner.status(r) for r in started], "warning": str(e)}
+            self._audit(user, "bundle-run", bundle["id"], ",".join(started))
+            return 200, {"bundle": bundle["id"], "runs": [self.runner.status(r) for r in started]}
         if path == "/api/runs":
             need("run.start")
             spec = body.get("spec")

@@ -16,7 +16,7 @@
 # apt-get call below is guarded to check for root/passwordless-sudo
 # first and fail with clear instructions rather than a raw permission
 # error, since this host's gitlab-runner account has neither.
-image: maven:3.9.9-eclipse-temurin-17
+image: maven:3.9.6-eclipse-temurin-17
 
 stages:
   - config
@@ -1209,7 +1209,7 @@ perf-smoke:
 # ================================================================
 # Each test/mobile-test/api-tests instance only exercises the slice of
 # core/ its own suite touches, so checking any single instance's
-# jacoco.exec against the 50% core/ threshold in pom.xml would fail
+# jacoco.exec against the 60% core/ threshold in pom.xml would fail
 # unfairly. Merges every SITE.exec + mobile.exec + SITE-api.exec + unit.exec captured
 # above into one target/jacoco.exec, then runs the real gate against that
 # union — same approach as the GitHub Actions pipeline's coverage-gate
@@ -1234,7 +1234,7 @@ coverage-gate:
     - mvn -B jacoco:merge@jacoco-merge
     - echo "======= Generating merged coverage report ======="
     - mvn -B jacoco:report@jacoco-report
-    - echo "======= Enforcing coverage threshold (core/ >= 50% lines) ======="
+    - echo "======= Enforcing coverage threshold (core/ >= 60% lines) ======="
     - mvn -B jacoco:check@jacoco-check
   artifacts:
     name: "jacoco-report-$CI_COMMIT_REF_SLUG"

@@ -1145,7 +1145,7 @@ jobs:
   # ================================================================
   # Each test/mobile-test job above only exercises the slice of core/ its
   # own suite touches — checking any single job's target/jacoco.exec
-  # against the 50% core/ threshold in pom.xml would fail unfairly
+  # against the core/ threshold in pom.xml would fail unfairly
   # whenever, say, the saucedemo job alone doesn't happen to touch
   # AccessibilityUtils. This downloads every job's jacoco-exec-* artifact,
   # merges them into one target/jacoco.exec via jacoco:merge@jacoco-merge,
@@ -1237,8 +1237,8 @@ jobs:
 
       # This is the real gate: fails the job (and therefore the workflow
       # run) if com.automation.core.* line coverage across the merged data
-      # is under 50% — see the jacoco-check execution/comment in pom.xml.
-      - name: Enforce coverage threshold (core/ >= 50% lines)
+      # is under the threshold (jacoco.core.minLineCoverage in pom.xml, currently 60%) — see the jacoco-check execution/comment in pom.xml.
+      - name: Enforce coverage threshold (core/ >= 60% lines)
         if: steps.merge.outputs.have_data == 'true'
         run: mvn -B jacoco:check@jacoco-check
 
@@ -1249,7 +1249,7 @@ jobs:
             echo "## 📊 Coverage Gate (com.automation.core.*)"
             echo ""
             echo "Merged JaCoCo report: see the \`jacoco-merged-report\` artifact on this run, or \`target/site/jacoco/index.html\` if downloaded locally."
-            echo "Threshold: 50% line coverage on \`com.automation.core.*\`, enforced by \`jacoco:check@jacoco-check\`."
+            echo "Threshold: 60% line coverage on \`com.automation.core.*\`, enforced by \`jacoco:check@jacoco-check\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ================================================================
@@ -1449,7 +1449,7 @@ jobs:
 
       # Feeds coverage-gate (same as Jenkins' <site>-api.exec and GitLab's
       # target/jacoco-artifacts/$SITE-api.exec) so the core/api classes this
-      # suite exercises count toward the merged 50% threshold on all three
+      # suite exercises count toward the merged coverage threshold on all three
       # pipelines, not just two of them. Named jacoco-exec-<site>-api so
       # coverage-gate's `jacoco-exec-*` download pattern picks it up.
       - name: Upload JaCoCo exec

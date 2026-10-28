@@ -11,15 +11,15 @@ class AllowlistTests(unittest.TestCase):
         self._t = h.tmpdir()
         self.repo = os.path.join(self._t.name, "repo")
         os.makedirs(os.path.join(self.repo, "testng-suites"))
-        open(os.path.join(self.repo, "testng-suites", "demoqa-perf.xml"), "w").close()
-        open(os.path.join(self.repo, "testng-suites", "demoqa-accessibility.xml"), "w").close()
+        h.write(os.path.join(self.repo, "testng-suites", "demoqa-perf.xml"))
+        h.write(os.path.join(self.repo, "testng-suites", "demoqa-accessibility.xml"))
         self.ws = os.path.join(self._t.name, "ws")
         os.makedirs(os.path.join(self.ws, "inputs"))
         # a Maven launcher must exist for build_command
         self.bin = os.path.join(self._t.name, "bin")
         os.makedirs(self.bin)
         mvn = os.path.join(self.bin, "mvn")
-        open(mvn, "w").write("#!/bin/sh\n")
+        h.write(mvn, "#!/bin/sh\n")
         os.chmod(mvn, 0o755)
         self._path = os.environ["PATH"]
         os.environ["PATH"] = self.bin + os.pathsep + self._path
@@ -62,7 +62,7 @@ class AllowlistTests(unittest.TestCase):
 
     def test_rejects_paths_outside_workspace(self):
         outside = os.path.join(self._t.name, "evil.csv")
-        open(outside, "w").close()
+        h.write(outside)
         with self.assertRaises(al.NotAllowed):
             al.build_command("ui", {"properties": {"wizard.keyword.script": outside}}, self.repo, self.ws)
         link = os.path.join(self.ws, "inputs", "link.csv")

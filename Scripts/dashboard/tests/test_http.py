@@ -31,7 +31,7 @@ class HttpTests(unittest.TestCase):
         bindir = os.path.join(root, "bin")
         os.makedirs(bindir)
         mvn = os.path.join(bindir, "mvn")
-        open(mvn, "w").write("#!/bin/sh\necho ran $@\nexit 0\n")
+        h.write(mvn, "#!/bin/sh\necho ran $@\nexit 0\n")
         os.chmod(mvn, os.stat(mvn).st_mode | stat.S_IEXEC)
         cls._env = dict(os.environ)
         os.environ.update({"PATH": bindir + os.pathsep + os.environ["PATH"], "DASHBOARD_DATA_DIR": os.path.join(root, "data"),
@@ -48,13 +48,16 @@ class HttpTests(unittest.TestCase):
         ds.TEST_CONFIG = os.path.join(cls.repo, "test-config.properties")
         ds.SUITES_DIR = os.path.join(cls.repo, "testng-suites")
         cls.wizard = WizardApi(cls.repo, ds.PIPELINE_CONFIG, ds.SUITES_DIR)
-        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), ds.make_handler("legacy-shared-pw", cls.wizard))
+        handler = ds.make_handler("legacy-shared-pw", cls.wizard)
+        handler.log_message = lambda self, fmt, *args: None  # keep test output free of per-request log lines
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
         cls.base = f"http://127.0.0.1:{cls.httpd.server_address[1]}"
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
 
     @classmethod
     def tearDownClass(cls):
         cls.httpd.shutdown()
+        cls.httpd.server_close()
         cls.wizard.runner.queue.shutdown()
         ds.REPO_ROOT, ds.PIPELINE_CONFIG, ds.TEST_CONFIG, ds.SUITES_DIR = cls._saved
         os.environ.clear()
@@ -74,11 +77,49 @@ class HttpTests(unittest.TestCase):
                 data = r.read()
                 return r.status, (data if raw else json.loads(data)), dict(r.headers)
         except urllib.error.HTTPError as e:
-            data = e.read()
-            try:
-                return e.code, json.loads(data), dict(e.headers)
-            except ValueError:
-                return e.code, data, dict(e.headers)
+            with e:  # closes the error response's underlying file
+                data = e.read()
+                try:
+                    return e.code, json.loads(data), dict(e.headers)
+                except ValueError:
+                    return e.code, data, dict(e.headers)
+
+    def _post_raw(self, path, data, user="adam", pw="admin-password-1"):
+        """POST an arbitrary (possibly invalid / oversized) body with a JSON content type."""
+        req = urllib.request.Request(self.base + path, method="POST", data=data)
+        req.add_header("Authorization", "Basic " + base64.b64encode(f"{user}:{pw}".encode()).decode())
+        req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            with e:
+                return e.code, json.loads(e.read())
+
+    # ── request-body handling (a rejected body must never be treated as an empty one) ──
+    def test_oversized_body_is_rejected_and_changes_nothing(self):
+        self.assertEqual(self.call("POST", "/api/test-config/run-only", {"value": "LoginTest"}, user="adam", pw="admin-password-1")[0], 200)
+        status, data = self._post_raw("/api/test-config/run-only", b'{"value": "' + b"a" * 1_100_000 + b'"}')
+        self.assertEqual(status, 413)
+        self.assertIn("too large", data["error"])
+        s, cfg, _ = self.call("GET", "/api/test-config", user="adam", pw="admin-password-1")
+        self.assertEqual(cfg["run_only"], "LoginTest")
+
+    def test_invalid_json_and_non_object_bodies_are_400(self):
+        for raw in (b"{not json", b"[1, 2]", b'"text"'):
+            status, data = self._post_raw("/api/test-config/run-only", raw)
+            self.assertEqual(status, 400, raw)
+            self.assertIn("error", data)
+
+    def test_empty_snapshot_import_is_rejected_and_keeps_run_only(self):
+        self.call("POST", "/api/test-config/run-only", {"value": "LoginTest"}, user="adam", pw="admin-password-1")
+        status, data = self._post_raw("/api/snapshot/import", b"{}")
+        self.assertEqual(status, 400)
+        self.assertIn("not a dashboard snapshot", data["error"])
+        status, data = self._post_raw("/api/snapshot/import", b"x" * 1_100_000)
+        self.assertEqual(status, 413)
+        s, cfg, _ = self.call("GET", "/api/test-config", user="adam", pw="admin-password-1")
+        self.assertEqual(cfg["run_only"], "LoginTest")
 
     # ── auth ──
     def test_requires_auth_and_rejects_bad_password(self):
@@ -190,6 +231,7 @@ class HttpTests(unittest.TestCase):
         req.add_header("Content-Type", "text/plain")
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(req)
+        cm.exception.close()
         self.assertEqual(cm.exception.code, 403)
         s, _, _ = self.call("POST", "/api/runs", {"spec": h.perf_spec()}, headers={"Origin": "http://evil.example"})
         self.assertEqual(s, 403)
@@ -201,7 +243,7 @@ class HttpTests(unittest.TestCase):
         s, d, _ = self.call("POST", "/api/audit/undo", {}, "lena", "lead-password-12")
         self.assertEqual(s, 200, d)
         self.assertTrue(os.path.isfile(os.path.join(self.repo, "target", "dashboard-wizard-audit.jsonl")))
-        log = open(os.path.join(self.repo, "target", "dashboard-wizard-audit.jsonl")).read()
+        log = h.read(os.path.join(self.repo, "target", "dashboard-wizard-audit.jsonl"))
         self.assertIn("template-save", log)
         self.assertNotIn("tester-password-1", log)
 
@@ -209,7 +251,9 @@ class HttpTests(unittest.TestCase):
 class DisabledRunnerTest(unittest.TestCase):
     def test_runs_refused_when_switch_is_off(self):
         os.environ.pop("DASHBOARD_RUNNER_ENABLED", None)
-        os.environ["DASHBOARD_DATA_DIR"] = h.tmpdir().name
+        tmp = h.tmpdir()
+        self.addCleanup(tmp.cleanup)
+        os.environ["DASHBOARD_DATA_DIR"] = tmp.name
         api = WizardApi(os.path.join(h.DASH, "..", ".."), os.path.join(REAL_ROOT, "pipeline-config.properties"), os.path.join(REAL_ROOT, "testng-suites"))
         try:
             status, body = api.handle("POST", "/api/runs", {}, {"spec": h.perf_spec()}, {"name": "x", "role": "admin"})

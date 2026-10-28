@@ -126,6 +126,10 @@ final class CaptchaVisionClient {
         HttpRequest request = requestBuilder
             .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
             .build();
+        CredentialTransportGuard.requireSecure(request.uri(),
+            request.headers().firstValue("x-api-key").isPresent()
+                || request.headers().firstValue("Authorization").isPresent(),
+            ConfigReader.getBoolean("ai.allowInsecureTransport", false), "Vision API call");
 
         // Retry transient failures (rate limit / server-side errors / a dropped
         // connection) instead of falling back to OCR on the first hiccup —
@@ -147,7 +151,8 @@ final class CaptchaVisionClient {
                     break;
                 }
                 boolean retryable = status == 429 || status >= 500;
-                lastError = new IOException("Vision API returned HTTP " + status + ": " + response.body());
+                lastError = new IOException("Vision API returned HTTP " + status + ": "
+                    + CredentialTransportGuard.abbreviate(response.body()));
                 if (!retryable || attempt == maxAttempts) {
                     throw lastError;
                 }

@@ -679,7 +679,7 @@ adding wherever it actually lives rather than only in this file.</sub>
 
 ## Allure Categories tab — failures sorted by type
 
-The rules are in `src/main/resources/allure/categories.json`. Copy them next to any results folder
+The rules are in `src/main/resources/categories.json`. Copy them next to any results folder
 that lacks one (safe to re-run, never overwrites):
 
 ```bash
