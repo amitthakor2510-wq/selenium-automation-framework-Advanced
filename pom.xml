@@ -239,7 +239,7 @@
     <cucumber.version>7.15.0</cucumber.version>
     <!-- REST Assured: rest-assured and json-schema-validator are released together and must share ONE version.
          One property means they can no longer drift apart when only one literal is bumped. -->
-    <rest-assured.version>5.4.0</rest-assured.version>
+    <rest-assured.version>6.3.0</rest-assured.version>
 
     <!-- PIT (pitest) mutation testing — see the "mutation" profile below.
          Kept as its own properties for the same reason dependency-check.version
