@@ -175,7 +175,7 @@
 
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
-    <aspectj.version>1.9.25.1</aspectj.version>
+    <aspectj.version>1.9.26</aspectj.version>
 
     <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
          dependency block below for the full rationale). Pinned as its own
