@@ -59,7 +59,7 @@ def clean_params(params):
         v = str(v).lower() if isinstance(v, bool) else str(v)
         if rx is None:
             raise CiError(f"parameter '{k}' can't be sent to CI")
-        if not rx.match(v):
+        if not rx.fullmatch(v):
             raise CiError(f"value for '{k}' is not allowed")
         out[k] = v
     return out
@@ -90,7 +90,7 @@ def http_request(method, url, headers=None, body=None, ca_file=None):
 
 def _ref(environ, ref):
     ref = ref or environ.get("DASHBOARD_CI_REF", "main")
-    if not _REF_RE.match(ref):
+    if not _REF_RE.fullmatch(ref):
         raise CiError("branch name is not allowed")
     return ref
 
@@ -104,7 +104,7 @@ def start(provider, params, ref=None, environ=None):
     now = time.time()
     if provider == "github":
         repo, wf = e["DASHBOARD_CI_GITHUB_REPO"], e.get("DASHBOARD_CI_GITHUB_WORKFLOW", "github-ci.yml")
-        if not re.match(r"^[\w.-]+/[\w.-]+$", repo) or not re.match(r"^[\w.-]+\.ya?ml$", wf):
+        if not re.fullmatch(r"[\w.-]+/[\w.-]+", repo) or not re.fullmatch(r"[\w.-]+\.ya?ml", wf):
             raise CiError("GitHub repo/workflow setting is invalid")
         inputs = {k: v for k, v in p.items() if k in ("suite_type", "browser", "headless")}
         http_request("POST", f"https://api.github.com/repos/{repo}/actions/workflows/{wf}/dispatches",

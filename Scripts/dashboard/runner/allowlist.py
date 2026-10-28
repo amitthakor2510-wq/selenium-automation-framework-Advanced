@@ -81,12 +81,12 @@ def _check_property(test_type, key, value, workspace):
     if rule == PATH:
         if not os.path.isabs(value) or not _inside(value, workspace) or not os.path.isfile(value):
             raise NotAllowed(f"'{key}' must be a file inside the run workspace")
-    elif not rule.match(value):
+    elif not rule.fullmatch(value):
         raise NotAllowed(f"value for '{key}' is not allowed")
 
 
 def _check_suite(suite, repo_root, workspace):
-    if _SUITE_RE.match(suite):
+    if _SUITE_RE.fullmatch(suite):
         if not os.path.isfile(os.path.join(repo_root, suite)):
             raise NotAllowed(f"suite file does not exist: {suite}")
         return suite
@@ -104,7 +104,7 @@ def build_command(test_type, plan, repo_root, workspace):
         if not (os.path.isabs(spec_file) and _inside(spec_file, workspace) and os.path.isfile(spec_file)):
             raise NotAllowed("API spec file must be inside the run workspace")
         base = plan.get("base_url", "")
-        if not URL.match(base):
+        if not URL.fullmatch(base):
             raise NotAllowed("API base URL is not allowed")
         return ["bash", "Scripts/api-test.sh", "--spec", spec_file, "--base-url", base]
 
@@ -127,7 +127,7 @@ def build_env(plan, resolved_secrets, environ=None):
     env = {k: environ[k] for k in BASE_ENV if k in environ}
     extra = [n.strip() for n in environ.get("DASHBOARD_RUN_ENV_PASSTHROUGH", "").split(",") if n.strip()]
     for name in list(plan.get("env_passthrough", [])) + extra:
-        if not _ENV_NAME.match(name) or name.startswith("DASHBOARD_"):
+        if not _ENV_NAME.fullmatch(name) or name.startswith("DASHBOARD_"):
             raise NotAllowed(f"environment variable '{name}' can't be passed to a run")
         if name in environ:
             env[name] = environ[name]

@@ -191,7 +191,7 @@ def _validate_field(field, value, ctx):
             return [f"{label}: must be a single line"]
         if len(value) > field.get("maxLength", 200):
             return [f"{label}: too long"]
-        if field.get("pattern") and not re.match(field["pattern"], value):
+        if field.get("pattern") and not re.fullmatch(field["pattern"], value):
             return [f"{label}: {field.get('help') or 'wrong format'}"]
         return []
     if ftype == "url":

@@ -31,7 +31,7 @@ def new_run_id():
 
 
 def path_for(run_id):
-    if not RUN_ID_RE.match(run_id or ""):
+    if not RUN_ID_RE.fullmatch(run_id or ""):
         raise ValueError("invalid run id")
     return os.path.join(runs_dir(), run_id)
 
@@ -74,7 +74,7 @@ def list_runs(limit=50):
         return []
     out = []
     for rid in sorted(os.listdir(root), reverse=True)[:limit]:
-        if RUN_ID_RE.match(rid):
+        if RUN_ID_RE.fullmatch(rid):
             try:
                 out.append(read_status(rid))
             except (OSError, ValueError):
@@ -112,7 +112,7 @@ def cleanup(active_ids=()):
     root = runs_dir()
     if not os.path.isdir(root):
         return []
-    ids = sorted((r for r in os.listdir(root) if RUN_ID_RE.match(r)), reverse=True)
+    ids = sorted((r for r in os.listdir(root) if RUN_ID_RE.fullmatch(r)), reverse=True)
     cutoff = time.time() - KEEP_DAYS * 86400
     removed = []
     for i, rid in enumerate(ids):

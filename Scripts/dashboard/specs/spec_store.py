@@ -31,13 +31,13 @@ def templates_dir():
 
 def slugify(name):
     slug = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")[:60].strip("-")
-    if not _SLUG_RE.match(slug):
+    if not _SLUG_RE.fullmatch(slug):
         raise ValueError("template name must contain letters or digits")
     return slug
 
 
 def _tdir(slug):
-    if not _SLUG_RE.match(slug or ""):
+    if not _SLUG_RE.fullmatch(slug or ""):
         raise ValueError("invalid template id")
     return os.path.join(templates_dir(), slug)
 
@@ -102,7 +102,7 @@ def list_templates():
         return []
     out = []
     for slug in sorted(os.listdir(root)):
-        if not _SLUG_RE.match(slug):
+        if not _SLUG_RE.fullmatch(slug):
             continue
         try:
             spec = load(slug)

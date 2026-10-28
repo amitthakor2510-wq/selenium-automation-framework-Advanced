@@ -195,15 +195,35 @@ public class KeywordEngine {
         ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block:'center'});", element);
     }
 
+    /** Longest pause WAIT_SECONDS will accept; a typo such as 6000 instead of 6 must not hang a run for hours. */
+    static final double MAX_WAIT_SECONDS = 300;
+
     private void sleepSeconds(String secondsRaw) {
+        long millis = parseWaitMillis(secondsRaw);
         try {
-            double seconds = Double.parseDouble(secondsRaw.trim());
-            Thread.sleep((long) (seconds * 1000));
-        } catch (NumberFormatException e) {
-            throw new KeywordExecutionException("[KeywordEngine] WAIT_SECONDS testData must be numeric, got: '" + secondsRaw + "'");
+            Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * Validates WAIT_SECONDS testData and converts it to milliseconds. Rejects missing, non-numeric,
+     * NaN/Infinity, negative and over-long values with a KeywordExecutionException: previously a
+     * negative value escaped as an IllegalArgumentException from Thread.sleep and "Infinity" slept forever.
+     */
+    static long parseWaitMillis(String secondsRaw) {
+        double seconds;
+        try {
+            seconds = Double.parseDouble(secondsRaw == null ? "" : secondsRaw.trim());
+        } catch (NumberFormatException e) {
+            throw new KeywordExecutionException("[KeywordEngine] WAIT_SECONDS testData must be numeric, got: '" + secondsRaw + "'");
+        }
+        if (Double.isNaN(seconds) || Double.isInfinite(seconds) || seconds < 0 || seconds > MAX_WAIT_SECONDS) {
+            throw new KeywordExecutionException("[KeywordEngine] WAIT_SECONDS testData must be between 0 and "
+                + (long) MAX_WAIT_SECONDS + " seconds, got: '" + secondsRaw + "'");
+        }
+        return Math.round(seconds * 1000);
     }
 
     /**

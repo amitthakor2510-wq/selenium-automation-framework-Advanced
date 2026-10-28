@@ -44,7 +44,7 @@ def coerce(o, value, ctx=None):
             raise FeatureError(f"switch '{o['key']}' must be one of: {', '.join(o['values'] or [])}")
         return s
     rule = {"url": C._URL, "ref": C._REF, "name": C._NAME, "relurl": C._REL_URL}[t]
-    if not rule.match(s) or s.startswith("-"):
+    if not rule.fullmatch(s) or s.startswith("-"):
         raise FeatureError(f"switch '{o['key']}' has a value that is not allowed")
     return s
 
@@ -56,7 +56,7 @@ def _suite_features(ctx):
     if not os.path.isdir(sdir):
         return out
     for fn in sorted(os.listdir(sdir)):
-        if not _SUITE_FILE.match(fn):
+        if not _SUITE_FILE.fullmatch(fn):
             continue
         base = fn[:-4]
         site = ctx.get("suite_sites", {}).get(fn) or C.SUITE_SITE_DEFAULTS.get(base)
@@ -217,7 +217,7 @@ def build(feature_id, options, ctx):
             argv.append(f"testng-suites/{sf}.xml")
     if f.get("tags") and options.get("cucumber.filter.tags"):
         tags = str(options["cucumber.filter.tags"])
-        if not _TAGS.match(tags):
+        if not _TAGS.fullmatch(tags):
             raise FeatureError("tag filter may only contain @tags, letters, digits, spaces, 'and/or/not' and ()")
         argv.append(f"-Dcucumber.filter.tags={tags}")
         props["cucumber.filter.tags"] = tags

@@ -76,7 +76,7 @@ def _save_raw(data):
 
 
 def set_secret(name, value):
-    if not NAME_RE.match(name or ""):
+    if not NAME_RE.fullmatch(name or ""):
         raise ValueError("secret name must start with a letter: letters, digits, underscore (max 64)")
     if not value:
         raise ValueError("secret value is empty")
@@ -113,7 +113,7 @@ def get_secret(name):
 
 def parse_ref(value):
     """('secret'|'env', NAME) for a well-formed reference, else None."""
-    m = REF_RE.match(value or "")
+    m = REF_RE.fullmatch(value or "")
     return (m.group(1), m.group(2)) if m else None
 
 

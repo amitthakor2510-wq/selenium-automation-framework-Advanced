@@ -96,7 +96,12 @@ def _rate_limited(client_ip):
     now = time.time()
     with _failed_auth_lock:
         attempts = [t for t in _failed_auth.get(client_ip, []) if now - t < _WINDOW_SECONDS]
-        _failed_auth[client_ip] = attempts
+        if attempts:
+            _failed_auth[client_ip] = attempts
+        else:
+            # Drop idle clients entirely: keeping an empty list per IP ever seen let this dict grow
+            # without bound (one entry per distinct address that ever sent a request).
+            _failed_auth.pop(client_ip, None)
         return len(attempts) >= _MAX_ATTEMPTS
 
 
@@ -113,6 +118,9 @@ _SECURITY_HEADERS = (
      "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
 )
 
+# Matches the guidance in .env.example ("use 12+ characters"); shorter passwords only trigger a warning.
+_MIN_PASSWORD_LENGTH = 12
+
 # Largest request body any endpoint accepts (a snapshot import is the biggest).
 _MAX_BODY_BYTES = 1_000_000
 
@@ -122,6 +130,9 @@ def make_handler(password, wizard=None):
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "FrameworkDashboard/1.0"
+        # Per-connection socket timeout: without it a client that opens a connection and then sends
+        # nothing (or one byte at a time) pins a server thread forever.
+        timeout = 30
 
         def version_string(self):
             # BaseHTTPRequestHandler appends "Python/x.y.z" to the Server header; send only our own
@@ -322,9 +333,16 @@ def make_handler(password, wizard=None):
                 else:
                     self._serve_static(path)
             except FileNotFoundError as e:
-                self._send_json(404, {"error": str(e)})
+                print(f"[dashboard] 404 on GET {path}: {e}")
+                self._send_json(404, {"error": "file not found"})
             except Exception as e:  # noqa: BLE001 — always answer the browser, never hang it
-                self._send_json(500, {"error": str(e)})
+                self._internal_error("GET", path, e)
+
+        def _internal_error(self, method, path, exc):
+            """Log the real exception server-side; the browser only gets a generic message, because
+            exception text routinely contains absolute file-system paths and library internals."""
+            print(f"[dashboard] 500 on {method} {path}: {type(exc).__name__}: {exc}")
+            self._send_json(500, {"error": "internal server error (details are in the dashboard log)"})
 
         def _audit(self, action, target, field, old_value, new_value):
             try:
@@ -471,7 +489,7 @@ def make_handler(password, wizard=None):
             except ValueError as e:
                 self._send_json(400, {"error": str(e)})
             except Exception as e:  # noqa: BLE001
-                self._send_json(500, {"error": str(e)})
+                self._internal_error("POST", path, e)
 
         def _revert(self, entry):
             """
@@ -540,9 +558,9 @@ def main():
         ]
     else:
         banner_lines.append("  Password  : (from DASHBOARD_PASSWORD)")
-        if len(password) < 8:
+        if len(password) < _MIN_PASSWORD_LENGTH:
             banner_lines += [
-                "  WARNING   : DASHBOARD_PASSWORD is shorter than 8 characters. This port",
+                f"  WARNING   : DASHBOARD_PASSWORD is shorter than {_MIN_PASSWORD_LENGTH} characters. This port",
                 "              can edit your test config - use a longer password, above all",
                 "              before binding it beyond localhost or tunnelling it.",
             ]

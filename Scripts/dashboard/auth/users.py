@@ -91,7 +91,7 @@ def _save(users, path):
 
 def add_user(name, role, password, path=None):
     path = path or users_path()
-    if not _NAME_RE.match(name or ""):
+    if not _NAME_RE.fullmatch(name or ""):
         raise ValueError("username must be 2-32 chars: lowercase letters, digits, . _ -")
     if name == LEGACY_USER:
         raise ValueError(f"'{LEGACY_USER}' is reserved for the DASHBOARD_PASSWORD login")

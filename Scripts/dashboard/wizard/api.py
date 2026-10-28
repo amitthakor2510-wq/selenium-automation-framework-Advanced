@@ -142,7 +142,7 @@ class WizardApi:
         if m:
             need("run.view")
             rel = m.group(2)
-            if not _RUN_FILE_OK.match(rel):
+            if not _RUN_FILE_OK.fullmatch(rel):
                 raise FileNotFoundError("not found")
             full = os.path.join(workspace.path_for(m.group(1)), rel)
             if not os.path.isfile(full):
