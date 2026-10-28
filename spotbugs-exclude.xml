@@ -20,4 +20,13 @@
     <Bug pattern="MS_EXPOSE_REP"/>
   </Match>
 
+  <!-- GitDiffReader runs a FIXED program ("git") with an argument LIST (no shell). The only
+       caller-supplied values are the base/head revisions, validated by requireSafeRef() so they can
+       neither contain unexpected characters nor start with "-" (option injection). FindSecBugs
+       cannot see that validation, so this one class is excluded for this one pattern. -->
+  <Match>
+    <Class name="com.automation.core.tia.GitDiffReader"/>
+    <Bug pattern="COMMAND_INJECTION"/>
+  </Match>
+
 </FindBugsFilter>

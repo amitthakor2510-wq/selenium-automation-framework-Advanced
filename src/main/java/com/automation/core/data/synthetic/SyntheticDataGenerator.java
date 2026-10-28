@@ -37,6 +37,9 @@ public final class SyntheticDataGenerator {
 
     private static final Logger logger = LoggerFactory.getLogger(SyntheticDataGenerator.class);
 
+    /** One shared, thread-safe generator for passwords; creating a SecureRandom per call is wasteful. */
+    private static final java.security.SecureRandom PASSWORD_RANDOM = new java.security.SecureRandom();
+
     private final Faker faker;
 
     public SyntheticDataGenerator() {
@@ -100,7 +103,7 @@ public final class SyntheticDataGenerator {
         String digits = "23456789";
         String symbols = "!@#$%^&*";
         String all = upper + lower + digits + symbols;
-        java.security.SecureRandom rnd = new java.security.SecureRandom();
+        java.security.SecureRandom rnd = PASSWORD_RANDOM;
         int length = 10 + rnd.nextInt(7);
         java.util.List<Character> chars = new java.util.ArrayList<>();
         chars.add(upper.charAt(rnd.nextInt(upper.length())));

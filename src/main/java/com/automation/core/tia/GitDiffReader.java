@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * Wraps {@code git diff --name-status} (plus {@code git ls-files --others} for brand-new,
@@ -15,6 +16,12 @@ import java.util.concurrent.TimeUnit;
  * {@link ChangedFile} the rest of TIA classifies and maps back to tests.
  */
 public final class GitDiffReader {
+
+    /**
+     * A git revision as used by this tool: branch/tag/sha plus the usual {@code ~ ^ @{} :} suffixes.
+     * Must not start with "-", otherwise git would read it as an OPTION (e.g. {@code --output=file}).
+     */
+    private static final Pattern SAFE_REF = Pattern.compile("[A-Za-z0-9._/~^@{}:+][A-Za-z0-9._/~^@{}:+-]{0,199}");
 
     private final Path repoRoot;
 
@@ -29,6 +36,8 @@ public final class GitDiffReader {
      * both (e.g. {@code origin/main} and the PR's merge commit) for a fixed comparison.
      */
     public List<ChangedFile> diff(String base, String head) throws IOException, InterruptedException {
+        requireSafeRef("base", base);
+        requireSafeRef("head", head);
         List<String> cmd = new ArrayList<>();
         cmd.add("git");
         cmd.add("diff");
@@ -43,6 +52,17 @@ public final class GitDiffReader {
             }
         }
         return parseNameStatus(run(cmd));
+    }
+
+    /** Rejects blank-is-fine (null/blank means "not given") but any value git could mistake for an option. */
+    static void requireSafeRef(String name, String ref) {
+        if (ref == null || ref.isBlank()) {
+            return;
+        }
+        if (!SAFE_REF.matcher(ref).matches()) {
+            throw new IllegalArgumentException("Unsafe git ref for '" + name + "': '" + ref
+                + "' (letters, digits and . _ / ~ ^ @ { } : + - only, and it must not start with '-')");
+        }
     }
 
     /** Files that are new and not yet tracked/committed at all — {@code git diff} never reports these. */

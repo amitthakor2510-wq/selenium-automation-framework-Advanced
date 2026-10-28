@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GitDiffReaderTest {
 
@@ -49,5 +51,22 @@ class GitDiffReaderTest {
         ));
         assertEquals(ChangeType.MODIFIED, files.get(0).type());
         assertEquals(ChangeType.MODIFIED, files.get(1).type());
+    }
+
+    @Test
+    void acceptsNormalRevisions() {
+        for (String ref : List.of("HEAD", "HEAD~1", "origin/main", "main^", "v1.2.3", "feature/login-fix",
+            "3f2a9c1", "HEAD@{1}", "refs/heads/main")) {
+            assertDoesNotThrow(() -> GitDiffReader.requireSafeRef("base", ref), ref);
+        }
+        assertDoesNotThrow(() -> GitDiffReader.requireSafeRef("head", null));
+        assertDoesNotThrow(() -> GitDiffReader.requireSafeRef("head", "  "));
+    }
+
+    @Test
+    void rejectsValuesGitCouldReadAsOptionsOrThatCarryOddCharacters() {
+        for (String ref : List.of("--output=/tmp/x", "-p", "main; rm -rf /", "a b", "main\n--stat", "$(id)", "a|b", "x`y`")) {
+            assertThrows(IllegalArgumentException.class, () -> GitDiffReader.requireSafeRef("base", ref), ref);
+        }
     }
 }
