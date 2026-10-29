@@ -1,0 +1,124 @@
+{
+  "type": "mobile",
+  "title": "Mobile app check (Android / iOS)",
+  "description": "Opens your app through Appium and explores its screens, reporting crashes, dead ends and slow or broken screens.",
+  "needs": [
+    "Appium running on this computer and an emulator or phone connected",
+    "Either the app's package name (already installed) or the app file (.apk / .ipa)"
+  ],
+  "notes": "Needs an Appium server and a device or emulator. The dashboard cannot start those for you.",
+  "requireOneOf": [
+    {
+      "fields": [
+        "appPackage",
+        "appPath"
+      ],
+      "message": "give the app's package name (already installed) or the path to the app file — one of the two is needed"
+    }
+  ],
+  "target": [
+    {
+      "id": "platform",
+      "label": "Phone type",
+      "type": "select",
+      "options": [
+        "android",
+        "ios"
+      ],
+      "required": true,
+      "default": "android"
+    },
+    {
+      "id": "appPackage",
+      "label": "App package name (already installed)",
+      "type": "text",
+      "required": false,
+      "requiredGroup": "app",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$",
+      "example": "com.mycompany.shop",
+      "help": "Android: the app's id, like com.mycompany.shop. iOS: the bundle id. Give this OR the app file below."
+    },
+    {
+      "id": "appPath",
+      "label": "App file to install (.apk / .ipa)",
+      "type": "text",
+      "required": false,
+      "requiredGroup": "app",
+      "pattern": "^(/|[A-Za-z]:[\\\\/])[^<>|*?\"\\u0000-\\u001f]{1,400}\\.(apk|aab|ipa|app|zip)$",
+      "maxLength": 420,
+      "example": "/home/me/builds/shop-debug.apk",
+      "help": "Full path of the file on THIS computer. Installs a fresh copy for the run."
+    },
+    {
+      "id": "appActivity",
+      "label": "Starting screen (Android activity)",
+      "type": "text",
+      "required": false,
+      "pattern": "^[A-Za-z0-9_.$]{1,200}$",
+      "example": ".MainActivity",
+      "help": "Only if the app does not open on its own."
+    },
+    {
+      "id": "deviceName",
+      "label": "Device / emulator name",
+      "type": "text",
+      "required": false,
+      "pattern": "^[A-Za-z0-9 ._()-]{1,60}$",
+      "example": "Pixel 7",
+      "help": "Leave empty to use the first connected device."
+    },
+    {
+      "id": "platformVersion",
+      "label": "Phone software version",
+      "type": "text",
+      "required": false,
+      "pattern": "^[0-9A-Za-z._-]{1,20}$",
+      "example": "14"
+    },
+    {
+      "id": "appiumUrl",
+      "label": "Appium server address",
+      "type": "url",
+      "required": false,
+      "default": "http://127.0.0.1:4723",
+      "help": "Where Appium is listening. The default is right for a normal local setup."
+    },
+    {
+      "id": "noReset",
+      "label": "Keep the app's data between runs",
+      "type": "checkbox",
+      "default": false,
+      "help": "Off = a clean app each run. On = stay logged in from earlier runs."
+    }
+  ],
+  "details": [
+    {
+      "id": "maxScreens",
+      "label": "Stop after this many screens",
+      "type": "integer",
+      "min": 1,
+      "max": 200,
+      "default": 30,
+      "required": false
+    },
+    {
+      "id": "maxDepth",
+      "label": "How deep to go from the first screen",
+      "type": "integer",
+      "min": 1,
+      "max": 20,
+      "default": 4,
+      "required": false
+    },
+    {
+      "id": "avoidWords",
+      "label": "Never tap buttons whose text contains",
+      "type": "text",
+      "required": false,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9 ,._-]{1,200}$",
+      "example": "checkout, send",
+      "help": "Comma-separated. Added to the built-in safety list (delete, log out, pay, buy, reset, submit …), which always stays."
+    }
+  ]
+}

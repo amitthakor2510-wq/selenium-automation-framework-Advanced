@@ -6,6 +6,7 @@
 <title>Test Wizard — Automation Console</title>
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="/wizard/static/wizard.css" />
+<link rel="stylesheet" href="/hub/static/hub.css" />
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +20,8 @@
       </div>
       <div class="topbar-status">
         <span id="whoami" class="pill pill-muted">…</span>
-        <a class="btn btn-ghost" href="/">← Console</a>
+        <a class="btn btn-ghost" href="/hub">← Test Hub</a>
+        <a class="btn btn-ghost" href="/control">Control Center</a>
       </div>
     </div>
   </header>
@@ -36,6 +38,7 @@
       </div>
     </section>
   </main>
+  <script src="/hub/static/results.js"></script>
   <script src="/wizard/static/wizard.js"></script>
 </body>
 </html>

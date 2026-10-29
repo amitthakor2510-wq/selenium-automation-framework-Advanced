@@ -10,6 +10,8 @@ AVAILABLE = {
     "ui": ["allure", "extent", "summary", "pdf"],
     "accessibility": ["allure", "extent", "summary", "pdf"],
     "api": ["allure", "summary"],
+    "openapi": ["allure", "summary"],
+    "mobile": ["summary"],
     "performance": ["summary"],
     "crawler": ["summary"],
 }
@@ -53,8 +55,8 @@ def artifact_dirs(test_type, chosen):
         dirs.append("target/extent-reports")
     if norm.get("pdf"):
         dirs.append("target/pdf-reports")
-    primary = {"api": "target/api-report", "performance": "target/perf-reports",
-               "crawler": "target/crawler"}.get(test_type)
+    primary = {"api": "target/api-report", "openapi": "target/api-report", "performance": "target/perf-reports",
+               "crawler": "target/crawler", "mobile": "target/mobile-crawler"}.get(test_type)
     if primary and norm.get("summary"):
         dirs.append(primary)
     return dirs

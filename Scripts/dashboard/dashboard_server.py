@@ -20,8 +20,8 @@ or via the dashboard Docker service (docker compose --profile dashboard up,
 see docker-compose.dashboard.yml) — same script either way, just started
 from a container instead of the host.
 
-This process NEVER runs Maven, git, or any other subprocess, and never
-executes anything the browser sends it — it only reads target/ and
+In its default configuration this process never runs Maven, git, or any other subprocess, and never
+executes anything the browser sends it (the opt-in test runner described below is the one exception) — it only reads target/ and
 reads/edits the two properties files above via config_files.py's
 narrow, validated setters (site/test/group names are regex-checked
 before touching a file; free text only ever lands in run.only, and even
@@ -123,6 +123,17 @@ _MIN_PASSWORD_LENGTH = 12
 
 # Largest request body any endpoint accepts (a snapshot import is the biggest).
 _MAX_BODY_BYTES = 1_000_000
+
+
+class DashboardServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with a realistic listen backlog.
+
+    socketserver's default request_queue_size is 5. A page load fires several parallel API calls and a
+    second browser tab (or a polling script) doubles that, so connections beyond the fifth were reset
+    ("Connection reset by peer") instead of queued. 128 matches the usual OS cap.
+    """
+    request_queue_size = 128
+    daemon_threads = True
 
 
 def make_handler(password, wizard=None):
@@ -279,7 +290,7 @@ def make_handler(password, wizard=None):
             if wizard is None:
                 return False
             p = parsed.path
-            if not (p.startswith(("/wizard", "/control", "/api/wizard/", "/api/features", "/api/templates", "/api/runs", "/api/ci/", "/api/secrets"))):
+            if not (p.startswith(("/wizard", "/control", "/hub", "/api/hub", "/api/wizard/", "/api/features", "/api/templates", "/api/runs", "/api/ci/", "/api/secrets"))):
                 return False
             result = wizard.handle(method, p, parse_qs(parsed.query), body, self.user)
             if result[0] == "page":
@@ -292,6 +303,38 @@ def make_handler(password, wizard=None):
             return True
 
         # ── routing ─────────────────────────────────────────────
+        def _method_not_allowed(self):
+            """PUT/DELETE/PATCH/OPTIONS: answer 405 with an Allow header (after auth) instead of the stdlib's
+            bare 501, and never take any action."""
+            if not self._require_auth():
+                return
+            body = json.dumps({"error": "method not allowed"}).encode("utf-8")
+            self.send_response(405)
+            self.send_header("Allow", "GET, HEAD, POST")
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+
+        do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _method_not_allowed
+
+        def do_HEAD(self):
+            """Liveness probes (load balancers, uptime checkers) commonly use HEAD. Only /api/health answers
+            it; every other path is 405, because producing the right headers for a page without running its
+            handler would be a guess."""
+            if urlparse(self.path).path != "/api/health":
+                self._method_not_allowed()
+                return
+            if not self._require_auth():
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self._security_headers()
+            self.end_headers()
+
         def do_GET(self):
             if not self._require_auth():
                 return
@@ -535,7 +578,7 @@ def main():
     password, generated = _resolve_password()
     wizard = WizardApi(REPO_ROOT, PIPELINE_CONFIG, SUITES_DIR)
     handler = make_handler(password, wizard)
-    httpd = ThreadingHTTPServer((args.host, args.port), handler)
+    httpd = DashboardServer((args.host, args.port), handler)
 
     from runner import runner_service
     banner_lines = [
@@ -543,6 +586,7 @@ def main():
         f"  Repo root : {REPO_ROOT}",
         f"  Listening : http://{args.host}:{args.port}  (open http://localhost:{args.port} locally)",
         "  Username  : dashboard",
+        f"  Test Hub  : http://localhost:{args.port}/hub  (START HERE: pick what to test, answer a few questions, read the result)",
         f"  Control Center: http://localhost:{args.port}/control  (every framework feature as a switch/button)",
         f"  Test wizard: http://localhost:{args.port}/wizard  (running tests from it: "
         + ("ON" if runner_service.enabled() else "off — set DASHBOARD_RUNNER_ENABLED=1") + ")",

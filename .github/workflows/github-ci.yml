@@ -236,6 +236,10 @@ jobs:
       - name: Run CI helper-script tests (Python)
         run: python3 -m unittest discover -s .github/workflows/scripts -p 'test_*.py' -v
 
+      # The web dashboard's own suite (auth, CSRF, config writer, runner, wizard). Stdlib-only, ~20 s.
+      - name: Run dashboard tests (Python)
+        run: python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashboard
+
       # Feeds coverage-gate: these JUnit classes cover core/tia, core/data,
       # core/keyword and part of core/utils, which no browser/API suite
       # touches. Written to the default target/jacoco.exec by the

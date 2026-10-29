@@ -6,7 +6,7 @@
   "properties": {
     "version": { "type": "integer", "enum": [1] },
     "name": { "type": "string", "minLength": 3, "maxLength": 80, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.-]*$" },
-    "type": { "type": "string", "enum": ["ui", "api", "performance", "crawler", "accessibility"] },
+    "type": { "type": "string", "enum": ["ui", "api", "openapi", "performance", "crawler", "accessibility", "mobile"] },
     "target": { "type": "object" },
     "details": { "type": "object" },
     "reports": {

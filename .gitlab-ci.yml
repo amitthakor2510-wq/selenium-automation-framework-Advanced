@@ -196,6 +196,7 @@ unit-tests:
     # core/utils — code no browser/API job touches — so their .exec feeds
     # coverage-gate like every other job's (see its `dependencies:`).
     - mvn -B verify -Punit-tests -Djacoco.destFile=target/jacoco-artifacts/unit.exec
+    - python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashboard
   artifacts:
     name: "jacoco-unit-$CI_COMMIT_REF_SLUG"
     when: always

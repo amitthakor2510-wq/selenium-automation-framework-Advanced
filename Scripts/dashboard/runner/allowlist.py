@@ -23,6 +23,16 @@ CASES = re.compile(r"^[A-Za-z0-9_,]{1,300}$")
 IMPACT = re.compile(r"^(minor|moderate|serious|critical)(,(minor|moderate|serious|critical)){0,3}$")
 BROWSERS = re.compile(r"^(chrome|firefox|edge)$")
 PATH = "path-in-workspace"
+HOSTFILE = "app-file-on-this-computer"
+PLATFORM = re.compile(r"^(android|ios)$")
+PKG = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$")
+ACTIVITY = re.compile(r"^[A-Za-z0-9_.$]{1,200}$")
+DEVICE = re.compile(r"^[A-Za-z0-9 ._()-]{1,60}$")
+VERSION = re.compile(r"^[0-9A-Za-z._-]{1,20}$")
+AVOID = re.compile(r"^[A-Za-z0-9 ,._-]{1,400}$")
+APP_FILE_CHARS = re.compile(r"^[^\x00-\x1f\"<>|*?]{1,400}$")
+APP_FILE_EXT = (".apk", ".aab", ".ipa", ".app", ".zip")
+RETRY = re.compile(r"^[1-5]$")
 
 
 class NotAllowed(Exception):
@@ -38,12 +48,19 @@ _PERF = {"perf.threads": INT, "perf.rampUpSeconds": INT, "perf.iterations": INT,
          "perf.maxP99Millis": INT, "perf.maxErrorRatePercent": NUM}
 _CRAWLER = {"crawler.startUrl": URL, "crawler.maxPages": INT, "crawler.maxDepth": INT, "crawler.a11y.enabled": BOOL}
 
+_MOBILE = {"mobile.platform": PLATFORM, "mobile.app.package": PKG, "mobile.app.path": HOSTFILE,
+           "mobile.app.activity": ACTIVITY, "mobile.device.name": DEVICE, "mobile.platform.version": VERSION,
+           "appium.server.url": URL, "mobile.noReset": BOOL, "crawler.mobile.maxScreens": INT,
+           "crawler.mobile.maxDepth": INT, "crawler.mobile.avoidTextContains": AVOID}
+
 ALLOWED_PROPERTIES = {
     "ui": dict(_COMMON, **{"wizard.keyword.repo": PATH, "wizard.keyword.script": PATH, "wizard.keyword.cases": CASES}),
     "performance": dict(_COMMON, **_PERF),
     "crawler": dict(_COMMON, **_CRAWLER),
     "accessibility": dict(_COMMON, **{"a11y.enabled": BOOL, "a11y.failOn": IMPACT}),
     "api": {},  # api-test.sh takes flags, not properties
+    "openapi": {},  # likewise
+    "mobile": _MOBILE,
 }
 
 # Fixed programs. "{mvn}" is resolved to a Maven launcher found on this machine (never user input).
@@ -53,6 +70,8 @@ FIXED_PREFIX = {
     "accessibility": ["{mvn}", "-B", "-ntp", "test"],
     "crawler": ["{mvn}", "-B", "-q", "-Pbug-crawler", "exec:java@bug-crawler"],
     "api": ["bash", "Scripts/api-test.sh"],
+    "openapi": ["bash", "Scripts/api-test.sh"],
+    "mobile": ["{mvn}", "-B", "-q", "-Pmobile-bug-crawler", "exec:java@mobile-bug-crawler", "-Dsite=mobile"],
 }
 
 _SUITE_RE = re.compile(r"^testng-suites/[A-Za-z0-9_-]+\.xml$")
@@ -81,6 +100,12 @@ def _check_property(test_type, key, value, workspace):
     if rule == PATH:
         if not os.path.isabs(value) or not _inside(value, workspace) or not os.path.isfile(value):
             raise NotAllowed(f"'{key}' must be a file inside the run workspace")
+    elif rule == HOSTFILE:
+        if not (APP_FILE_CHARS.fullmatch(value) and os.path.isabs(value) and value.lower().endswith(APP_FILE_EXT)
+                and ".." not in value.replace("\\", "/").split("/")):
+            raise NotAllowed(f"'{key}' must be the full path of an .apk / .aab / .ipa / .app file")
+        if not os.path.exists(value):
+            raise NotAllowed(f"the app file does not exist on this computer: {value}")
     elif not rule.fullmatch(value):
         raise NotAllowed(f"value for '{key}' is not allowed")
 
@@ -107,6 +132,8 @@ def build_command(test_type, plan, repo_root, workspace):
         if not URL.fullmatch(base):
             raise NotAllowed("API base URL is not allowed")
         return ["bash", "Scripts/api-test.sh", "--spec", spec_file, "--base-url", base]
+    if test_type == "openapi":
+        return _openapi_command(plan)
 
     argv = [find_maven(repo_root) if a == "{mvn}" else a for a in FIXED_PREFIX[test_type]]
     if plan.get("suite_xml"):
@@ -117,9 +144,38 @@ def build_command(test_type, plan, repo_root, workspace):
     return argv
 
 
+def _openapi_command(plan):
+    url = plan.get("openapi_url", "")
+    if not URL.fullmatch(url):
+        raise NotAllowed("OpenAPI document link is not allowed")
+    argv = ["bash", "Scripts/api-test.sh", "--openapi", url]
+    opts = plan.get("options", {})
+    unknown = set(opts) - {"base_url", "negative", "max_time", "retry"}
+    if unknown:
+        raise NotAllowed("option '" + sorted(unknown)[0] + "' is not allowed for OpenAPI runs")
+    if opts.get("base_url"):
+        if not URL.fullmatch(str(opts["base_url"])):
+            raise NotAllowed("API address override is not allowed")
+        argv += ["--base-url", str(opts["base_url"])]
+    if opts.get("negative"):
+        argv.append("--negative")
+    if opts.get("max_time") is not None:
+        if not INT.fullmatch(str(opts["max_time"])):
+            raise NotAllowed("max time is not allowed")
+        argv += ["--max-time", str(opts["max_time"])]
+    if opts.get("retry") is not None:
+        if not RETRY.fullmatch(str(opts["retry"])):
+            raise NotAllowed("retry count is not allowed")
+        argv += ["--retry", str(opts["retry"])]
+    return argv
+
+
 # Environment handed to the test process: a short allowlist, never the dashboard's own secrets.
 BASE_ENV = ("PATH", "HOME", "USER", "LANG", "LC_ALL", "JAVA_HOME", "TMPDIR", "TZ", "DISPLAY")
 _ENV_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+# The only variable names, besides WIZARD_SECRET_*, a run may be given a credential under: the ones the
+# OpenAPI-generated tests read (OpenApiSpecGenerator). Nothing else can be named by a form.
+CREDENTIAL_VARS = ("API_TOKEN", "API_USER", "API_PASSWORD", "API_KEY")
 
 
 def build_env(plan, resolved_secrets, environ=None):
@@ -131,8 +187,13 @@ def build_env(plan, resolved_secrets, environ=None):
             raise NotAllowed(f"environment variable '{name}' can't be passed to a run")
         if name in environ:
             env[name] = environ[name]
+    for dest, src in plan.get("env_alias", {}).items():
+        if dest not in CREDENTIAL_VARS or not _ENV_NAME.fullmatch(src) or src.startswith("DASHBOARD_"):
+            raise NotAllowed(f"environment variable '{src}' can't be passed to a run")
+        if src in environ:
+            env[dest] = environ[src]
     for var, value in resolved_secrets.items():
-        if not var.startswith("WIZARD_SECRET_"):
+        if not (var.startswith("WIZARD_SECRET_") or var in CREDENTIAL_VARS):
             raise NotAllowed("unexpected secret variable name")
         env[var] = value
     return env

@@ -18,6 +18,11 @@ from wizard.api import WizardApi
 REAL_ROOT = os.path.abspath(os.path.join(h.DASH, "..", ".."))
 
 
+def _read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 class HttpTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -136,7 +141,7 @@ class HttpTests(unittest.TestCase):
     def test_options_content(self):
         s, d, _ = self.call("GET", "/api/wizard/options")
         self.assertEqual(s, 200)
-        self.assertEqual([t["type"] for t in d["types"]], ["ui", "api", "performance", "crawler", "accessibility"])
+        self.assertEqual([t["type"] for t in d["types"]], ["ui", "api", "openapi", "performance", "crawler", "accessibility", "mobile"])
         self.assertIn("saucedemo", d["sites"])
         self.assertIn("demoqa", d["sitesFor"]["perf"])
         self.assertNotIn("saucedemo", d["sitesFor"]["perf"])
@@ -246,6 +251,47 @@ class HttpTests(unittest.TestCase):
         log = h.read(os.path.join(self.repo, "target", "dashboard-wizard-audit.jsonl"))
         self.assertIn("template-save", log)
         self.assertNotIn("tester-password-1", log)
+
+    # ── regressions from the code review ────────────────────────────────
+    def _admin(self, method, path, body=None, **kw):
+        return self.call(method, path, body, user="adam", pw="admin-password-1", **kw)
+
+    def test_unknown_site_is_refused_and_nothing_is_written(self):
+        before = _read(ds.PIPELINE_CONFIG)
+        status, body, _ = self._admin("POST", "/api/pipeline-config/site", {"name": "ghostsite", "enabled": True})
+        self.assertEqual(status, 400)
+        self.assertIn("unknown site", body["error"])
+        self.assertEqual(_read(ds.PIPELINE_CONFIG), before)
+
+    def test_unknown_or_oversized_test_name_is_refused(self):
+        before = _read(ds.TEST_CONFIG)
+        for name in ("NoSuchTest", "../x", "x" * 500):
+            status, _, _ = self._admin("POST", "/api/test-config/test", {"name": name, "enabled": True})
+            self.assertEqual(status, 400, name[:20])
+        self.assertEqual(_read(ds.TEST_CONFIG), before)
+
+    def test_known_test_can_still_be_toggled(self):
+        _, cfg, _ = self._admin("GET", "/api/test-config")
+        t = cfg["sections"][0]["tests"][0]
+        status, _, _ = self._admin("POST", "/api/test-config/test", {"name": t["name"], "enabled": not t["enabled"]})
+        self.assertEqual(status, 200)
+        self._admin("POST", "/api/test-config/test", {"name": t["name"], "enabled": t["enabled"]})
+
+    def test_head_health_and_405_for_other_methods(self):
+        req = urllib.request.Request(self.base + "/api/health", method="HEAD")
+        req.add_header("Authorization", "Basic " + base64.b64encode(b"tess:tester-password-1").decode())
+        with urllib.request.urlopen(req) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.read(), b"")
+        for method in ("PUT", "DELETE", "PATCH"):
+            status, _, headers = self._admin(method, "/api/health")
+            self.assertEqual(status, 405, method)
+            self.assertIn("POST", headers.get("Allow", ""))
+        status, _, _ = self.call("PUT", "/api/health", user=None)
+        self.assertEqual(status, 401)  # unauthenticated callers learn nothing about the methods
+
+    def test_listen_backlog_is_larger_than_the_stdlib_default(self):
+        self.assertGreaterEqual(ds.DashboardServer.request_queue_size, 64)
 
 
 class DisabledRunnerTest(unittest.TestCase):

@@ -11,7 +11,7 @@
     ["Run", "Run it here or hand it to your CI."]
   ];
   var S = { step: 0, opts: null, form: null, spec: blankSpec(), result: { errors: [], warnings: [] },
-            templates: [], runId: null, poller: null, logOffset: 0, ci: null };
+            templates: [], runId: null, poller: null, logOffset: 0, ci: null, optOpen: {}, watch: {} };
   var timer = null;
 
   function blankSpec() {
@@ -79,14 +79,17 @@
 
   /* ── field renderers ── */
   function fieldWrap(f, path, input) {
-    var req = f.required || (f.showIf && f.type === "secret_ref");
+    var req = f.required || f.requiredGroup || (f.showIf && (f.type === "secret_ref" || f.requiredWhenShown));
     return el("div", { class: "wz-field" }, [
       el("label", { class: "wz-label", text: f.label + (req ? " *" : "") }), input,
       f.help ? el("div", { class: "wz-help", text: f.help }) : null,
       el("div", { class: "wz-err wz-err-slot", "data-path": path })
     ]);
   }
-  function setVal(obj, key, v) { obj[key] = v; revalidate(); }
+  function setVal(obj, key, v) {
+    obj[key] = v; revalidate();
+    if (S.watch[key]) render();   // another field is shown/hidden by this one (e.g. login type -> token field)
+  }
   function renderField(f, obj, section) {
     var path = section + "." + f.id, cur = obj[f.id], input;
     if (f.showIf && !Object.keys(f.showIf).every(function (k) { return obj[k] === f.showIf[k]; })) return null;
@@ -115,19 +118,55 @@
       input = el("input", { type: "number", step: f.type === "integer" ? "1" : "any", "data-path": path, oninput: function (e) {
         var t = e.target.value; setVal(obj, f.id, t === "" ? undefined : Number(t)); } });
       if (cur !== undefined) input.value = cur;
+    } else if (f.type === "headers") {
+      input = el("textarea", { rows: "3", placeholder: "X-Api-Version: 2", spellcheck: "false", "data-path": path, oninput: function (e) {
+        setVal(obj, f.id, e.target.value); } });
+      input.value = cur || "";
     } else {
-      input = el("input", { type: "text", autocomplete: "off", spellcheck: "false", "data-path": path, oninput: function (e) {
+      input = el("input", { type: "text", autocomplete: "off", spellcheck: "false", placeholder: f.example || "", "data-path": path, oninput: function (e) {
         setVal(obj, f.id, e.target.value); } });
       if (f.type === "secret_ref" && S.opts.secretNames.length) {
         input.setAttribute("list", "secretList");
       }
       input.value = cur || "";
     }
-    return fieldWrap(f, path, input);
+    var wrap = fieldWrap(f, path, input);
+    if (f.type === "url" && can("run.start")) wrap.insertBefore(connectionCheck(input), wrap.querySelector(".wz-err"));
+    return wrap;
+  }
+  function connectionCheck(input) {
+    var msg = el("span", { class: "msg" }), btn = el("button", { class: "btn btn-ghost btn-small", type: "button", text: "Check connection" });
+    btn.addEventListener("click", function () {
+      var url = input.value.trim();
+      if (!url) { msg.className = "msg in-warn"; msg.textContent = "Type the address first."; return; }
+      btn.disabled = true; msg.className = "msg"; msg.textContent = "Checking…";
+      api("POST", "/api/wizard/check-url", { url: url }).then(function (r) {
+        msg.className = "msg in-" + r.level; msg.textContent = r.message;
+      }).catch(function (e) { msg.className = "msg in-bad"; msg.textContent = e.message; })
+        .then(function () { btn.disabled = false; });
+    });
+    return el("div", { class: "in-check" }, [btn, msg]);
+  }
+  function hasValue(f, obj) {
+    var v = obj[f.id];
+    return v !== undefined && v !== "" && v !== false && !(Array.isArray(v) && !v.length) && v !== f.default;
   }
   function renderForm(fields, obj, section) {
-    var box = el("div");
-    fields.forEach(function (f) { var n = renderField(f, obj, section); if (n) box.appendChild(n); });
+    fields.forEach(function (f) { if (f.showIf) Object.keys(f.showIf).forEach(function (k) { S.watch[k] = true; }); });
+    var box = el("div"), needed = [], optional = [];
+    fields.forEach(function (f) { (f.required || f.requiredGroup ? needed : optional).push(f); });
+    function fill(into, list) { list.forEach(function (f) { var n = renderField(f, obj, section); if (n) into.appendChild(n); }); }
+    if (needed.length && optional.length) {
+      var req = el("div", { class: "in-req" }, [el("h3", { text: "Needed" })]);
+      fill(req, needed); box.appendChild(req);
+    } else fill(box, needed);
+    if (optional.length) {
+      var dep = optional.some(function (f) { return hasValue(f, obj) || S.result.errors.some(function (e) { return e.path === section + "." + f.id; }); });
+      var det = el("details", { class: "in-opt" }, [el("summary", { text: "Optional — helps the test (you can skip all of this)" })]);
+      if (S.optOpen[section] || dep) det.open = true;
+      det.addEventListener("toggle", function () { S.optOpen[section] = det.open; });
+      fill(det, optional); box.appendChild(det);
+    }
     return box;
   }
   function cellInput(row, key, path, disabled, ph) {
@@ -204,7 +243,8 @@
     var cards = el("div", { class: "wz-cards" });
     S.opts.types.forEach(function (t) {
       cards.appendChild(el("button", { type: "button", class: "wz-card" + (S.spec.type === t.type ? " selected" : ""), onclick: function () { chooseType(t.type); } },
-        [el("strong", { text: t.title }), el("span", { text: t.description })]));
+        [el("strong", { text: t.title }), el("span", { text: t.description }),
+         el("span", { class: "in-tag", text: t.needs && t.needs.length ? "You'll need: " + t.needs[0] : "" })]));
     });
     body.appendChild(cards);
     var tpl = el("div", { class: "wz-templates" }, [el("h3", { text: "Saved templates" })]);
@@ -229,12 +269,21 @@
       return api("GET", "/api/wizard/forms/" + spec.type);
     }).then(function (f) { S.form = f; go(4); revalidate(); }).catch(showError);
   }
+  function needsPanel() {
+    var t = S.opts.types.filter(function (x) { return x.type === S.spec.type; })[0];
+    if (!t || !t.needs || !t.needs.length) return null;
+    var ul = el("ul"); t.needs.forEach(function (n) { ul.appendChild(el("li", { text: n })); });
+    return el("div", { class: "in-needs" }, [el("strong", { text: "Before you start, have ready:" }), ul]);
+  }
   function stepTarget(body) {
+    S.watch = {};
+    var np = needsPanel(); if (np) body.appendChild(np);
     body.appendChild(fieldWrap({ label: "Test name", required: true, help: "Used for the template and the run list (3-80 characters)." }, "name",
       (function () { var i = el("input", { type: "text", "data-path": "name", autocomplete: "off", oninput: function (e) { S.spec.name = e.target.value; revalidate(); } }); i.value = S.spec.name; return i; })()));
     body.appendChild(renderForm(S.form.target, S.spec.target, "target"));
   }
   function stepDetails(body) {
+    S.watch = {};
     if (S.form.notes) body.appendChild(el("div", { class: "wz-warn", text: S.form.notes }));
     body.appendChild(renderForm(S.form.details, S.spec.details, "details"));
   }
@@ -348,8 +397,8 @@
         cancel.hidden = done;
         if (done) {
           links.textContent = "";
-          if (st.reportLink) links.appendChild(el("a", { href: st.reportLink, target: "_blank", rel: "noopener noreferrer", text: "Run summary & reports" }));
           clearInterval(S.poller); refreshRuns();
+          window.RunResults.load(links, id);
         }
         return api("GET", "/api/runs/" + id + "/log?offset=" + S.logOffset);
       }).then(function (l) {
@@ -387,5 +436,8 @@
     S.opts = o;
     $("whoami").textContent = o.user + " (" + o.role + ")";
     return refreshTemplates();
-  }).then(render).catch(showError);
+  }).then(function () {
+    var m = /[?&]type=([a-z]+)/.exec(location.search);
+    if (m && S.opts.types.some(function (t) { return t.type === m[1]; })) chooseType(m[1]); else render();
+  }).catch(showError);
 })();

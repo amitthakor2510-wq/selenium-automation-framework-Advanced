@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Test Hub — Automation Console</title>
+<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="/hub/static/hub.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <span class="brand-name">Test Hub</span>
+          <span class="brand-sub">Choose what to test, answer a few questions, get a clear result</span>
+        </div>
+      </div>
+      <div class="topbar-status">
+        <span id="whoami" class="pill pill-muted">…</span>
+        <a class="btn btn-ghost" href="/wizard">Build a test</a>
+        <a class="btn btn-ghost" href="/control">Control Center</a>
+        <a class="btn btn-ghost" href="/">Console</a>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <div id="banner" class="wz-banner" hidden></div>
+    <section class="hub-hero">
+      <h1>What would you like to test?</h1>
+      <p>Pick one. You will only be asked for what that test truly needs — everything else is optional.</p>
+    </section>
+    <div class="hub-layout">
+      <section>
+        <div id="cards" class="hub-cards"></div>
+      </section>
+      <aside class="hub-side">
+        <section class="panel">
+          <div class="panel-head"><h2>Recent results</h2><p class="panel-sub">Click one for the full picture.</p></div>
+          <div class="panel-body" id="runs"></div>
+        </section>
+        <section class="panel" id="detailPanel" hidden>
+          <div class="panel-body" id="detail"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>Is this computer ready?</h2><p class="panel-sub">Green = ready. Amber = only some tests need it.</p></div>
+          <div class="panel-body"><ul id="ready" class="hub-ready"></ul></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <script src="/hub/static/results.js"></script>
+  <script src="/hub/static/hub.js"></script>
+</body>
+</html>

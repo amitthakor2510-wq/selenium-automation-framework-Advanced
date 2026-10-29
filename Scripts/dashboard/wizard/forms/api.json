@@ -2,27 +2,35 @@
   "type": "api",
   "title": "API test (REST)",
   "description": "Describe requests and expected responses. Runs through Scripts/api-test.sh.",
+  "needs": [
+    "The API's base address, e.g. https://api.mycompany.com",
+    "The requests to send and the answer each one should give"
+  ],
   "target": [
     {
       "id": "baseUrl",
       "label": "Base URL",
       "type": "url",
       "required": true,
-      "help": "e.g. https://jsonplaceholder.typicode.com"
+      "help": "The address of the API, e.g. https://jsonplaceholder.typicode.com — no path, no password in it.",
+      "example": "https://api.mycompany.com"
     },
     {
       "id": "authType",
-      "label": "Authentication",
+      "label": "How does the API check who you are?",
       "type": "select",
       "options": [
         "none",
-        "bearer"
+        "bearer",
+        "basic",
+        "apiKey"
       ],
-      "default": "none"
+      "default": "none",
+      "help": "Leave on 'none' for a public API. Passwords and tokens are never typed here: pick a saved secret."
     },
     {
       "id": "authToken",
-      "label": "Bearer token reference",
+      "label": "Bearer token (saved secret)",
       "type": "secret_ref",
       "required": false,
       "showIf": {
@@ -31,12 +39,93 @@
       "help": "Reference only: ${secret:NAME} or ${env:NAME}. Never paste the token."
     },
     {
+      "id": "authUser",
+      "label": "User name (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "basic"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "authPassword",
+      "label": "Password (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "basic"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "apiKeyName",
+      "label": "API key name",
+      "type": "text",
+      "required": false,
+      "requiredWhenShown": true,
+      "showIf": {
+        "authType": "apiKey"
+      },
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "example": "X-API-Key",
+      "help": "The header or query-parameter name the API expects."
+    },
+    {
+      "id": "apiKeyValue",
+      "label": "API key (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "apiKey"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "apiKeyIn",
+      "label": "Send the key in",
+      "type": "select",
+      "options": [
+        "header",
+        "query"
+      ],
+      "default": "header",
+      "showIf": {
+        "authType": "apiKey"
+      }
+    },
+    {
       "id": "maxTimeMs",
       "label": "Fail responses slower than (ms)",
       "type": "integer",
       "min": 0,
       "max": 120000,
-      "default": 5000
+      "default": 5000,
+      "help": "A response slower than this counts as a failure. 5000 = 5 seconds."
+    },
+    {
+      "id": "retries",
+      "label": "Retry a failed request",
+      "type": "integer",
+      "min": 0,
+      "max": 5,
+      "default": 0,
+      "help": "Network errors and 502/503/504 answers are retried this many times before they count as a failure."
+    },
+    {
+      "id": "extraHeaders",
+      "label": "Extra headers sent with every request",
+      "type": "headers",
+      "required": false,
+      "maxLength": 2000,
+      "help": "One per line as Name: value, e.g. X-Api-Version: 2. Put secrets in as ${secret:NAME}, never the value itself."
+    },
+    {
+      "id": "insecureTls",
+      "label": "Accept self-signed security certificates",
+      "type": "checkbox",
+      "default": false,
+      "help": "Only for test servers you own. Turns off certificate checking for this run."
     }
   ],
   "details": [

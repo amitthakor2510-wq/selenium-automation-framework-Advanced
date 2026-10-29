@@ -2,6 +2,9 @@
   "type": "accessibility",
   "title": "Accessibility scan (axe-core)",
   "description": "Run the framework's axe-core accessibility suite.",
+  "needs": [
+    "Which site to scan (only sites with an accessibility suite are listed)"
+  ],
   "target": [
     {
       "id": "site",

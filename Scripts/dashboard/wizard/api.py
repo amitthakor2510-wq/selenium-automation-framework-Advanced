@@ -17,7 +17,9 @@ import suites as su
 from auth import secrets_store, users
 from reports import evidence_options, report_options
 from features import service as features
-from runner import ci_trigger, workspace
+from hub import service as hub
+from wizard import connection
+from runner import ci_trigger, run_results, workspace
 from runner.queue import QueueFull
 from runner.runner_service import RunnerDisabled, RunnerService
 from specs import spec_store
@@ -26,11 +28,12 @@ from wizard import validators
 _HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(_HERE, "static")
 CONTROL_DIR = os.path.join(os.path.dirname(_HERE), "features", "static")
+HUB_DIR = os.path.join(os.path.dirname(_HERE), "hub", "static")
 _MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".json": "application/json", ".log": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8",
          ".zip": "application/zip", ".generated": "text/plain; charset=utf-8"}
 _RUN_FILE_OK = re.compile(r"^(summary\.html|run\.log|spec\.json|properties\.generated|report-link\.txt|report/[A-Za-z0-9_.-]+\.zip)$")
-_TYPE_TITLES = ("ui", "api", "performance", "crawler", "accessibility")
+_TYPE_TITLES = ("ui", "api", "openapi", "performance", "crawler", "accessibility", "mobile")
 
 
 class WizardApi:
@@ -103,6 +106,19 @@ class WizardApi:
             if rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full):
                 raise FileNotFoundError("not found")
             return "page", full
+        if path in ("/hub", "/hub/"):
+            return "page", os.path.join(HUB_DIR, "hub.html")
+        if path.startswith("/hub/static/"):
+            rel = os.path.normpath(path[len("/hub/static/"):])
+            full = os.path.join(HUB_DIR, rel)
+            if rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full):
+                raise FileNotFoundError("not found")
+            return "page", full
+        if path == "/api/hub":
+            need("run.view")
+            return 200, {"intents": hub.INTENTS, "readiness": hub.readiness(self._enabled(), dict(os.environ), self.repo_root),
+                         "runs": hub.recent_runs(), "runnerEnabled": self._enabled(), "user": user["name"], "role": user["role"],
+                         "permissions": {p: users.allowed(user["role"], p) for p in users.PERMISSIONS}}
         if path == "/api/features":
             need("run.view")
             data = features.describe(self.runner.feature_ctx())
@@ -133,6 +149,11 @@ class WizardApi:
         if m:
             need("run.view")
             return 200, self.runner.status(m.group(1))
+        m = re.fullmatch(r"/api/runs/([0-9a-f-]+)/results", path)
+        if m:
+            need("run.view")
+            saved = run_results.read(workspace.path_for(m.group(1)))
+            return 200, saved if saved is not None else run_results.fallback(self.runner.status(m.group(1)))
         m = re.fullmatch(r"/api/runs/([0-9a-f-]+)/log", path)
         if m:
             need("run.view")
@@ -162,6 +183,9 @@ class WizardApi:
         if path == "/api/wizard/validate":
             need("spec.view")
             return 200, validators.validate_spec(body.get("spec"), self.build_ctx())
+        if path == "/api/wizard/check-url":
+            need("run.start")
+            return 200, connection.check(body.get("url"))
         if path == "/api/templates":
             need("spec.save")
             saved = spec_store.save(body.get("spec"), user["name"], self.build_ctx())
@@ -249,7 +273,7 @@ class WizardApi:
         types = []
         for t in _TYPE_TITLES:
             f = validators.load_form(t)
-            types.append({"type": t, "title": f["title"], "description": f["description"],
+            types.append({"type": t, "title": f["title"], "description": f["description"], "needs": f.get("needs", []),
                           "reports": report_options.available(t), "evidence": evidence_options.applies(t)})
         return {"types": types, "sites": ctx["sites"], "sitesFor": ctx["sites_for"],
                 "reportLabels": report_options.LABELS, "reportDefaults": report_options.DEFAULTS,

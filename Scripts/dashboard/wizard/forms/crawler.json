@@ -2,6 +2,9 @@
   "type": "crawler",
   "title": "Site crawler (bug finder)",
   "description": "Crawl a site from a start URL and report broken pages, console errors and accessibility issues.",
+  "needs": [
+    "The address to start from"
+  ],
   "target": [
     {
       "id": "browser",

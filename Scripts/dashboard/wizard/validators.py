@@ -21,7 +21,7 @@ from specs import schema_check
 _HERE = os.path.dirname(os.path.abspath(__file__))
 FORMS_DIR = os.path.join(_HERE, "forms")
 SCHEMA_PATH = os.path.join(os.path.dirname(_HERE), "specs", "spec_schema.json")
-TYPES = ("ui", "api", "performance", "crawler", "accessibility")
+TYPES = ("ui", "api", "openapi", "performance", "crawler", "accessibility", "mobile")
 
 MAX_CELL = 500
 _CTRL = re.compile(r"[\x00-\x1f\x7f]")
@@ -39,6 +39,10 @@ _SECRET_VALUE_PATTERNS = [
     ("bearer token", re.compile(r"\bBearer\s+[A-Za-z0-9._~+/-]{20,}")),
     ("password in URL", re.compile(r"://[^/\s:@]+:[^/\s@]+@")),
 ]
+
+
+# Fields whose NAME looks like a credential but whose value is just a label (e.g. the header called "X-API-Key").
+_NOT_CREDENTIAL_FIELDS = ("authType", "apiKeyName", "apiKeyIn")
 
 
 def load_form(test_type):
@@ -148,6 +152,50 @@ def validate_secret_ref(value, *, required=True, known_secrets=None):
     return []
 
 
+# ── extra HTTP headers (one "Name: value" per line) ─────────────────────────────
+_HEADER_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,63}$")
+# headers the framework or the HTTP library sets itself; letting a form override them breaks requests or smuggles
+_FORBIDDEN_HEADERS = {"host", "content-length", "transfer-encoding", "connection", "upgrade", "te", "trailer"}
+_CREDENTIAL_HEADERS = {"authorization", "proxy-authorization", "cookie", "x-api-key", "api-key", "x-auth-token"}
+MAX_HEADER_LINES = 20
+
+
+def parse_headers(text):
+    """"Name: value" lines -> [(name, value)]. Raises ValueError with a friendly message on the first bad line."""
+    out = []
+    for n, line in enumerate((text or "").splitlines(), 1):
+        if not line.strip():
+            continue
+        name, sep, value = line.partition(":")
+        name, value = name.strip(), value.strip()
+        if not sep or not _HEADER_NAME_RE.match(name):
+            raise ValueError(f"line {n}: write it as Name: value (for example X-Api-Version: 2)")
+        if name.lower() in _FORBIDDEN_HEADERS:
+            raise ValueError(f"line {n}: '{name}' is set automatically and can't be changed here")
+        if _CTRL.search(value) or len(value) > 500:
+            raise ValueError(f"line {n}: the value must be one line, at most 500 characters")
+        if name.lower() in _CREDENTIAL_HEADERS and value and not _PLACEHOLDER_RE.fullmatch(value):
+            raise ValueError(f"line {n}: '{name}' carries a credential — use ${{secret:NAME}} or ${{env:NAME}} as the value")
+        out.append((name, value))
+        if len(out) > MAX_HEADER_LINES:
+            raise ValueError(f"too many headers (max {MAX_HEADER_LINES})")
+    return out
+
+
+def validate_headers(value, *, max_length=2000):
+    if value in (None, ""):
+        return []
+    if not isinstance(value, str):
+        return ["must be text"]
+    if len(value) > max_length:
+        return [f"too long (max {max_length} characters)"]
+    try:
+        parse_headers(value)
+    except ValueError as e:
+        return [str(e)]
+    return []
+
+
 # ── secret leak scan ────────────────────────────────────────────────────────────
 def find_secret_leaks(obj, path="$", key_hint=""):
     """[(path, reason)] for literal secrets anywhere in a spec. References are fine."""
@@ -166,7 +214,7 @@ def find_secret_leaks(obj, path="$", key_hint=""):
                 break
         else:
             if (_SECRET_KEY_RE.search(key_hint) and not is_reference(text) and not _PLACEHOLDER_RE.search(text)
-                    and key_hint not in ("authType",)):
+                    and key_hint not in _NOT_CREDENTIAL_FIELDS):
                 leaks.append((path, "this field looks like a credential — use ${secret:NAME} or ${env:NAME}"))
     return leaks
 
@@ -180,7 +228,8 @@ def _visible(field, values):
 def _validate_field(field, value, ctx):
     ftype, label = field["type"], field.get("label", field["id"])
     visible = ctx.get("_visible", True)
-    required = field.get("required", False) or (bool(field.get("showIf")) and visible and ftype == "secret_ref")
+    required = field.get("required", False) or (bool(field.get("showIf")) and visible
+                                                 and (ftype == "secret_ref" or bool(field.get("requiredWhenShown"))))
     empty = value is None or value == "" or value == []
     if empty:
         return [f"{label}: required"] if required else []
@@ -220,6 +269,8 @@ def _validate_field(field, value, ctx):
         return []
     if ftype == "secret_ref":
         return [f"{label}: {m}" for m in validate_secret_ref(value, required=required)]
+    if ftype == "headers":
+        return [f"{label}: {m}" for m in validate_headers(value, max_length=field.get("maxLength", 2000))]
     return []
 
 
@@ -359,6 +410,16 @@ def validate_spec(spec, ctx=None):
                 if parsed and parsed[0] == "secret" and parsed[1] not in ctx["secret_names"]:
                     warnings.append({"path": f"{section}.{field['id']}",
                                      "message": f"secret '{parsed[1]}' is not stored yet — the run will fail until an admin adds it"})
+
+    target_values = spec.get("target") if isinstance(spec.get("target"), dict) else {}
+    for rule in form.get("requireOneOf", []):
+        if not any(target_values.get(f) not in (None, "", []) for f in rule["fields"]):
+            err(f"target.{rule['fields'][0]}", rule["message"])
+    app_path = target_values.get("appPath")
+    if test_type == "mobile" and isinstance(app_path, str) and app_path and not os.path.isfile(app_path):
+        warnings.append({"path": "target.appPath",
+                         "message": "No file exists at that path on the computer running the dashboard — "
+                                    "the run will fail unless it is there when the run starts."})
 
     reports = spec.get("reports") if isinstance(spec.get("reports"), dict) else {}
     for k, v in reports.items():

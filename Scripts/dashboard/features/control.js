@@ -58,7 +58,10 @@
       if (cur != null) input.value = cur;
       input.addEventListener("input", function () { mark(input.value); });
     }
-    return el("div", { class: "cc-field" }, [el("label", { for: id, text: o.label }), input]);
+    if (o.example && input.tagName === "INPUT") input.setAttribute("placeholder", o.example);
+    var kids = [el("label", { for: id, text: o.label + (o.required ? " *" : "") }), input];
+    if (o.help) kids.push(el("small", { class: "cc-help", text: o.help }));
+    return el("div", { class: "cc-field" }, kids);
   }
 
   /* ── globals ─────────────────────────────────────────────── */
@@ -110,15 +113,30 @@
       var tv = {}; extras.tags = tv;
       opts.appendChild(control({ key: "cucumber.filter.tags", label: "Cucumber tags (e.g. @smoke and not @slow)", type: "name" }, tv, {}, "t-" + f.id + "-"));
     }
-    f.options.forEach(function (o) { any = true; opts.appendChild(control(o, vals, touched, "o-" + f.id + "-")); });
+    var needed = el("div", { class: "cc-needed" });
+    var requiredOpts = f.options.filter(function (o) { return o.required; });
+    f.options.forEach(function (o) {
+      any = true;
+      (o.required ? needed : opts).appendChild(control(o, vals, touched, "o-" + f.id + "-"));
+    });
     if (f.globals) opts.appendChild(el("p", { class: "cc-mono", text: "Also uses the Run switches at the top." }));
+    function missing() {
+      return requiredOpts.filter(function (o) { var v = vals[o.key] !== undefined ? vals[o.key] : o.default; return v == null || String(v).trim() === ""; });
+    }
+    var hint = el("span", { class: "cc-mono" });
+    function sync() {
+      var m = missing();
+      run.disabled = blocked || !canRun() || m.length > 0;
+      hint.textContent = m.length ? "Needed first: " + m.map(function (o) { return o.label; }).join(", ") : "max " + f.timeout + " min";
+    }
+    needed.addEventListener("input", sync); needed.addEventListener("change", sync);
 
-    var run = el("button", { class: "btn btn-primary", type: "button", text: "Run", disabled: blocked || !canRun() });
+    var run = el("button", { class: "btn btn-primary", type: "button", text: "Run", disabled: true });
     run.addEventListener("click", function () {
       var options = {};
       if (f.globals) { var g = globalPayload(); Object.keys(g).forEach(function (k) { options[k] = g[k]; }); }
       f.options.forEach(function (o) {
-        var must = (o.type === "url" || o.type === "name" || o.type === "relurl" || o.type === "ref") && o.default != null;
+        var must = ((o.type === "url" || o.type === "name" || o.type === "relurl" || o.type === "ref") && o.default != null) || o.required;
         if (touched[o.key] || must) { var v = vals[o.key] !== undefined ? vals[o.key] : o.default; if (v !== undefined && v !== "") options[o.key] = v; }
       });
       if (extras.site && extras.site.site) options.site = extras.site.site;
@@ -128,13 +146,18 @@
       api("POST", "/api/features/run", { feature: f.id, options: options })
         .then(function (st) { banner(""); S.active = st.id; refreshRuns(true); })
         .catch(function (e) { banner(f.title + ": " + e.message, true); })
-        .then(function () { run.disabled = blocked || !canRun(); });
+        .then(sync);
     });
 
     var kids = [el("h3", { text: f.title }), el("p", { class: "cc-desc", text: f.desc }), badges];
-    if (any || f.globals) kids.push(el("details", {}, [el("summary", { text: "Switches" }), opts]));
-    kids.push(el("div", { class: "cc-card-foot" }, [run, el("span", { class: "cc-mono", text: "max " + f.timeout + " min" })]));
-    return el("div", { class: "cc-card" + (blocked ? " blocked" : ""), "data-search": (f.title + " " + f.desc + " " + f.group + " " + f.id).toLowerCase() }, kids);
+    if (requiredOpts.length) { kids.push(el("div", { class: "cc-need-title", text: "Needed before it can run" })); kids.push(needed); }
+    var optCount = f.options.length - requiredOpts.length;
+    if (optCount > 0 || f.globals || f.pickSite || f.siteArg || f.tags) {
+      kids.push(el("details", {}, [el("summary", { text: requiredOpts.length ? "Optional — helps the test" : "Switches" }), opts]));
+    }
+    kids.push(el("div", { class: "cc-card-foot" }, [run, hint]));
+    sync();
+    return el("div", { class: "cc-card" + (blocked ? " blocked" : ""), id: "card-" + f.id, "data-search": (f.title + " " + f.desc + " " + f.group + " " + f.id).toLowerCase() }, kids);
   }
 
   function renderGroups() {
@@ -215,6 +238,9 @@
       acts.appendChild(el("button", { class: "btn btn-ghost btn-small", type: "button", text: "Re-run", onclick: function () {
         api("POST", "/api/runs/" + r.id + "/rerun").then(function (st) { S.active = st.id; refreshRuns(true); }).catch(function (e) { banner(e.message, true); }); } }));
     }
+    var rb = $("resultBox"), key = r.id + ":" + r.state;
+    if (live) { rb.textContent = ""; S.resultKey = null; }
+    else if (S.resultKey !== key) { S.resultKey = key; window.RunResults.load(rb, r.id); }
     var links = $("logLinks"); links.textContent = "";
     if (r.reportLink) links.appendChild(el("a", { class: "btn btn-ghost btn-small", href: r.reportLink, target: "_blank", rel: "noopener", text: "Run summary" }));
     links.appendChild(el("a", { class: "btn btn-ghost btn-small", href: "/api/runs/" + r.id + "/files/run.log", target: "_blank", rel: "noopener", text: "Full log" }));
@@ -249,7 +275,12 @@
       rp.className = "pill " + (d.runnerEnabled ? "pill-ok" : "pill-muted");
       if (!d.runnerEnabled) banner("The runner is switched off, so features can be browsed but not started. Start the dashboard with Scripts/start-dashboard.sh (it turns the runner on).", false);
       else if (!d.permissions["run.start"]) banner("Your role (" + d.role + ") can look but not start runs.", false);
+      var q = /[?&]group=([^&]+)/.exec(location.search);
+      if (q && d.groups.indexOf(decodeURIComponent(q[1])) >= 0) S.group = decodeURIComponent(q[1]);
       renderGlobals(); renderBundles(); renderChips(); renderGroups();
+      var fm = /[?&]feature=([A-Za-z0-9:_-]+)/.exec(location.search);
+      var target = fm && document.getElementById("card-" + fm[1]);
+      if (target) { target.classList.add("cc-spot"); var dt = target.querySelector("details"); if (dt) dt.open = true; target.scrollIntoView({ block: "center" }); }
       $("search").addEventListener("input", function (e) { S.filter = e.target.value; renderGroups(); });
       refreshRuns(false).then(function () { if (S.runs.length && !S.active) selectRun(S.runs[0].id); });
       S.timer = setInterval(function () { refreshRuns(false); }, 3000);

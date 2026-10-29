@@ -1,0 +1,71 @@
+/* Test Hub + shared results card. Builds on /style.css tokens. No inline styles (CSP). */
+.hub-hero { margin: 4px 0 18px; }
+.hub-hero h1 { font-size: 22px; margin: 0 0 4px; }
+.hub-hero p { margin: 0; color: var(--text-muted); }
+.hub-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .hub-layout { grid-template-columns: 1fr; } }
+.hub-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.hub-card { border: 1px solid var(--border); background: var(--panel); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.hub-card:hover { border-color: var(--accent); }
+.hub-card h3 { margin: 0; font-size: 15px; }
+.hub-card .ico { font-size: 20px; margin-right: 6px; }
+.hub-card p { margin: 0; color: var(--text-muted); font-size: 13px; }
+.hub-card .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 4px 0 2px; }
+.hub-card ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.hub-card ul.opt { color: var(--text-muted); }
+.hub-card .go { margin-top: auto; align-self: flex-start; }
+.hub-side { display: grid; gap: 14px; position: sticky; top: 12px; }
+.hub-ready { list-style: none; margin: 0; padding: 0; }
+.hub-ready li { display: grid; grid-template-columns: 14px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.hub-ready .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--border); }
+.hub-ready .ok .dot { background: var(--pass); } .hub-ready .warn .dot { background: var(--warn); } .hub-ready .bad .dot { background: var(--fail); }
+.hub-ready .detail { color: var(--text-muted); font-size: 12px; word-break: break-all; }
+.hub-ready .fix { color: var(--warn); font-size: 12px; }
+.hub-run { display: grid; gap: 2px; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--panel-alt); color: var(--text); border-radius: var(--radius); padding: 7px 9px; margin-bottom: 6px; cursor: pointer; font: inherit; }
+.hub-run[aria-current="true"] { border-color: var(--accent); }
+.hub-run .row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; align-items: center; }
+.hub-run .sub { font-size: 12px; color: var(--text-muted); }
+.hub-empty { color: var(--text-muted); font-size: 13px; }
+.hub-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.rr-card { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius); padding: 12px 14px; background: var(--panel); }
+.rr-card-passed { border-left-color: var(--pass); } .rr-card-failed, .rr-card-error, .rr-card-timeout { border-left-color: var(--fail); }
+.rr-card-no-tests, .rr-card-cancelled, .rr-card-running, .rr-card-queued { border-left-color: var(--warn); }
+.rr-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.rr-badge { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.rr-passed { color: var(--pass); } .rr-failed, .rr-error, .rr-timeout { color: var(--fail); }
+.rr-no-tests, .rr-cancelled, .rr-running, .rr-queued { color: var(--warn); }
+.rr-headline { margin: 8px 0; font-size: 15px; }
+.rr-counts { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0; }
+.rr-count { display: grid; text-align: center; }
+.rr-num { font-size: 22px; font-weight: 600; } .rr-lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+.rr-count-passed .rr-num { color: var(--pass); } .rr-count-failed .rr-num { color: var(--fail); }
+.rr-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--panel-alt); margin: 6px 0 10px; }
+.rr-seg-passed { background: var(--pass); } .rr-seg-skipped { background: var(--warn); } .rr-seg-failed { background: var(--fail); }
+.rr-h { margin: 12px 0 4px; font-size: 13px; }
+.rr-hints { margin: 0; padding-left: 18px; font-size: 13px; }
+.rr-hints li { margin: 3px 0; }
+.rr-scroll { max-height: 260px; overflow: auto; }
+.rr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rr-table th { text-align: left; color: var(--text-muted); font-weight: 400; padding: 3px 6px; }
+.rr-table td { padding: 4px 6px; border-top: 1px solid var(--border); vertical-align: top; word-break: break-word; }
+.rr-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.rr-meta { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); }
+.verdict { padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 16px; margin: 8px 0 14px; }
+.verdict-passed { border-color: var(--pass); } .verdict-failed, .verdict-error, .verdict-timeout { border-color: var(--fail); }
+.verdict-no-tests, .verdict-cancelled { border-color: var(--warn); }
+.sum-counts { font-size: 15px; } .sum-muted { color: var(--text-muted); }
+.sum-fails { border-collapse: collapse; } .sum-fails td, .sum-fails th { padding: 4px 10px 4px 0; text-align: left; vertical-align: top; }
+
+/* shared intake styling (wizard + control center) */
+.in-req { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; background: var(--panel); }
+.in-req > h3, .in-opt > summary { font-size: 13px; margin: 0 0 8px; }
+.in-opt { border: 1px dashed var(--border); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 14px; }
+.in-opt > summary { cursor: pointer; color: var(--accent); margin: 0; }
+.in-opt[open] > summary { margin-bottom: 10px; }
+.in-tag { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 6px; }
+.in-needs { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius); background: var(--panel-alt); font-size: 13px; }
+.in-needs ul { margin: 4px 0 0; padding-left: 18px; }
+.in-check { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.in-check .msg { font-size: 12.5px; }
+.in-good { color: var(--pass); } .in-warn { color: var(--warn); } .in-bad { color: var(--fail); }

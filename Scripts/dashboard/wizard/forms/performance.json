@@ -2,6 +2,10 @@
   "type": "performance",
   "title": "Performance test (JMeter)",
   "description": "Run an existing load test with your own virtual users, ramp-up and budgets.",
+  "needs": [
+    "Which site to load-test (only sites with a load-test plan are listed)",
+    "How many virtual users and for how long"
+  ],
   "target": [
     {
       "id": "site",

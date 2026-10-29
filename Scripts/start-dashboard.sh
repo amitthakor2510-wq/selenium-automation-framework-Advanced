@@ -2,7 +2,7 @@
 # One command to start the Automation Console with the runner switched ON, so everything else
 # (every suite, API run, report, crawler, TIA ...) is done from the browser with switches.
 #
-#   Scripts/start-dashboard.sh                 # http://localhost:5057/control
+#   Scripts/start-dashboard.sh                 # http://localhost:5057/hub  (start here)
 #   Scripts/start-dashboard.sh --port 8080
 #   DASHBOARD_RUNNER_ALLOW_SYSTEM=1 Scripts/start-dashboard.sh   # also enable Docker grid + scaffolding buttons
 #

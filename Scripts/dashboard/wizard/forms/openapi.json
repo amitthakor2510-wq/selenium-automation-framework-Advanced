@@ -1,0 +1,104 @@
+{
+  "type": "openapi",
+  "title": "API from OpenAPI / Swagger",
+  "description": "Paste the link to your API's Swagger/OpenAPI document and a test is generated for every endpoint.",
+  "needs": [
+    "The link to the OpenAPI / Swagger document (usually ends in openapi.json, swagger.json or v3/api-docs)"
+  ],
+  "target": [
+    {
+      "id": "openapiUrl",
+      "label": "OpenAPI / Swagger document link",
+      "type": "url",
+      "required": true,
+      "example": "https://petstore3.swagger.io/api/v3/openapi.json",
+      "help": "Ask a developer for it if you are unsure. It is a link that shows a long block of JSON or YAML."
+    },
+    {
+      "id": "baseUrl",
+      "label": "API address override",
+      "type": "url",
+      "required": false,
+      "help": "Only if the real API lives at a different address than the document says (for example a staging server)."
+    },
+    {
+      "id": "authType",
+      "label": "How does the API check who you are?",
+      "type": "select",
+      "options": [
+        "none",
+        "bearer",
+        "basic",
+        "apiKey"
+      ],
+      "default": "none",
+      "help": "Leave on 'none' for a public API. Passwords and tokens are picked from saved secrets, never typed."
+    },
+    {
+      "id": "authToken",
+      "label": "Bearer token (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "bearer"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "authUser",
+      "label": "User name (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "basic"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "authPassword",
+      "label": "Password (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "basic"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}."
+    },
+    {
+      "id": "authKey",
+      "label": "API key (saved secret)",
+      "type": "secret_ref",
+      "required": false,
+      "showIf": {
+        "authType": "apiKey"
+      },
+      "help": "Reference only: ${secret:NAME} or ${env:NAME}. The document says where the key is sent."
+    }
+  ],
+  "details": [
+    {
+      "id": "negative",
+      "label": "Also check that bad requests are rejected",
+      "type": "checkbox",
+      "default": false,
+      "help": "Adds 'no login is refused' and 'empty body is refused' checks for each endpoint."
+    },
+    {
+      "id": "maxTimeMs",
+      "label": "Fail responses slower than (ms)",
+      "type": "integer",
+      "min": 1,
+      "max": 120000,
+      "required": false,
+      "help": "Leave empty for no time limit."
+    },
+    {
+      "id": "retries",
+      "label": "Retry a failed request",
+      "type": "integer",
+      "min": 0,
+      "max": 5,
+      "default": 0
+    }
+  ]
+}

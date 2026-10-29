@@ -18,6 +18,7 @@ WORKDIR /workspace
 COPY Scripts/dashboard/ Scripts/dashboard/
 COPY .github/workflows/scripts/_junit_utils.py .github/workflows/scripts/_junit_utils.py
 COPY pipeline-config.properties test-config.properties ./
+COPY testng-suites/ testng-suites/
 
 # Run as an unprivileged user instead of root. The repo is bind-mounted read-write (see
 # docker-compose.dashboard.yml), so files the dashboard writes must stay owned by the host

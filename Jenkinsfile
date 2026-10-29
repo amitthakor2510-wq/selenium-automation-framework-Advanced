@@ -432,6 +432,15 @@ pipeline {
                         currentBuild.result = 'UNSTABLE'
                         echo 'Unit tests (-Punit-tests) failed — see console output above.'
                     }
+                    // The web dashboard's own Python suite (stdlib-only). Skipped cleanly when the agent has no python3.
+                    int dashExit = sh(
+                            script: 'command -v python3 >/dev/null 2>&1 && python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashboard || { command -v python3 >/dev/null 2>&1 && exit 1 || echo "python3 not found - dashboard tests skipped"; }',
+                            returnStatus: true
+                    )
+                    if (dashExit != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Dashboard tests failed — see console output above.'
+                    }
                 }
             }
         }

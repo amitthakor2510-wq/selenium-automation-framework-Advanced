@@ -40,10 +40,16 @@ class CatalogTest(unittest.TestCase):
 
     def test_every_available_feature_builds_with_no_options(self):
         c = ctx(DISPLAY=":0", DASHBOARD_RUNNER_ALLOW_SYSTEM="1")
-        built = 0
+        built = refused = 0
         for f in S.all_features(c):
             blockers, _ = S.availability(f, c)
             if blockers:
+                continue
+            if any(o.get("required") for o in f["options"] + f.get("positional", [])):
+                # A feature with a required option (e.g. an OpenAPI link) must refuse to build without it.
+                with self.assertRaises(S.FeatureError):
+                    S.build(f["id"], {}, c)
+                refused += 1
                 continue
             plan = S.build(f["id"], {}, c)
             self.assertTrue(plan["argv"] and plan["timeout"] > 0)

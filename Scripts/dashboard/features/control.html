@@ -6,6 +6,7 @@
 <title>Control Center — Automation Console</title>
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="/control/static/control.css" />
+<link rel="stylesheet" href="/hub/static/hub.css" />
 </head>
 <body>
   <header class="topbar">
@@ -20,8 +21,8 @@
       <div class="topbar-status">
         <span id="whoami" class="pill pill-muted">…</span>
         <span id="runnerPill" class="pill pill-muted">runner…</span>
-        <a class="btn btn-ghost" href="/wizard">Test Wizard</a>
-        <a class="btn btn-ghost" href="/">← Console</a>
+        <a class="btn btn-ghost" href="/hub">← Test Hub</a>
+        <a class="btn btn-ghost" href="/wizard">Build a test</a>
       </div>
     </div>
   </header>
@@ -66,10 +67,12 @@
         </div>
         <div class="cc-log-actions" id="logActions"></div>
         <pre class="cc-log" id="log" tabindex="0"></pre>
+        <div id="resultBox" class="cc-result"></div>
         <div class="cc-links" id="logLinks"></div>
       </section>
     </aside>
   </main>
+  <script src="/hub/static/results.js"></script>
   <script src="/control/static/control.js"></script>
 </body>
 </html>

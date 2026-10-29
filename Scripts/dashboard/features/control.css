@@ -52,3 +52,8 @@
 .cc-log { margin: 0; padding: 10px; max-height: 360px; overflow: auto; background: var(--base); border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
 .cc-log-actions, .cc-links { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
 .cc-empty { color: var(--text-muted); font-size: 12.5px; }
+.cc-help { color: var(--text-muted); font-size: 11.5px; }
+.cc-need-title { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--warn); }
+.cc-needed { display: grid; gap: 8px; }
+.cc-spot { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.cc-result { padding: 8px 10px; }

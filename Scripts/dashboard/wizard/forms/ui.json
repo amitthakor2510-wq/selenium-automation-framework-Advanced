@@ -1,7 +1,11 @@
 {
   "type": "ui",
   "title": "UI test (browser)",
-  "description": "Build a browser scenario step by step. It runs through the framework's keyword engine \u2014 no Java.",
+  "description": "Build a browser scenario step by step. It runs through the framework's keyword engine — no Java.",
+  "needs": [
+    "The website's address (a site must already be set up in the framework)",
+    "The steps a person would click through, in order"
+  ],
   "target": [
     {
       "id": "site",

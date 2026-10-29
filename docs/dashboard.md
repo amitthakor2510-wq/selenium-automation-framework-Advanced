@@ -152,6 +152,20 @@ Every entry in an imported snapshot is validated before anything is written — 
 
 ---
 
+## 🧭 Test Hub — start here (`/hub`)
+
+One page for people who just want to test something and read a clear result.
+
+1. **Pick what to test** — website click-through, site bug scan, accessibility, load/speed, API (hand-written), API from a Swagger/OpenAPI link, mobile app, a ready-made suite, framework health, reports. Every card lists **You'll need** (required) and **Optional**.
+2. **Answer only what is needed.** Test Wizard and Control Center forms show the required fields first; everything else sits under a collapsed **Optional — helps the test** section, and *Next* / *Run* unlock as soon as the required ones are valid. The server re-checks every rule — the browser is a convenience, never the gate.
+3. **Check connection** (next to every address field) makes one request, follows no redirects, returns only status and timing, and refuses link-local / cloud-metadata addresses. It catches a typo or a stopped app before a long run fails on it.
+4. **Read the result.** Every finished run gets a verdict (Passed / Failed / **No results** / Cancelled / Timed out / Error), pass-fail counts, the failing checks with their messages, plain-language **What to try next** hints (unknown host, connection refused, certificate problem, browser could not start, element not found, Appium unreachable, 401/403, rate limiting, out of memory, Maven problems…), and links to the reports, printable summary and full log. Counts come only from test-result files written *during that run*, so a run that produced none is never credited with an earlier run's results.
+5. **Is this computer ready?** — Maven, Java, Docker, Appium, Ollama and the secret store, each with a one-line fix.
+
+New test types in the wizard: **API from OpenAPI / Swagger** (credentials come from saved secrets and reach the run as `API_TOKEN` / `API_USER` / `API_PASSWORD` / `API_KEY`, never on the command line) and **Mobile app check** (Appium-driven crawler; the built-in "never tap" safety words can be extended but not shortened). The API type gained optional basic / API-key login, extra headers, retries and self-signed certificates.
+
+Deep links: `/wizard?type=openapi`, `/control?feature=bug-crawler`, `/control?group=Reports`, `/hub#run=<run id>`.
+
 ## 🧙 Test Wizard
 
 `/wizard` is a six-step page for people who don't write Java: **1 Test type → 2 Target → 3 Details → 4 Reports & evidence → 5 Review → 6 Run.** Types: UI (browser steps), API (REST requests), performance, site crawler, accessibility. Every field is validated live (URL, XPath/CSS locators, required fields, numeric limits) **and again on the server** when you save or run — the browser check is a convenience, never the gate.
@@ -164,6 +178,16 @@ Every entry in an imported snapshot is validated before anything is written — 
 - **Accounts & roles** — create `tester` / `lead` / `admin` users with `python3 Scripts/dashboard/auth/users.py add NAME ROLE`. Once `auth/users.json` exists, per-user logins are required (plus the old shared `dashboard` login, which counts as admin) and the existing site/test toggles need `lead`. Testers can build, save and run; leads can also delete templates, cancel anyone's run and trigger CI; admins manage secrets.
 - **Audit** — spec saves, run starts/cancels, CI triggers and secret changes (names only, never values) are logged to `target/dashboard-wizard-audit.jsonl`, separate from the config log so *Undo last change* is unaffected.
 - **Viewing results** — the run page shows live status and log; each run has a `summary.html` and a zip per report folder. Allure/Extent reports are offered as zips because the console's strict CSP (no inline scripts) would break them if served inline.
+
+### Results view (Console)
+
+The "Last run — by class" panel shows a pass-rate donut, a pass-rate trend across the last 30 distinct result sets (kept in the browser's `localStorage`, so it is per-browser), per-class pass/fail/skip bars, a status filter (All / Failing / Passing), class search, sortable columns, and an auto-refresh switch that pauses while the tab is hidden. Keyboard: `/` focuses the search box, `r` reloads everything. "Export CSV" exports exactly the rows currently shown (quoted per RFC 4180, with spreadsheet-formula guarding).
+
+### Input and method rules worth knowing
+
+- The Console only flips switches that already exist. A site or test name that is not already in `pipeline-config.properties` / `test-config.properties` is refused with `400 unknown site|test`, so a typo can never create a phantom site that the pipelines then try to run. Group switches are the exception: "Add off" may create a new group. Names are capped (200 characters; groups 64).
+- `HEAD /api/health` answers 200 for liveness probes; other methods (PUT, DELETE, PATCH, OPTIONS) get `405` with an `Allow` header.
+- The listen backlog is 128, so bursts of parallel requests are queued rather than reset.
 
 Tests: `python3 -m unittest discover -s Scripts/dashboard/tests -t Scripts/dashboard` (also run in CI).
 

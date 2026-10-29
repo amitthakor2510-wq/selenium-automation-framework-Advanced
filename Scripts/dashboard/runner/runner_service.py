@@ -10,6 +10,7 @@ Disabled unless DASHBOARD_RUNNER_ENABLED=1: the original console never executed 
 opt-in per deployment, not a side effect of upgrading.
 """
 import html
+import json
 import os
 import shutil
 import signal
@@ -20,13 +21,15 @@ from datetime import datetime, timezone
 
 from auth import secrets_store
 from reports import evidence_options, report_options
-from runner import allowlist, ci_trigger, workspace
+from runner import allowlist, ci_trigger, run_results, workspace
 from runner.queue import RunQueue
 from features import service as features
 from specs.converters import convert
 from wizard import validators
 
 KILL_GRACE_SECONDS = 10
+# Types that drive a crawler (exec:java), not a test framework: they write no JUnit results to count.
+_NO_TEST_COUNT_TYPES = ("crawler", "mobile")
 TIMEOUT_UNIT_SECONDS = 60  # a spec's timeoutMinutes; tests shrink this
 
 
@@ -176,7 +179,6 @@ class RunnerService:
         d = workspace.path_for(run_id)
         started = time.time()
         try:
-            import json
             with open(os.path.join(d, "spec.json"), encoding="utf-8") as f:
                 spec = json.load(f)
             if spec.get("type") == "feature":
@@ -202,8 +204,10 @@ class RunnerService:
             self._redact_log(d, resolved.values())
             state = {"ok": "passed" if code == 0 else "failed"}.get(outcome, outcome)
             copied = workspace.snapshot_reports(run_id, self.repo_root, report_options.artifact_dirs(spec["type"], spec.get("reports")))
-            link = self._write_summary(run_id, spec, state, code, time.time() - started, copied)
+            link, res = self._write_summary(run_id, spec, state, code, time.time() - started, copied, started, True,
+                                            resolved.values())
             workspace.write_status(run_id, state=state, exitCode=code, finishedAt=_now(), reportLink=link, reports=copied,
+                                   verdict=res["verdict"], headline=res["headline"], counts=res["counts"],
                                    message="" if state == "passed" else f"finished with exit code {code}" if outcome == "ok" else outcome)
         except Exception as e:  # noqa: BLE001 — every failure must land in status.json
             workspace.write_status(run_id, state="error", finishedAt=_now(), message=str(e)[:300])
@@ -219,14 +223,24 @@ class RunnerService:
     def _execute_feature(self, run_id, spec, d, started):
         plan = features.build(spec["feature"], spec.get("options"), self.feature_ctx())
         argv = plan["argv"]
-        env = allowlist.build_env({"env_passthrough": plan["env_passthrough"]}, {})
+        resolved = {}
+        for var, name in plan.get("secret_env", {}).items():
+            try:
+                resolved[var] = secrets_store.get_secret(name)
+            except (KeyError, secrets_store.SecretsUnavailable):
+                raise RuntimeError(f"secret '{name}' is not available") from None
+        env = allowlist.build_env({"env_passthrough": plan["env_passthrough"], "env_alias": plan.get("env_alias", {})}, resolved)
         workspace.write_properties_generated(run_id, plan["props"])
         workspace.write_status(run_id, state="running", startedAt=_now(), command=" ".join(argv))
         code, outcome = self._run(run_id, argv, env, d, int(plan["timeout"]) * TIMEOUT_UNIT_SECONDS)
+        self._redact_log(d, resolved.values())
         state = {"ok": "passed" if code == 0 else "failed"}.get(outcome, outcome)
         copied = workspace.snapshot_reports(run_id, self.repo_root, plan["report_dirs"])
-        link = self._write_summary(run_id, spec, state, code, time.time() - started, copied)
+        test_like = any(dd.endswith(("surefire-reports", "failsafe-reports", "allure-results")) for dd in plan["report_dirs"])
+        link, res = self._write_summary(run_id, spec, state, code, time.time() - started, copied, started, test_like,
+                                        resolved.values())
         workspace.write_status(run_id, state=state, exitCode=code, finishedAt=_now(), reportLink=link, reports=copied,
+                               verdict=res["verdict"], headline=res["headline"], counts=res["counts"],
                                message="" if state == "passed" else f"finished with exit code {code}" if outcome == "ok" else outcome)
 
     def _run(self, run_id, argv, env, d, timeout):
@@ -278,24 +292,51 @@ class RunnerService:
         with open(p, "w", encoding="utf-8") as f:
             f.write(allowlist.redact(text, values))
 
-    def _write_summary(self, run_id, spec, state, code, seconds, copied):
-        """Run summary page (CSP-safe static HTML) + a zip of each report folder."""
+    def _write_summary(self, run_id, spec, state, code, seconds, copied, since=None, test_like=True, secret_values=()):
+        """results.json (verdict, counts, failures, hints) + the run summary page (CSP-safe static HTML)
+        + a zip of each report folder."""
         d = workspace.path_for(run_id)
-        links = []
         for name in copied:
-            src = os.path.join(d, "report", name)
-            shutil.make_archive(os.path.join(d, "report", name), "zip", src)
-            links.append(f'<li><a href="/api/runs/{run_id}/files/report/{html.escape(name)}.zip">{html.escape(name)}.zip</a></li>')
-        rows = "".join(f"<tr><th>{html.escape(k)}</th><td>{html.escape(str(v))}</td></tr>" for k, v in (
-            ("Run", run_id), ("Name", spec["name"]), ("Type", spec["type"]), ("Result", state),
-            ("Exit code", code), ("Duration", f"{seconds:.0f} s")))
-        page = ("<!doctype html><meta charset=utf-8><title>Run summary</title>"
-                '<link rel=stylesheet href="/wizard/static/wizard.css"><body class=summary-page><h1>Run summary</h1>'
-                f"<table>{rows}</table><h2>Reports</h2><ul>{''.join(links) or '<li>none captured</li>'}</ul>"
-                f'<p><a href="/api/runs/{run_id}/files/run.log">run.log</a></p>')
+            shutil.make_archive(os.path.join(d, "report", name), "zip", os.path.join(d, "report", name))
+        target = os.path.join(self.repo_root, "target")
+        results = run_results.summarize(
+            run_id, spec, state, code, seconds, copied,
+            surefire_dirs=[os.path.join(target, "surefire-reports"), os.path.join(target, "failsafe-reports")],
+            since=since, log_path=os.path.join(d, "run.log"), test_like=test_like and spec.get("type") not in _NO_TEST_COUNT_TYPES)
+        secret_values = [v for v in secret_values if v]
+        if secret_values:  # a failing assertion can echo a token: mask any secret before it is stored or shown
+            results = json.loads(allowlist.redact(json.dumps(results), secret_values))
+        run_results.write(d, results)
+        page = self._summary_page(run_id, spec, state, code, seconds, results)
         with open(os.path.join(d, "summary.html"), "w", encoding="utf-8") as f:
             f.write(page)
         link = f"/api/runs/{run_id}/files/summary.html"
         with open(os.path.join(d, "report-link.txt"), "w", encoding="utf-8") as f:
             f.write(link + "\n")
-        return link
+        return link, results
+
+    @staticmethod
+    def _summary_page(run_id, spec, state, code, seconds, results):
+        e = html.escape
+        c = results["counts"]
+        counts = ("" if not c else
+                  f'<p class="sum-counts"><span class="state-passed">{c["passed"]} passed</span> · '
+                  f'<span class="state-failed">{c["failed"]} failed</span> · {c["skipped"]} skipped · {c["total"]} total</p>')
+        fails = ""
+        if results["failures"]:
+            rows = "".join(f"<tr><td>{e(f['class'])}</td><td>{e(f['test'])}</td><td>{e(f['message'])}</td></tr>"
+                           for f in results["failures"])
+            fails = f"<h2>Checks that failed</h2><table class=sum-fails><tr><th>Where<th>Check<th>What went wrong</tr>{rows}</table>"
+        hints = ("<h2>What to try next</h2><ul>" + "".join(f"<li>{e(h)}</li>" for h in results["hints"]) + "</ul>") if results["hints"] else ""
+        reports = "".join(f'<li><a href="{e(r["link"])}">{e(r["label"])}</a> <span class=sum-muted>({e(r["name"])}.zip)</span></li>'
+                          for r in results["reports"]) or "<li>none captured</li>"
+        rows = "".join(f"<tr><th>{e(k)}</th><td>{e(str(v))}</td></tr>" for k, v in (
+            ("Run", run_id), ("Name", spec["name"]), ("Type", spec["type"]), ("Result", state),
+            ("Exit code", code), ("Duration", f"{seconds:.0f} s")))
+        return ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width, initial-scale=1'>"
+                "<title>Run summary</title><link rel=stylesheet href=\"/style.css\">"
+                '<link rel=stylesheet href="/wizard/static/wizard.css"><body class=summary-page>'
+                f'<h1>Run summary</h1><div class="verdict verdict-{e(results["verdict"])}">{e(results["headline"])}</div>'
+                f"{counts}{fails}{hints}<h2>Reports</h2><ul>{reports}</ul>"
+                f'<p><a href="/api/runs/{run_id}/files/run.log">Full log (run.log)</a> · <a href="/hub">Back to the Test Hub</a></p>'
+                f"<h2>Details</h2><table>{rows}</table>")

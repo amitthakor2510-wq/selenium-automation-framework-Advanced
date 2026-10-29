@@ -482,10 +482,126 @@
       ? "No test results yet — run mvn test, then hit Refresh."
       : `${sf.total} test${sf.total === 1 ? "" : "s"} from the last local run.`;
 
+    if (sf.note) note.textContent = `${note.textContent} ${sf.note}`.trim();
     lastByClass = sf.by_class || [];
+    renderSummary(sf, recordHistory(sf));
     renderResultsTable(lastByClass);
+    $("#resultsUpdated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
     renderHealing(healing);
     renderFlaky(data.flaky);
+  }
+
+  // ── enhanced results view ──────────────────────────────────
+  // Charts are SVG built with setAttribute (presentation attributes are CSP-safe; inline style="" is not).
+
+  const view = { status: "all", query: "", sortKey: "failed", sortDir: -1 };
+  const HISTORY_KEY = "dashboard.passHistory.v1";
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  function svgEl(name, attrs) {
+    const el = document.createElementNS(SVG_NS, name);
+    Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, String(v)));
+    return el;
+  }
+
+  function readHistory() {
+    try {
+      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+      return Array.isArray(h) ? h.filter((x) => x && typeof x.rate === "number") : [];
+    } catch (e) { return []; }
+  }
+
+  // One entry per distinct result set, so polling an unchanged run never inflates the trend.
+  function recordHistory(sf) {
+    if (!sf || !sf.total) return readHistory();
+    const hist = readHistory();
+    const sig = `${sf.total}/${sf.passed}/${sf.failed}/${sf.skipped}`;
+    if (!hist.length || hist[hist.length - 1].sig !== sig) {
+      hist.push({ t: Date.now(), sig, rate: Math.round((1000 * sf.passed) / sf.total) / 10, failed: sf.failed });
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(-30))); } catch (e) { /* private mode */ }
+    }
+    return hist.slice(-30);
+  }
+
+  function donut(sf) {
+    const svg = svgEl("svg", { viewBox: "0 0 100 100", class: "donut", role: "img",
+      "aria-label": `${sf.passed} passed, ${sf.failed} failed, ${sf.skipped} skipped` });
+    svg.appendChild(svgEl("circle", { cx: 50, cy: 50, r: 38, class: "donut-track", fill: "none", "stroke-width": 12 }));
+    let offset = 0;
+    [["pass", sf.passed], ["fail", sf.failed], ["skip", sf.skipped]].forEach(([cls, n]) => {
+      if (!n || !sf.total) return;
+      const len = (100 * n) / sf.total;
+      svg.appendChild(svgEl("circle", { cx: 50, cy: 50, r: 38, fill: "none", "stroke-width": 12, class: `seg-${cls}`,
+        pathLength: 100, "stroke-dasharray": `${len} ${100 - len}`, "stroke-dashoffset": -offset, transform: "rotate(-90 50 50)" }));
+      offset += len;
+    });
+    const rate = sf.total ? Math.round((1000 * sf.passed) / sf.total) / 10 : 0;
+    const t = svgEl("text", { x: 50, y: 55, "text-anchor": "middle", class: "donut-text" });
+    t.textContent = `${rate}%`;
+    svg.appendChild(t);
+    return svg;
+  }
+
+  function sparkline(hist) {
+    const wrap = document.createElement("div");
+    wrap.className = "trend";
+    if (hist.length < 2) {
+      wrap.innerHTML = '<span class="field-note">Pass-rate trend appears after two different runs.</span>';
+      return wrap;
+    }
+    const W = 160, H = 40, pad = 4;
+    const pts = hist.map((h, i) => [pad + (i * (W - 2 * pad)) / (hist.length - 1), pad + ((100 - h.rate) * (H - 2 * pad)) / 100]);
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "spark", role: "img",
+      "aria-label": `Pass rate over the last ${hist.length} runs, now ${hist[hist.length - 1].rate}%` });
+    svg.appendChild(svgEl("polyline", { points: pts.map((p) => p.join(",")).join(" "), fill: "none", class: "spark-line", "stroke-width": 2 }));
+    const last = pts[pts.length - 1];
+    svg.appendChild(svgEl("circle", { cx: last[0], cy: last[1], r: 3, class: "spark-dot" }));
+    wrap.appendChild(svg);
+    const delta = Math.round((hist[hist.length - 1].rate - hist[hist.length - 2].rate) * 10) / 10;
+    const lab = document.createElement("span");
+    lab.className = `trend-delta ${delta < 0 ? "is-fail" : delta > 0 ? "is-pass" : ""}`;
+    lab.textContent = delta === 0 ? "no change" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pts vs previous run`;
+    wrap.appendChild(lab);
+    return wrap;
+  }
+
+  function renderSummary(sf, hist) {
+    const box = $("#resultsSummary");
+    box.innerHTML = "";
+    if (!sf.total) return;
+    box.appendChild(donut(sf));
+    const meta = document.createElement("div");
+    meta.className = "summary-meta";
+    meta.innerHTML = `<div><strong>${sf.passed}</strong> passed · <strong class="${sf.failed ? "txt-fail" : ""}">${sf.failed}</strong> failed · <strong>${sf.skipped}</strong> skipped</div>`;
+    meta.appendChild(sparkline(hist));
+    box.appendChild(meta);
+  }
+
+  function visibleRows(byClass) {
+    const q = view.query.trim().toLowerCase();
+    const rows = byClass.filter((c) =>
+      (view.status === "all" || (view.status === "failing" ? c.failed > 0 : c.failed === 0)) &&
+      (!q || c.class.toLowerCase().includes(q)));
+    const k = view.sortKey;
+    return rows.sort((x, y) => {
+      const a = k === "class" ? x.class.toLowerCase() : x[k];
+      const b = k === "class" ? y.class.toLowerCase() : y[k];
+      return (a < b ? -1 : a > b ? 1 : x.class.localeCompare(y.class)) * view.sortDir;
+    });
+  }
+
+  function barSvg(c) {
+    const W = 120;
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} 8`, class: "rowbar", width: W, height: 8, "aria-hidden": "true" });
+    if (!c.total) return svg.outerHTML;
+    let x = 0;
+    [["pass", c.passed], ["fail", c.failed], ["skip", c.skipped]].forEach(([cls, n]) => {
+      if (!n) return;
+      const w = (W * n) / c.total;
+      svg.appendChild(svgEl("rect", { x, y: 0, width: w, height: 8, class: `bar-${cls}` }));
+      x += w;
+    });
+    return svg.outerHTML;
   }
 
   function renderResultsTable(byClass) {
@@ -494,21 +610,68 @@
       container.innerHTML = `<div class="results-empty">Nothing here yet — run tests locally, then Refresh.</div>`;
       return;
     }
-    const rows = byClass.map((c) => `
+    const rows = visibleRows(byClass);
+    if (!rows.length) {
+      container.innerHTML = `<div class="results-empty">No classes match this filter.</div>`;
+      return;
+    }
+    const th = (key, label, num) => {
+      const on = view.sortKey === key;
+      const arrow = on ? (view.sortDir < 0 ? " ▼" : " ▲") : "";
+      return `<th class="${num ? "num " : ""}sortable" data-sort="${key}" tabindex="0" role="columnheader" aria-sort="${on ? (view.sortDir < 0 ? "descending" : "ascending") : "none"}">${label}${arrow}</th>`;
+    };
+    const body = rows.map((c) => `
       <tr>
         <td><span class="dot ${c.failed > 0 ? "fail" : "pass"}"></span><span class="mono">${escapeHtml(c.class)}</span></td>
-        <td class="num">${c.total}</td>
-        <td class="num">${c.passed}</td>
-        <td class="num">${c.failed}</td>
-        <td class="num">${c.skipped}</td>
-      </tr>
-    `).join("");
+        <td class="num">${c.total}</td><td class="num">${c.passed}</td><td class="num">${c.failed}</td><td class="num">${c.skipped}</td>
+        <td>${barSvg(c)}</td>
+      </tr>`).join("");
     container.innerHTML = `
-      <table class="results">
-        <thead><tr><th>Class</th><th>Total</th><th>Passed</th><th>Failed</th><th>Skipped</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+      <div class="table-scroll"><table class="results">
+        <thead><tr>${th("class", "Class")}${th("total", "Total", 1)}${th("passed", "Passed", 1)}${th("failed", "Failed", 1)}${th("skipped", "Skipped", 1)}<th>Mix</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table></div>
+      <p class="field-note table-count">Showing ${rows.length} of ${byClass.length} classes</p>`;
+  }
+
+  function setSort(key) {
+    if (view.sortKey === key) view.sortDir *= -1;
+    else { view.sortKey = key; view.sortDir = key === "class" ? 1 : -1; }
+    renderResultsTable(lastByClass);
+  }
+
+  function wireResultsView() {
+    $("#resultsTable").addEventListener("click", (e) => {
+      const h = e.target.closest("th[data-sort]");
+      if (h) setSort(h.dataset.sort);
+    });
+    $("#resultsTable").addEventListener("keydown", (e) => {
+      const h = e.target.closest("th[data-sort]");
+      if (h && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSort(h.dataset.sort); }
+    });
+    document.querySelectorAll(".seg-btn").forEach((b) => b.addEventListener("click", () => {
+      view.status = b.dataset.status;
+      document.querySelectorAll(".seg-btn").forEach((x) => {
+        x.classList.toggle("is-on", x === b);
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      renderResultsTable(lastByClass);
+    }));
+    $("#resultsSearch").addEventListener("input", (e) => { view.query = e.target.value; renderResultsTable(lastByClass); });
+    const auto = $("#autoRefresh");
+    try { auto.checked = localStorage.getItem("dashboard.autoRefresh") !== "off"; } catch (e) { /* ignore */ }
+    auto.addEventListener("change", () => {
+      try { localStorage.setItem("dashboard.autoRefresh", auto.checked ? "on" : "off"); } catch (e) { /* ignore */ }
+    });
+    document.addEventListener("keydown", (e) => {
+      const tag = (e.target.tagName || "").toLowerCase();
+      if (e.ctrlKey || e.metaKey || e.altKey || tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return;
+      if (e.key === "/") { e.preventDefault(); $("#resultsSearch").focus(); }
+      else if (e.key === "r") { loadAll(); }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && auto.checked) { loadResults().catch(() => {}); loadAudit().catch(() => {}); }
+    });
   }
 
   function exportResultsCsv() {
@@ -517,7 +680,13 @@
       return;
     }
     const header = "class,total,passed,failed,skipped";
-    const lines = lastByClass.map((c) => [c.class, c.total, c.passed, c.failed, c.skipped].join(","));
+    // RFC 4180 quoting, plus a leading ' on cells a spreadsheet would run as a formula (= + - @).
+    const cell = (v) => {
+      let t = String(v);
+      if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+      return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    const lines = visibleRows(lastByClass).map((c) => [c.class, c.total, c.passed, c.failed, c.skipped].map(cell).join(","));
     const csv = [header, ...lines].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -578,7 +747,7 @@
   function fmtWhen(iso) {
     if (!iso) return "";
     const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
+    if (isNaN(d.getTime())) return escapeHtml(String(iso));
     return d.toLocaleString(undefined, {
       month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
@@ -690,6 +859,7 @@
 
   initTheme();
   wireModal();
+  wireResultsView();
   $("#refreshBtn").addEventListener("click", loadAll);
   $("#runOnlySave").addEventListener("click", saveRunOnly);
   $("#newGroupSave").addEventListener("click", addGroupOff);
@@ -713,6 +883,7 @@
   // gently. Config panels don't self-refresh on this timer so an
   // in-progress edit is never clobbered mid-type.
   setInterval(() => {
+    if (document.hidden || !$("#autoRefresh").checked) return;
     loadResults().catch(() => {});
     loadAudit().catch(() => {});
   }, 15000);

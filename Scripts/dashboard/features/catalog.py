@@ -23,14 +23,20 @@ _REF = re.compile(r"^[A-Za-z0-9._/~^@{}-]{1,80}$")
 _SEG = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 _REL_URL = re.compile(r"^/[A-Za-z0-9._~/%?&=#-]{0,200}$")
 
-TYPES = {"bool", "enum", "int", "url", "ref", "name", "relurl"}
+TYPES = {"bool", "enum", "int", "url", "ref", "name", "relurl", "secretref", "pkg", "text"}
+_PKG = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$")
+_TEXT = re.compile(r"^[A-Za-z0-9 ._()-]{1,60}$")
 
 
-def opt(key, label, typ, *, kind="prop", default=None, values=None, lo=0, hi=999999, help="", flag=None, always=False):
-    """kind: prop -> -Dkey=value | flag -> adds `flag` when true | arg -> `flag value`."""
-    assert typ in TYPES and kind in ("prop", "flag", "arg")
+def opt(key, label, typ, *, kind="prop", default=None, values=None, lo=0, hi=999999, help="", flag=None, always=False,
+        required=False, example=""):
+    """kind: prop -> -Dkey=value | flag -> adds `flag` when true | arg -> `flag value` |
+    env -> hands a saved secret / env reference to the run under the variable named `key`.
+    required: the run cannot start without a value (the page asks first; the server enforces it too).
+    example: shown as placeholder text so a newcomer sees what a good answer looks like."""
+    assert typ in TYPES and kind in ("prop", "flag", "arg", "env")
     return {"key": key, "label": label, "type": typ, "kind": kind, "default": default, "values": values,
-            "min": lo, "max": hi, "help": help, "flag": flag, "always": always}
+            "min": lo, "max": hi, "help": help, "flag": flag, "always": always, "required": required, "example": example}
 
 
 # Shared run switches: shown once on the page, applied to every feature that has globals=True.
@@ -62,7 +68,8 @@ PERF_OPTS = [
     opt("perf.maxErrorRatePercent", "Max error rate % (whole number)", "int", lo=0, hi=100, default=1),
 ]
 CRAWLER_OPTS = [
-    opt("crawler.startUrl", "Start URL", "url", default="https://example.com"),
+    opt("crawler.startUrl", "Address to start from", "url", required=True, example="https://www.mycompany.com",
+        help="The crawler follows links from here. Only crawl sites you are allowed to test."),
     opt("crawler.maxPages", "Max pages", "int", lo=1, hi=1000, default=50),
     opt("crawler.maxDepth", "Max depth", "int", lo=0, hi=20, default=3),
     opt("crawler.a11y.enabled", "Accessibility check on each page", "bool", default=True),
@@ -117,8 +124,19 @@ STATIC = [
     F("api-openapi", "API testing", "API tests from an OpenAPI document",
       "Generates and runs tests from an OpenAPI/Swagger URL.",
       ["bash", "Scripts/api-test.sh"],
-      options=[opt("openapi", "OpenAPI document URL", "url", kind="arg", flag="--openapi", default="https://petstore3.swagger.io/api/v3/openapi.json"),
-               opt("negative", "Also generate negative tests", "bool", kind="flag", flag="--negative", default=False)],
+      options=[opt("openapi", "OpenAPI / Swagger document link", "url", kind="arg", flag="--openapi", required=True,
+                   example="https://petstore3.swagger.io/api/v3/openapi.json",
+                   help="Ask a developer if unsure. It is a link that shows a long block of JSON or YAML."),
+               opt("API_TOKEN", "Bearer token (saved secret)", "secretref", kind="env", example="${secret:API_TOKEN}",
+                   help="Optional. Pick a saved secret; the token never appears on the command line."),
+               opt("API_USER", "Basic-auth user name (saved secret)", "secretref", kind="env", example="${secret:API_USER}"),
+               opt("API_PASSWORD", "Basic-auth password (saved secret)", "secretref", kind="env", example="${secret:API_PASSWORD}"),
+               opt("API_KEY", "API key (saved secret)", "secretref", kind="env", example="${secret:API_KEY}"),
+               opt("base-url", "API address override", "url", kind="arg", flag="--base-url",
+                   help="Only if the real API lives somewhere other than the document says (e.g. staging)."),
+               opt("negative", "Also generate negative tests", "bool", kind="flag", flag="--negative", default=False),
+               opt("max-time", "Fail responses slower than (ms)", "int", kind="arg", flag="--max-time", lo=1, hi=120000),
+               opt("retry", "Retry failed requests", "int", kind="arg", flag="--retry", lo=0, hi=5, default=0)],
       artifacts=["target/api-report", "target/allure-results"], timeout=20, needs=["internet"]),
 
     # AI & discovery
@@ -129,6 +147,14 @@ STATIC = [
     F("mobile-bug-crawler", "AI & discovery", "Bug crawler (mobile app)",
       "Explores the Android app screens through Appium. Needs Appium + a device/emulator.",
       ["{mvn}", "-B", "-q", "-Pmobile-bug-crawler", "exec:java@mobile-bug-crawler", "-Dsite=mobile"],
+      options=[opt("mobile.platform", "Phone type", "enum", values=["android", "ios"],
+                   help="Optional. Leave untouched to use config/mobile.properties."),
+               opt("mobile.app.package", "App package name (already installed)", "pkg", example="com.mycompany.shop",
+                   help="Optional. Without it the app configured in config/mobile.properties is explored."),
+               opt("mobile.device.name", "Device / emulator name", "text", example="Pixel 7"),
+               opt("appium.server.url", "Appium server address", "url", example="http://127.0.0.1:4723"),
+               opt("crawler.mobile.maxScreens", "Stop after this many screens", "int", lo=1, hi=200, default=30),
+               opt("crawler.mobile.maxDepth", "How deep to go", "int", lo=1, hi=20, default=4)],
       artifacts=["target/mobile-crawler", "target/crawler"], timeout=40, needs=["appium"]),
     F("recorder", "AI & discovery", "Test recorder",
       "Opens a browser, records your clicks into a keyword script. Needs a screen (not headless).",
@@ -184,13 +210,13 @@ STATIC = [
       ["docker", "compose", "ps"], timeout=2, needs=["docker"]),
     F("new-site", "Scaffolding (advanced)", "Add a new UI site",
       "Scaffolds Page Object + keyword + data-driven tests + CI wiring (writes files in the repo).",
-      ["bash", "Scripts/new-site.sh"], positional=[opt("name", "Site name", "name", default="mysite"),
-                                                      opt("url", "Base URL", "url", default="https://example.com")],
+      ["bash", "Scripts/new-site.sh"], positional=[opt("name", "Site name (letters, digits, - _)", "name", required=True, example="myshop"),
+                                                      opt("url", "Website address", "url", required=True, example="https://www.myshop.com")],
       timeout=5, risk="system"),
     F("new-api-site", "Scaffolding (advanced)", "Add a new API-only site",
       "Scaffolds an API-only site and its CI wiring (writes files in the repo).",
-      ["bash", "Scripts/new-api-site.sh"], positional=[opt("name", "Site name", "name", default="myapi"),
-                                                          opt("url", "Base URL", "url", default="https://api.example.com")],
+      ["bash", "Scripts/new-api-site.sh"], positional=[opt("name", "API name (letters, digits, - _)", "name", required=True, example="myapi"),
+                                                          opt("url", "API address", "url", required=True, example="https://api.mycompany.com")],
       timeout=5, risk="system"),
 ]
 

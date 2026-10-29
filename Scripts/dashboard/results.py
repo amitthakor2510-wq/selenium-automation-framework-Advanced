@@ -11,6 +11,7 @@ before the first test run too (just shows "no data yet").
 import glob
 import json
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -57,6 +58,17 @@ def surefire_summary(repo_root):
     }
 
 
+def _coverage_threshold_pct(repo_root, default=60.0):
+    """The gate's threshold, read from pom.xml (jacoco.core.minLineCoverage) so the dashboard cannot drift
+    from `mvn verify`; CI may override it with -D, which a local read cannot see."""
+    try:
+        with open(os.path.join(repo_root, "pom.xml"), encoding="utf-8") as f:
+            m = re.search(r"<jacoco\.core\.minLineCoverage>\s*([0-9.]+)\s*<", f.read())
+        return round(float(m.group(1)) * 100, 2) if m else default
+    except (OSError, ValueError):
+        return default
+
+
 def coverage_summary(repo_root):
     data = _read_json(os.path.join(repo_root, "target", "coverage-summary.json"))
     if data:
@@ -85,8 +97,9 @@ def coverage_summary(repo_root):
     if total == 0:
         return None
     pct = round(100.0 * covered / total, 2)
+    threshold = _coverage_threshold_pct(repo_root)
     return {"line_covered": covered, "line_missed": missed, "line_total": total,
-            "line_pct": pct, "threshold_pct": 60.0, "passed": pct >= 60.0,
+            "line_pct": pct, "threshold_pct": threshold, "passed": pct >= threshold,
             "scope": "com.automation.core.*", "source": "jacoco.xml (local fallback)"}
 
 

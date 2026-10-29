@@ -43,7 +43,12 @@ def coerce(o, value, ctx=None):
         if s not in (o["values"] or []):
             raise FeatureError(f"switch '{o['key']}' must be one of: {', '.join(o['values'] or [])}")
         return s
-    rule = {"url": C._URL, "ref": C._REF, "name": C._NAME, "relurl": C._REL_URL}[t]
+    if t == "secretref":
+        from auth import secrets_store
+        if not secrets_store.parse_ref(s):
+            raise FeatureError(f"'{o['label']}' must be a saved-secret reference like ${{secret:NAME}} (or ${{env:NAME}}), never the secret itself")
+        return s
+    rule = {"url": C._URL, "ref": C._REF, "name": C._NAME, "relurl": C._REL_URL, "pkg": C._PKG, "text": C._TEXT}[t]
     if not rule.fullmatch(s) or s.startswith("-"):
         raise FeatureError(f"switch '{o['key']}' has a value that is not allowed")
     return s
@@ -190,8 +195,13 @@ def build(feature_id, options, ctx):
         if k not in allowed:
             raise FeatureError(f"option '{k}' is not available for {f['title']}")
 
+    for o in f["options"] + f.get("positional", []):
+        if o.get("required") and str(options.get(o["key"], "")).strip() == "":
+            raise FeatureError(f"{f['title']}: \"{o['label']}\" is needed before this can run.")
+
     argv = list(f["prefix"])
     props = {}
+    secret_env, env_alias = {}, {}
 
     # site + suite
     if f.get("suite"):
@@ -258,13 +268,20 @@ def build(feature_id, options, ctx):
         elif o["kind"] == "flag":
             if val == "true":
                 argv.append(o["flag"])
+        elif o["kind"] == "env":
+            from auth import secrets_store
+            from runner import allowlist
+            if key not in allowlist.CREDENTIAL_VARS:
+                raise FeatureError(f"internal: '{key}' is not a variable a run may receive")
+            ref_kind, ref_name = secrets_store.parse_ref(val)
+            (secret_env if ref_kind == "secret" else env_alias)[key] = ref_name
         else:  # arg
             argv += [o["flag"], val]
     if argv[0] == "{mvn}":
         from runner import allowlist
         argv[0] = allowlist.find_maven(ctx["repo_root"])
     return {"argv": argv, "props": props, "report_dirs": f["artifacts"], "timeout": f["timeout"], "title": f["title"],
-            "env_passthrough": []}
+            "env_passthrough": [], "secret_env": secret_env, "env_alias": env_alias}
 
 
 def validate_spec(spec, ctx):
@@ -280,7 +297,7 @@ def validate_spec(spec, ctx):
 
 # ── description for the page ─────────────────────────────────
 def _public_opt(o):
-    d = {k: o[k] for k in ("key", "label", "type", "kind", "default", "values", "min", "max", "help")}
+    d = {k: o[k] for k in ("key", "label", "type", "kind", "default", "values", "min", "max", "help", "required", "example")}
     return d
 
 

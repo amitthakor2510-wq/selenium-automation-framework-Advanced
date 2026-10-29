@@ -106,9 +106,10 @@ class PropertiesFile:
                 pattern = re.compile(
                     r"^([ \t]*" + re.escape(key) + r"[ \t]*=)[ \t]*[^\r\n#]*",
                     re.MULTILINE)
-                new_line = r"\g<1>" + value
                 if pattern.search(text):
-                    text = pattern.sub(new_line, text, count=1)
+                    # A function replacement, not a "\\g<1>" + value template: the value is inserted
+                    # literally, so a backslash in it can never be read as a regex escape.
+                    text = pattern.sub(lambda m, v=value: m.group(1) + v, text, count=1)
                 else:
                     appended.append(f"{key}={value}")
             if appended:
@@ -157,10 +158,26 @@ def read_raw(path):
     return PropertiesFile(path).read_text()
 
 
+# Longest site / test / group name accepted. Real names are short class names; the cap stops a request
+# from writing an absurd key into a file the CI pipelines also read.
+MAX_NAME_LENGTH = 200
+MAX_GROUP_LENGTH = 64
+
+
+def _require_existing(props, key, what, name):
+    """The dashboard only flips switches that already exist. Creating a key for an unknown name would
+    add a phantom site (that every pipeline then tries to run) or a junk test entry, so refuse it."""
+    if props.get(key) is None:
+        raise ValueError(f"unknown {what}: {name!r}")
+
+
 def set_site_enabled(path, site_name, enabled):
-    if not re.fullmatch(r"[A-Za-z0-9_]+", site_name or ""):
+    if not re.fullmatch(r"[A-Za-z0-9_]{1,%d}" % MAX_NAME_LENGTH, site_name or ""):
         raise ValueError(f"invalid site name: {site_name!r}")
-    PropertiesFile(path).set(f"site.{site_name}.enabled", "true" if enabled else "false")
+    props = PropertiesFile(path)
+    key = f"site.{site_name}.enabled"
+    _require_existing(props, key, "site", site_name)
+    props.set(key, "true" if enabled else "false")
 
 
 # ── test-config.properties ────────────────────────────────────────────
@@ -229,22 +246,31 @@ def set_tests_enabled(path, test_names, enabled):
     one file write, not 35.
     """
     value = "true" if enabled else "false"
+    props = PropertiesFile(path)
     updates = []
     for name in test_names:
-        if not re.fullmatch(r"[^\s=#]+", name or ""):
-            raise ValueError(f"invalid test name: {name!r}")
+        _check_test_name(name)
+        _require_existing(props, f"test.{name}.enabled", "test", name)
         updates.append((f"test.{name}.enabled", value))
-    PropertiesFile(path).set_many(updates)
+    props.set_many(updates)
+
+
+def _check_test_name(name):
+    if not isinstance(name, str) or not re.fullmatch(r"[^\s=#]{1,%d}" % MAX_NAME_LENGTH, name):
+        raise ValueError(f"invalid test name: {name!r}"[:120])
 
 
 def set_test_enabled(path, test_name, enabled):
-    if not re.fullmatch(r"[^\s=#]+", test_name or ""):
-        raise ValueError(f"invalid test name: {test_name!r}")
-    PropertiesFile(path).set(f"test.{test_name}.enabled", "true" if enabled else "false")
+    _check_test_name(test_name)
+    props = PropertiesFile(path)
+    key = f"test.{test_name}.enabled"
+    _require_existing(props, key, "test", test_name)
+    props.set(key, "true" if enabled else "false")
 
 
 def set_group_enabled(path, group_name, enabled):
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", group_name or ""):
+    # Unlike sites and tests a group switch may be NEW: "Add off" turns off a group no test file lists yet.
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,%d}" % MAX_GROUP_LENGTH, group_name or ""):
         raise ValueError(f"invalid group name: {group_name!r}")
     PropertiesFile(path).set(f"group.{group_name}.enabled", "true" if enabled else "false")
 
