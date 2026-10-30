@@ -49,6 +49,12 @@ target/allure-report/.allure/
 # template tracked, same pattern as _TEMPLATE.properties.example.
 src/test/resources/config/mobile.properties
 
+### Machine-specific Compose override — remaps Selenium Grid host ports around a ###
+### service already running on THIS box (see the file's own header). Tracked, it  ###
+### silently changes every other developer's/CI runner's ports (Compose merges it ###
+### automatically). Copy docker-compose.override.yml.example to create your own.  ###
+docker-compose.override.yml
+
 ### Self-healing locator cache — deliberately lives outside target/ so ###
 ### `mvn clean` doesn't wipe it (see LocatorRepository.java /           ###
 ### global.properties self-healing.repository.path); Jenkins caches it  ###

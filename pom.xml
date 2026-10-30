@@ -180,7 +180,7 @@
     <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
          dependency block below for the full rationale). Pinned as its own
          property so log4j-core / log4j-slf4j2-impl always move together. -->
-    <log4j.version>2.25.4</log4j.version>
+    <log4j.version>2.25.5</log4j.version>
 
     <!-- SLF4J — the logging API this project's own code, and
          WebDriverManager, compile against and call. Log4j2 above is what
@@ -1329,19 +1329,19 @@
               <suppressionFiles>
                 <suppressionFile>owasp-suppressions.xml</suppressionFile>
               </suppressionFiles>
-              <!-- PERFORMANCE: without this, dependency-check hits the NVD API
-                   completely unauthenticated, which NVD rate-limits hard enough
-                   that a real run here took hours (log showed "An NVD API Key
-                   was not provided - ... the update can take a VERY long time
-                   without an API Key" immediately before downloading all
-                   ~385,000 CVE records at that unauthenticated rate). An empty
-                   value here is harmless — the plugin treats a blank
-                   nvdApiKey exactly like an absent one — so this default stays
-                   safe for a fresh checkout; -DnvdApiKey=... (or the
-                   NVD_API_KEY secret wired into security-scan below) is what
-                   actually turns it on. Get a free key at
-                   https://nvd.nist.gov/developers/request-an-api-key. -->
-              <nvdApiKey>${nvdApiKey}</nvdApiKey>
+              <!-- NVD API KEY (performance): without a key, NVD rate-limits dependency-check
+                   so hard that the first database download can take hours. Supply a free key
+                   (https://nvd.nist.gov/developers/request-an-api-key) with -DnvdApiKey=<key>;
+                   the plugin reads that user property itself.
+                   DELIBERATELY NOT configured here and NOT defaulted to a blank <properties>
+                   entry: dependency-check-maven 13 treats a blank key as an INVALID key and
+                   aborts the NVD update ("Invalid API Key, length of 0 too short"), so the old
+                   blank default made every run without a key fail (CI passed a blank
+                   -DnvdApiKey= when the NVD_API_KEY secret was unset, with the same result).
+                   With no property at all it just warns and runs unauthenticated. -->
+              <!-- This is a pure-Java project: skip the .NET assembly analyzer, which logs an
+                   ERROR on machines without the dotnet runtime whenever a .dll/.exe is seen. -->
+              <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
               <!-- Sonatype's OSS Index now rejects unauthenticated
                    requests outright ("Invalid credentials provided for
                    OSS Index" / HTTP 401) — this repo has never configured
@@ -1357,10 +1357,9 @@
                    claimed the NVD CVE Analyzer "authenticates with
                    nvd.api.key instead and was working fine" — that was
                    wrong: nothing in this project actually set an NVD API
-                   key anywhere until the <nvdApiKey> element just above
-                   was added, so every prior run was hitting NVD fully
-                   unauthenticated too, just via a different, non-fatal
-                   symptom — slowness instead of a 401 — since NVD
+                   key unless -DnvdApiKey was passed, so runs without one
+                   hit NVD fully unauthenticated too, just via a different,
+                   non-fatal symptom — slowness instead of a 401 — since NVD
                    degrades gracefully where OSS Index hard-rejects.)
                    Re-enable OSS Index by removing this line once real OSS
                    Index credentials are configured
@@ -1386,10 +1385,6 @@
              effectively "report only, never fail" until a run explicitly
              overrides it, e.g. -DfailBuildOnCVSS=7. -->
         <failBuildOnCVSS>11</failBuildOnCVSS>
-        <!-- Blank by default (safe — see the <nvdApiKey> comment above);
-             override with -DnvdApiKey=... locally or via the NVD_API_KEY
-             secret in CI. -->
-        <nvdApiKey></nvdApiKey>
       </properties>
     </profile>
 
@@ -1567,6 +1562,10 @@
              pipeline-config.properties: the default site (demoqa) is switched off there, and
              ConfigReader.init() then throws, which made VerifyTest see STOP_ON_FAILURE. -->
         <unit.test.site>saucedemo</unit.test.site>
+        <!-- Default exec file for this profile's JaCoCo agent AND for the report below, so both
+             always look at the same file. CI still overrides it with
+             -Djacoco.destFile=target/jacoco-artifacts/unit.exec. -->
+        <jacoco.destFile>${project.build.directory}/jacoco.exec</jacoco.destFile>
       </properties>
       <build>
         <plugins>
@@ -1579,6 +1578,31 @@
                 <configuration>
                   <skip>true</skip>
                 </configuration>
+              </execution>
+              <!-- FIX: the default jacoco-report is bound to `test`, which runs BEFORE Failsafe's
+                   integration-test, so in this profile it always logged "Skipping JaCoCo
+                   execution due to missing execution data file" and never produced a report.
+                   Run it after Failsafe has written the exec file instead. -->
+              <execution>
+                <id>jacoco-report</id>
+                <phase>post-integration-test</phase>
+                <configuration>
+                  <dataFile>${jacoco.destFile}</dataFile>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- FIX: allure-report is bound to `test`; surefire is skipped in this profile so there
+               are never any target/allure-results, and the plugin logged
+               "[ERROR] Directory .../allure-results not found". The JUnit 5 classes write no
+               Allure results, so unbind it here. -->
+          <plugin>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-maven</artifactId>
+            <executions>
+              <execution>
+                <id>allure-report</id>
+                <phase>none</phase>
               </execution>
             </executions>
           </plugin>
@@ -2021,6 +2045,37 @@
             </executions>
             <configuration>
               <mainClass>com.automation.core.mail.EmailReportCli</mainClass>
+              <classpathScope>test</classpathScope>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Telegram report: sends ONE consolidated message (+ the report files) to a Telegram chat after a run -
+         the counterpart of the email-report profile. Reads the per-leg gate files in target/gate or every
+         testng-results.xml under target/. Token and chat id: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID env vars.
+         No extra dependency (JDK HttpClient). See docs/TELEGRAM_REPORT.md.
+           mvn -q test-compile exec:java@telegram-report -Ptelegram-report -Dtelegram.enabled=true
+           mvn -q test-compile exec:java@telegram-report -Ptelegram-report -Dtelegram.enabled=true -Dtelegram.dryRun=true -->
+    <profile>
+      <id>telegram-report</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>telegram-report</id>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <mainClass>com.automation.core.telegram.TelegramReportCli</mainClass>
               <classpathScope>test</classpathScope>
             </configuration>
           </plugin>

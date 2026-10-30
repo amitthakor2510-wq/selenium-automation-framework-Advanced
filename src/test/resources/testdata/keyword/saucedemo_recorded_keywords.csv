@@ -1,0 +1,7 @@
+testCase,stepNo,keyword,locatorKey,testData,expected,description
+TC_Login,1,NAVIGATE,,,,Open https://www.saucedemo.com/
+TC_Login,2,TYPE,saucedemo.login.username,standard_user,,Type into 'Username'
+TC_Login,3,TYPE,saucedemo.login.password,${env:SAUCEDEMO_LOGIN_PASSWORD},,Type secret into 'Password'
+TC_Login,4,PRESS_KEY,saucedemo.login.password,ENTER,,Press ENTER
+TC_Login,5,WAIT_FOR_PAGE_LOAD,,,,Wait for the page to load
+TC_Login,6,VERIFY_URL_CONTAINS,,,/inventory.html,Landed on /inventory.html

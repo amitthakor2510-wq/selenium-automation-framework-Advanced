@@ -24,3 +24,14 @@ public/
 __pycache__/
 *.pyc
 .android-sdk/
+
+# Automation Console runtime state and credentials (gitignored, so they exist only on a dev machine):
+# per-user PBKDF2 hashes, the encrypted secret store, and run workspaces (spec.json / run.log can embed
+# internal URLs and test credentials). Both `COPY . .` (Dockerfile) and `COPY Scripts/dashboard/`
+# (Dockerfile.dashboard) would otherwise bake them into an image layer.
+Scripts/dashboard/auth/users.json
+Scripts/dashboard/auth/secrets.enc.json
+Scripts/dashboard/data/runs/
+Scripts/dashboard/data/specs/
+*.pem
+*.key

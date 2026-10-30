@@ -21,6 +21,9 @@
 # foreground terminal session, so this compose file refuses to start
 # without an explicit password rather than risk someone forgetting to
 # set one and exposing a config-editing port unauthenticated.
+# This service cannot run tests: its image (Dockerfile.dashboard) has no Java or Maven. Run tests
+# with `docker compose run --rm tests` (same bind-mounted repo) or on the host, then refresh the
+# dashboard. Leave DASHBOARD_RUNNER_ENABLED unset here. See DOCKER.md.
 services:
   dashboard:
     build:

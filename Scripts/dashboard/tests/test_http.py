@@ -290,6 +290,11 @@ class HttpTests(unittest.TestCase):
         status, _, _ = self.call("PUT", "/api/health", user=None)
         self.assertEqual(status, 401)  # unauthenticated callers learn nothing about the methods
 
+    def test_results_api_includes_server_side_history(self):
+        status, body, _ = self.call("GET", "/api/results")
+        self.assertEqual(status, 200)
+        self.assertIsInstance(body["history"], list)
+
     def test_listen_backlog_is_larger_than_the_stdlib_default(self):
         self.assertGreaterEqual(ds.DashboardServer.request_queue_size, 64)
 

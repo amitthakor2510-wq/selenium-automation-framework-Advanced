@@ -95,6 +95,19 @@ class AllowlistTests(unittest.TestCase):
     def test_redact(self):
         self.assertEqual(al.redact("pw=hunter22 ok", ["hunter22"]), "pw=*** ok")
 
+    def test_missing_maven_in_container_explains_docker_limit(self):
+        from unittest import mock
+        os.environ["PATH"] = ""  # no mvn anywhere
+        with mock.patch.object(al, "in_container", return_value=True):
+            with self.assertRaises(al.NotAllowed) as cm:
+                al.find_maven(self.repo)
+        self.assertIn("no Java or Maven", str(cm.exception))
+        self.assertIn("DOCKER.md", str(cm.exception))
+        with mock.patch.object(al, "in_container", return_value=False):
+            with self.assertRaises(al.NotAllowed) as cm:
+                al.find_maven(self.repo)
+        self.assertNotIn("Dockerfile.dashboard", str(cm.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

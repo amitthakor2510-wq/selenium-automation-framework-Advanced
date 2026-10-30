@@ -484,7 +484,7 @@
 
     if (sf.note) note.textContent = `${note.textContent} ${sf.note}`.trim();
     lastByClass = sf.by_class || [];
-    renderSummary(sf, recordHistory(sf));
+    renderSummary(sf, trendHistory(data, sf));
     renderResultsTable(lastByClass);
     $("#resultsUpdated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
     renderHealing(healing);
@@ -523,6 +523,15 @@
     return hist.slice(-30);
   }
 
+  // The server keeps the history (shared by every browser, survives clearing site data). The browser-local
+  // copy is only a fallback for a dashboard server that predates /api/results "history".
+  function trendHistory(data, sf) {
+    if (Array.isArray(data.history)) {
+      return data.history.filter((h) => h && typeof h.rate === "number").slice(-30);
+    }
+    return recordHistory(sf);
+  }
+
   function donut(sf) {
     const svg = svgEl("svg", { viewBox: "0 0 100 100", class: "donut", role: "img",
       "aria-label": `${sf.passed} passed, ${sf.failed} failed, ${sf.skipped} skipped` });
@@ -546,7 +555,7 @@
     const wrap = document.createElement("div");
     wrap.className = "trend";
     if (hist.length < 2) {
-      wrap.innerHTML = '<span class="field-note">Pass-rate trend appears after two different runs.</span>';
+      wrap.innerHTML = '<span class="field-note">Pass-rate trend appears after two runs.</span>';
       return wrap;
     }
     const W = 160, H = 40, pad = 4;
@@ -558,6 +567,10 @@
     svg.appendChild(svgEl("circle", { cx: last[0], cy: last[1], r: 3, class: "spark-dot" }));
     wrap.appendChild(svg);
     const delta = Math.round((hist[hist.length - 1].rate - hist[hist.length - 2].rate) * 10) / 10;
+    const first = hist[0].t;
+    if (typeof first === "number") {
+      wrap.title = `Last ${hist.length} runs, since ${new Date(first * 1000).toLocaleDateString()}`;
+    }
     const lab = document.createElement("span");
     lab.className = `trend-delta ${delta < 0 ? "is-fail" : delta > 0 ? "is-pass" : ""}`;
     lab.textContent = delta === 0 ? "no change" : `${delta > 0 ? "▲" : "▼"} ${Math.abs(delta)} pts vs previous run`;

@@ -3,7 +3,6 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from tests import _helpers as h
 from wizard import connection
 
 

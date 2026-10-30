@@ -20,12 +20,11 @@ exit 0
 
 
 class HubHttpTests(unittest.TestCase):
-    setUpClass = classmethod(th.HttpTests.setUpClass.__func__)
     tearDownClass = classmethod(th.HttpTests.tearDownClass.__func__)
     call = th.HttpTests.call
 
     @classmethod
-    def setUpClass(cls):  # noqa: F811 — reuse the HTTP fixture, then swap in a Maven stand-in that writes test results
+    def setUpClass(cls):  # reuse the HTTP fixture, then swap in a Maven stand-in that writes test results
         th.HttpTests.setUpClass.__func__(cls)
         mvn = os.path.join(os.environ["PATH"].split(os.pathsep)[0], "mvn")
         h.write(mvn, FAKE_MVN)

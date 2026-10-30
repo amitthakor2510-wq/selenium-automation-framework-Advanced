@@ -1,8 +1,8 @@
 """
 Read-only view over whatever test-result artifacts already exist under
-target/ from the most recent local `mvn test` run(s). Never runs Maven,
-never writes anything — the config-editing side of the dashboard
-(config_files.py) is the only part with write access.
+target/ from the most recent local `mvn test` run(s). Never runs Maven and never
+touches the repo. The only thing it writes is the pass-rate trend file in the dashboard's
+own data dir (results_history.py); config editing lives in config_files.py.
 
 Every file here is optional: a fresh checkout with no run yet returns
 empty/zero results rather than erroring, so the dashboard is useful
@@ -14,6 +14,8 @@ import os
 import re
 import sys
 import xml.etree.ElementTree as ET
+
+import results_history
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _SCRIPTS_DIR = os.path.join(_THIS_DIR, "..", "..", ".github", "workflows", "scripts")
@@ -175,8 +177,11 @@ def tia_impact(repo_root):
 
 
 def full_snapshot(repo_root):
+    surefire = surefire_summary(repo_root)
     return {
-        "surefire": surefire_summary(repo_root),
+        "surefire": surefire,
+        # The one write this module makes: a small history file in the dashboard's own data dir (not the repo).
+        "history": results_history.record(repo_root, surefire),
         "coverage": coverage_summary(repo_root),
         "self_healing": self_healing_summary(repo_root),
         "flaky": flaky_tests(repo_root),

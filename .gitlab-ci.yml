@@ -887,12 +887,12 @@ security-scan:
     # and the few-minutes-first-run/seconds-after that NVD's own docs
     # describe. Requires an NVD_API_KEY CI/CD variable (Settings > CI/CD >
     # Variables, Masked + Protected) — get a free key at
-    # https://nvd.nist.gov/developers/request-an-api-key. $NVD_API_KEY
-    # resolves to empty if that variable isn't set yet, which mvn treats
-    # the same as no key (see the <nvdApiKey> comment in pom.xml) — so
-    # this is safe to merge before the variable exists, it just won't
-    # speed anything up until it does.
-    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
+    # https://nvd.nist.gov/developers/request-an-api-key. The flag is
+    # only added when the variable is non-empty (a blank -DnvdApiKey= makes
+    # dependency-check 13 abort with "Invalid API Key") — so this is safe to
+    # merge before the variable exists, it just won't speed anything up
+    # until it does.
+    - mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS ${NVD_API_KEY:+-DnvdApiKey=$NVD_API_KEY} -DskipTests
   artifacts:
     name: "owasp-dependency-check-$CI_COMMIT_REF_SLUG"
     when: always

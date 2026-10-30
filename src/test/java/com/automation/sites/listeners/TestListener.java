@@ -2,6 +2,7 @@ package com.automation.sites.listeners;
 
 import com.automation.core.ai.AiExceptionAnalyzer;
 import com.automation.core.ai.AiFailureAnalysis;
+import com.automation.core.annotations.FrameworkAnnotations;
 import com.automation.core.base.DriverProvider;
 import com.automation.core.budget.PerfBudgetEnforcer;
 import com.automation.core.budget.PerfBudgetReport;
@@ -11,6 +12,7 @@ import com.automation.core.report.AllureEnvironmentWriter;
 import com.automation.core.report.ExtentManager;
 import com.automation.core.report.pdf.PdfEvidenceStore;
 import com.automation.core.report.pdf.PdfReportSettings;
+import com.automation.core.utils.BrowserInfoUtils;
 import com.automation.core.utils.FailureDiagnostics;
 import com.automation.core.utils.HumanActions;
 import com.automation.core.utils.ScreenshotUtil;
@@ -181,7 +183,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
             Allure.parameter("Browser", browser);
 
             // Real Allure LABELS (not just parameters) for site/browser/category —
-            // Scripts/generate_segmented_reports.py reads these to build the
+            // .github/workflows/scripts/generate_segmented_reports.py reads these to build the
             // separate browser-wise/site(app)-wise/category-wise report sets;
             // "mobile" is deliberately labeled "platform" instead of "browser"
             // since it isn't one. Test-type (suite) splitting needs no new label
@@ -554,11 +556,24 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         // Categories/author/device populate the Dashboard tab's filter chips and the
         // Tests-by-category donut chart — without them every test shows up "uncategorized"
         // and the dashboard has nothing to slice by.
+        // @FrameworkAnnotation (optional): owner(s) and feature labels declared on the test or its class.
+        // Categories are added to the TestNG groups; the author replaces the site-name default below.
+        java.lang.reflect.Method testMethod = result.getMethod().getConstructorOrMethod().getMethod();
+        Class<?> testClass = result.getTestClass() == null ? null : result.getTestClass().getRealClass();
+        String[] annotationAuthors = FrameworkAnnotations.authors(testMethod, testClass);
+        String[] annotationCategories = FrameworkAnnotations.categories(testMethod, testClass);
         if (groups.length > 0) {
             extentTest.assignCategory(groups);
         }
-        extentTest.assignDevice(ConfigReader.get("browser", "chrome"));
-        extentTest.assignAuthor(ConfigReader.get("site", ConfigReader.getActiveSite()));
+        if (annotationCategories.length > 0) {
+            extentTest.assignCategory(annotationCategories);
+        }
+        extentTest.assignDevice(BrowserInfoUtils.deviceLabel());
+        if (annotationAuthors.length > 0) {
+            extentTest.assignAuthor(annotationAuthors);
+        } else {
+            extentTest.assignAuthor(ConfigReader.get("site", ConfigReader.getActiveSite()));
+        }
 
         test.set(extentTest);
     }

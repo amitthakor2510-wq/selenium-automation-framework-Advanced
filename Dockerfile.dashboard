@@ -6,6 +6,11 @@
 # runner image carries, so building it from python:3.12-slim keeps this
 # image small and the two images independently rebuildable (changing a
 # page object never invalidates this image's cache, and vice versa).
+#
+# NOTE: this image has NO Java and NO Maven, so it cannot run tests itself (the dashboard's
+# runner refuses with a clear message). Run tests with the bind-mounted compose setup
+# (`docker compose run --rm tests`) or on the host; this dashboard then shows the results.
+# See DOCKER.md, "Dashboard Image: Can It Run Tests?".
 FROM python:3.12-slim
 
 WORKDIR /workspace

@@ -77,6 +77,11 @@ FIXED_PREFIX = {
 _SUITE_RE = re.compile(r"^testng-suites/[A-Za-z0-9_-]+\.xml$")
 
 
+def in_container():
+    """True when running inside a Docker/Podman container (best-effort, used only for error wording)."""
+    return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv")
+
+
 def find_maven(repo_root):
     found = shutil.which("mvn")
     if found:
@@ -84,6 +89,11 @@ def find_maven(repo_root):
     wrapper = os.path.join(repo_root, "mvnw")
     if os.path.isfile(wrapper) and os.access(wrapper, os.X_OK):
         return wrapper
+    if in_container():
+        raise NotAllowed(
+            "Maven not found. The standalone Dockerfile.dashboard image has no Java or Maven, so it "
+            "cannot run tests itself. Run the tests on the host (Scripts/start-dashboard.sh), or use the "
+            "bind-mounted compose setup (docker compose run --rm tests) - see DOCKER.md")
     raise NotAllowed("Maven not found (install mvn or keep the executable ./mvnw)")
 
 

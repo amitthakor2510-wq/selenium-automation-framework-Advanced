@@ -1710,10 +1710,11 @@ jobs:
         # job used to do and the few-minutes-first-run/seconds-after NVD's
         # own docs describe. Add an NVD_API_KEY repo/org secret (Settings
         # > Secrets and variables > Actions) — free key at
-        # https://nvd.nist.gov/developers/request-an-api-key. Empty
-        # resolves the same as no key (see pom.xml's <nvdApiKey> comment),
-        # so this is safe to merge before the secret exists.
-        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS -DnvdApiKey=$NVD_API_KEY -DskipTests
+        # https://nvd.nist.gov/developers/request-an-api-key. The flag
+        # is only added when the secret is non-empty: a blank -DnvdApiKey=
+        # makes dependency-check 13 abort ("Invalid API Key"), so this stays
+        # safe to merge before the secret exists.
+        run: mvn -B verify -Psecurity -DfailBuildOnCVSS=$SECURITY_FAIL_CVSS ${NVD_API_KEY:+-DnvdApiKey=$NVD_API_KEY} -DskipTests
 
       - name: Upload Dependency-Check report
         if: always()

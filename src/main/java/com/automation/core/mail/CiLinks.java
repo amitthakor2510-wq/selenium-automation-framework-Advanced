@@ -3,12 +3,12 @@ package com.automation.core.mail;
 import java.util.Map;
 
 /** Finds a link to the current CI run from the environment variables GitHub Actions, Jenkins and GitLab set. */
-final class CiLinks {
+public final class CiLinks {
 
     private CiLinks() {
     }
 
-    static String fromEnv(Map<String, String> env) {
+    public static String fromEnv(Map<String, String> env) {
         String ghServer = env.get("GITHUB_SERVER_URL");
         String ghRepo = env.get("GITHUB_REPOSITORY");
         String ghRun = env.get("GITHUB_RUN_ID");

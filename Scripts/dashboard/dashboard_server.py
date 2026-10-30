@@ -591,6 +591,12 @@ def main():
         f"  Test wizard: http://localhost:{args.port}/wizard  (running tests from it: "
         + ("ON" if runner_service.enabled() else "off — set DASHBOARD_RUNNER_ENABLED=1") + ")",
     ]
+    if runner_service.enabled():
+        from runner import allowlist as _al
+        try:
+            _al.find_maven(REPO_ROOT)
+        except _al.NotAllowed as e:
+            banner_lines.append(f"  WARNING   : runner is ON but {e}")
     if auth_users.per_user_mode():
         banner_lines.append(f"  Accounts  : per-user logins from {auth_users.users_path()} (plus the shared 'dashboard' admin)")
     if generated:

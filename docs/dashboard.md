@@ -50,6 +50,8 @@ DASHBOARD_PASSWORD=choose-a-password \
 
 The Docker service bind-mounts the whole repo read-write (`docker-compose.dashboard.yml`), so it edits the exact same `pipeline-config.properties` / `test-config.properties` / `target/` your host `mvn test` reads and writes — not a copy baked into the image. It is **not** part of the default Selenium Grid stack (`docker compose up` alone does not start it) — it lives behind the `dashboard` Compose profile and its own `-f` file, deliberately kept separate from `docker-compose.yml` the same way `docker-compose.autoscale.yml` is.
 
+> ⚠️ **The Docker dashboard cannot run tests.** `Dockerfile.dashboard` has no Java or Maven, so it only reads `target/` and edits config. Run tests with the bind-mounted compose setup (`docker compose run --rm tests`) or on the host (`mvn test` / `Scripts/start-dashboard.sh`), then **Refresh**. See [🖥️ Dashboard Image: Can It Run Tests?](../DOCKER.md#️-dashboard-image-can-it-run-tests).
+
 Change the port with `--port 5057` / `DASHBOARD_PORT` (script) or `DASHBOARD_HOST_PORT` (Docker, host side only — the container always listens on 5057 internally).
 
 ---
@@ -181,7 +183,7 @@ Deep links: `/wizard?type=openapi`, `/control?feature=bug-crawler`, `/control?gr
 
 ### Results view (Console)
 
-The "Last run — by class" panel shows a pass-rate donut, a pass-rate trend across the last 30 distinct result sets (kept in the browser's `localStorage`, so it is per-browser), per-class pass/fail/skip bars, a status filter (All / Failing / Passing), class search, sortable columns, and an auto-refresh switch that pauses while the tab is hidden. Keyboard: `/` focuses the search box, `r` reloads everything. "Export CSV" exports exactly the rows currently shown (quoted per RFC 4180, with spreadsheet-formula guarding).
+The "Last run — by class" panel shows a pass-rate donut, a pass-rate trend across the last 30 runs (kept on the server in `<data dir>/results-history.json`, so every browser sees the same trend and clearing site data does not reset it; one entry per run, stamped with the run's own report time, capped at 100 runs; the file is git-ignored with the rest of the data dir), per-class pass/fail/skip bars, a status filter (All / Failing / Passing), class search, sortable columns, and an auto-refresh switch that pauses while the tab is hidden. Keyboard: `/` focuses the search box, `r` reloads everything. "Export CSV" exports exactly the rows currently shown (quoted per RFC 4180, with spreadsheet-formula guarding).
 
 ### Input and method rules worth knowing
 
@@ -246,4 +248,5 @@ system-level actions need `DASHBOARD_RUNNER_ALLOW_SYSTEM=1`. Catalog: `Scripts/d
 | "No test results yet" | No `target/surefire-reports` — run `mvn test` (against any site) once, then **Refresh** |
 | Coverage tile missing | No `target/coverage-summary.json` and no `target/site/jacoco/jacoco.xml` — run `mvn verify -Punit-tests` (or the CI coverage-gate job) at least once |
 | A toggle doesn't seem to take effect | Confirm the dashboard's repo root (`/api/health`) matches the checkout your `mvn test` runs from — under Docker this is whatever `docker-compose.dashboard.yml`'s bind mount points at |
+| "Maven not found … no Java or Maven" when starting a run from the Dockerised dashboard | The standalone dashboard image has neither | Run tests on the host or via `docker compose run --rm tests`; see [DOCKER.md](../DOCKER.md#️-dashboard-image-can-it-run-tests) |
 | `docker compose --profile dashboard up` starts nothing | The `dashboard` profile is opt-in on purpose — `--profile dashboard` must be passed explicitly, plain `docker compose up` skips it |

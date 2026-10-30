@@ -18,6 +18,7 @@ locally installed browser. `.dockerignore` keeps the build context small.
 - [🔌 How It Connects](#-how-it-connects-what-changed-in-the-framework-itself)
 - [🔒 Running as Non-Root](#-running-as-non-root)
 - [🧱 Running Without Docker Compose](#-running-without-docker-compose-single-container-against-an-existing-grid)
+- [🖥️ Dashboard Image: Can It Run Tests?](#️-dashboard-image-can-it-run-tests)
 - [📈 Grid Autoscaling](#-grid-autoscaling)
 
 ---
@@ -127,6 +128,25 @@ docker run --rm \
   -e SITE=demoqa -e BROWSER=chrome \
   selenium-framework
 ```
+
+---
+
+### Host port already in use (4442-4444)?
+
+`docker-compose.override.yml` is **machine-specific and gitignored**: if another Selenium Grid already owns ports 4442-4444 on your machine, copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (it remaps the host-side ports to 4462-4464; the Grid UI moves to `http://localhost:4464/ui`). Compose merges it automatically, so leave it out everywhere else (CI, other developers) to keep the default ports.
+
+---
+
+## 🖥️ Dashboard Image: Can It Run Tests?
+
+**No.** The standalone `Dockerfile.dashboard` image is `python:3.12-slim` with the dashboard's stdlib code only — it has **no Java and no Maven**, so it cannot run tests itself (its *Run now* buttons fail with a "Maven not found" message). It is for viewing results and editing the two config files. To actually run tests, use one of:
+
+| Option | How |
+|---|---|
+| **Bind-mounted compose setup** (tests in Docker) | `docker compose run --rm tests` — the `tests` service has the JDK/Maven and mounts the same repo, so the dashboard (started with `docker-compose.dashboard.yml`, which bind-mounts `.:/workspace`) shows its `target/` results and edits the same config files |
+| **On the host** | `mvn test ...`, or `Scripts/start-dashboard.sh` (dashboard with the runner ON, using your host's JDK/Maven) |
+
+Don't set `DASHBOARD_RUNNER_ENABLED=1` on the Docker dashboard service unless you build your own image that adds a JDK and Maven; with the stock image the startup banner prints a warning and every run is refused with a pointer to this section.
 
 ---
 

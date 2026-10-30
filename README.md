@@ -99,6 +99,7 @@ open target/extent-reports/demoqa-report.html   # macOS
 | 🧩 [CAPTCHA Solver](docs/CAPTCHA_SOLVER.md) | Automatic + keyword-driven CAPTCHA solving, setup (local/Docker/CI), how it's wired into every test style |
 | 🤖 [AI Features](docs/AI_FEATURES.md) | AI-assisted self-healing, AI root-cause failure analysis, AI-augmented bug crawler — model choice, config, usage |
 | ✉️ [E-mail report & license compliance](docs/EMAIL_AND_LICENSE.md) | Opt-in e-mail of the run summary + reports (SMTP, dry-run mode), and an offline dependency-license scan against `license-policy.properties` — config, CI wiring, safety notes |
+| 📨 [Telegram report, author/category, browser info](docs/TELEGRAM_REPORT.md) | Opt-in Telegram message + report upload after a run (dry-run mode), `@FrameworkAnnotation` author/category in the Extent report, and the `BrowserInfoUtils` helper |
 | ⚙️ [Configuration & Environments](docs/configuration.md) | `global.properties`, Dockerized Selenium Grid |
 | 🖥️ [Automation Console (Dashboard)](docs/dashboard.md) | Local web UI to toggle sites/tests and view the last run's results — no Java/Maven needed |
 | 📈 [Reports & Code Quality](docs/reports-and-quality.md) | Test reports, JaCoCo coverage, Checkstyle |

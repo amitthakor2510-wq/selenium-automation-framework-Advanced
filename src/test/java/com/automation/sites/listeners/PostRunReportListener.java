@@ -15,6 +15,9 @@ import com.automation.core.report.pdf.PdfEvidenceStore;
 import com.automation.core.report.pdf.PdfReportData;
 import com.automation.core.report.pdf.PdfReportSettings;
 import com.automation.core.report.pdf.PdfReportWriter;
+import com.automation.core.telegram.TelegramException;
+import com.automation.core.telegram.TelegramService;
+import com.automation.core.telegram.TelegramSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.ISuite;
@@ -46,6 +49,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       e-mail step so the PDF is attached to the e-mail (see {@code email.attach.pdf}).</li>
  *   <li><b>E-mail report</b> - {@code email.enabled=true}: mails the pass/fail summary, the failed tests,
  *       the license summary and the report files (see the {@code email.*} keys in global.properties).</li>
+ *   <li><b>Telegram report</b> - {@code telegram.enabled=true}: posts the pass/fail summary and the failed
+ *       tests to a Telegram chat and uploads the PDF / report files (see the {@code telegram.*} keys).</li>
  * </ol>
  *
  * <p>Registered through {@code META-INF/services/org.testng.ITestNGListener}, so it covers every suite
@@ -87,6 +92,11 @@ public class PostRunReportListener implements ISuiteListener {
             sendEmailIfEnabled(suite, started);
         } catch (Throwable t) {
             logger.warn("[PostRunReport] E-mail report failed: {}", t.getMessage());
+        }
+        try {
+            sendTelegramIfEnabled(suite, started);
+        } catch (Throwable t) {
+            logger.warn("[PostRunReport] Telegram report failed: {}", t.getMessage());
         }
     }
 
@@ -174,6 +184,21 @@ public class PostRunReportListener implements ISuiteListener {
             EmailService.Outcome outcome = EmailService.deliver(settings, summary, started, System.getenv());
             logger.info("[PostRunReport] {}", outcome.message());
         } catch (EmailException e) {
+            logger.warn("[PostRunReport] {}", e.getMessage());
+        }
+    }
+
+    private void sendTelegramIfEnabled(ISuite suite, Instant started) {
+        TelegramSettings settings = TelegramSettings.of(PostRunReportListener::config, System.getenv());
+        if (!settings.enabled()) {
+            return;
+        }
+        RunSummary summary = summarise(suite, started);
+        try {
+            TelegramService.Outcome outcome = TelegramService.deliver(settings, summary, started, System.getenv());
+            logger.info("[PostRunReport] {}", outcome.message());
+        } catch (TelegramException e) {
+            // The message never contains the bot token (TelegramSender scrubs it).
             logger.warn("[PostRunReport] {}", e.getMessage());
         }
     }

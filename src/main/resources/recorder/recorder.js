@@ -24,6 +24,7 @@
   var initialValue = new WeakMap();
   var suppress = { el: null, until: 0 };
   var hoverTimer = null;
+  var lastEnterAt = 0;         // when Enter was last recorded in a text field (see onClick)
 
   // ---------------------------------------------------------------- helpers
   function guard(fn) {
@@ -217,6 +218,11 @@
     var t = e.target;
     if (!t || t.nodeType !== 1 || inToolbar(t)) { return; }
     var el = climb(t), tag = tagOf(el), now = Date.now();
+    // Pressing Enter in a form field makes the browser fire its own click on the submit button
+    // (detail === 0, but isTrusted is true). The Enter is already recorded as PRESS_KEY, so also
+    // recording that click replays as ENTER (which submits and navigates) followed by a CLICK on
+    // a button that is no longer on the page - the replay then fails.
+    if (!state.assertMode && e.detail === 0 && now - lastEnterAt < 300) { return; }
     if (state.assertMode) {
       e.preventDefault(); e.stopImmediatePropagation();
       var mode = state.assertMode;
@@ -279,7 +285,10 @@
     var key = null;
     if (e.key === 'Enter' && isTextual(el) && tagOf(el) !== 'textarea') { key = 'ENTER'; }
     else if (e.key === 'Escape') { key = 'ESCAPE'; }
-    if (key) { flush(); emit('key', el, { key: key }, chain); }
+    if (key) {
+      if (key === 'ENTER') { lastEnterAt = Date.now(); }
+      flush(); emit('key', el, { key: key }, chain);
+    }
   }
   function onMouseOver(e, chain) {
     if (!state.hover || !e.isTrusted) { return; }
