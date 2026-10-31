@@ -1,0 +1,2 @@
+OK        page load /  435 ms (budget 15000 ms)
+OK        page load /  199 ms (budget 15000 ms)

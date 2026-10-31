@@ -1,0 +1,3 @@
+"Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
+"","SauceDemo login","Valid user can log in","0","0","1","0","0"
+"","SauceDemo login","Invalid credentials are rejected","0","0","2","0","0"

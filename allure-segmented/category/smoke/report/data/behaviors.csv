@@ -1,0 +1,6 @@
+"Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
+"","Mobile - Settings App","Home Screen","0","0","1","0","0"
+"","","","0","0","4","0","0"
+"","SauceDemo login","Valid user can log in","0","0","1","0","0"
+"","SauceDemo login (no-code steps)","Valid user reaches the product list","0","0","1","0","0"
+"","JSONPlaceholder posts API","Fetch a single post","0","0","1","0","0"

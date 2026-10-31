@@ -1,0 +1,8 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sat Oct 31 08:15:27 UTC 2026","Sat Oct 31 08:15:29 UTC 2026","2432","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Oct 31 08:15:11 UTC 2026","Sat Oct 31 08:15:27 UTC 2026","16077","","SauceDemo login (no-code steps)","","Wrong password shows an error","","Wrong password shows an error","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."
+"passed","Sat Oct 31 08:15:28 UTC 2026","Sat Oct 31 08:15:30 UTC 2026","1328","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Oct 31 08:15:27 UTC 2026","Sat Oct 31 08:15:28 UTC 2026","1767","","SauceDemo login","","Valid user can log in","","Valid user can log in",""
+"passed","Sat Oct 31 08:15:11 UTC 2026","Sat Oct 31 08:15:27 UTC 2026","16163","","SauceDemo login (no-code steps)","","Valid user reaches the product list","","Valid user reaches the product list","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."

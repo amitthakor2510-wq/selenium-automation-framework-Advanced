@@ -1,0 +1,4 @@
+"Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
+"","","","0","0","8","0","0"
+"","JSONPlaceholder posts API","Fetch a single post","0","0","1","0","0"
+"","JSONPlaceholder posts API","Create a post","0","0","1","0","0"
