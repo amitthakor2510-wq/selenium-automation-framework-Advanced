@@ -471,7 +471,7 @@ pipeline {
                         fi
                     '''
                     int exitCode = sh(
-                            script: 'PATH="$PWD/.gitleaks-bin:$PATH" gitleaks detect --source . --report-format json --report-path gitleaks-report.json --redact',
+                            script: 'PATH="$PWD/.gitleaks-bin:$PATH" gitleaks detect --source . --config gitleaks.toml --report-format json --report-path gitleaks-report.json --redact',
                             returnStatus: true
                     )
                     if (exitCode != 0) {
@@ -479,6 +479,71 @@ pipeline {
                         echo 'gitleaks found potential secrets — see the gitleaks-report.json artifact.'
                     }
                     archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Container + SAST Scans') {
+            // Hadolint, Trivy (Dockerfile misconfigurations) and Semgrep via Scripts/supply-chain-scan.sh,
+            // the same script GitLab CI and GitHub Actions call. UNSTABLE rather than FAILED, like the
+            // other scanners here, so one finding does not hide whether the suite passes.
+            // Tools are downloaded once into .security-tools/ (pinned, SHA-256 checked); Semgrep needs
+            // python3 with the venv module on the agent.
+            steps {
+                script {
+                    ['hadolint', 'trivy-config', 'semgrep'].each { String scan ->
+                        int exitCode = sh(
+                                script: "bash Scripts/supply-chain-scan.sh ${scan}",
+                                returnStatus: true
+                        )
+                        if (exitCode != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                            echo "${scan} reported findings or could not run - see the console output above."
+                        }
+                    }
+                    archiveArtifacts artifacts: 'target/security/**', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('SBOM (CycloneDX)') {
+            // Runs only the CycloneDX execution of the sbom profile (no test suite), archives bom.json/bom.xml,
+            // then scans it with Trivy (report-only unless TRIVY_SBOM_EXIT_CODE=1 is set on the agent).
+            steps {
+                script {
+                    int exitCode = sh(
+                            script: 'mvn -B -ntp -Psbom cyclonedx:makeBom@cyclonedx-bom',
+                            returnStatus: true
+                    )
+                    if (exitCode != 0) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'SBOM generation failed - see console output above.'
+                    } else {
+                        sh 'bash Scripts/supply-chain-scan.sh trivy-sbom target/bom.json || echo "SBOM vulnerability scan reported findings or could not run (report-only)"'
+                    }
+                    archiveArtifacts artifacts: 'target/bom.json,target/bom.xml,target/security/**', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('DB Integration (PostgreSQL)') {
+            // DbClient against a real PostgreSQL via Testcontainers (profile db-integration). Needs Docker
+            // for the Jenkins user; without it the stage says so and is skipped, because it cannot test anything.
+            steps {
+                script {
+                    if (sh(script: 'docker info >/dev/null 2>&1', returnStatus: true) != 0) {
+                        echo 'Docker is not reachable from this agent - skipping the PostgreSQL integration tests.'
+                    } else {
+                        int exitCode = sh(
+                                script: 'mvn -B -ntp test-compile failsafe:integration-test@db-it failsafe:verify@db-it -Pdb-integration -Ddb.it.requireDocker=true',
+                                returnStatus: true
+                        )
+                        if (exitCode != 0) {
+                            currentBuild.result = 'UNSTABLE'
+                            echo 'PostgreSQL integration tests failed - see console output above.'
+                        }
+                        archiveArtifacts artifacts: 'target/failsafe-reports/**', allowEmptyArchive: true
+                    }
                 }
             }
         }

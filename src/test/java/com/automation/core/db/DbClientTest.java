@@ -95,6 +95,20 @@ class DbClientTest {
     }
 
     @Test
+    void statementGuardRefusesQuotingThatDesynchronisesItFromTheDatabase() {
+        // PostgreSQL E'' string: the database sees a complete literal, then a second statement.
+        assertFalse(DbClient.isReadOnlyStatement("SELECT E'\\''; DELETE FROM users; --'"));
+        // PostgreSQL dollar quoting: the quote inside $$..$$ is plain text to the database only.
+        assertFalse(DbClient.isReadOnlyStatement("SELECT $$'$$, 'x' ; DELETE FROM users; --'"));
+        assertFalse(DbClient.isReadOnlyStatement("SELECT $body$x$body$"));
+        // MySQL treats a backslash as an escape by default.
+        assertFalse(DbClient.isReadOnlyStatement("SELECT 'a\\' ; DELETE FROM users; --'"));
+        // Doubling the quote is the standard escape and keeps working; so does a lone dollar sign.
+        assertTrue(DbClient.isReadOnlyStatement("SELECT 'it''s fine'"));
+        assertTrue(DbClient.isReadOnlyStatement("SELECT * FROM users WHERE email = 'costs $5'"));
+    }
+
+    @Test
     void secretsAreMaskedInLoggedUrls() {
         assertEquals("jdbc:postgresql://h/db?user=a&password=***", DbClient.redact("jdbc:postgresql://h/db?user=a&password=hunter2"));
         assertEquals("jdbc:h2:mem:x", DbClient.redact("jdbc:h2:mem:x"));

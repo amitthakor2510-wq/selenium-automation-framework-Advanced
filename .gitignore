@@ -120,3 +120,6 @@ Scripts/dashboard/data/*
 !Scripts/dashboard/data/templates/
 Scripts/dashboard/data/templates/*
 !Scripts/dashboard/data/templates/.gitkeep
+
+# Pinned scanner binaries and the Semgrep virtualenv downloaded by Scripts/supply-chain-scan.sh
+.security-tools/

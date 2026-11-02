@@ -1,0 +1,169 @@
+# Project-specific Semgrep rules for the Python code that can change this project's behaviour:
+# the Automation Console (Scripts/dashboard/) rewrites pipeline-config.properties, spec files and
+# can trigger CI, and .github/workflows/scripts/ runs inside CI with a token.
+#
+# These sit ON TOP of the registry rule packs (p/python, p/github-actions, p/dockerfile) the CI jobs
+# pull in - they exist for the handful of patterns that matter most for this code and that the packs
+# either miss or bury. Each rule is proven by the fixture next to this file, dashboard-security.py (run: semgrep --test semgrep-rules).
+#
+# Run locally:   semgrep scan --config semgrep-rules --config p/python Scripts .github/workflows/scripts
+# Rule tests:    semgrep --test semgrep-rules
+rules:
+  - id: dashboard-subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: >-
+      subprocess call with shell=True. The dashboard builds command lines from request data
+      (suite, site, browser, ...); with a shell that is command injection. Pass an argv list and
+      shell=False, and validate every element against the allowlist (runner/allowlist.py).
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$FUNC(..., shell=True, ...)
+          - pattern: os.system(...)
+          - pattern: os.popen(...)
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+
+  - id: dashboard-tls-verification-disabled
+    languages: [python]
+    severity: ERROR
+    message: >-
+      TLS certificate verification is switched off. ci_trigger.py talks to GitLab/GitHub with a
+      token; without verification that token can be stolen by anyone on the path. Pass the CA
+      bundle (ssl.create_default_context(cafile=...)) instead of disabling the check.
+    pattern-either:
+      - pattern: ssl._create_unverified_context(...)
+      - pattern: ssl.create_default_context(...).check_hostname = False
+      - pattern: $CTX.check_hostname = False
+      - pattern: $CTX.verify_mode = ssl.CERT_NONE
+      - pattern: requests.$M(..., verify=False, ...)
+    metadata:
+      category: security
+      cwe: "CWE-295: Improper Certificate Validation"
+
+  - id: dashboard-unsafe-deserialization
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Unsafe deserialization / dynamic code execution on data that can come from a request, an
+      uploaded spec or a config file. Use json.loads / yaml.safe_load, never pickle/eval/exec.
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: marshal.loads(...)
+      - pattern: yaml.load($X)
+      - pattern: yaml.load($X, Loader=yaml.Loader)
+      - pattern: yaml.load($X, Loader=yaml.UnsafeLoader)
+      - pattern: eval(...)
+      - pattern: exec(...)
+    metadata:
+      category: security
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+
+  - id: dashboard-secret-compared-with-equality
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A password / token / secret / hash is compared with ==/!=, which is not constant-time and
+      can leak the value through timing. Use hmac.compare_digest (as dashboard_server.py and
+      auth/users.py already do).
+    patterns:
+      - pattern-either:
+          - pattern: $A == $B
+          - pattern: $A != $B
+      - metavariable-pattern:
+          metavariable: $A
+          pattern-regex: (?i).*(password|passwd|token|secret|api_?key|digest|signature|hmac).*
+      - pattern-not: $A == None
+      - pattern-not: $A != None
+      - pattern-not: $A == ""
+      - pattern-not: $A != ""
+      - pattern-not: $A == ''
+      - pattern-not: $A != ''
+      # "is a token configured?" style checks compare presence, not the secret itself
+      - pattern-not: bool(...) == bool(...)
+      - pattern-not: bool(...) != bool(...)
+      - pattern-not: len(...) == $B
+      - pattern-not: len(...) != $B
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/tests/**"
+    metadata:
+      category: security
+      cwe: "CWE-208: Observable Timing Discrepancy"
+
+  - id: dashboard-weak-hash-for-security
+    languages: [python]
+    severity: WARNING
+    message: >-
+      MD5/SHA-1 are not acceptable for passwords, tokens or integrity checks. Use hashlib.scrypt /
+      pbkdf2_hmac for passwords and SHA-256+ for integrity. (Fine for non-security cache keys:
+      pass usedforsecurity=False to make that explicit.)
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+      - pattern-not: hashlib.md5(..., usedforsecurity=False, ...)
+      - pattern-not: hashlib.sha1(..., usedforsecurity=False, ...)
+    metadata:
+      category: security
+      cwe: "CWE-328: Use of Weak Hash"
+
+  - id: dashboard-insecure-temp-or-permissions
+    languages: [python]
+    severity: WARNING
+    message: >-
+      tempfile.mktemp is race-prone (use NamedTemporaryFile / mkstemp), and world-writable file
+      modes let another local user rewrite config the dashboard later trusts. Files the dashboard
+      writes should be 0o600/0o644 (see auth/users.py).
+    pattern-either:
+      - pattern: tempfile.mktemp(...)
+      - pattern: os.chmod($P, 0o777)
+      - pattern: os.chmod($P, 0o666)
+      - pattern: os.chmod($P, 0o776)
+      - pattern: os.chmod($P, 0o766)
+    metadata:
+      category: security
+      cwe: "CWE-377: Insecure Temporary File"
+
+  - id: dashboard-http-bind-all-interfaces-literal
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Server bound to 0.0.0.0 with a hard-coded literal. The dashboard can rewrite pipeline
+      config, so it must default to 127.0.0.1 and only widen via DASHBOARD_HOST (Docker needs
+      0.0.0.0, but that belongs in the Dockerfile/compose env, not in code).
+    pattern-either:
+      - pattern: http.server.ThreadingHTTPServer(("0.0.0.0", ...), ...)
+      - pattern: http.server.HTTPServer(("0.0.0.0", ...), ...)
+      - pattern: ThreadingHTTPServer(("0.0.0.0", ...), ...)
+      - pattern: HTTPServer(("0.0.0.0", ...), ...)
+    metadata:
+      category: security
+      cwe: "CWE-668: Exposure of Resource to Wrong Sphere"
+
+  - id: dashboard-path-from-request-without-containment
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A filesystem path is built from a name taken from the request/spec and then opened or
+      written without proving it stays inside the intended directory. Resolve it and check
+      os.path.commonpath / Path.is_relative_to against the base (see config_files.py and
+      runner/workspace.py for the existing pattern), or take the name from a fixed allowlist.
+    patterns:
+      - pattern-either:
+          - pattern: open(os.path.join($BASE, $NAME), ...)
+          - pattern: open($BASE + $NAME, ...)
+          - pattern: open(f"...{$NAME}...", ...)
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i).*(name|path|file|id|key|slug).*
+    paths:
+      exclude:
+        - "**/test_*.py"
+        - "**/tests/**"
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"

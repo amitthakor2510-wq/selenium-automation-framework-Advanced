@@ -35,3 +35,6 @@ Scripts/dashboard/data/runs/
 Scripts/dashboard/data/specs/
 *.pem
 *.key
+
+# Scanner tooling downloaded by Scripts/supply-chain-scan.sh must never be baked into an image
+.security-tools/

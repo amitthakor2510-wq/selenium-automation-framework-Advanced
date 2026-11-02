@@ -528,3 +528,8 @@ and `sudo gitlab-ctl tail sidekiq` during a push.
 <sub>⬆️ <a href="#-cicd-pipelines">Back to top</a> · <a href="../README.md">← Back to README</a></sub>
 
 </div>
+
+## Supply-chain and container security
+
+Hadolint, Trivy, Semgrep, CodeQL, the CycloneDX SBOM, Maven Enforcer and the PostgreSQL integration test are described in
+[supply-chain-security.md](supply-chain-security.md).

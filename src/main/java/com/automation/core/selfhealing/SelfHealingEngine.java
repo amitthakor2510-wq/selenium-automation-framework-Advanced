@@ -77,7 +77,7 @@ import org.slf4j.LoggerFactory;
  * Turn it on for suites where recovering icon-only/tag-changed elements is
  * worth that per-find overhead.
  *
- * This is the general, automatic counterpart to {@link SmartLocator}: that
+ * This is the general, automatic counterpart to {@link com.automation.core.utils.SmartLocator}: that
  * class is for locators a developer has *already* seen break and wants an
  * explicit, hand-picked fallback for; this engine is what runs everywhere
  * else, healing locators nobody has had to think about yet. SmartLocator

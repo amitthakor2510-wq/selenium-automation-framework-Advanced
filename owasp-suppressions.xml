@@ -24,4 +24,49 @@
     &lt;/suppress&gt;
 -->
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+  <!-- Reviewed 2026-11-02. CPE false positive: ODC matches the Deque wrapper artifact
+       com.deque.html.axe-core:selenium:4.13.0 to the Selenium product CPE. The wrapper is
+       only axe-core glue code (its own version number happens to be 4.13.0); the Selenium
+       libraries actually on the classpath are 4.50.0, pinned in dependencyManagement. -->
+  <suppress>
+    <notes>CPE false positive: axe-core's selenium wrapper is not Selenium itself.</notes>
+    <packageUrl regex="true">^pkg:maven/com\.deque\.html\.axe-core/selenium@.*$</packageUrl>
+    <cve>CVE-2023-5590</cve>
+  </suppress>
+
+  <!-- Reviewed 2026-11-02. Accepted risk: extentreports 5.1.2 (the latest 5.x release) ships
+       old bootstrap/jQuery/Chart.js inside its HTML report template. They run only in the
+       browser when someone opens a locally generated report, never on a server and never on
+       untrusted input. Re-check when ExtentReports publishes a newer release. -->
+  <suppress>
+    <notes>Static JS bundled in the Extent report template; no fixed extentreports release exists.</notes>
+    <filePath regex="true">.*extentreports-5\.1\.2\.jar.*spark-script\.js.*</filePath>
+    <vulnerabilityName regex="true">.*</vulnerabilityName>
+  </suppress>
+
+  <!-- Reviewed 2026-11-02. CVE-2026-33166 is in the Allure REPORT GENERATOR (fixed in 2.38.0; this
+       project now generates reports with 2.39.0, see allure.report.version in pom.xml). ODC
+       matches the allure-java library jars (allure-model, allure-java-commons) to the same CPE
+       only because they are numbered 2.x; the libraries have no report-generation code. -->
+  <suppress>
+    <notes>CPE false positive: the allure-java libraries (allure-model, allure-java-commons) are not the Allure report generator.</notes>
+    <packageUrl regex="true">^pkg:maven/io\.qameta\.allure/.*@.*$</packageUrl>
+    <cve>CVE-2026-33166</cve>
+  </suppress>
+
+  <!-- Reviewed 2026-11-02. Accepted risk, with an expiry so it comes back for review.
+       allure-java-commons 2.27.0 carries its own copy of jackson-databind 2.14.1, which a
+       dependencyManagement pin cannot replace (this project's own jackson-databind is 2.22.3).
+       CVE-2026-54512 / CVE-2026-54513 are polymorphic-deserialization bypasses: they need the
+       application to deserialize UNTRUSTED JSON with polymorphic typing enabled. Allure only
+       reads and writes this project's own test-result files with plain typed classes.
+       Real fix: raise allure.version together with cucumber.version (see the comment next to
+       cucumber.version in pom.xml) and drop this entry. -->
+  <suppress until="2027-02-01Z">
+    <notes>Bundled jackson-databind 2.14.1 inside allure-java-commons 2.27.0; no untrusted polymorphic deserialization.</notes>
+    <filePath regex="true">.*allure-java-commons-2\.27\.0\.jar.*</filePath>
+    <cve>CVE-2026-54512</cve>
+    <cve>CVE-2026-54513</cve>
+  </suppress>
 </suppressions>

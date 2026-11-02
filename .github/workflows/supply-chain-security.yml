@@ -1,0 +1,266 @@
+name: Supply-chain and Container Security
+
+# Separate from github-ci.yml on purpose: none of this needs a browser, and a weekly run catches
+# newly published CVEs in the base images and dependencies even when nobody pushed anything.
+# All scanner logic lives in Scripts/supply-chain-scan.sh so GitLab CI and Jenkins run the same thing.
+# See docs/supply-chain-security.md.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "pom.xml"
+      - "Dockerfile*"
+      - "docker-compose*.yml"
+      - ".hadolint.yaml"
+      - ".trivyignore.yaml"
+      - ".semgrepignore"
+      - "semgrep-rules/**"
+      - "Scripts/**"
+      - "src/**"
+      - ".github/workflows/supply-chain-security.yml"
+  pull_request:
+    branches: [ "main", "master" ]
+    paths:
+      - "pom.xml"
+      - "Dockerfile*"
+      - "docker-compose*.yml"
+      - ".hadolint.yaml"
+      - ".trivyignore.yaml"
+      - ".semgrepignore"
+      - "semgrep-rules/**"
+      - "Scripts/**"
+      - "src/**"
+      - ".github/workflows/supply-chain-security.yml"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 0 = report only. Set repository variables to 1 to fail the job on HIGH/CRITICAL findings.
+  TRIVY_IMAGE_EXIT_CODE: ${{ vars.TRIVY_IMAGE_EXIT_CODE || '0' }}
+  TRIVY_SBOM_EXIT_CODE: ${{ vars.TRIVY_SBOM_EXIT_CODE || '0' }}
+
+jobs:
+  # Maven Enforcer already runs in the validate phase of every lifecycle build (hard rules). This job
+  # shows it on its own and also reports what -Penforce-strict would fail on (informational for now).
+  enforcer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Enforcer (hard rules)
+        run: mvn -B -ntp validate
+
+      - name: Enforcer strict mode (dependency convergence, transitive bans) - informational
+        continue-on-error: true
+        run: mvn -B -ntp validate -Penforce-strict
+
+  hadolint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        run: bash Scripts/supply-chain-scan.sh hadolint
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hadolint-report
+          path: target/security/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  trivy-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Trivy misconfiguration scan (gate on HIGH/CRITICAL)
+        run: bash Scripts/supply-chain-scan.sh trivy-config
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-config-report
+          path: target/security/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  trivy-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: framework
+            dockerfile: Dockerfile
+            tag: selenium-framework:scan
+          - name: dashboard
+            dockerfile: Dockerfile.dashboard
+            tag: automation-dashboard:scan
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build and scan ${{ matrix.name }} image
+        env:
+          SECURITY_REQUIRE_DOCKER: "true"
+        run: bash Scripts/supply-chain-scan.sh trivy-image "${{ matrix.dockerfile }}" "${{ matrix.tag }}"
+
+      - name: Upload report and image SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-${{ matrix.name }}
+          path: target/security/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # Fast: the project's own Semgrep rules gate (0 findings today); the registry rule packs only report.
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Semgrep
+        run: bash Scripts/supply-chain-scan.sh semgrep
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: target/security/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # CodeQL needs GitHub code scanning: free on public repositories, GitHub Advanced Security on private
+  # ones. On a private repository without it, leave this off (the default) and rely on Semgrep above;
+  # set the repository variable ENABLE_CODEQL=true to turn it on.
+  codeql:
+    if: github.event.repository.private == false || vars.ENABLE_CODEQL == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ python, java-kotlin ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # Calls the one CycloneDX execution of the sbom profile directly, so the browser suite, Checkstyle
+      # and SpotBugs do not run just to reach the verify phase.
+      - name: Generate CycloneDX SBOM
+        run: |
+          mvn -B -ntp -Psbom cyclonedx:makeBom@cyclonedx-bom
+          ls -l target/bom.json target/bom.xml
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: |
+            target/bom.json
+            target/bom.xml
+          retention-days: 90
+
+      - name: Scan the SBOM for known vulnerabilities (report-only unless TRIVY_SBOM_EXIT_CODE=1)
+        run: bash Scripts/supply-chain-scan.sh trivy-sbom target/bom.json
+
+      - name: Upload vulnerability report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-vulnerability-report
+          path: target/security/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # DbClient against a real PostgreSQL (Testcontainers). GitHub's runners have Docker, so a missing
+  # Docker here is a failure, not a skip.
+  db-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: PostgreSQL integration tests
+        run: >-
+          mvn -B -ntp test-compile
+          failsafe:integration-test@db-it failsafe:verify@db-it
+          -Pdb-integration -Ddb.it.requireDocker=true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-integration-reports
+          path: target/failsafe-reports/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -518,7 +518,7 @@ SKIP_HOOKS=1 git commit -m "..."        # bypass hooks for a single commit
 git commit --no-verify -m "..."         # same bypass, git's own flag
 
 # What the hook itself runs (for reference — you don't run these directly):
-gitleaks protect --staged --redact -v
+gitleaks protect --staged --config gitleaks.toml --redact -v
 mvn -q checkstyle:check
 ```
 
@@ -693,9 +693,9 @@ Check it works end to end (needs Java; the Allure CLI is already bundled in `.al
 mvn -B verify -Punit-tests -Dit.test=AllureCategoriesTest        # validates the JSON + sample classifications
 mvn -B test -Dsite=demoqa -DsuiteXmlFile=testng-suites/demoqa-smoke.xml -Dheadless=true
 ls target/allure-results/categories.json                         # must exist
-.allure/allure-2.27.0/bin/allure generate target/allure-results -o target/allure-report --clean
+.allure/allure-2.39.0/bin/allure generate target/allure-results -o target/allure-report --clean
 python3 -m json.tool target/allure-report/data/categories.json | head -40   # category names appear here
-.allure/allure-2.27.0/bin/allure open target/allure-report       # Categories tab should list your failures
+.allure/allure-2.39.0/bin/allure open target/allure-report       # Categories tab should list your failures
 ```
 
 ---
@@ -708,3 +708,17 @@ See [PDF_REPORT.md](PDF_REPORT.md).
 mvn test -Dsite=demoqa -Dreport.pdf.enabled=true                      # PDF per suite -> target/pdf-reports/
 mvn -q process-test-resources compile exec:java@pdf-report -Ppdf-report   # one consolidated PDF from testng-results.xml
 ```
+
+## Supply-chain and container security
+
+```bash
+bash Scripts/supply-chain-scan.sh hadolint
+bash Scripts/supply-chain-scan.sh trivy-config
+bash Scripts/supply-chain-scan.sh semgrep
+bash Scripts/supply-chain-scan.sh trivy-image Dockerfile selenium-framework:scan
+./mvnw -B -Psbom cyclonedx:makeBom@cyclonedx-bom
+./mvnw -B validate -Penforce-strict
+./mvnw -B test-compile failsafe:integration-test@db-it failsafe:verify@db-it -Pdb-integration
+```
+
+See [docs/supply-chain-security.md](docs/supply-chain-security.md).

@@ -49,6 +49,9 @@ RUN apt-get update \
 # even after chown -R on its *contents*, a non-root user still can't
 # traverse into /root to reach them — the directory entry point itself
 # blocks it. Moving avoids doubling image size the way a copy would.
+# Hadolint DL4006: the RUN below uses a pipe inside $( ). With pipefail a failing first
+# command is no longer hidden behind the last one.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Newer maven/temurin base images (Ubuntu 24.04) already ship a user+group with ID 1000
 # ("ubuntu"), which made `groupadd --gid 1000` fail. Free the ID first if it is taken.
 RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cut -d: -f1)" || true; fi \

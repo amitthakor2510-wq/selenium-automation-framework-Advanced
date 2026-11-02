@@ -32,7 +32,7 @@ FAILED=0
 # gate either way.
 if command -v gitleaks &> /dev/null; then
   echo "[pre-commit] Running gitleaks on staged changes..."
-  if ! gitleaks protect --staged --redact -v; then
+  if ! gitleaks protect --staged --config gitleaks.toml --redact -v; then
     echo "[pre-commit] gitleaks found a likely secret in your staged changes — see above."
     FAILED=1
   fi

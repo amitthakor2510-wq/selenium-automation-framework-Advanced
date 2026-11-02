@@ -1,0 +1,10 @@
+# Files Semgrep must not scan. The rule fixtures deliberately contain the bad patterns.
+semgrep-rules/
+.git/
+.idea/
+.security-tools/
+.m2/
+target/
+node_modules/
+__pycache__/
+*.pyc

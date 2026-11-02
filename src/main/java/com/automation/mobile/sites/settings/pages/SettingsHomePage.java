@@ -48,7 +48,7 @@ public class SettingsHomePage extends BaseMobilePage {
         }
     }
 
-    /** Opens the "Network & internet" row from the home list. */
+    /** Opens the "Network &amp; internet" row from the home list. */
     public void openNetworkAndInternet() {
         WebElement entry = waitClickable(NETWORK_INTERNET_ENTRY);
         entry.click();

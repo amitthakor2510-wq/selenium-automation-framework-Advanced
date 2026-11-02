@@ -93,7 +93,7 @@ public class RegistrationPage extends BasePage {
                 "    return origFetch.apply(this, args).then(function(res) {" +
                 "      try {" +
                 "        var url = (typeof args[0] === 'string') ? args[0] : (args[0] && args[0].url) || '';" +
-                "        if (url.toLowerCase(Locale.ROOT).indexOf('account') !== -1) {" +
+                "        if (url.toLowerCase().indexOf('account') !== -1) {" +
                 "          res.clone().text().then(function(body) {" +
                 "            window.__lastRegisterResponse = {url:url, status:res.status, body:body};" +
                 "          });" +
@@ -112,7 +112,7 @@ public class RegistrationPage extends BasePage {
                 "    var xhr = this;" +
                 "    xhr.addEventListener('load', function() {" +
                 "      try {" +
-                "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase(Locale.ROOT).indexOf('account') !== -1) {" +
+                "        if (xhr.__capturedUrl && xhr.__capturedUrl.toLowerCase().indexOf('account') !== -1) {" +
                 "          window.__lastRegisterResponse = {url:xhr.__capturedUrl, status:xhr.status, body:xhr.responseText};" +
                 "        }" +
                 "      } catch(e) {}" +

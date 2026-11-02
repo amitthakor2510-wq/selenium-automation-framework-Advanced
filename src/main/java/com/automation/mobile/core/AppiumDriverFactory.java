@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * "Real Device Walkthrough" in mobile/README.md for the exact steps. Before
  * pointing this at a different app:
  *
- *   1. Start an Appium server (npm install -g appium && appium), or point
+ *   1. Start an Appium server ({@code npm install -g appium && appium}), or point
  *      appium.server.url at a remote/cloud grid (BrowserStack, Sauce Labs,
  *      a self-hosted Appium grid, etc.)
  *   2. Set mobile.app.path to a real .apk (Android) or .ipa/.app (iOS) —

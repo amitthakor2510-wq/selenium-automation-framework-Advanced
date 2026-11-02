@@ -236,13 +236,16 @@ public final class DbClient implements AutoCloseable {
      *
      * <p>Every doubt resolves to "refuse": a literal or comment that cannot be closed stays visible,
      * {@code --} only starts a comment before whitespace (MySQL's rule), {@code /*!...*}{@code /}
-     * (MySQL executes it) is never stripped, and backslash escapes, {@code #} comments and
-     * dollar-quoting are not honoured - so what this method sees can only be MORE than what the
-     * database treats as code, never less. A legitimate query that trips it can pass the risky value
+     * (MySQL executes it) is never stripped, and {@code #} comments are not honoured. A backslash or a
+     * dollar-quote tag ({@code $$}, {@code $tag$}) anywhere in the statement is refused outright:
+     * they change where the database thinks a literal ends (PostgreSQL E'...' strings and dollar
+     * quoting, MySQL's default backslash escapes), so code could hide inside what this method
+     * believes is a literal. Verified on PostgreSQL 16: an E-string followed by ; DELETE passed an
+     * earlier version of this guard and deleted every row (see PostgresDbClientIT). A legitimate query that trips it can pass the risky value
      * as a {@code ?} parameter instead.
      */
     static boolean isReadOnlyStatement(String sql) {
-        if (sql == null) {
+        if (sql == null || QUOTING_THAT_DESYNCHRONISES.matcher(sql).find()) {
             return false;
         }
         String visible = stripLiteralsAndComments(sql).strip();
@@ -253,6 +256,9 @@ public final class DbClient implements AutoCloseable {
             && visible.indexOf(';') < 0
             && !FORBIDDEN_WORDS.matcher(visible).find();
     }
+
+    /** A backslash, or a dollar-quote tag such as $$ or $body$: see {@link #isReadOnlyStatement}. */
+    private static final Pattern QUOTING_THAT_DESYNCHRONISES = Pattern.compile("\\\\|\\$\\w*\\$");
 
     private static final Pattern READ_ONLY_START =
         Pattern.compile("^\\(*\\s*(select|with|show|explain|values)\\b", Pattern.CASE_INSENSITIVE);

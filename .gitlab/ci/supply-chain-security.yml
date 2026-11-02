@@ -1,0 +1,109 @@
+# Supply-chain and container security jobs, included from .gitlab-ci.yml. The scanner logic lives in
+# Scripts/supply-chain-scan.sh (same script GitHub Actions and Jenkins call). See docs/supply-chain-security.md.
+#
+# This project's runner is a shell executor: tools are downloaded into .security-tools/ (pinned, hash
+# checked), python3 with the venv module is needed for Semgrep, and Docker access for the image jobs.
+# Jobs that depend on something the runner may lack skip with a clear message instead of failing.
+
+.supply-chain:
+  stage: test
+  interruptible: true
+  cache: []
+  rules:
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+  artifacts:
+    when: always
+    expire_in: 30 days
+    paths:
+      - target/security/
+
+# Hard gate: Hadolint warnings or errors fail the job (.hadolint.yaml holds the justified ignores).
+hadolint:
+  extends: .supply-chain
+  script:
+    - bash Scripts/supply-chain-scan.sh hadolint
+
+# Hard gate on HIGH/CRITICAL Dockerfile misconfigurations (.trivyignore.yaml holds the justified ignores).
+trivy-config:
+  extends: .supply-chain
+  script:
+    - bash Scripts/supply-chain-scan.sh trivy-config
+
+# Semgrep: the project's own rules gate (0 findings today); registry rule packs only report.
+semgrep:
+  extends: .supply-chain
+  script:
+    - bash Scripts/supply-chain-scan.sh semgrep
+
+# Hard rules already run in `build` (validate phase). This shows what -Penforce-strict would fail on.
+enforcer-strict:
+  extends: .supply-chain
+  allow_failure: true
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .m2/repository/
+  script:
+    - mvn -B validate -Penforce-strict
+  artifacts:
+    paths: []
+
+# Image scans: weekly (schedule) and whenever something that feeds an image changes. Report-only until
+# TRIVY_IMAGE_EXIT_CODE=1 is set as a CI/CD variable. Skips when the runner cannot reach Docker.
+trivy-images:
+  extends: .supply-chain
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID'
+      changes:
+        - Dockerfile*
+        - pom.xml
+        - docker-compose*.yml
+        - .trivyignore.yaml
+        - Scripts/supply-chain-scan.sh
+  script:
+    - bash Scripts/supply-chain-scan.sh trivy-image Dockerfile selenium-framework:scan
+    - bash Scripts/supply-chain-scan.sh trivy-image Dockerfile.dashboard automation-dashboard:scan
+
+# CycloneDX SBOM from the existing `sbom` profile, kept as an artifact, then scanned (report-only).
+sbom:
+  extends: .supply-chain
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .m2/repository/
+  script:
+    - mvn -B -Psbom cyclonedx:makeBom@cyclonedx-bom
+    - ls -l target/bom.json target/bom.xml
+    - bash Scripts/supply-chain-scan.sh trivy-sbom target/bom.json || echo "SBOM vulnerability scan reported findings or could not run (report-only)"
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - target/bom.json
+      - target/bom.xml
+      - target/security/
+
+# DbClient against a real PostgreSQL via Testcontainers. Needs the runner user to reach Docker;
+# without it the job says so and passes, because it cannot test anything.
+db-integration:
+  extends: .supply-chain
+  allow_failure: true
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths:
+      - .m2/repository/
+  script:
+    - |
+      if ! docker info >/dev/null 2>&1; then
+        echo "WARNING: Docker is not reachable from this runner - skipping the PostgreSQL integration tests."
+        echo "Add the gitlab-runner user to the docker group to enable them."
+        exit 0
+      fi
+    - mvn -B test-compile failsafe:integration-test@db-it failsafe:verify@db-it -Pdb-integration -Ddb.it.requireDocker=true
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - target/failsafe-reports/

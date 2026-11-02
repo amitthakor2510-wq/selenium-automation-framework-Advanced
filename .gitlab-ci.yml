@@ -1,6 +1,10 @@
 #include:
 #- template: Security/SAST.gitlab-ci.yml
 
+# Hadolint, Trivy, Semgrep, SBOM and PostgreSQL integration jobs (docs/supply-chain-security.md)
+include:
+  - local: .gitlab/ci/supply-chain-security.yml
+
 # ================================================================
 # GitLab CI/CD Pipeline - Selenium Automation Framework
 # Allure report published via GitLab Pages
@@ -931,7 +935,7 @@ secret-scan:
         tar -xzf gitleaks.tar.gz -C .gitleaks-bin gitleaks
         export PATH="$CI_PROJECT_DIR/.gitleaks-bin:$PATH"
       fi
-    - gitleaks detect --source . --report-format json --report-path gitleaks-report.json --redact
+    - gitleaks detect --source . --config gitleaks.toml --report-format json --report-path gitleaks-report.json --redact
   artifacts:
     name: "gitleaks-report-$CI_COMMIT_REF_SLUG"
     when: always

@@ -1,0 +1,9 @@
+# Hadolint configuration (Dockerfile linter). Used by Scripts/supply-chain-scan.sh hadolint.
+# Any warning or error fails the job; info-level findings are shown but do not fail.
+failure-threshold: warning
+ignored:
+  # DL3008 (pin apt package versions): the base images are floating Ubuntu/Debian tags, and exact
+  # apt versions disappear from the archive within weeks, which would break every rebuild.
+  # The better control is pinning the BASE IMAGE (tag plus digest) and letting Dependabot or
+  # Renovate bump it; Trivy then reports what is inside it.
+  - DL3008

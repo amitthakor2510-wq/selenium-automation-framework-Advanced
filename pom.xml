@@ -175,6 +175,11 @@
 
     <!-- Allure + AspectJ versions -->
     <allure.version>2.27.0</allure.version>
+    <!-- Allure COMMAND-LINE report generator, versioned separately from the allure-java libraries
+         above (allure.version). 2.27.0 had CVE-2026-33166 (arbitrary file read through path
+         traversal in attachment paths, fixed in 2.38.0); results written by older libraries are
+         read fine by the newer generator. -->
+    <allure.report.version>2.39.0</allure.report.version>
     <aspectj.version>1.9.25.1</aspectj.version>
 
     <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
@@ -189,7 +194,7 @@
          is the bridge that routes SLF4J calls into it. Pinned to match
          the SLF4J 2.x line log4j-slf4j2-impl and Selenium/WebDriverManager
          both expect (not the older SLF4J 1.x API). -->
-    <slf4j.version>2.0.13</slf4j.version>
+    <slf4j.version>2.0.19</slf4j.version>
 
     <!-- OWASP dependency-check version — see the "security" profile below.
          Kept as its own property (not inlined) so it can be bumped without
@@ -210,6 +215,26 @@
     <spotbugs-maven-plugin.version>4.8.6.6</spotbugs-maven-plugin.version>
     <findsecbugs-plugin.version>1.13.0</findsecbugs-plugin.version>
     <spotbugs.threshold>High</spotbugs.threshold>
+
+    <!-- Maven Enforcer: fails the build on a wrong Maven/Java version, duplicate dependency
+         declarations and banned logging dependencies. See the maven-enforcer-plugin block in
+         build/plugins, and the enforce-strict profile that turns its warnings into errors. -->
+    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
+
+    <!-- Versions that are BOTH declared as direct dependencies below AND pinned in
+         dependencyManagement (to make DependencyConvergence pass). One property each, so a bump
+         can never leave the pin and the direct declaration disagreeing. -->
+    <selenium.version>4.50.0</selenium.version>
+    <webdrivermanager.version>6.4.0</webdrivermanager.version>
+    <jackson.version>2.22.3</jackson.version>
+    <snakeyaml.version>2.7</snakeyaml.version>
+
+    <!-- Testcontainers (db-integration profile only, never on the default classpath).
+         1.21.4 is the first 1.x release that works with Docker Engine 29 and with daemons that
+         raised their minimum API version (1.21.3 failed with "client version 1.32 is too old.
+         Minimum supported API version is 1.40/1.44"). Testcontainers 2.x renamed some artifacts,
+         so check the migration notes before moving there. -->
+    <testcontainers.version>1.21.4</testcontainers.version>
 
     <!-- JUnit 5 — used ONLY for the small set of fast, WebDriver-free unit
          tests under src/test/java/com/automation/core/data/** (DataRow,
@@ -345,6 +370,138 @@
         <artifactId>commons-io</artifactId>
         <version>2.22.0</version>
       </dependency>
+
+      <!-- ===== Dependency convergence pins (enforce-dependency-tree / -Penforce-strict) =====
+           Every artifact below was reached through several paths with DIFFERENT versions (axe-core,
+           AShot, Appium, DataFaker, WebDriverManager's docker-java, Tess4J/Lept4J, POI, OpenCSV and
+           Extent each bring their own). Each pin is the highest version any path asked for, which is
+           also what Maven was already resolving in almost every case, so the classpath barely changes
+           (the SLF4J line moves 2.0.13 -> 2.0.19, which log4j-slf4j2-impl needs anyway).
+           When a library is upgraded and -Penforce-strict reports a new conflict, raise the matching
+           pin here. Do not add exclusions for these. -->
+
+      <!-- Selenium: axe-core 4.13.0 drags in selenium-java 4.13.0 and AShot 1.5.4 drags in
+           selenium-remote-driver 2.53.0; both must follow the version this project declares. -->
+      <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-java</artifactId>
+        <version>${selenium.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.seleniumhq.selenium</groupId>
+        <artifactId>selenium-remote-driver</artifactId>
+        <version>${selenium.version}</version>
+      </dependency>
+      <!-- axe-core 4.13.0 depends on webdrivermanager 6.3.4; 6.4.0 is the declared direct version. -->
+      <dependency>
+        <groupId>io.github.bonigarcia</groupId>
+        <artifactId>webdrivermanager</artifactId>
+        <version>${webdrivermanager.version}</version>
+      </dependency>
+
+      <!-- Logging. slf4j-api: 1.7.x (docker-java, Allure) up to 2.0.19 (WebDriverManager); the SLF4J 2
+           line is required by log4j-slf4j2-impl, so every path is raised to the property value.
+           log4j-api: POI asks for 2.24.3, the Log4j2 backend for ${log4j.version}. -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-logging</groupId>
+        <artifactId>commons-logging</artifactId>
+        <version>1.4.0</version>
+      </dependency>
+
+      <!-- Jackson: databind is a direct dependency; annotations is released as "2.22" (no patch). -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>2.22</version>
+      </dependency>
+
+      <!-- Google: Guava from Selenium (33.7.1) vs docker-java (33.4.8). gson spans 2.6.2 (AShot) to
+           2.14.0 (WebDriverManager). error_prone_annotations rides along with Guava/gson. -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.7.1-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.14.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.50.0</version>
+      </dependency>
+
+      <!-- Apache Commons / HttpClient. commons-lang3 is reached at 3.17.0, 3.18.0, 3.19.0 and 3.20.0. -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.20.0</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-codec</groupId>
+        <artifactId>commons-codec</artifactId>
+        <version>1.20.0</version>
+      </dependency>
+      <!-- httpclient5 5.6.4 fixes CVE-2026-71290 (async client ignored the built-in hostname
+           verification, CVSS 9.1); httpcore5/httpcore5-h2 5.4.3 fix CVE-2026-54399 and CVE-2026-54428
+           (HTTP/1.1 parser and HTTP/2 HPACK memory exhaustion). Found by -Psecurity (OWASP). -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>5.6.4</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <!-- FreeMarker (pulled in by the Allure libraries): 2.3.35 fixes CVE-2026-84939, a path
+           traversal in template loading (CVSS 9.1). -->
+      <dependency>
+        <groupId>org.freemarker</groupId>
+        <artifactId>freemarker</artifactId>
+        <version>2.3.35</version>
+      </dependency>
+
+      <!-- Misc: SnakeYAML (DataFaker wants 2.6), JNA (Tess4J 5.19.1 vs Lept4J/docker-java 5.18.1),
+           JSpecify (Selenium 1.0.1 vs Appium 1.0.0). -->
+      <dependency>
+        <groupId>org.yaml</groupId>
+        <artifactId>snakeyaml</artifactId>
+        <version>${snakeyaml.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>net.java.dev.jna</groupId>
+        <artifactId>jna</artifactId>
+        <version>5.19.1</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jspecify</groupId>
+        <artifactId>jspecify</artifactId>
+        <version>1.0.1</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -354,7 +511,7 @@
     <dependency>
       <groupId>org.seleniumhq.selenium</groupId>
       <artifactId>selenium-java</artifactId>
-      <version>4.50.0</version>
+      <version>${selenium.version}</version>
     </dependency>
 
     <!-- Tess4J - Tesseract for Java -->
@@ -461,7 +618,7 @@
            msedgedriver.azureedge.net CDN in mid-2025; 6.1.0 (previously
            pinned here) still pointed at the dead domain, causing
            UnknownHostException on every -Dbrowser=edge run. -->
-      <version>6.4.0</version>
+      <version>${webdrivermanager.version}</version>
     </dependency>
 
     <!-- Extent Reports (custom HTML report) -->
@@ -567,14 +724,14 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.22.3</version>
+      <version>${jackson.version}</version>
     </dependency>
 
     <!-- YAML (DDT data files) -->
     <dependency>
       <groupId>org.yaml</groupId>
       <artifactId>snakeyaml</artifactId>
-      <version>2.7</version>
+      <version>${snakeyaml.version}</version>
     </dependency>
 
     <!-- REST Assured — API testing (BookStoreApiTest hits DemoQA's BookStore/Account REST API) -->
@@ -762,7 +919,7 @@
           <artifactId>allure-maven</artifactId>
           <version>2.12.0</version>
           <configuration>
-            <reportVersion>${allure.version}</reportVersion>
+            <reportVersion>${allure.report.version}</reportVersion>
             <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
             <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
           </configuration>
@@ -771,6 +928,89 @@
     </pluginManagement>
 
     <plugins>
+      <!-- Maven Enforcer. Runs in the validate phase of every lifecycle build (CI's Build step
+           included). Direct plugin goal calls such as checkstyle:check@checkstyle-check skip the
+           lifecycle, so they do not run it.
+           enforce-build   (ERROR): Maven and Java minimums, duplicate dependency declarations,
+                           and logging dependencies this project must never declare directly.
+           enforce-dependency-tree (WARN by default): dependency convergence and the same banned
+                           list searched transitively. Warnings only, because the full tree cannot be
+                           checked without a Maven Central build; run with -Penforce-strict to make
+                           them errors once the warnings are cleaned up. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-build</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.6.3,)</version>
+                  <message>Maven 3.6.3 or newer is required (use ./mvnw, which pins 3.9.6).</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[17,)</version>
+                  <message>JDK 17 or newer is required (the compiler runs with release 17).</message>
+                </requireJavaVersion>
+                <banDuplicatePomDependencyVersions/>
+                <bannedDependencies>
+                  <searchTransitive>false</searchTransitive>
+                  <message>Logging goes through SLF4J 2 into Log4j2 (see log4j-slf4j2-impl). Do not declare another logging backend or bridge directly.</message>
+                  <excludes>
+                    <exclude>log4j:log4j</exclude>
+                    <exclude>org.slf4j:slf4j-log4j12</exclude>
+                    <exclude>org.slf4j:slf4j-reload4j</exclude>
+                    <exclude>org.slf4j:slf4j-simple</exclude>
+                    <exclude>org.slf4j:slf4j-jdk14</exclude>
+                    <exclude>org.slf4j:slf4j-nop</exclude>
+                    <exclude>ch.qos.logback:logback-classic</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-core:(,2.17.1)</exclude>
+                  </excludes>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+          <execution>
+            <id>enforce-dependency-tree</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <dependencyConvergence>
+                  <level>WARN</level>
+                </dependencyConvergence>
+                <bannedDependencies>
+                  <level>WARN</level>
+                  <message>A transitive dependency drags in a second logging backend or bridge. Exclude it on the dependency that brings it.</message>
+                  <excludes>
+                    <exclude>log4j:log4j</exclude>
+                    <exclude>org.slf4j:slf4j-log4j12</exclude>
+                    <exclude>org.slf4j:slf4j-reload4j</exclude>
+                    <exclude>org.slf4j:slf4j-simple</exclude>
+                    <exclude>org.slf4j:slf4j-jdk14</exclude>
+                    <exclude>org.slf4j:slf4j-nop</exclude>
+                    <exclude>ch.qos.logback:logback-classic</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                    <exclude>org.apache.logging.log4j:log4j-core:(,2.17.1)</exclude>
+                  </excludes>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- Maven Compiler Plugin — previously undeclared, which meant
            Maven silently fell back to its ancient bundled default
            (3.1, from 2013). That default's javac invocation is what
@@ -804,6 +1044,8 @@
           <testExcludes>
             <testExclude>**/core/perf/**</testExclude>
             <testExclude>**/sites/*/perf/**</testExclude>
+            <!-- Integration tests that need Testcontainers (db-integration profile only). -->
+            <testExclude>**/core/db/**/*IT.java</testExclude>
           </testExcludes>
         </configuration>
       </plugin>
@@ -957,7 +1199,7 @@
         <artifactId>allure-maven</artifactId>
         <version>2.12.0</version>
         <configuration>
-          <reportVersion>${allure.version}</reportVersion>
+          <reportVersion>${allure.report.version}</reportVersion>
           <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
           <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
         </configuration>
@@ -1197,6 +1439,7 @@
           <sourceFileExcludes>
             <sourceFileExclude>**/core/perf/**</sourceFileExclude>
             <sourceFileExclude>**/sites/*/perf/**</sourceFileExclude>
+            <sourceFileExclude>**/core/db/**/*IT.java</sourceFileExclude>
           </sourceFileExcludes>
         </configuration>
       </plugin>
@@ -1235,6 +1478,21 @@
           <artifactId>jmeter-java-dsl</artifactId>
           <version>2.2.1</version>
           <scope>test</scope>
+          <!-- JMeter (ApacheJMeter_core) and jmeter-plugins-cmn-jmeter bring their own Log4j2
+               binding (log4j-slf4j-impl, an SLF4J 1.x bridge) and an ancient log4j-core 2.8.2
+               (vulnerable to Log4Shell). This project already declares log4j-core and
+               log4j-slf4j2-impl at ${log4j.version}, so exclude the extras here; enforce-dependency-tree
+               then stays warning-free under -Pperf. -->
+          <exclusions>
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-slf4j-impl</artifactId>
+            </exclusion>
+            <exclusion>
+              <groupId>org.apache.logging.log4j</groupId>
+              <artifactId>log4j-core</artifactId>
+            </exclusion>
+          </exclusions>
         </dependency>
       </dependencies>
       <build>
@@ -1247,7 +1505,11 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <testExcludes combine.self="override"/>
+              <!-- Keep excluding the Testcontainers integration tests: their dependency lives only
+                   in the db-integration profile, so compiling them here would fail. -->
+              <testExcludes combine.self="override">
+                <testExclude>**/core/db/**/*IT.java</testExclude>
+              </testExcludes>
             </configuration>
           </plugin>
           <plugin>
@@ -2109,6 +2371,109 @@
               <mainClass>com.automation.core.report.pdf.PdfReportCli</mainClass>
               <classpathScope>test</classpathScope>
             </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Turns the enforce-dependency-tree warnings (dependency convergence, transitive banned
+         logging dependencies) into build errors. Run once to see them, clean up, then keep it on:
+             ./mvnw -B validate -Penforce-strict -->
+    <profile>
+      <id>enforce-strict</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>enforce-dependency-tree</id>
+                <configuration>
+                  <rules>
+                    <dependencyConvergence>
+                      <level>ERROR</level>
+                    </dependencyConvergence>
+                    <bannedDependencies>
+                      <level>ERROR</level>
+                    </bannedDependencies>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- DbClient against a REAL PostgreSQL (Testcontainers), next to DbClientTest which uses H2.
+         H2 cannot show PostgreSQL's dialect: writable CTEs, E'' and dollar quoting, uuid and jsonb
+         columns, pg_sleep, generate_series, driver behaviour. Opt-in so a plain build never
+         resolves Testcontainers or needs Docker. The test skips itself when Docker is missing,
+         unless -Ddb.it.requireDocker=true (CI sets it) turns that into a failure.
+
+         Run (no browser suite, no checkstyle):
+             ./mvnw -B test-compile failsafe:integration-test@db-it failsafe:verify@db-it -Pdb-integration
+         Do not combine with -Pperf: both profiles rewrite the compiler's testExcludes. -->
+    <profile>
+      <id>db-integration</id>
+      <properties>
+        <db.it.postgres.image>postgres:16-alpine</db.it.postgres.image>
+        <db.it.requireDocker>false</db.it.requireDocker>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>org.testcontainers</groupId>
+          <artifactId>postgresql</artifactId>
+          <version>${testcontainers.version}</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <!-- The perf sources need jmeter-java-dsl, which is not on this profile's classpath,
+                   so they stay excluded; only the *IT.java exclusion is lifted. -->
+              <testExcludes combine.self="override">
+                <testExclude>**/core/perf/**</testExclude>
+                <testExclude>**/sites/*/perf/**</testExclude>
+              </testExcludes>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>3.5.6</version>
+            <dependencies>
+              <!-- Same isolation as the unit-tests profile: only JUnit 5 on the plugin's own
+                   classpath, so the TestNG browser provider is never selected here. -->
+              <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit.version}</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <includes>
+                <include>**/core/db/**/*IT.java</include>
+              </includes>
+              <systemPropertyVariables>
+                <db.it.postgres.image>${db.it.postgres.image}</db.it.postgres.image>
+                <db.it.requireDocker>${db.it.requireDocker}</db.it.requireDocker>
+              </systemPropertyVariables>
+            </configuration>
+            <executions>
+              <execution>
+                <id>db-it</id>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>

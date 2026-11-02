@@ -1,0 +1,9 @@
+# Trivy ignore list. Used by Scripts/supply-chain-scan.sh (--ignorefile). Every entry needs a reason.
+misconfigurations:
+  - id: DS-0026
+    paths:
+      - Dockerfile
+      - Dockerfile.dashboard
+    statement: >-
+      HEALTHCHECK: Dockerfile is a one-shot test runner (docker compose run --rm tests), and the
+      dashboard's health check is declared in docker-compose.dashboard.yml, which Trivy does not read.

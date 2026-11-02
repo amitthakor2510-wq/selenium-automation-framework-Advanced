@@ -204,7 +204,7 @@ public class BookStoreApplicationPage extends BasePage {
             List<Object> matches = (List<Object>) js.executeScript(
                 "var out = []; " +
                     "document.querySelectorAll('[id]').forEach(function(el) { " +
-                    "  if (el.id.toLowerCase(Locale.ROOT).indexOf('username') !== -1) { " +
+                    "  if (el.id.toLowerCase().indexOf('username') !== -1) { " +
                     "    out.push({tag: el.tagName, id: el.id, text: el.textContent, " +
                     "              visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)}); " +
                     "  } " +
