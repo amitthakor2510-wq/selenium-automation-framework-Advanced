@@ -60,13 +60,34 @@ def scan():
     return found
 
 
+def config_sources():
+    """(display name, text) per site/global config file, identical on a dev machine and on CI.
+
+    Some config files are gitignored because they hold device-specific values (mobile.properties) and
+    only a committed `<name>.properties.example` exists on a fresh checkout. When an .example exists
+    it is the source of truth, so the generated page never differs between a developer's machine
+    (which also has the real file) and CI (which does not). _TEMPLATE is a scaffold, not a config.
+    """
+    sources = {}
+    if not CONFIG_DIR.is_dir():
+        return []
+    for p in sorted(CONFIG_DIR.glob("*.properties")):
+        sources[p.name] = p
+    for p in sorted(CONFIG_DIR.glob("*.properties.example")):
+        sources[p.name[: -len(".example")]] = p  # overrides the real file of the same name
+    return [(name, path.read_text(encoding="utf-8", errors="replace"))
+            for name, path in sorted(sources.items()) if not name.startswith("_")]
+
+
+_SOURCES = None
+
+
 def files_defining(key):
-    names = []
-    if CONFIG_DIR.is_dir():
-        for p in sorted(CONFIG_DIR.glob("*.properties")):
-            if re.search(rf"^\s*{re.escape(key)}\s*=", p.read_text(encoding="utf-8", errors="replace"), re.M):
-                names.append(p.name)
-    return names
+    global _SOURCES
+    if _SOURCES is None:
+        _SOURCES = config_sources()
+    pattern = re.compile(rf"^\s*{re.escape(key)}\s*=", re.M)
+    return [name for name, text in _SOURCES if pattern.search(text)]
 
 
 def group_of(key):
