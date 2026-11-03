@@ -9,6 +9,10 @@
 #   Scripts/enabled-sites.sh --check <site>    # exit 0 if enabled, 1 if disabled/unknown
 #   Scripts/enabled-sites.sh --dotenv          # SITE_<NAME>_ENABLED=true|false, one per line
 #
+# ENABLED_SITES_INCLUDE_DISABLED=true Scripts/enabled-sites.sh --browser-only --json
+#                                           # list EVERY site, including ones switched off
+#                                           # (used by the nightly all-sites job)
+#
 # CI-only skip: add "site.<name>.ci=false" to pipeline-config.properties and the
 # site stays enabled for local runs but is hidden from every mode above whenever
 # the script runs inside GitHub Actions / GitLab CI / Jenkins (see in_ci below).
@@ -60,8 +64,14 @@ ci_disabled() {
 # sites are disabled by default, never silently on.
 all_enabled() {
     local list
-    list=$(grep -E '^site\.[a-zA-Z0-9_-]+\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$CONFIG_FILE" \
-        | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$/\1/' || true)
+    if [ "${ENABLED_SITES_INCLUDE_DISABLED:-false}" = "true" ]; then
+        # Nightly "all sites enabled" run: every site with a site.<name>.enabled line counts,
+        # whatever its value. ci=false is still honoured (those sites cannot run on a runner).
+        list=$(all_known)
+    else
+        list=$(grep -E '^site\.[a-zA-Z0-9_-]+\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$CONFIG_FILE" \
+            | sed -E 's/^site\.([a-zA-Z0-9_-]+)\.enabled[[:space:]]*=[[:space:]]*true[[:space:]]*$/\1/' || true)
+    fi
     if in_ci; then
         # Drop sites marked "site.<name>.ci=false" (see ci_disabled below).
         echo "$list" | grep -Fxvf <(ci_disabled) | grep -v '^$' || true

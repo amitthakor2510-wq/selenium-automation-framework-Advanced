@@ -1,0 +1,21 @@
+name: Set up JDK + Maven cache
+description: >
+  The JDK 17 (Temurin) + Maven dependency-cache setup that every job in this repo repeats.
+  One place to change the Java version or distribution. Must run AFTER actions/checkout
+  (a local action is read from the checked-out repo, and cache: maven hashes pom.xml).
+
+inputs:
+  java-version:
+    description: JDK major version
+    required: false
+    default: '17'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK ${{ inputs.java-version }}
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: temurin
+        cache: maven

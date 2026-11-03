@@ -7,13 +7,22 @@
 # lets the browser versions be upgraded independently via docker-compose.
 # =============================================================================
 
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Maven is deliberately NOT part of the base image: the build uses the project's own Maven Wrapper
+# (./mvnw, version pinned in .mvn/wrapper/maven-wrapper.properties), so the container, CI and every
+# developer machine run the exact same Maven and the version can never diverge from the image tag.
+# Pin the base image by digest with Scripts/pin-docker-digests.sh (Dependabot's "docker" ecosystem in
+# .github/dependabot.yml then bumps the digest); the tag stays in the FROM line for readability.
+FROM eclipse-temurin:17-jdk AS build
 
 WORKDIR /workspace
 
-# Cache dependencies first so `docker compose build` is fast on code-only changes
+# Cache dependencies first so `docker compose build` is fast on code-only changes.
+# The wrapper files come first too: ./mvnw downloads its Maven once into /root/.m2/wrapper, which
+# is copied into the runtime stage below together with the dependency cache.
+COPY mvnw ./
+COPY .mvn .mvn
 COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
+RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 
 COPY . .
 
@@ -21,7 +30,7 @@ COPY . .
 # Runtime stage — keeps the final image lean (no need for the full Maven
 # local repo layer to persist beyond the build cache).
 # -----------------------------------------------------------------------------
-FROM maven:3.9.6-eclipse-temurin-17
+FROM eclipse-temurin:17-jdk
 
 WORKDIR /workspace
 COPY --from=build /workspace /workspace
@@ -116,7 +125,7 @@ ENV SITE=saucedemo \
     GRID_URL=http://selenium-hub:4444/wd/hub \
     SUITE=testng-suites/saucedemo-smoke.xml
 
-ENTRYPOINT ["sh", "-c", "mvn -B test \
+ENTRYPOINT ["sh", "-c", "./mvnw -B test \
     -Dsite=$SITE \
     -Dbrowser=$BROWSER \
     -Dheadless=$HEADLESS \

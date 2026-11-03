@@ -149,12 +149,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
+
+      # Project audit (--quick: no second compile). Catches what `mvn compile` cannot: a .java
+      # file in the wrong package folder, duplicate class names, and - most importantly - a JUnit 5
+      # *Test.java that no <include> of the unit-tests profile matches (compiled, never run).
+      # Needs only bash/grep/awk, so it costs about a second.
+      - name: Project audit (Scripts/audit-project.sh --quick)
+        run: bash Scripts/audit-project.sh --quick
 
       - name: Build Project
         run: |
@@ -181,12 +184,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Run Checkstyle
         run: |
@@ -219,12 +218,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Run JUnit 5 Unit Tests (core/data, core/tia, core/utils, listeners)
         run: |
@@ -281,12 +276,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # bash (Git for Windows) rather than the default PowerShell so the exact
       # same command line works unchanged on every runner OS.
@@ -334,12 +325,8 @@ jobs:
           # the PR's base branch, which a shallow checkout wouldn't have.
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Compile (main + test sources)
         run: mvn -B -q compile test-compile
@@ -396,12 +383,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1.7.3
@@ -628,12 +611,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # WebDriverManager downloads a fresh chromedriver/geckodriver/
       # msedgedriver binary on a cache miss — on an ubuntu-latest runner
@@ -1022,12 +1001,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # GitHub's ubuntu-latest runners don't have nested virtualization
       # enabled by default, which the Android emulator needs to boot at a
@@ -1174,12 +1149,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # Only compiles main sources (no tests) — this job never runs the
       # suite itself, it just needs target/classes present for jacoco:report
@@ -1246,6 +1217,14 @@ jobs:
         if: steps.merge.outputs.have_data == 'true'
         run: mvn -B jacoco:check@jacoco-check
 
+      # Ratchet: the fixed threshold above goes stale as the code grows, so this also fails when
+      # merged coverage drops more than core.max.drop.pct (1 point) below the last recorded value in
+      # coverage-baseline.properties. Runs even if the fixed gate failed, so both verdicts show up.
+      # An empty baseline passes and prints the number to record (python3 Scripts/coverage-ratchet.py --update).
+      - name: Enforce coverage ratchet (no drop vs. baseline)
+        if: always() && steps.merge.outputs.have_data == 'true'
+        run: python3 Scripts/coverage-ratchet.py
+
       - name: Publish coverage summary
         if: always() && steps.merge.outputs.have_data == 'true'
         run: |
@@ -1254,6 +1233,7 @@ jobs:
             echo ""
             echo "Merged JaCoCo report: see the \`jacoco-merged-report\` artifact on this run, or \`target/site/jacoco/index.html\` if downloaded locally."
             echo "Threshold: 60% line coverage on \`com.automation.core.*\`, enforced by \`jacoco:check@jacoco-check\`."
+            echo "Ratchet: may not drop more than 1 point below \`coverage-baseline.properties\` (\`Scripts/coverage-ratchet.py\`)."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ================================================================
@@ -1284,12 +1264,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Setup Chrome Browser
         run: |
@@ -1352,6 +1328,100 @@ jobs:
           retention-days: 7
 
   # ================================================================
+  # STAGE 2f - Nightly "all sites enabled" run
+  # ================================================================
+  # pipeline-config.properties can switch a site off (demoqa is off today), and then NOTHING in CI
+  # exercises that site's code paths - regressions in them pile up unseen until someone turns the
+  # site back on. Once a night this job runs the smoke suite of every browser site that is currently
+  # switched off (sites with site.<name>.ci=false are still skipped: a runner cannot run them).
+  # -Dpipeline.forceAllSites=true makes SiteRegistry ignore the on/off switch for registered sites
+  # for this run only; the file itself is untouched and normal runs behave exactly as before.
+  # Results are informational (never block a merge): failures are expected to be visible, not red-gating.
+  nightly-sites-setup:
+    needs: build
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sites: ${{ steps.sites.outputs.sites }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Find browser sites that are switched off
+        id: sites
+        run: |
+          all=$(ENABLED_SITES_INCLUDE_DISABLED=true bash Scripts/enabled-sites.sh --browser-only)
+          on=$(bash Scripts/enabled-sites.sh --browser-only)
+          off=$(echo "$all" | grep -Fxvf <(echo "$on") | grep -v '^$' || true)
+          if [ -z "$off" ]; then
+            json='[]'
+          else
+            json=$(echo "$off" | paste -sd, - | sed 's/^/["/; s/,/","/g; s/$/"]/')
+          fi
+          echo "Sites switched off in pipeline-config.properties: $json"
+          echo "sites=$json" >> "$GITHUB_OUTPUT"
+
+  nightly-all-sites:
+    needs: nightly-sites-setup
+    if: github.event_name == 'schedule' && needs.nightly-sites-setup.outputs.sites != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        site: ${{ fromJSON(needs.nightly-sites-setup.outputs.sites) }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
+
+      - name: Setup Chrome Browser
+        run: |
+          if ! command -v google-chrome &> /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gnupg
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq google-chrome-stable
+          else
+            echo "Chrome already installed: $(google-chrome --version)"
+          fi
+
+      - name: Run smoke suite with the site forced on
+        run: |
+          suite="testng-suites/${{ matrix.site }}-smoke.xml"
+          if [ ! -f "$suite" ]; then
+            echo "::notice::$suite not found - nothing to run for ${{ matrix.site }}"
+            exit 0
+          fi
+          mvn -B test \
+            -Dsite=${{ matrix.site }} \
+            -DsuiteXmlFile="$suite" \
+            -Dbrowser=chrome \
+            -Dheadless=true \
+            -Dpipeline.forceAllSites=true \
+            -Dallure.results.directory=target/allure-results/nightly-${{ matrix.site }} \
+            -Dmaven.test.failure.ignore=true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-all-sites-${{ matrix.site }}-${{ github.run_id }}
+          path: |
+            target/allure-results/
+            target/extent-reports/
+            target/surefire-reports/
+            target/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ================================================================
   # API Tests — pure-HTTP, no browser/Grid at all (testng-suites/api-tests*.xml)
   # ================================================================
   # Runs on every push/PR, same as `test` — unlike accessibility-visual-test/
@@ -1389,12 +1459,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Run API Suite
         run: |
@@ -1486,12 +1552,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Run BDD Suite
         run: |
@@ -1585,12 +1647,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Run Performance Suite
         run: |
@@ -1669,12 +1727,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # Caches the downloaded NVD CVE database across runs — without
       # this, every nightly run would rebuild it from scratch (several

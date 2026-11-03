@@ -1714,11 +1714,19 @@
                 <param>com.automation.core.data.DataRow</param>
                 <param>com.automation.core.data.readers.CsvDataFileReader</param>
                 <param>com.automation.core.data.readers.JsonDataFileReader</param>
+                <param>com.automation.core.telegram.TelegramMessageBuilder</param>
+                <param>com.automation.core.telegram.TelegramSettings</param>
+                <param>com.automation.core.utils.ZipUtils</param>
+                <param>com.automation.core.annotations.FrameworkAnnotations</param>
               </targetClasses>
               <targetTests>
                 <param>com.automation.core.data.DataRowTest</param>
                 <param>com.automation.core.data.readers.CsvDataFileReaderTest</param>
                 <param>com.automation.core.data.readers.JsonDataFileReaderTest</param>
+                <param>com.automation.core.telegram.TelegramMessageBuilderTest</param>
+                <param>com.automation.core.telegram.TelegramSettingsTest</param>
+                <param>com.automation.core.utils.ZipUtilsTest</param>
+                <param>com.automation.core.annotations.FrameworkAnnotationsTest</param>
               </targetTests>
               <outputFormats>
                 <outputFormat>HTML</outputFormat>

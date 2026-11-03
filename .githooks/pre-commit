@@ -86,6 +86,18 @@ else
   echo "[pre-commit] No staged .java files — skipping Checkstyle."
 fi
 
+# --- Project audit (--quick): package/folder mismatches, duplicate class names, JUnit 5 tests that no
+# <include> of the unit-tests profile matches (compiled but never run), stale configuration reference.
+# Same script CI's build job runs; bash/grep/awk only, about a second.
+echo "[pre-commit] Running Scripts/audit-project.sh --quick..."
+AUDIT_LOG=$(mktemp "${TMPDIR:-/tmp}/pre-commit-audit.XXXXXX")
+if ! bash Scripts/audit-project.sh --quick > "$AUDIT_LOG" 2>&1; then
+  echo "[pre-commit] Project audit failed:"
+  cat "$AUDIT_LOG"
+  FAILED=1
+fi
+rm -f "$AUDIT_LOG"
+
 if [ "$FAILED" -ne 0 ]; then
   echo ""
   echo "[pre-commit] One or more checks failed — commit blocked."

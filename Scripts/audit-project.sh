@@ -210,6 +210,34 @@ else
   [ "$UNWIRED" -eq 0 ] && ok "every JUnit 5 *Test.java is picked up by the unit-tests profile"
 fi
 
+echo "=== 11. docs/configuration-reference.md matches the code ==="
+# Generated from the config keys the code reads (Scripts/generate-config-reference.py), so the list of
+# -D / config keys cannot drift from the code. Skipped when the generator or python3 is absent.
+if [ -f Scripts/generate-config-reference.py ] && command -v python3 &> /dev/null; then
+  if python3 Scripts/generate-config-reference.py --check; then
+    :
+  else
+    FAILED=1
+  fi
+else
+  echo "  ! Scripts/generate-config-reference.py or python3 not available - skipping"
+fi
+
+echo "=== 12. Docker base images pinned by digest (warning only) ==="
+# Tag-only FROM lines can change under you; Scripts/pin-docker-digests.sh pins them. Not a failure:
+# resolving a digest needs registry access, so the pin happens on a machine that has Docker.
+if [ -f Scripts/pin-docker-digests.sh ]; then
+  UNPINNED_OUT=$(bash Scripts/pin-docker-digests.sh --check 2>&1 || true)
+  if echo "$UNPINNED_OUT" | grep -q 'not pinned'; then
+    echo "  ! some base images are tag-only - run Scripts/pin-docker-digests.sh (see --check output):"
+    echo "$UNPINNED_OUT" | grep '✗' | sed 's/^/      /'
+  else
+    ok "all Dockerfile base images are pinned by digest"
+  fi
+else
+  echo "  ! Scripts/pin-docker-digests.sh not found - skipping"
+fi
+
 echo ""
 if [ "$FAILED" -ne 0 ]; then
   echo "[audit-project] One or more checks failed — see ✗ lines above."

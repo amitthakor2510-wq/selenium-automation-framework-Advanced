@@ -32,3 +32,15 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+
+  # Base images in Dockerfile (pinned by digest via Scripts/pin-docker-digests.sh) - Dependabot
+  # opens a PR when a new digest/tag is published, so pinning does not freeze security updates.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"

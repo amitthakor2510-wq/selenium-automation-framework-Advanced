@@ -164,6 +164,12 @@ public final class SiteRegistry {
      * something no CI system would have scheduled.
      */
     public static boolean isEnabled(String site) {
+        // Nightly "all sites enabled" run: a site switched off in pipeline-config.properties is
+        // still exercised when -Dpipeline.forceAllSites=true (or PIPELINE_FORCE_ALL_SITES=true) is
+        // set. Only registered sites qualify, so a typo in -Dsite still fails validate().
+        if (forceAllSites() && KNOWN_SITES.containsKey(site)) {
+            return true;
+        }
         Properties props = loadPipelineConfig();
         // trim(): java.util.Properties keeps trailing whitespace in values, but
         // Scripts/enabled-sites.sh (which decides what CI schedules) tolerates it —
@@ -171,6 +177,15 @@ public final class SiteRegistry {
         // rejected by validate() as disabled.
         String value = props.getProperty("site." + site + ".enabled");
         return value != null && "true".equals(value.trim());
+    }
+
+    /**
+     * True when the run asked to ignore the site on/off switch (nightly all-sites job).
+     * Off by default, so every normal local and CI run behaves exactly as before.
+     */
+    static boolean forceAllSites() {
+        return "true".equalsIgnoreCase(System.getProperty("pipeline.forceAllSites", "").trim())
+            || "true".equalsIgnoreCase(String.valueOf(System.getenv("PIPELINE_FORCE_ALL_SITES")).trim());
     }
 
     private static Properties loadPipelineConfig() {

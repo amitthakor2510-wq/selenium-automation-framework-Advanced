@@ -58,12 +58,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: Enforcer (hard rules)
         run: mvn -B -ntp validate
@@ -181,14 +177,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0 (pinned by SHA like every other third-party action; Dependabot bumps it)
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-extended
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0 (pinned by SHA like every other third-party action; Dependabot bumps it)
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -199,12 +195,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       # Calls the one CycloneDX execution of the sbom profile directly, so the browser suite, Checkstyle
       # and SpotBugs do not run just to reach the verify phase.
@@ -243,12 +235,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'maven'
+      - name: Set up JDK 17 + Maven cache
+        uses: ./.github/actions/setup-java-maven
 
       - name: PostgreSQL integration tests
         run: >-

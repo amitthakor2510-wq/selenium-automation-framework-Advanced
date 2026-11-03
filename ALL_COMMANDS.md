@@ -384,7 +384,9 @@ Report: `target/dependency-check-report.html` (+ JSON).
 mvn verify -Pmutation
 ```
 Deliberately scoped to fast, pure-logic JUnit 5 unit tests (`DataRow`, CSV/JSON
-data-file readers) — not wired into any CI pipeline, same as `perf`.
+data-file readers, `TelegramMessageBuilder`, `TelegramSettings`, `ZipUtils`,
+`FrameworkAnnotations`) — not wired into any CI pipeline, same as `perf`. Add a class to
+`targetClasses` AND its test to `targetTests` in the `mutation` profile when it is pure logic with fast tests.
 
 ---
 
@@ -505,6 +507,18 @@ mvn test -Dsite=mysite -DsuiteXmlFile=testng-suites/api-tests-mysite.xml
 Scripts/audit-project.sh                # run every check
 Scripts/audit-project.sh --fix-packages  # also auto-move misplaced .java files
 Scripts/audit-project.sh --quick         # skip mvn compile (fast, no network needed)
+```
+`--quick` runs automatically in the GitHub Actions `build` job and in the pre-commit hook. It also
+fails on a JUnit 5 `*Test.java` that no `<include>` of the `unit-tests` profile matches, and on a stale
+`docs/configuration-reference.md`; it only warns about tag-only Docker base images.
+
+```bash
+python3 Scripts/generate-config-reference.py          # regenerate docs/configuration-reference.md (every -D / config key)
+python3 Scripts/generate-config-reference.py --check  # exit 1 if it is out of date
+Scripts/pin-docker-digests.sh                         # pin Dockerfile base images by @sha256 digest (needs Docker/crane + network)
+Scripts/pin-docker-digests.sh --check                 # list tag-only base images
+python3 Scripts/coverage-ratchet.py                   # fail if merged core/ coverage dropped >1 point below coverage-baseline.properties
+python3 Scripts/coverage-ratchet.py --update          # raise the baseline after coverage went up (then commit it)
 ```
 
 ---
