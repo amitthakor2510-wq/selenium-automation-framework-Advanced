@@ -91,9 +91,10 @@ Coverage Gate             → merges every branch's jacoco-artifacts/*.exec (jac
                            com.automation.core.* against the merged union — UNSTABLE on
                            breach, not a hard failure. Report published via HTML Publisher.
 Nightly Extra Coverage   → demoqa accessibility + visual suites, only on the cron trigger
-Nightly All-Sites Run    → GitHub Actions only: smoke suite of every browser site that is switched
-                           off in pipeline-config.properties (nightly-all-sites job, forced on with
-                           -Dpipeline.forceAllSites=true); informational, never blocks a merge
+All-Sites Run (manual)   → GitHub Actions only, NEVER automatic: tick "run_all_sites" when starting
+                           the workflow by hand to smoke-test every browser site switched off in
+                           pipeline-config.properties (forced on with -Dpipeline.forceAllSites=true);
+                           informational, never blocks a merge
 Performance Smoke        → perf/basic-smoke.jmx via the pom.xml `perf` profile, only on
 (Nightly)                  the cron trigger — response-time smoke check, UNSTABLE (not a
                            hard failure) on breach since it hits sites this repo doesn't

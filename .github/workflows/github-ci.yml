@@ -40,6 +40,10 @@ on:
         description: "Also run Safari (needs a macos-latest runner minute budget — runs automatically on every push, this only controls manual dispatch runs)"
         type: boolean
         default: false
+      run_all_sites:
+        description: "Also smoke-test every browser site that is switched OFF in pipeline-config.properties (forced on for this run only; never runs unless you tick this)"
+        type: boolean
+        default: false
       record_video:
         description: "Record a video per web test (implies non-headless + xvfb; off by default — CPU/disk cost, and pointless when headless since there's nothing on-screen to capture)"
         type: boolean
@@ -1328,18 +1332,20 @@ jobs:
           retention-days: 7
 
   # ================================================================
-  # STAGE 2f - Nightly "all sites enabled" run
+  # STAGE 2f - Optional "all sites enabled" run (manual, only on your confirmation)
   # ================================================================
   # pipeline-config.properties can switch a site off (demoqa is off today), and then NOTHING in CI
   # exercises that site's code paths - regressions in them pile up unseen until someone turns the
-  # site back on. Once a night this job runs the smoke suite of every browser site that is currently
-  # switched off (sites with site.<name>.ci=false are still skipped: a runner cannot run them).
+  # site back on. When you start the workflow manually (Actions > Run workflow) and tick
+  # "run_all_sites", this job runs the smoke suite of every browser site that is currently switched
+  # off (sites with site.<name>.ci=false are still skipped: a runner cannot run them). It never runs
+  # on push, pull request or the nightly schedule - only when you confirm it.
   # -Dpipeline.forceAllSites=true makes SiteRegistry ignore the on/off switch for registered sites
   # for this run only; the file itself is untouched and normal runs behave exactly as before.
   # Results are informational (never block a merge): failures are expected to be visible, not red-gating.
   nightly-sites-setup:
     needs: build
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all_sites == true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -1364,7 +1370,7 @@ jobs:
 
   nightly-all-sites:
     needs: nightly-sites-setup
-    if: github.event_name == 'schedule' && needs.nightly-sites-setup.outputs.sites != '[]'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all_sites == true && needs.nightly-sites-setup.outputs.sites != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     continue-on-error: true
