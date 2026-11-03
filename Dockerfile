@@ -12,7 +12,7 @@
 # developer machine run the exact same Maven and the version can never diverge from the image tag.
 # Pin the base image by digest with Scripts/pin-docker-digests.sh (Dependabot's "docker" ecosystem in
 # .github/dependabot.yml then bumps the digest); the tag stays in the FROM line for readability.
-FROM eclipse-temurin:17-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 
 WORKDIR /workspace
 
@@ -30,7 +30,7 @@ COPY . .
 # Runtime stage — keeps the final image lean (no need for the full Maven
 # local repo layer to persist beyond the build cache).
 # -----------------------------------------------------------------------------
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:25-jdk
 
 WORKDIR /workspace
 COPY --from=build /workspace /workspace
