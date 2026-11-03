@@ -178,6 +178,38 @@ else
   echo "=== 9. Real compile — skipped (--quick) ==="
 fi
 
+echo "=== 10. JUnit 5 tests wired into the unit-tests profile ==="
+# The unit-tests profile runs JUnit 5 classes through Failsafe's explicit <include> list in pom.xml.
+# A *Test.java that no include matches still compiles, so nothing complains - it just never runs
+# and never counts towards coverage (this is how the telegram/ and annotations/ tests went unnoticed).
+INCLUDES=$(awk '/<id>unit-tests<\/id>/{on=1} on&&/<\/profile>/{exit} on&&/<include>/{gsub(/.*<include>|<\/include>.*/,""); print}' pom.xml)
+REGEXES=()
+while IFS= read -r inc; do
+  [ -z "$inc" ] && continue
+  # Ant-style glob -> anchored regex: "**/" = any folders (or none), "*" = anything inside one folder name
+  re=$(printf '%s' "$inc" | sed -e 's/\./\\./g' -e 's#\*\*/#@@#g' -e 's#\*#[^/]*#g' -e 's#@@#(.*/)?#g')
+  REGEXES+=("^${re}$")
+done <<< "$INCLUDES"
+if [ "${#REGEXES[@]}" -eq 0 ]; then
+  echo "  ! no <include> entries found for the unit-tests profile in pom.xml — skipping"
+else
+  UNWIRED=0
+  while IFS= read -r -d '' f; do
+    grep -q 'org\.junit\.jupiter' "$f" || continue
+    grep -qE '@(Test|ParameterizedTest|RepeatedTest)\b' "$f" || continue
+    rel="${f#src/test/java/}"
+    matched=0
+    for re in "${REGEXES[@]}"; do
+      if [[ $rel =~ $re ]]; then matched=1; break; fi
+    done
+    if [ "$matched" -eq 0 ]; then
+      fail "$f — JUnit 5 test matched by no <include> of the unit-tests profile (pom.xml): compiled but never run"
+      UNWIRED=1
+    fi
+  done < <(find src/test/java -name '*Test.java' -print0)
+  [ "$UNWIRED" -eq 0 ] && ok "every JUnit 5 *Test.java is picked up by the unit-tests profile"
+fi
+
 echo ""
 if [ "$FAILED" -ne 0 ]; then
   echo "[audit-project] One or more checks failed — see ✗ lines above."

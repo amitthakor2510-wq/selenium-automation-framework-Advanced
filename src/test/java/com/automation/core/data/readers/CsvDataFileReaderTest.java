@@ -114,6 +114,70 @@ class CsvDataFileReaderTest {
         assertThrows(DataFileException.class, () -> reader.read(missing));
     }
 
+    @Test
+    void rowWithMoreFieldsThanTheHeaderStillReadsAndDropsTheExtraValues(@TempDir Path tempDir)
+        throws IOException {
+        // Typical cause: an unquoted comma inside a text cell. The reader warns and keeps the
+        // columns that have a header; it must not fail or shift values.
+        File csv = writeCsv(tempDir, "a,b\n1,2,3\n");
+
+        List<DataRow> rows = reader.read(csv);
+
+        assertEquals(1, rows.size());
+        assertEquals("1", rows.get(0).get("a"));
+        assertEquals("2", rows.get(0).get("b"));
+        assertEquals(2, rows.get(0).toMap().size());
+    }
+
+    @Test
+    void trailingBlankFieldsBeyondTheHeaderAreIgnored(@TempDir Path tempDir) throws IOException {
+        File csv = writeCsv(tempDir, "a,b\n1,2,,\n");
+
+        List<DataRow> rows = reader.read(csv);
+
+        assertEquals(1, rows.size());
+        assertEquals("1", rows.get(0).get("a"));
+        assertEquals("2", rows.get(0).get("b"));
+    }
+
+    @Test
+    void rowIndexIsThePositionInTheFileSoSkippedBlankRowsLeaveAGap(@TempDir Path tempDir)
+        throws IOException {
+        File csv = writeCsv(tempDir, "a,b\n1,2\n,\n3,4\n");
+
+        List<DataRow> rows = reader.read(csv);
+
+        assertEquals(2, rows.size());
+        assertEquals(1, rows.get(0).getRowIndex());
+        assertEquals(3, rows.get(1).getRowIndex());
+    }
+
+    @Test
+    void quotedCellWithACommaStaysOneField(@TempDir Path tempDir) throws IOException {
+        File csv = writeCsv(tempDir, "a,b\n\"x, y\",z\n");
+
+        List<DataRow> rows = reader.read(csv);
+
+        assertEquals("x, y", rows.get(0).get("a"));
+        assertEquals("z", rows.get(0).get("b"));
+    }
+
+    @Test
+    void cellValuesAreTrimmed(@TempDir Path tempDir) throws IOException {
+        File csv = writeCsv(tempDir, "a\n  padded  \n");
+
+        assertEquals("padded", reader.read(csv).get(0).get("a"));
+    }
+
+    @Test
+    void errorMessageNamesTheFile(@TempDir Path tempDir) {
+        File missing = tempDir.resolve("nope.csv").toFile();
+
+        DataFileException ex = assertThrows(DataFileException.class, () -> reader.read(missing));
+
+        assertTrue(ex.getMessage().contains("nope.csv"), ex.getMessage());
+    }
+
     private static File writeCsv(Path tempDir, String content) throws IOException {
         Path file = tempDir.resolve("data.csv");
         Files.writeString(file, content, StandardCharsets.UTF_8);

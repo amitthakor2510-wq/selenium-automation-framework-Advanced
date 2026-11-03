@@ -132,4 +132,33 @@ class ZipUtilsTest {
         assertThrows(IOException.class, () -> ZipUtils.unzip(evil, dest));
         assertFalse(Files.exists(tmp.resolve("escaped.txt")));
     }
+
+    private Path zipOfSameSizedEntries(String name, int entries, int bytesEach) throws IOException {
+        Path zip = tmp.resolve(name);
+        try (OutputStream out = Files.newOutputStream(zip); ZipOutputStream z = new ZipOutputStream(out)) {
+            for (int i = 0; i < entries; i++) {
+                z.putNextEntry(new ZipEntry("f" + i + ".bin"));
+                z.write(new byte[bytesEach]);
+                z.closeEntry();
+            }
+        }
+        return zip;
+    }
+
+    @Test
+    void unzipRefusesAnArchiveThatExpandsPastTheTotalSizeLimit() throws IOException {
+        Path zip = zipOfSameSizedEntries("big.zip", 5, 1000);
+        IOException e = assertThrows(IOException.class, () -> ZipUtils.unzip(zip, tmp.resolve("capped"), 2500, 100));
+        assertTrue(e.getMessage().contains("size limit"), e.getMessage());
+        // ...but the same archive extracts fine when the limit is exactly its size.
+        Path out = ZipUtils.unzip(zip, tmp.resolve("allowed"), 5000, 100);
+        assertEquals(1000, Files.size(out.resolve("f4.bin")));
+    }
+
+    @Test
+    void unzipRefusesAnArchiveWithTooManyEntries() throws IOException {
+        Path zip = zipOfSameSizedEntries("many.zip", 5, 1);
+        IOException e = assertThrows(IOException.class, () -> ZipUtils.unzip(zip, tmp.resolve("few"), 1000, 3));
+        assertTrue(e.getMessage().contains("more than 3 entries"), e.getMessage());
+    }
 }

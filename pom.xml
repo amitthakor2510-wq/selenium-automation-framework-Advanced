@@ -255,6 +255,10 @@
          hasn't been build-verified here — run `mvn dependency:resolve
          -Pmutation` locally and bump if needed. -->
     <junit.version>5.12.2</junit.version>
+    <!-- JUnit Platform version that belongs to junit.version above (Jupiter 5.12.x = Platform 1.12.x).
+         Keep the two in step: PIT's plugin classpath is outside the junit-bom import, so its launcher
+         must be pinned by hand (see the mutation profile). -->
+    <junit-platform.version>1.12.2</junit-platform.version>
     <!-- Jakarta Mail (SMTP) for the e-mail report (core/mail, email.* keys in global.properties).
          com.sun.mail:jakarta.mail is the reference implementation; it brings jakarta.activation
          transitively. Not build-verified in the authoring sandbox (no Maven Central access) - run
@@ -1723,6 +1727,13 @@
               <reportsDirectory>${project.build.directory}/pit-reports</reportsDirectory>
               <timestampedReports>false</timestampedReports>
               <mutationThreshold>0</mutationThreshold>
+              <!-- PIT copies surefire's <argLine> into its coverage/mutation JVMs. Ours contains
+                   -javaagent:${settings.localRepository}/...aspectjweaver.jar, and PIT 1.16.x does not
+                   expand ${settings.localRepository} (fixed upstream only in 1.17.4), so the agent path
+                   stayed literal and the coverage minion died (MINION_DIED). The targets above are pure
+                   JUnit 5 logic tests: they need neither AspectJ weaving (@Step/@Attachment) nor the
+                   TestNG logging/heap flags, so do not import surefire's argLine at all. -->
+              <parseSurefireArgLine>false</parseSurefireArgLine>
             </configuration>
             <dependencies>
               <!-- JUnit 5 support for pitest-maven — without this, PIT falls
@@ -1733,6 +1744,33 @@
                 <groupId>org.pitest</groupId>
                 <artifactId>pitest-junit5-plugin</artifactId>
                 <version>${pitest-junit5.version}</version>
+                <!-- pitest-junit5-plugin 1.2.1 is built against JUnit Platform 1.9.2 and drags those jars
+                     in. This project runs Jupiter ${junit.version} (Platform ${junit-platform.version});
+                     Jupiter 5.12 asks the launcher for an OutputDirectoryProvider that a 1.9 launcher
+                     does not have, so PIT's coverage minion died with "OutputDirectoryProvider not
+                     available ... unaligned versions of junit-platform-engine and junit-platform-launcher".
+                     Drop the old jars here and pin one matching launcher below. -->
+                <exclusions>
+                  <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>junit-platform-launcher</artifactId>
+                  </exclusion>
+                  <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>junit-platform-engine</artifactId>
+                  </exclusion>
+                  <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>junit-platform-commons</artifactId>
+                  </exclusion>
+                </exclusions>
+              </dependency>
+              <!-- Launcher matching the project's Jupiter engine; it brings platform-engine and
+                   platform-commons of the same version. -->
+              <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-launcher</artifactId>
+                <version>${junit-platform.version}</version>
               </dependency>
             </dependencies>
             <executions>
@@ -1926,6 +1964,9 @@
                 <include>**/core/mail/**/*Test.java</include>
                 <include>**/core/report/**/*Test.java</include>
                 <include>**/core/recorder/**/*Test.java</include>
+                <include>**/core/retention/**/*Test.java</include>
+                <include>**/core/telegram/**/*Test.java</include>
+                <include>**/core/annotations/**/*Test.java</include>
                 <include>**/sites/listeners/**/*Test.java</include>
               </includes>
             </configuration>

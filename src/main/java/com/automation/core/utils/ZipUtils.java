@@ -5,10 +5,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -46,6 +48,12 @@ import java.util.zip.ZipOutputStream;
 public final class ZipUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(ZipUtils.class);
+
+    /** {@link #unzip(Path, Path)} refuses an archive that expands beyond this many bytes in total (zip bomb). */
+    static final long MAX_UNZIP_BYTES = 2L * 1024 * 1024 * 1024;
+
+    /** {@link #unzip(Path, Path)} refuses an archive with more entries than this. */
+    static final int MAX_UNZIP_ENTRIES = 100_000;
 
     private ZipUtils() {
     }
@@ -127,18 +135,29 @@ public final class ZipUtils {
 
     /**
      * Extracts {@code zipFile} into {@code destDir} (created if missing) and returns
-     * {@code destDir}. An entry that would land outside {@code destDir} (e.g. {@code ../evil})
-     * aborts the extraction with an {@link IOException}.
+     * {@code destDir}. An entry that would land outside {@code destDir} (e.g. {@code ../evil}) aborts the
+     * extraction with an {@link IOException}, as does an archive that expands past {@link #MAX_UNZIP_BYTES}
+     * in total or holds more than {@link #MAX_UNZIP_ENTRIES} entries (zip bomb).
      */
     public static Path unzip(Path zipFile, Path destDir) throws IOException {
+        return unzip(zipFile, destDir, MAX_UNZIP_BYTES, MAX_UNZIP_ENTRIES);
+    }
+
+    /** As {@link #unzip(Path, Path)} with explicit limits on the total extracted size and the entry count. */
+    static Path unzip(Path zipFile, Path destDir, long maxTotalBytes, int maxEntries) throws IOException {
         if (zipFile == null || destDir == null) {
             throw new IllegalArgumentException("zipFile and destDir must not be null");
         }
         Path dest = destDir.toAbsolutePath().normalize();
         Files.createDirectories(dest);
+        long total = 0;
+        int entries = 0;
         try (InputStream in = Files.newInputStream(zipFile); ZipInputStream zip = new ZipInputStream(in)) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
+                if (++entries > maxEntries) {
+                    throw new IOException("Blocked zip with more than " + maxEntries + " entries: " + zipFile);
+                }
                 Path out = dest.resolve(entry.getName()).normalize();
                 if (!out.startsWith(dest)) {
                     throw new IOException("Blocked zip entry outside the target folder: " + entry.getName());
@@ -149,12 +168,37 @@ public final class ZipUtils {
                     if (out.getParent() != null) {
                         Files.createDirectories(out.getParent());
                     }
-                    Files.copy(zip, out, StandardCopyOption.REPLACE_EXISTING);
+                    total += copyBounded(zip, out, maxTotalBytes - total, entry.getName());
                 }
                 zip.closeEntry();
             }
         }
         return destDir;
+    }
+
+    /**
+     * Copies the current zip entry to {@code out}, failing as soon as more than {@code remaining} bytes
+     * have been produced. An existing file is replaced (deleted first, so a symlink is never written through).
+     */
+    private static long copyBounded(InputStream in, Path out, long remaining, String entryName) throws IOException {
+        Files.deleteIfExists(out);
+        long written = 0;
+        try (OutputStream os = Files.newOutputStream(out, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                written += n;
+                if (written > remaining) {
+                    throw new IOException("Blocked zip: extracting '" + entryName
+                        + "' would exceed the total size limit (zip bomb?)");
+                }
+                os.write(buffer, 0, n);
+            }
+        } catch (IOException e) {
+            Files.deleteIfExists(out);
+            throw e;
+        }
+        return written;
     }
 
     // ── Internals ────────────────────────────────────────────────────────────

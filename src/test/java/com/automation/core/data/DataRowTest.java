@@ -2,8 +2,11 @@ package com.automation.core.data;
 
 import com.automation.core.exceptions.DataFileException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -125,6 +128,43 @@ class DataRowTest {
     void regularConstructorStillTrimsValues() {
         // Guards the OTHER half of the contract: file readers rely on trimming.
         assertEquals("x", rowOf("padded", "  x  ").get("padded"));
+    }
+
+    @Test
+    void toStringShowsRowIndexAndNormalizedData() {
+        assertEquals("DataRow[4] {username=john}", rowOf("UserName", "john", 4).toString());
+    }
+
+    @Test
+    void getRequiredMessageNamesTheColumnTheRowAndTheAvailableColumns() {
+        DataRow row = rowOf("username", "john", 9);
+        DataFileException ex = assertThrows(DataFileException.class,
+            () -> row.getRequired("password"));
+        assertTrue(ex.getMessage().contains("'password'"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("row 9"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("[username]"), ex.getMessage());
+    }
+
+    @Test
+    void toMapKeepsColumnOrderAndNormalizedKeys() {
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("Zeta", "1");
+        data.put("Alpha", "2");
+        assertEquals("[zeta, alpha]", new DataRow(data, 1).toMap().keySet().toString());
+    }
+
+    @Test
+    @ResourceLock(Resources.LOCALE)
+    void keyNormalizationIgnoresTheJvmDefaultLocale() {
+        // In a Turkish locale "ID".toLowerCase() would give a dotless i and the lookup would miss.
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            assertEquals("42", rowOf("ID", "42").get("id"));
+            assertTrue(rowOf("ID", "42").has("Id"));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 
     private static DataRow rowOf(String key, String value) {
