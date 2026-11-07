@@ -1,0 +1,11 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"broken","Sat Nov 07 08:36:54 UTC 2026","Sat Nov 07 08:36:55 UTC 2026","1102","","JSONPlaceholder posts API","","Create a post","","Create a post",""
+"passed","Sat Nov 07 08:37:17 UTC 2026","Sat Nov 07 08:37:19 UTC 2026","2686","","SauceDemo login","","Valid user can log in","","Valid user can log in",""
+"broken","Sat Nov 07 08:36:54 UTC 2026","Sat Nov 07 08:36:55 UTC 2026","1093","","JSONPlaceholder posts API","","Fetch a single post","","Fetch a single post",""
+"passed","Sat Nov 07 08:37:02 UTC 2026","Sat Nov 07 08:37:17 UTC 2026","14938","","SauceDemo login (no-code steps)","","Wrong password shows an error","","Wrong password shows an error","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."
+"passed","Sat Nov 07 08:37:19 UTC 2026","Sat Nov 07 08:37:21 UTC 2026","1584","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Nov 07 08:37:17 UTC 2026","Sat Nov 07 08:37:20 UTC 2026","2726","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Nov 07 08:37:02 UTC 2026","Sat Nov 07 08:37:17 UTC 2026","15062","","SauceDemo login (no-code steps)","","Valid user reaches the product list","","Valid user reaches the product list","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."
+"unknown","Sat Nov 07 08:37:15 UTC 2026","Sat Nov 07 08:37:15 UTC 2026","1","SauceDemo Regression Suite","SauceDemo Regression Tests","com.automation.sites.saucedemo.tests.LoginDataDrivenTest","com.automation.sites.saucedemo.tests.LoginDataDrivenTest","auditAllLoginRows","SauceDemo - Login with every YAML row, including execute=no ones",""

@@ -1,0 +1,1 @@
+[{"uid":"8240ce02c8211ac3","name":"Wrong password shows an error","time":{"start":1794040622159,"stop":1794040637097,"duration":14938},"status":"passed","severity":"normal"},{"uid":"33848be66c57f4f3","name":"Valid user reaches the product list","time":{"start":1794040622161,"stop":1794040637223,"duration":15062},"status":"passed","severity":"normal"}]

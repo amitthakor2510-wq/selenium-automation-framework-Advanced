@@ -1,0 +1,3 @@
+"Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
+"","SauceDemo login (no-code steps)","Wrong password shows an error","0","0","1","0","0"
+"","SauceDemo login (no-code steps)","Valid user reaches the product list","0","0","1","0","0"
