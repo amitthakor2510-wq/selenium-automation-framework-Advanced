@@ -1,0 +1,5 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sat Nov 14 08:49:57 UTC 2026","Sat Nov 14 08:50:14 UTC 2026","17117","","SauceDemo login (no-code steps)","","Wrong password shows an error","","Wrong password shows an error","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."
+"passed","Sat Nov 14 08:49:57 UTC 2026","Sat Nov 14 08:50:14 UTC 2026","17210","","SauceDemo login (no-code steps)","","Valid user reaches the product list","","Valid user reaches the product list","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."

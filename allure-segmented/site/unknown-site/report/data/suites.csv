@@ -1,0 +1,11 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sat Nov 14 08:49:57 UTC 2026","Sat Nov 14 08:50:14 UTC 2026","17117","","SauceDemo login (no-code steps)","","Wrong password shows an error","","Wrong password shows an error","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."
+"unknown","Sat Nov 14 08:50:03 UTC 2026","Sat Nov 14 08:50:03 UTC 2026","1","SauceDemo Regression Suite","SauceDemo Regression Tests","com.automation.sites.saucedemo.tests.LoginDataDrivenTest","com.automation.sites.saucedemo.tests.LoginDataDrivenTest","auditAllLoginRows","SauceDemo - Login with every YAML row, including execute=no ones",""
+"passed","Sat Nov 14 08:49:53 UTC 2026","Sat Nov 14 08:49:57 UTC 2026","3644","","JSONPlaceholder posts API","","Create a post","","Create a post",""
+"passed","Sat Nov 14 08:50:14 UTC 2026","Sat Nov 14 08:50:16 UTC 2026","1833","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Nov 14 08:50:14 UTC 2026","Sat Nov 14 08:50:16 UTC 2026","1935","","SauceDemo login","","Valid user can log in","","Valid user can log in",""
+"passed","Sat Nov 14 08:50:16 UTC 2026","Sat Nov 14 08:50:17 UTC 2026","1118","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Nov 14 08:49:53 UTC 2026","Sat Nov 14 08:49:57 UTC 2026","3651","","JSONPlaceholder posts API","","Fetch a single post","","Fetch a single post",""
+"passed","Sat Nov 14 08:49:57 UTC 2026","Sat Nov 14 08:50:14 UTC 2026","17210","","SauceDemo login (no-code steps)","","Valid user reaches the product list","","Valid user reaches the product list","  Written only with the shared steps in CommonSteps; elements come from
+  objectrepository/saucedemo.properties."

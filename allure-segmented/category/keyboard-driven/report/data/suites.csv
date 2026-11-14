@@ -1,0 +1,2 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sat Nov 14 08:51:29 UTC 2026","Sat Nov 14 08:51:30 UTC 2026","1415","SauceDemo Regression Suite","SauceDemo Regression Tests","com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest","com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest","keyboardOnlyLogin","SauceDemo - Login completed using only the keyboard (Tab + Enter, no clicks on the fields)",""

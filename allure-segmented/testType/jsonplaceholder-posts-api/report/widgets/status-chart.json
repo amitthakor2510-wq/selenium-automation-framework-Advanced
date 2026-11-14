@@ -1,0 +1,1 @@
+[{"uid":"201ec92f7f0a9b44","name":"Create a post","time":{"start":1794646193979,"stop":1794646197623,"duration":3644},"status":"passed","severity":"normal"},{"uid":"bc68787d162d7ef","name":"Fetch a single post","time":{"start":1794646193981,"stop":1794646197632,"duration":3651},"status":"passed","severity":"normal"}]

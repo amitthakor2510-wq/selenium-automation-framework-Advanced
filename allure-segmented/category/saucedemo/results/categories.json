@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Slow response (performance budget exceeded)",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": "(?s).*Performance budget.*"
+  },
+  {
+    "name": "Product defects (assertion failures)",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*(AssertionError|expected.*but.*was|Expected.*but.*was).*"
+  },
+  {
+    "name": "API contract / schema violations",
+    "matchedStatuses": ["failed", "broken"],
+    "traceRegex": "(?s).*(JsonSchemaValidationException|does not match schema|schema validation).*"
+  },
+  {
+    "name": "Element not found / stale",
+    "matchedStatuses": ["broken", "failed"],
+    "traceRegex": "(?s).*(NoSuchElementException|StaleElementReferenceException|ElementClickInterceptedException|ElementNotInteractableException).*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken", "failed"],
+    "traceRegex": "(?s).*(TimeoutException|WaitTimedOutException|SocketTimeoutException).*"
+  },
+  {
+    "name": "Driver / infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "traceRegex": "(?s).*(WebDriverException|SessionNotCreatedException|UnreachableBrowserException|NoSuchSessionException|ConnectException|UnknownHostException).*"
+  },
+  {
+    "name": "Test code / configuration errors",
+    "matchedStatuses": ["broken"],
+    "traceRegex": "(?s).*(NullPointerException|IllegalArgumentException|IllegalStateException|ClassCastException|IndexOutOfBoundsException|FileNotFoundException|NumberFormatException).*"
+  },
+  {
+    "name": "Quarantined (known flaky - build not affected)",
+    "matchedStatuses": ["skipped"],
+    "messageRegex": "(?s)Quarantined - .*"
+  },
+  {
+    "name": "Ignored / skipped",
+    "matchedStatuses": ["skipped"],
+    "messageRegex": "(?s)(?!Quarantined - ).*"
+  }
+]

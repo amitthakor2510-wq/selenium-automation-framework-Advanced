@@ -1,0 +1,1 @@
+{"total":2,"items":[{"uid":"d8965c0fb18b40af17c9d2e1e2af914c","name":"API Tests Suite - jsonplaceholder","statistic":{"failed":0,"broken":0,"skipped":0,"passed":8,"unknown":0,"total":8}},{"uid":"5c6e3afb372193609328a990ffb3acb6","name":"JSONPlaceholder posts API","statistic":{"failed":0,"broken":0,"skipped":0,"passed":2,"unknown":0,"total":2}}]}

@@ -1,0 +1,4 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Sat Nov 14 08:50:16 UTC 2026","Sat Nov 14 08:50:17 UTC 2026","1118","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""
+"passed","Sat Nov 14 08:50:14 UTC 2026","Sat Nov 14 08:50:16 UTC 2026","1935","","SauceDemo login","","Valid user can log in","","Valid user can log in",""
+"passed","Sat Nov 14 08:50:14 UTC 2026","Sat Nov 14 08:50:16 UTC 2026","1833","","SauceDemo login","","Invalid credentials are rejected","","Invalid credentials are rejected",""

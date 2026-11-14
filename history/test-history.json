@@ -1,0 +1,602 @@
+[
+  {
+    "run_id": "41183766609",
+    "event": "schedule",
+    "timestamp": "2026-10-31T08:19:30Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41291064766",
+    "event": "schedule",
+    "timestamp": "2026-11-01T09:05:30Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41418621850",
+    "event": "schedule",
+    "timestamp": "2026-11-02T09:16:59Z",
+    "totals": {
+      "total": 19,
+      "passed": 17,
+      "failed": 1,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "fail",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41423019614",
+    "event": "push",
+    "timestamp": "2026-11-02T09:53:33Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41605588542",
+    "event": "push",
+    "timestamp": "2026-11-03T08:54:00Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41607595257",
+    "event": "push",
+    "timestamp": "2026-11-03T09:02:04Z",
+    "totals": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "tests": {}
+  },
+  {
+    "run_id": "41608168967",
+    "event": "push",
+    "timestamp": "2026-11-03T09:06:19Z",
+    "totals": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "tests": {}
+  },
+  {
+    "run_id": "41608553706",
+    "event": "push",
+    "timestamp": "2026-11-03T09:17:38Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41609886487",
+    "event": "schedule",
+    "timestamp": "2026-11-03T09:26:13Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "41802820953",
+    "event": "schedule",
+    "timestamp": "2026-11-04T08:57:37Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42000978518",
+    "event": "schedule",
+    "timestamp": "2026-11-05T09:21:43Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42192787423",
+    "event": "schedule",
+    "timestamp": "2026-11-06T09:13:49Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42356178587",
+    "event": "schedule",
+    "timestamp": "2026-11-07T08:41:30Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42464488987",
+    "event": "schedule",
+    "timestamp": "2026-11-08T08:53:23Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42594080091",
+    "event": "schedule",
+    "timestamp": "2026-11-09T09:39:01Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42791598973",
+    "event": "schedule",
+    "timestamp": "2026-11-10T09:38:21Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "42992547659",
+    "event": "schedule",
+    "timestamp": "2026-11-11T09:12:40Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "43192764823",
+    "event": "schedule",
+    "timestamp": "2026-11-12T09:40:32Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "43400504889",
+    "event": "schedule",
+    "timestamp": "2026-11-13T09:25:22Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  },
+  {
+    "run_id": "43577578552",
+    "event": "schedule",
+    "timestamp": "2026-11-14T08:53:43Z",
+    "totals": {
+      "total": 19,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 1
+    },
+    "tests": {
+      "com.automation.bdd.runner.CucumberRunnerTest.runScenario": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WrappedInApiRetry_ShouldSucceed": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.updatePost_ShouldEchoSubmittedBody": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_ShouldReturnMatchingPostWithinBudget": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.deletePost_ShouldReturn200": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithOutOfRangeId_ShouldReturn404": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.createPost_ShouldReturn201WithFakeId": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getAllPosts_ShouldReturnNonEmptyCollection": "pass",
+      "com.automation.sites.jsonplaceholder.tests.JsonPlaceholderApiTest.getPost_WithApiKeyAuthProviderAttached_ShouldStillSucceed": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.validLogin": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.lockedOutLoginShowsError": "pass",
+      "com.automation.sites.saucedemo.tests.KeywordDrivenLoginTest.keyboardOnlyLogin": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromExcel": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromYaml": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromCsv": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromZip": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.verifyLoginFromJson": "pass",
+      "com.automation.sites.saucedemo.tests.LoginDataDrivenTest.auditAllLoginRows": "skip",
+      "com.automation.sites.saucedemo.tests.LoginTest.verifyLogin": "pass"
+    }
+  }
+]

@@ -1,0 +1,1 @@
+{"total":2,"items":[{"uid":"6008329df6f322ad3814979683c3994a","name":"SauceDemo Regression Suite","statistic":{"failed":0,"broken":0,"skipped":0,"passed":19,"unknown":0,"total":19}},{"uid":"d8965c0fb18b40af17c9d2e1e2af914c","name":"API Tests Suite - jsonplaceholder","statistic":{"failed":0,"broken":0,"skipped":0,"passed":8,"unknown":0,"total":8}}]}
