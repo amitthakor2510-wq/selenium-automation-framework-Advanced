@@ -226,7 +226,7 @@
          can never leave the pin and the direct declaration disagreeing. -->
     <selenium.version>4.50.0</selenium.version>
     <webdrivermanager.version>6.4.0</webdrivermanager.version>
-    <jackson.version>2.22.3</jackson.version>
+    <jackson.version>2.23.0</jackson.version>
     <snakeyaml.version>2.7</snakeyaml.version>
 
     <!-- Testcontainers (db-integration profile only, never on the default classpath).
