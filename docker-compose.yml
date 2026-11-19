@@ -100,7 +100,7 @@ services:
   # Docker to auto-create the bind-mount folders as root, and the container's non-root user (uid 1000)
   # then fails with "Could not write Allure test result container". Runs as root, exits immediately.
   fix-perms:
-    image: busybox:1.36
+    image: busybox:1.38
     user: root
     restart: "no"
     command:
