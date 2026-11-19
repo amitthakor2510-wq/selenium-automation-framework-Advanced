@@ -3,182 +3,476 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
 <title>Automation Console</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/style.css" />
+<script src="/theme.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <div class="brand-text">
           <span class="brand-name">Automation Console</span>
-          <span class="brand-sub">Selenium framework — sites, tests, results</span>
+          <span class="brand-sub" id="brandSub">Selenium framework — sites, tests, results</span>
         </div>
       </div>
+
+      <nav class="tabs" id="mainTabs" aria-label="Console sections">
+        <a class="tab" href="#overview" data-tab="overview">Overview</a>
+        <a class="tab" href="#config" data-tab="config">Configuration</a>
+        <a class="tab" href="#results" data-tab="results">Results<span id="failBadge" class="tab-badge" hidden></span></a>
+        <a class="tab" href="#activity" data-tab="activity">Activity</a>
+      </nav>
+
       <div class="topbar-status">
-        <button id="themeToggle" class="btn btn-ghost" title="Toggle light/dark" aria-label="Toggle light/dark theme">◐</button>
-        <span id="connStatus" class="pill pill-muted">connecting…</span>
-        <a class="btn btn-primary" href="/hub" title="Choose what to test and get a clear result">Test Hub</a>
-        <a class="btn btn-ghost" href="/control" title="Run every framework feature with switches">Control Center</a>
-        <a class="btn btn-ghost" href="/wizard" title="Build and run a custom test step by step">Test Wizard</a>
-        <button id="refreshBtn" class="btn btn-ghost" title="Reload everything">Refresh</button>
+        <span id="connStatus" class="pill pill-muted" role="status">connecting…</span>
+        <button id="paletteBtn" class="btn btn-ghost palette-trigger" type="button" aria-haspopup="dialog" aria-label="Search commands" title="Search commands (Ctrl+K)">
+          <svg class="icon palette-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Search</span><kbd id="paletteKbd">Ctrl K</kbd>
+        </button>
+        <button id="prefsBtn" class="btn btn-ghost btn-icon" type="button" title="Preferences" aria-label="Preferences" aria-haspopup="dialog">⚙</button>
+        <button id="themeToggle" class="btn btn-ghost btn-icon" type="button" title="Toggle light/dark" aria-label="Toggle light/dark theme" data-theme-toggle><svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+        <button id="refreshBtn" class="btn btn-ghost" type="button" title="Reload everything (R)">Refresh</button>
       </div>
     </div>
   </header>
 
-  <main class="wrap">
+  <div id="offlineBanner" class="banner banner-bad" role="alert" hidden>
+    <strong>Connection lost.</strong> The Console can't reach its server — showing the last data it received. Retrying automatically…
+  </div>
 
-    <section class="hero" aria-label="Last run summary">
-      <div class="hero-row" id="heroRow"></div>
-      <p id="heroNote" class="hero-note"></p>
-    </section>
+  <div id="alertsBanner" class="banner banner-warn" role="status" hidden>
+    <span id="alertsText"></span>
+    <button id="alertsDismiss" class="btn btn-ghost btn-small" type="button">Dismiss</button>
+  </div>
 
-    <section class="panels">
+  <main class="wrap" id="main" tabindex="-1">
 
-      <div class="panel" id="sitesPanel">
+    <!-- ═════════════ OVERVIEW ═════════════ -->
+    <div class="view" data-view="overview">
+      <section class="panel panel-wide live-panel" id="livePanel" aria-label="Run in progress" hidden>
         <div class="panel-head">
-          <h2>Sites</h2>
-          <p class="panel-sub">pipeline-config.properties — turns a site off everywhere: local runs, GitHub Actions, GitLab CI, Jenkins.</p>
+          <h2><span class="live-dot" aria-hidden="true"></span> <span id="liveTitle">Run in progress</span></h2>
+          <p class="panel-sub" id="liveSub"></p>
         </div>
-        <div class="panel-body" id="sitesList"></div>
+        <div class="panel-body pad">
+          <div class="live-progress" id="liveProgress" role="status"></div>
+          <pre class="live-log mono" id="liveLog" tabindex="0" aria-label="Latest log lines"></pre>
+        </div>
         <div class="panel-foot">
-          <button class="btn btn-ghost btn-small" id="sitesRawBtn">View raw file</button>
-          <button class="btn btn-ghost btn-small" id="exportSnapshotBtn">Export snapshot</button>
-          <label class="btn btn-ghost btn-small file-btn">
-            Import snapshot
-            <input type="file" id="importSnapshotInput" accept="application/json" hidden />
-          </label>
+          <a class="btn btn-ghost btn-small" href="/hub">Open in Test Hub</a>
+          <button class="btn btn-ghost btn-small" type="button" id="liveStop">Stop run</button>
         </div>
-      </div>
+      </section>
 
-      <div class="panel" id="presetsPanel">
-        <div class="panel-head">
-          <h2>Site presets</h2>
-          <p class="panel-sub">One click to set every site at once. Defined in <code>presets.json</code>.</p>
+      <section class="hero" aria-label="Last run summary">
+        <div class="hero-row" id="heroRow">
+          <div class="stat skeleton" aria-hidden="true"></div>
+          <div class="stat skeleton" aria-hidden="true"></div>
+          <div class="stat skeleton" aria-hidden="true"></div>
+          <div class="stat skeleton" aria-hidden="true"></div>
         </div>
-        <div class="panel-body" id="presetsList"></div>
-      </div>
+        <p id="heroNote" class="hero-note"></p>
+      </section>
 
-    </section>
-
-    <section class="panels">
-
-      <div class="panel" id="runOnlyPanel">
-        <div class="panel-head">
-          <h2>Run only</h2>
-          <p class="panel-sub">Restrict the next run to specific classes. Blank = no restriction. Comma-separated, package.* allowed.</p>
-        </div>
-        <div class="panel-body">
-          <div class="run-only-row">
-            <input id="runOnlyInput" type="text" placeholder="e.g. LoginTest, SampleTest" autocomplete="off" spellcheck="false" />
-            <button id="runOnlySave" class="btn btn-primary">Save</button>
+      <section class="panel panel-wide gate-panel" id="gatePanel" aria-labelledby="gateTitle">
+        <div class="panel-head gate-head">
+          <div>
+            <h2 id="gateTitle">Quality gate</h2>
+            <p class="panel-sub" id="gateSummary">Is the last run fit to ship? Checks pass rate, failures, coverage, run time and flaky tests.</p>
           </div>
-          <p id="runOnlyStatus" class="field-note"></p>
+          <span id="gateVerdict" class="gate-verdict gate-unknown" role="status" aria-live="polite">Checking…</span>
         </div>
-      </div>
+        <div class="panel-body" id="gateChecks"></div>
+        <div class="panel-foot gate-foot">
+          <span class="field-note">Limits come from your Preferences (alert thresholds) and the build's own coverage gate.</span>
+          <span class="foot-actions">
+            <button class="btn btn-ghost btn-small" type="button" id="gateCopyCi" title="Copies a curl command that fails when the gate fails — for a CI step">Copy CI command</button>
+            <button class="btn btn-ghost btn-small" type="button" id="gateCopyJson">Copy JSON</button>
+          </span>
+        </div>
+      </section>
 
-      <div class="panel" id="groupsPanel">
-        <div class="panel-head">
-          <h2>Groups</h2>
-          <p class="panel-sub">Disables every test carrying a TestNG group, e.g. <code class="mono">perf</code>. A test with several groups is disabled if any one of them is off.</p>
+      <section class="grid-2">
+        <div class="panel" id="trendPanel">
+          <div class="panel-head">
+            <h2>Pass-rate trend</h2>
+            <p class="panel-sub">Every recorded run, newest on the right. Bars are coloured by pass rate: green ≥ 95 %, amber ≥ 80 %, red below.</p>
+          </div>
+          <div class="panel-body pad" id="trendChart"></div>
         </div>
-        <div class="panel-body" id="groupsList"></div>
+
+        <div class="panel" id="attentionPanel">
+          <div class="panel-head">
+            <h2>Needs attention</h2>
+            <p class="panel-sub">Failing tests from the last run, with the first line of each error.</p>
+          </div>
+          <div class="panel-body" id="attentionList"></div>
+          <div class="panel-foot">
+            <a class="btn btn-ghost btn-small" href="#results">All results</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid-3">
+        <div class="panel" id="slowPanel">
+          <div class="panel-head">
+            <h2>Slowest tests</h2>
+            <p class="panel-sub">Longest individual test cases in the last run.</p>
+          </div>
+          <div class="panel-body" id="slowList"></div>
+        </div>
+
+        <div class="panel" id="envPanel">
+          <div class="panel-head">
+            <h2>Environment</h2>
+            <p class="panel-sub">What this Console is looking at.</p>
+          </div>
+          <div class="panel-body" id="envList"></div>
+        </div>
+
+        <div class="panel" id="actionsPanel">
+          <div class="panel-head">
+            <h2>Quick actions</h2>
+            <p class="panel-sub">Jump to the other tools, or press <kbd>Ctrl</kbd> <kbd>K</kbd> for everything.</p>
+          </div>
+          <div class="panel-body actions">
+            <a class="action" href="/hub"><span class="action-title">Test Hub</span><span class="action-sub">Pick what to test and read a clear result</span></a>
+            <a class="action" href="/control"><span class="action-title">Control Center</span><span class="action-sub">Every framework feature as a switch</span></a>
+            <a class="action" href="/wizard"><span class="action-title">Test Wizard</span><span class="action-sub">Build and run a custom test step by step</span></a>
+            <button class="action" type="button" id="copyMvnBtn"><span class="action-title">Copy run command</span><span class="action-sub">mvn test for the enabled sites</span></button>
+            <button class="action" type="button" data-export-report><span class="action-title">Export HTML report</span><span class="action-sub">One-page file — print it to PDF</span></button>
+            <button class="action" type="button" data-copy-summary><span class="action-title">Copy run summary</span><span class="action-sub">Markdown for a PR, ticket or chat</span></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-wide" id="durationPanel">
+        <div class="panel-head">
+          <h2>Run-time trend</h2>
+          <p class="panel-sub">Total test time of every recorded run, newest on the right. Dashed line = the median. Runs recorded before this feature have no time.</p>
+        </div>
+        <div class="panel-body pad" id="durChart"></div>
+      </section>
+
+      <section class="panel panel-wide" id="healthPanel">
+        <div class="panel-head">
+          <h2>Environment health</h2>
+          <p class="panel-sub">Are the services the framework depends on reachable? Checked only when you ask — one short request each, to the addresses in your config files.</p>
+        </div>
+        <div class="panel-body" id="healthList"></div>
         <div class="panel-foot">
-          <div class="run-only-row">
-            <input id="newGroupInput" type="text" placeholder="group name, e.g. accessibility" autocomplete="off" spellcheck="false" />
-            <button id="newGroupSave" class="btn btn-secondary">Add off</button>
+          <button class="btn btn-ghost btn-small" type="button" id="healthBtn">Check now</button>
+          <span class="field-note" id="healthNote"></span>
+        </div>
+      </section>
+
+      <section class="panel panel-wide" id="reportsPanel">
+        <div class="panel-head">
+          <h2>Reports</h2>
+          <p class="panel-sub">What the last run left behind. The Console never serves report pages itself — it hands you the command or the published address.</p>
+        </div>
+        <div class="panel-body" id="reportsList"></div>
+        <div class="panel-foot" id="reportsFoot" hidden>
+          <a class="btn btn-ghost btn-small" id="reportsPublished" target="_blank" rel="noopener noreferrer" href="#">Open published reports ↗</a>
+          <span class="field-note" id="reportsPublishedNote"></span>
+        </div>
+      </section>
+
+      <section class="panel panel-wide" id="planPanel">
+        <div class="panel-head">
+          <h2>Next run plan</h2>
+          <p class="panel-sub">What the next <code>mvn test</code> will and won't run, read from the current configuration. Change it under Configuration.</p>
+        </div>
+        <div class="panel-body" id="planBody"></div>
+        <div class="panel-foot">
+          <a class="btn btn-ghost btn-small" href="#config">Edit configuration</a>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═════════════ CONFIGURATION ═════════════ -->
+    <div class="view" data-view="config" hidden>
+      <section class="panels">
+
+        <div class="panel" id="sitesPanel">
+          <div class="panel-head">
+            <h2>Sites</h2>
+            <p class="panel-sub">pipeline-config.properties — turns a site off everywhere: local runs, GitHub Actions, GitLab CI, Jenkins.</p>
+          </div>
+          <div class="panel-body" id="sitesList"></div>
+          <div class="panel-foot">
+            <button class="btn btn-ghost btn-small" id="sitesRawBtn" type="button">View raw file</button>
+            <button class="btn btn-ghost btn-small" id="exportSnapshotBtn" type="button">Export snapshot</button>
+            <label class="btn btn-ghost btn-small file-btn">
+              Import snapshot
+              <input type="file" id="importSnapshotInput" accept="application/json" hidden />
+            </label>
           </div>
         </div>
-      </div>
 
-    </section>
-
-    <section class="panel panel-wide" id="testsPanel">
-      <div class="panel-head">
-        <h2>Tests</h2>
-        <p class="panel-sub">test-config.properties — switches individual test classes on/off, grouped by suite. A test switched off is skipped everywhere, not reported as skipped.</p>
-        <input id="testFilter" type="text" class="filter-input" placeholder="Filter by class name…" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="panel-body" id="testsSections"></div>
-      <div class="panel-foot">
-        <button class="btn btn-ghost btn-small" id="testsRawBtn">View raw file</button>
-      </div>
-    </section>
-
-    <section class="panel panel-wide" id="resultsPanel">
-      <div class="panel-head">
-        <h2>Last run — by class</h2>
-        <p class="panel-sub" id="resultsSub">From the most recent local <code>target/surefire-reports</code>.</p>
-      </div>
-      <div class="results-toolbar">
-        <div class="seg" role="group" aria-label="Filter results by status">
-          <button type="button" class="seg-btn is-on" data-status="all" aria-pressed="true">All</button>
-          <button type="button" class="seg-btn" data-status="failing" aria-pressed="false">Failing</button>
-          <button type="button" class="seg-btn" data-status="passing" aria-pressed="false">Passing</button>
+        <div class="panel" id="presetsPanel">
+          <div class="panel-head">
+            <h2>Site presets</h2>
+            <p class="panel-sub">One click to set every site at once. Defined in <code>presets.json</code>.</p>
+          </div>
+          <div class="panel-body" id="presetsList"></div>
         </div>
-        <input id="resultsSearch" type="search" class="filter-input" placeholder="Search classes…  (press /)" aria-label="Search result classes" autocomplete="off" spellcheck="false" />
-        <label class="switch-label"><input type="checkbox" id="autoRefresh" checked /> Auto-refresh</label>
-        <span id="resultsUpdated" class="field-note" aria-live="off"></span>
-      </div>
-      <div id="resultsSummary" class="results-summary"></div>
-      <div class="panel-body" id="resultsTable"></div>
-      <div class="panel-foot">
-        <span class="field-note kbd-hint"><kbd>/</kbd> search · <kbd>r</kbd> refresh · click a column header to sort</span>
-        <button class="btn btn-ghost btn-small" id="exportCsvBtn">Export CSV</button>
-      </div>
-    </section>
 
-    <section class="panels" id="drilldownPanels">
+      </section>
 
-      <div class="panel" id="healingPanel">
+      <section class="panels">
+
+        <div class="panel" id="runOnlyPanel">
+          <div class="panel-head">
+            <h2>Run only</h2>
+            <p class="panel-sub">Restrict the next run to specific classes. Blank = no restriction. Comma-separated, package.* allowed.</p>
+          </div>
+          <div class="panel-body">
+            <div class="run-only-row">
+              <input id="runOnlyInput" type="text" placeholder="e.g. LoginTest, SampleTest" aria-label="Classes to run" autocomplete="off" spellcheck="false" />
+              <button id="runOnlySave" class="btn btn-primary" type="button">Save</button>
+            </div>
+            <p id="runOnlyStatus" class="field-note" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="panel" id="groupsPanel">
+          <div class="panel-head">
+            <h2>Groups</h2>
+            <p class="panel-sub">Disables every test carrying a TestNG group, e.g. <code class="mono">perf</code>. A test with several groups is disabled if any one of them is off.</p>
+          </div>
+          <div class="panel-body" id="groupsList"></div>
+          <div class="panel-foot">
+            <div class="run-only-row">
+              <input id="newGroupInput" type="text" placeholder="group name, e.g. accessibility" aria-label="New group to switch off" autocomplete="off" spellcheck="false" />
+              <button id="newGroupSave" class="btn btn-secondary" type="button">Add off</button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="panel panel-wide" id="testsPanel">
         <div class="panel-head">
-          <h2>Self-healed locators</h2>
-          <p class="panel-sub">Elements the self-healing engine found via DOM/visual/AI fallback — a broken locator worth fixing at the source.</p>
+          <h2>Tests</h2>
+          <p class="panel-sub">test-config.properties — switches individual test classes on/off, grouped by suite. A test switched off is skipped everywhere, not reported as skipped.</p>
+          <input id="testFilter" type="search" class="filter-input" placeholder="Filter by class name…" aria-label="Filter test classes" autocomplete="off" spellcheck="false" />
         </div>
-        <div class="panel-body" id="healingList"></div>
-      </div>
+        <div class="panel-body" id="testsSections"></div>
+        <div class="panel-foot">
+          <button class="btn btn-ghost btn-small" id="testsRawBtn" type="button">View raw file</button>
+        </div>
+      </section>
+    </div>
 
-      <div class="panel" id="flakyPanel">
+    <!-- ═════════════ RESULTS ═════════════ -->
+    <div class="view" data-view="results" hidden>
+
+      <section class="panel panel-wide" id="clustersPanel" hidden>
         <div class="panel-head">
-          <h2>Flaky tests</h2>
-          <p class="panel-sub">Both passed and failed across the retained run history (<code>flaky-tests.json</code>).</p>
+          <h2>Failures by root cause</h2>
+          <p class="panel-sub" id="clustersSub">Failing tests grouped by the first line of their error, so one broken thing is one row, not twenty.</p>
         </div>
-        <div class="panel-body" id="flakyList"></div>
-      </div>
+        <div class="panel-body" id="clustersList"></div>
+      </section>
 
-    </section>
+      <section class="panel panel-wide" id="failuresPanel">
+        <div class="panel-head">
+          <h2>Failures</h2>
+          <p class="panel-sub" id="failuresSub">Failing test cases from the last run. Expand one for its error.</p>
+        </div>
+        <div class="panel-body" id="failuresList"></div>
+        <div class="panel-foot" id="failuresFoot" hidden>
+          <span class="foot-actions">
+            <button class="btn btn-ghost btn-small" type="button" id="failExpandBtn">Expand all</button>
+            <button class="btn btn-ghost btn-small" type="button" id="failCollapseBtn">Collapse all</button>
+          </span>
+          <button class="btn btn-ghost btn-small" type="button" id="rerunBtn" title="Copies a mvn command that runs only the failed tests">Copy re-run command</button>
+        </div>
+      </section>
 
-    <section class="panel panel-wide" id="auditPanel">
-      <div class="panel-head">
-        <h2>Recent changes</h2>
-        <p class="panel-sub">Every edit made through this dashboard, newest first. Single-value changes can be undone; bulk/preset changes cannot.</p>
-      </div>
-      <div class="panel-body" id="auditList"></div>
-      <div class="panel-foot">
-        <button class="btn btn-ghost btn-small" id="undoBtn">Undo last change</button>
-      </div>
-    </section>
+      <section class="panel panel-wide" id="resultsPanel">
+        <div class="panel-head">
+          <h2>Last run — by class</h2>
+          <p class="panel-sub" id="resultsSub">From the most recent local <code>target/surefire-reports</code>.</p>
+        </div>
+        <div class="results-toolbar">
+          <div class="seg" role="group" aria-label="Filter results by status">
+            <button type="button" class="seg-btn is-on" data-status="all" aria-pressed="true">All</button>
+            <button type="button" class="seg-btn" data-status="failing" aria-pressed="false">Failing</button>
+            <button type="button" class="seg-btn" data-status="passing" aria-pressed="false">Passing</button>
+          </div>
+          <input id="resultsSearch" type="search" class="filter-input" placeholder="Search classes…  (press /)" aria-label="Search result classes" autocomplete="off" spellcheck="false" />
+          <label class="switch-label"><input type="checkbox" id="autoRefresh" checked /> Auto-refresh</label>
+          <span id="resultsUpdated" class="field-note" aria-live="off"></span>
+        </div>
+        <div class="results-toolbar views-bar" aria-label="Saved views">
+          <label class="views-label" for="viewsSelect">Views</label>
+          <select id="viewsSelect" class="filter-input"><option value="">Saved views…</option></select>
+          <button class="btn btn-ghost btn-small" type="button" id="viewSave">Save current…</button>
+          <button class="btn btn-ghost btn-small" type="button" id="viewDelete" disabled>Delete</button>
+          <button class="btn btn-ghost btn-small" type="button" id="viewLink" title="Copies a link that reopens these filters">Copy link</button>
+        </div>
+        <div id="resultsSummary" class="results-summary"></div>
+        <div class="panel-body" id="resultsTable"></div>
+        <div class="panel-foot">
+          <span class="field-note kbd-hint"><kbd>/</kbd> search · <kbd>r</kbd> refresh · <kbd>Ctrl</kbd> <kbd>K</kbd> commands · click a column header to sort</span>
+          <span class="foot-actions">
+            <button class="btn btn-ghost btn-small" type="button" data-export-report>Export report</button>
+            <button class="btn btn-ghost btn-small" type="button" data-copy-summary>Copy summary</button>
+            <button class="btn btn-ghost btn-small" id="exportCsvBtn" type="button">Export CSV</button>
+          </span>
+        </div>
+      </section>
+
+      <section class="panel panel-wide" id="comparePanel">
+        <div class="panel-head">
+          <h2>Compare two runs</h2>
+          <p class="panel-sub">What newly fails, what was fixed and what got slower between two recorded runs.</p>
+        </div>
+        <div class="compare-bar">
+          <label>Baseline <select id="cmpA" class="filter-input"></select></label>
+          <span aria-hidden="true">→</span>
+          <label>Compare with <select id="cmpB" class="filter-input"></select></label>
+          <button class="btn btn-ghost btn-small" type="button" id="cmpBtn">Compare</button>
+        </div>
+        <div class="panel-body" id="cmpResult"></div>
+      </section>
+
+      <section class="panels" id="drilldownPanels">
+        <div class="panel" id="healingPanel">
+          <div class="panel-head">
+            <h2>Self-healed locators</h2>
+            <p class="panel-sub">Elements the self-healing engine found via DOM/visual/AI fallback — a broken locator worth fixing at the source.</p>
+          </div>
+          <div class="panel-body" id="healingList"></div>
+        </div>
+
+        <div class="panel" id="flakyPanel">
+          <div class="panel-head">
+            <h2>Test stability</h2>
+            <p class="panel-sub">Tests ranked by how unstable they are: flaky (flip-flopping) first, then newly and consistently failing. Uses CI history (<code>flaky-tests.json</code>) and the runs this Console has seen.</p>
+          </div>
+          <div class="panel-body" id="flakyList"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═════════════ ACTIVITY ═════════════ -->
+    <div class="view" data-view="activity" hidden>
+      <section class="panel panel-wide" id="auditPanel">
+        <div class="panel-head">
+          <h2>Recent changes</h2>
+          <p class="panel-sub">Every edit made through this dashboard, newest first. Single-value changes can be undone; bulk/preset changes cannot.</p>
+        </div>
+        <div class="panel-body" id="auditList"></div>
+        <div class="panel-foot">
+          <button class="btn btn-ghost btn-small" id="undoBtn" type="button">Undo last change</button>
+        </div>
+      </section>
+    </div>
 
   </main>
 
   <footer class="foot">
     <span>Reads/edits <code>pipeline-config.properties</code> and <code>test-config.properties</code> directly — a change here applies to the next run, no restart needed.</span>
+    <span id="footStatus" class="foot-status" aria-live="off"></span>
   </footer>
 
-  <div id="rawModal" class="modal" hidden>
+  <!-- per-test history drawer -->
+  <div id="testModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="testModalTitle">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <span id="testModalTitle" class="mono"></span>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-small" id="testQuarantine" type="button" hidden>Quarantine…</button>
+          <button class="btn btn-ghost btn-small" data-close type="button">Close</button>
+        </div>
+      </div>
+      <div class="test-drawer" id="testModalBody"></div>
+    </div>
+  </div>
+
+  <!-- preferences (saved per login) -->
+  <div id="prefsModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="prefsTitle">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card modal-narrow">
+      <div class="modal-head">
+        <span id="prefsTitle">Preferences</span>
+        <div class="modal-actions"><button class="btn btn-ghost btn-small" data-close type="button">Close</button></div>
+      </div>
+      <div class="prefs-body">
+        <p class="field-note">Saved to your login, so every browser you sign in from looks the same. Changes apply immediately.</p>
+        <label class="pref-row" for="prefTheme"><span>Theme</span>
+          <select id="prefTheme" data-pref="theme">
+            <option value="system">Match my system</option><option value="light">Light</option><option value="dark">Dark</option>
+          </select></label>
+        <label class="pref-row" for="prefDensity"><span>Density</span>
+          <select id="prefDensity" data-pref="density">
+            <option value="comfortable">Comfortable</option><option value="compact">Compact — more on screen</option>
+          </select></label>
+        <label class="pref-row" for="prefTab"><span>Open on</span>
+          <select id="prefTab" data-pref="default_tab">
+            <option value="overview">Overview</option><option value="config">Configuration</option>
+            <option value="results">Results</option><option value="activity">Activity</option>
+          </select></label>
+        <label class="pref-row" for="prefRefresh"><span>Auto-refresh</span>
+          <select id="prefRefresh" data-pref="refresh_s">
+            <option value="0">Off (use Refresh)</option><option value="15">Every 15 seconds</option>
+            <option value="30">Every 30 seconds</option><option value="60">Every minute</option><option value="300">Every 5 minutes</option>
+          </select></label>
+        <p class="pref-group">Alerts — a banner when the latest run crosses a line</p>
+        <label class="pref-row" for="prefAlertPass"><span>Pass rate below</span>
+          <select id="prefAlertPass" data-pref="alert_pass_pct">
+            <option value="0">Off</option><option value="80">80 %</option><option value="90">90 %</option><option value="95">95 %</option><option value="100">100 % (any failure)</option>
+          </select></label>
+        <label class="pref-row" for="prefAlertCov"><span>Core coverage below</span>
+          <select id="prefAlertCov" data-pref="alert_coverage_pct">
+            <option value="0">Off</option><option value="50">50 %</option><option value="60">60 %</option><option value="70">70 %</option><option value="80">80 %</option><option value="90">90 %</option>
+          </select></label>
+        <label class="pref-row" for="prefAlertSlow"><span>Run slower than usual by</span>
+          <select id="prefAlertSlow" data-pref="alert_slowdown_pct">
+            <option value="0">Off</option><option value="25">25 %</option><option value="50">50 %</option><option value="100">100 % (twice as long)</option><option value="200">200 %</option>
+          </select></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- raw file viewer -->
+  <div id="rawModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="rawModalTitle">
     <div class="modal-backdrop" data-close></div>
     <div class="modal-card">
       <div class="modal-head">
         <span id="rawModalTitle" class="mono"></span>
-        <button class="btn btn-ghost btn-small" data-close>Close</button>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-small" id="rawCopyBtn" type="button">Copy</button>
+          <button class="btn btn-ghost btn-small" data-close type="button">Close</button>
+        </div>
       </div>
-      <pre id="rawModalBody" class="raw-view mono"></pre>
+      <pre id="rawModalBody" class="raw-view mono" tabindex="0"></pre>
+    </div>
+  </div>
+
+  <!-- command palette -->
+  <div id="palette" class="modal modal-top" hidden role="dialog" aria-modal="true" aria-label="Command palette">
+    <div class="modal-backdrop" data-close></div>
+    <div class="palette-card">
+      <input id="paletteInput" class="palette-input" type="text" placeholder="Type a command or a site name…" autocomplete="off" spellcheck="false"
+             role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list" aria-label="Command" />
+      <ul id="paletteList" class="palette-list" role="listbox" aria-label="Commands"></ul>
+      <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>Enter</kbd> run</span><span><kbd>Esc</kbd> close</span></div>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="/app.js"></script>
+  <script src="/console-extras.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 """End to end over HTTP: hub, results of a real (fake-Maven) run, connection check, required switches, secrets."""
 import os
+import re
 import time
 import unittest
 
@@ -57,6 +58,29 @@ class HubHttpTests(unittest.TestCase):
         self.assertIn("open", d["intents"][0])
         self.assertEqual(self.call("GET", "/api/hub", user=None)[0], 401)
         self.assertEqual(self.call("GET", "/hub/static/../../auth/users.py", raw=True)[0], 404)
+
+    def test_control_center_page_and_assets_are_served(self):
+        # Regression: CONTROL_DIR pointed at the non-existent features/static, so /control and its CSS/JS were 404
+        # and the Control Center (linked from every page) could not be opened. Nothing requested it, so it went unseen.
+        status, body, hdrs = self.call("GET", "/control", raw=True)
+        self.assertEqual(status, 200)
+        self.assertIn(b"Control Center", body)
+        self.assertIn("text/html", hdrs["Content-Type"])
+        for asset, mime in (("control.js", "javascript"), ("control.css", "css")):
+            with self.subTest(asset=asset):
+                s, _b, hd = self.call("GET", f"/control/static/{asset}", raw=True)
+                self.assertEqual(s, 200)
+                self.assertIn(mime, hd["Content-Type"])
+        # every asset the page references must resolve
+        for ref in re.findall(r'(?:href|src)="(/control/static/[^"]+)"', body.decode("utf-8")):
+            self.assertEqual(self.call("GET", ref, raw=True)[0], 200, ref)
+
+    def test_control_static_serves_web_assets_only_never_the_python_sources_beside_them(self):
+        for path in ("/control/static/catalog.py", "/control/static/service.py", "/control/static/__init__.py",
+                     "/control/static/../service.py", "/control/static/%2e%2e/catalog.py",
+                     "/control/static/__pycache__"):
+            with self.subTest(path=path):
+                self.assertEqual(self.call("GET", path, raw=True)[0], 404)
 
     def test_every_hub_card_points_at_something_real(self):
         s, d, _ = self.call("GET", "/api/hub")

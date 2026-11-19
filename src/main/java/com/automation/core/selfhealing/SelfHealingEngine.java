@@ -323,6 +323,7 @@ public final class SelfHealingEngine {
             }
             return eligible;
         } catch (Exception e) {
+            logger.debug("[SelfHealing] Broad interactive-element scan failed: {}", e.getMessage());
             return java.util.Collections.emptyList();
         }
     }
@@ -459,6 +460,7 @@ public final class SelfHealingEngine {
         try {
             candidates = driver.findElements(By.tagName(baseline.tag));
         } catch (Exception e) {
+            logger.debug("[SelfHealing] DOM candidate lookup for <{}> failed: {}", baseline.tag, e.getMessage());
             return new ArrayList<>();
         }
 

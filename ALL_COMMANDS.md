@@ -523,6 +523,19 @@ python3 Scripts/coverage-ratchet.py --update          # raise the baseline after
 
 ---
 
+### Clean source archive (share / hand over the project)
+
+```bash
+Scripts/make-release-zip.sh                 # -> ../<project>-release-<timestamp>.zip
+Scripts/make-release-zip.sh /tmp/my.zip     # custom output path
+```
+
+Archives only what git tracks plus new, not-ignored files — so `.env`, `.git/`, `.idea/`,
+`__pycache__/`, `target/`, `self-healing-data/` and dashboard run data are never included.
+Use this instead of zipping the project folder by hand.
+
+---
+
 ## 21. Git Hooks (Checkstyle + gitleaks on commit)
 
 ```bash

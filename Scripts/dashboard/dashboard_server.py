@@ -70,6 +70,13 @@ import presets as ps  # noqa: E402
 import results as res  # noqa: E402
 import snapshot as snap  # noqa: E402
 import suites as su  # noqa: E402
+import system_info  # noqa: E402
+import prefs  # noqa: E402
+import results_history  # noqa: E402
+import case_history  # noqa: E402
+import run_insights  # noqa: E402
+import dep_health  # noqa: E402
+import quality_gate  # noqa: E402
 from auth import users as auth_users  # noqa: E402
 from wizard.api import WizardApi  # noqa: E402
 
@@ -78,6 +85,11 @@ SUITES_DIR = os.path.join(REPO_ROOT, "testng-suites")
 PIPELINE_CONFIG = os.path.join(REPO_ROOT, "pipeline-config.properties")
 TEST_CONFIG = os.path.join(REPO_ROOT, "test-config.properties")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+# One inline icon, served at /favicon.svg and /favicon.ico so browsers stop logging a 404 on every page load.
+_FAVICON_SVG = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" '
+                b'fill="#1f5fcf"/><path d="M8 17l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.4" '
+                b'stroke-linecap="round" stroke-linejoin="round"/></svg>')
 
 _STATIC_MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
                 ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
@@ -115,8 +127,37 @@ _SECURITY_HEADERS = (
     ("X-Frame-Options", "DENY"),
     ("Referrer-Policy", "no-referrer"),
     ("Content-Security-Policy",
-     "default-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"),
+     "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; "
+     "frame-ancestors 'none'"),
+    # Isolate the Console from other origins: no cross-origin window handle (COOP), no other site embedding
+    # its responses (CORP), and no powerful browser features it never uses.
+    ("Cross-Origin-Opener-Policy", "same-origin"),
+    ("Cross-Origin-Resource-Policy", "same-origin"),
+    ("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()"),
 )
+
+_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def _require_text(body, key):
+    """A required string field. Wrongly typed or missing values are a client error (400), never a 500 or,
+    worse, silently coerced to something else."""
+    value = body.get(key)
+    if not isinstance(value, str):
+        raise ValueError(f"'{key}' is required and must be a string")
+    return value
+
+
+def _require_flag(body, key="enabled"):
+    """A required JSON boolean. `bool(x)` on request data is wrong here: bool("false") is True, and a
+    missing key became False, so a typo'd or partial request used to switch a site or test OFF (or leave it
+    ON) while answering 200."""
+    if key not in body:
+        raise ValueError(f"'{key}' is required")
+    value = body[key]
+    if not isinstance(value, bool):
+        raise ValueError(f"'{key}' must be true or false")
+    return value
 
 # Matches the guidance in .env.example ("use 12+ characters"); shorter passwords only trigger a warning.
 _MIN_PASSWORD_LENGTH = 12
@@ -155,6 +196,32 @@ def make_handler(password, wizard=None):
             sniffing, and a same-origin-only CSP (the page ships no inline script or style)."""
             for name, value in _SECURITY_HEADERS:
                 self.send_header(name, value)
+            # Behind an HTTPS reverse proxy / tunnel: tell the browser to keep using HTTPS for this host.
+            headers = getattr(self, "headers", None)   # absent when the request line itself was malformed
+            if headers is not None and (headers.get("X-Forwarded-Proto") or "").lower() == "https":
+                self.send_header("Strict-Transport-Security", "max-age=31536000")
+
+        def send_error(self, code, message=None, explain=None):
+            """Errors raised by the stdlib (404 for an unknown path, 400 for a malformed request line, ...) used
+            to go out as bare HTML with none of the security headers. Answer JSON for /api/* and a plain-text
+            page elsewhere, and always with the same headers as every other response."""
+            short = self.responses.get(code, ("error",))[0]
+            body_obj = {"error": message or short}
+            if str(getattr(self, "path", "")).startswith("/api/"):
+                body = json.dumps(body_obj).encode("utf-8")
+                ctype = "application/json; charset=utf-8"
+            else:
+                body = f"{code} {message or short}\n".encode("utf-8")
+                ctype = "text/plain; charset=utf-8"
+            self.send_response(code, message)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "close")
+            self._security_headers()
+            self.end_headers()
+            if self.command != "HEAD" and code >= 200 and code not in (204, 304):
+                self.wfile.write(body)
 
         def log_message(self, fmt, *args):
             print(f"[dashboard] {self.client_address[0]} - {fmt % args}")
@@ -218,6 +285,11 @@ def make_handler(password, wizard=None):
             or not a JSON object. Callers must stop on None: treating a rejected body as "{}" let
             handlers such as /api/snapshot/import and /api/test-config/run-only act on an empty
             request and silently overwrite config (e.g. clearing run.only) while answering 200."""
+            if self.headers.get("Transfer-Encoding"):
+                # Only Content-Length bodies are read. A chunked body used to look like "no body" ({}), and
+                # a handler then acted on that empty request.
+                self._send_json(411, {"error": "chunked request bodies are not supported; send Content-Length"})
+                return None
             try:
                 length = int(self.headers.get("Content-Length", 0) or 0)
             except ValueError:
@@ -269,6 +341,9 @@ def make_handler(password, wizard=None):
             self.send_response(200)
             self.send_header("Content-Type", _STATIC_MIME.get(ext, "application/octet-stream"))
             self.send_header("Content-Length", str(len(body)))
+            # Revalidate every time: the UI is a handful of small local files, and a stale cached app.js
+            # talking to a newer server API is worse than the few bytes saved.
+            self.send_header("Cache-Control", "no-cache")
             self._security_headers()
             self.end_headers()
             self.wfile.write(body)
@@ -357,6 +432,50 @@ def make_handler(password, wizard=None):
                     self._send_json(200, {"path": TEST_CONFIG, "text": cf.read_raw(TEST_CONFIG)})
                 elif path == "/api/results":
                     self._send_json(200, res.full_snapshot(REPO_ROOT))
+                elif path == "/api/prefs":
+                    self._send_json(200, prefs.describe(self.user["name"]))
+                elif path in ("/api/results/compare", "/api/results/test"):
+                    q = parse_qs(parsed.query)
+                    history = results_history.read()
+                    try:
+                        if path.endswith("/compare"):
+                            out = run_insights.compare(history, int(q.get("a", [""])[0]), int(q.get("b", [""])[0]),
+                                                       case_history.by_run())
+                        else:
+                            out = run_insights.test_history(history, q.get("name", [""])[0], case_history.by_run())
+                    except ValueError as e:   # includes a non-numeric a/b
+                        self._send_json(400, {"error": str(e)})
+                        return
+                    self._send_json(200, out)
+                elif path == "/api/quality-gate":
+                    q = parse_qs(parsed.query)
+                    try:
+                        limits = quality_gate.parse_limits(q, prefs.get(self.user["name"]))
+                    except ValueError as e:
+                        self._send_json(400, {"error": str(e)})
+                        return
+                    verdict = quality_gate.evaluate(
+                        res.surefire_summary(REPO_ROOT), res.coverage_summary(REPO_ROOT),
+                        results_history.read(), res.flaky_tests(REPO_ROOT), limits)
+                    # ?strict=1 lets a CI step use `curl -f`: a failing gate becomes HTTP 422, not just JSON.
+                    strict = (q.get("strict", [""])[0] or "").lower() in ("1", "true", "yes")
+                    self._send_json(422 if strict and verdict["status"] == "fail" else 200, verdict)
+                elif path in ("/favicon.svg", "/favicon.ico"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/svg+xml")
+                    self.send_header("Content-Length", str(len(_FAVICON_SVG)))
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self._security_headers()
+                    self.end_headers()
+                    self.wfile.write(_FAVICON_SVG)
+                elif path == "/api/health/deps":
+                    self._send_json(200, dep_health.check(REPO_ROOT))
+                elif path == "/api/system":
+                    from runner import runner_service
+                    host, port = self.server.server_address[:2]
+                    self._send_json(200, system_info.snapshot(
+                        REPO_ROOT, user=self.user, runner_enabled=runner_service.enabled(),
+                        per_user=auth_users.per_user_mode(), host=host, port=port))
                 elif path == "/api/audit":
                     self._send_json(200, {"entries": audit.recent(REPO_ROOT)})
                 elif path == "/api/suites":
@@ -414,6 +533,8 @@ def make_handler(password, wizard=None):
             content_type = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             if content_type != "application/json":
                 return False
+            if (self.headers.get("Sec-Fetch-Site") or "").lower() == "cross-site":
+                return False   # modern browsers label cross-site requests themselves; refuse them outright
             origin = self.headers.get("Origin")
             if origin:
                 origin_host = urlparse(origin).netloc
@@ -435,11 +556,16 @@ def make_handler(password, wizard=None):
             try:
                 if self._wizard("POST", parsed, body):
                     return
+                if path == "/api/prefs":
+                    # Personal UI preferences: open to every signed-in role (a viewer may set their own theme),
+                    # so this sits before the config.edit gate below. Validated against fixed choices in prefs.py.
+                    self._send_json(200, prefs.update(self.user["name"], body))
+                    return
                 if auth_users.per_user_mode() and not auth_users.allowed(self.user["role"], "config.edit"):
                     self._send_json(403, {"error": f"your role ({self.user['role']}) can't change the test configuration"})
                     return
                 if path == "/api/pipeline-config/site":
-                    name, enabled = body.get("name"), bool(body.get("enabled"))
+                    name, enabled = _require_text(body, "name"), _require_flag(body)
                     before = cf.PropertiesFile(PIPELINE_CONFIG).get(f"site.{name}.enabled")
                     cf.set_site_enabled(PIPELINE_CONFIG, name, enabled)
                     self._audit("site", name, "enabled", before, str(enabled).lower())
@@ -458,17 +584,17 @@ def make_handler(password, wizard=None):
                     self._send_json(200, {"sites": cf.read_sites(PIPELINE_CONFIG), "skipped": skipped})
 
                 elif path == "/api/test-config/test":
-                    name, enabled = body.get("name"), bool(body.get("enabled"))
+                    name, enabled = _require_text(body, "name"), _require_flag(body)
                     before = cf.PropertiesFile(TEST_CONFIG).get(f"test.{name}.enabled")
                     cf.set_test_enabled(TEST_CONFIG, name, enabled)
                     self._audit("test", name, "enabled", before, str(enabled).lower())
                     self._send_json(200, cf.read_test_config(TEST_CONFIG))
 
                 elif path == "/api/test-config/bulk-section":
-                    names = body.get("names") or []
-                    enabled = bool(body.get("enabled"))
-                    if not isinstance(names, list) or not names:
-                        self._send_json(400, {"error": "'names' must be a non-empty list"})
+                    names = body.get("names")
+                    enabled = _require_flag(body)
+                    if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
+                        self._send_json(400, {"error": "'names' must be a non-empty list of strings"})
                         return
                     cf.set_tests_enabled(TEST_CONFIG, names, enabled)
                     self._audit("test-bulk", ", ".join(names), "enabled",
@@ -476,7 +602,7 @@ def make_handler(password, wizard=None):
                     self._send_json(200, cf.read_test_config(TEST_CONFIG))
 
                 elif path == "/api/test-config/group":
-                    name, enabled = body.get("name"), bool(body.get("enabled"))
+                    name, enabled = _require_text(body, "name"), _require_flag(body)
                     before = cf.PropertiesFile(TEST_CONFIG).get(f"group.{name}.enabled")
                     cf.set_group_enabled(TEST_CONFIG, name, enabled)
                     self._audit("group", name, "enabled", before, str(enabled).lower())
@@ -484,7 +610,8 @@ def make_handler(password, wizard=None):
 
                 elif path == "/api/test-config/run-only":
                     before = cf.PropertiesFile(TEST_CONFIG).get("run.only")
-                    cf.set_run_only(TEST_CONFIG, body.get("value", ""))
+                    # "value" is required: an empty request body used to CLEAR the run.only restriction.
+                    cf.set_run_only(TEST_CONFIG, _require_text(body, "value"))
                     after = cf.PropertiesFile(TEST_CONFIG).get("run.only")
                     self._audit("run-only", "run.only", "value", before, after)
                     self._send_json(200, cf.read_test_config(TEST_CONFIG))
@@ -567,6 +694,16 @@ def _resolve_password():
     return secrets.token_urlsafe(18), True
 
 
+def _password_too_weak_for_host(password, host):
+    """True when a short password would be exposed beyond this machine.
+
+    On loopback a short password only earns the startup warning (it is a local convenience). Bound to
+    any other interface the same port can rewrite test/pipeline config and, with the runner on, start
+    Maven, so a password under _MIN_PASSWORD_LENGTH characters is refused outright instead of warned about.
+    """
+    return host not in _LOOPBACK_HOSTS and len(password) < _MIN_PASSWORD_LENGTH
+
+
 def main():
     parser = argparse.ArgumentParser(description="Selenium Automation Framework — local dashboard")
     parser.add_argument("--port", type=int, default=int(os.environ.get("DASHBOARD_PORT", "5057")))
@@ -576,6 +713,12 @@ def main():
     args = parser.parse_args()
 
     password, generated = _resolve_password()
+    if not generated and _password_too_weak_for_host(password, args.host):
+        sys.exit(
+            f"[dashboard] Refusing to listen on {args.host}: DASHBOARD_PASSWORD is shorter than "
+            f"{_MIN_PASSWORD_LENGTH} characters. Use a longer password, or keep the default "
+            "loopback host (127.0.0.1)."
+        )
     wizard = WizardApi(REPO_ROOT, PIPELINE_CONFIG, SUITES_DIR)
     handler = make_handler(password, wizard)
     httpd = DashboardServer((args.host, args.port), handler)
@@ -614,6 +757,12 @@ def main():
                 "              can edit your test config - use a longer password, above all",
                 "              before binding it beyond localhost or tunnelling it.",
             ]
+    if args.host not in _LOOPBACK_HOSTS:
+        banner_lines += [
+            f"  WARNING   : listening on {args.host}, beyond this machine, over plain HTTP. The Basic-auth",
+            "              password and every request travel unencrypted. Put it behind HTTPS (a reverse",
+            "              proxy, ngrok, or an SSH tunnel) and keep it off untrusted networks.",
+        ]
     width = max(len(line) for line in banner_lines) + 4
     print("=" * width)
     for line in banner_lines:

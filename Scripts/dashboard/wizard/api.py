@@ -27,7 +27,12 @@ from wizard import validators
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(_HERE, "static")
-CONTROL_DIR = os.path.join(os.path.dirname(_HERE), "features", "static")
+# control.html / control.css / control.js sit directly in features/ (there is no features/static/ folder). This
+# constant used to point at the non-existent features/static, so /control and its assets answered 404 and the
+# Control Center — linked from every other page — could not be opened at all. Only web assets are ever served from
+# here (see _CONTROL_ASSET_EXTS): the same folder holds catalog.py and service.py, which must not be downloadable.
+CONTROL_DIR = os.path.join(os.path.dirname(_HERE), "features")
+_CONTROL_ASSET_EXTS = (".css", ".js")
 HUB_DIR = os.path.join(os.path.dirname(_HERE), "hub", "static")
 _MIME = {".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".json": "application/json", ".log": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8",
@@ -103,7 +108,8 @@ class WizardApi:
         if path.startswith("/control/static/"):
             rel = os.path.normpath(path[len("/control/static/"):])
             full = os.path.join(CONTROL_DIR, rel)
-            if rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full):
+            if (rel.startswith("..") or os.path.isabs(rel) or not os.path.isfile(full)
+                    or os.path.splitext(full)[1].lower() not in _CONTROL_ASSET_EXTS):
                 raise FileNotFoundError("not found")
             return "page", full
         if path in ("/hub", "/hub/"):

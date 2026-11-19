@@ -460,6 +460,7 @@ public class CaptchaSolver {
         try {
             return driver.findElements(locator);
         } catch (Exception e) {
+            log.debug("[CaptchaSolver] findElements({}) failed: {}", locator, e.getMessage());
             return List.of();
         }
     }

@@ -12,6 +12,7 @@
 - [🌍 Sharing It (ngrok / SSH tunnel / LAN)](#-sharing-it-ngrok--ssh-tunnel--lan)
 - [🎛️ What It Does](#️-what-it-does)
 - [🎯 Presets](#-presets)
+- [🧭 Console Layout, Overview & Command Palette](#-console-layout-overview--command-palette)
 - [📦 Bulk Section Actions](#-bulk-section-actions)
 - [🏷️ Groups](#️-groups)
 - [🩺 Results Drilldown](#-results-drilldown)
@@ -108,7 +109,7 @@ A preset that references a site no longer in `pipeline-config.properties` (renam
 
 ## 📦 Bulk Section Actions
 
-Each section header in the **Tests** panel has **Enable all** / **Disable all** buttons — they act on exactly the class list already shown under that header (the same sections `test-config.properties` groups tests into), written as one atomic file change. Deterministic on purpose: it names the exact classes on screen, rather than trying to interpret a semantic label like "the API tests."
+Each section header in the **Tests** panel has **Enable all** / **Disable all** buttons — they act on exactly the class list already shown under that header (the same sections `test-config.properties` groups tests into), written as one atomic file change. **With the class filter active they act only on the matching classes**, and the confirmation says so ("Disable 3 matching tests…"), so a filtered view never changes tests you cannot see. Deterministic on purpose: it names the exact classes on screen, rather than trying to interpret a semantic label like "the API tests."
 
 ## 🏷️ Groups
 
@@ -119,7 +120,11 @@ The **Groups** panel lists every `group.<name>.enabled=false` line already in `t
 Below the summary tiles and the per-class table, two more panels expand on what only showed as a count before:
 
 - **Self-healed locators** — every locator the self-healing engine actually had to fall back on in the last run (original → healed, which site, which stage — DOM/visual/AI), from `target/self-healing/*healing-report.json` — both the bare `healing-report.json` a plain local `mvn test` writes and the `<site>-healing-report.json` files each CI job writes via `-Dself-healing.report.path=...` (a local run shows up under the site label "(local run)"). A locator showing up here repeatedly is worth fixing at the source rather than leaving to self-heal every run.
-- **Flaky tests** — from `target/flaky-tests.json` (produced by the `compute_flaky_trend.py` CI script against the retained run-history window on `gh-pages`, so this panel is usually empty on a pure-local checkout that has never run in CI). Each entry shows its pass/fail counts and the most recent statuses as a small strip of ticks.
+- **Test stability** — tests ranked worst-first by how unstable they are, each tagged **flaky** (status flipped two or more times), **new failure**, **always failing** (failed in every one of at least three recent runs) or **recovered**, with a strip of ticks for the recent runs, "failed 5 of 6 runs · 2 flips", and where the history came from. Two sources are merged, CI winning when both know a test: `target/flaky-tests.json` (from `compute_flaky_trend.py` against the `gh-pages` history — usually absent on a purely local checkout) and the failing-test names this Console records for every run it sees (`results-history.json`, last 40 failures per run). Local numbers treat "not in that run's failure list" as not failing — the Console cannot tell *passed* from *not part of that run* — so read them as a guide, not an audit. Runs recorded before this feature carry no names and are left out of the counts.
+
+- **Reports** (Overview) — each report folder with whether it exists and when it was last updated, a **Copy how to open** button (for example `allure open target/allure-report`), and, when it can be worked out, an **Open published reports ↗** link. The address is `DASHBOARD_REPORTS_URL` if set (plain `http(s)` only; anything else is ignored), otherwise the conventional GitHub Pages address guessed from a `github.com` `origin` remote (it works only if Pages is enabled; the panel says it is a guess). **The Console deliberately does not serve report pages itself**: a report embeds content the tests visited, and serving it from the Console's own origin would place that untrusted markup beside the authenticated session — and the Console's CSP would break Allure anyway.
+- **Failure triage tools** (Failures panel footer) — *Expand all / Collapse all*, and **Copy re-run command**, which builds `mvn test -Dtest='pkg.Class#methodA+methodB,…' -Dsurefire.failIfNoSpecifiedTests=false` for exactly the failed tests (parameterised names such as `login[2]` widen to the whole class). If your suites are driven only by `suiteXmlFiles`, check that your surefire configuration honours `-Dtest`. Press `?` anywhere for the keyboard-shortcut list.
+- **Failures by root cause** (Results tab, shown when two or more tests fail) — failing tests grouped by exception type plus the first line of the error, with numbers, ids, hex values and quoted strings masked, so one broken thing is one row (`×7`) instead of seven. Every test is still listed inside its group.
 
 The summary tiles also add a **TIA selected** count (`impacted / total` test classes) when `target/tia/impact-summary.json` exists from a local Test Impact Analysis run.
 
@@ -225,6 +230,58 @@ Risky actions are safe by default (e-mail and artifact pruning are **dry-run** u
 system-level actions need `DASHBOARD_RUNNER_ALLOW_SYSTEM=1`. Catalog: `Scripts/dashboard/features/catalog.py`
 (add a card by adding one entry); tests: `Scripts/dashboard/tests/test_features.py`.
 
+## 🧭 Console Layout, Overview & Command Palette
+
+The main page (`/`) is split into four tabs, addressable by URL hash so a link such as `/#results` opens straight to that tab:
+
+| Tab | What's on it |
+|---|---|
+| **Overview** | KPI tiles (tests, **pass rate with the change since the previous run**, passed, failures, skipped, **run time**, coverage, self-healed, flaky, TIA), a **pass-rate trend chart** (one bar per recorded run, hover for the date and counts), **Needs attention** (failing tests with the first line of each error), **Slowest tests**, an **Environment** card (repo, branch, commit, last run, signed-in user and role, whether the runner is on, which report folders exist) a **Next run plan** card (sites on/off, test classes switched off, groups switched off and `run.only`, read live from the two config files, with a warning when no site is enabled) and quick links to the other tools |
+| **Configuration** | Sites, presets, *Run only*, groups and the per-test switches (unchanged behaviour) |
+| **Results** | **Failures** (expand a case for its full error message), the by-class table (now with a **Time** column) with search, filter and sort, plus self-healed locators and flaky tests. A red badge on the tab shows the failure count |
+| **Activity** | The audit log and *Undo last change* |
+
+**Command palette** — press `Ctrl K` (`⌘ K` on macOS) anywhere: jump to a tab or tool, refresh, toggle the theme, export CSV or a snapshot, view either properties file, undo, or **enable/disable any site by typing its name**. `↑ ↓` to move, `Enter` to run, `Esc` to close. `/` focuses the results search and `r` refreshes. **Copy run summary** (Overview quick action, Results footer or palette) puts a Markdown summary — counts, pass rate, run time, coverage, and the failures grouped by root cause — on the clipboard, ready for a PR comment, ticket or chat.
+
+**Failure details and timings** come from `target/surefire-reports/TEST-*.xml` (the same per-class files the totals use; the aggregate `TEST-TestSuite.xml` is skipped so nothing is double counted). Error text is length-capped and shown as plain text.
+
+**Connection monitor** — if the server stops answering, a red banner appears and the status pill reads *offline*; the Console keeps the last data on screen, polls every 5 s and reloads itself when the server is back.
+
+**Theme** — follows the operating system until you click the toggle, then remembers your choice. The choice is applied by one shared `static/theme.js` loaded in `<head>` on **every** page (Console, Test Hub, Control Center, Test Wizard), so there is no dark-to-light flash and the pages never disagree; each page has the toggle and a link back to the Console. Both themes meet WCAG AA contrast for status colours. The page is keyboard-operable (skip link, focus rings, real buttons for collapsible sections, dialogs that trap and restore focus, and switches that keep keyboard focus after a toggle) and has a print stylesheet.
+
+### Run history tools
+
+Every run the Console sees is recorded (server-side, `results-history.json`) with its pass rate, **total run time**, the **slowest tests** with their seconds, and the **first error line of each failing test**. Runs recorded before this was added carry only the pass rate and are filled in once if they are still the current run.
+
+- **Run-time trend** (Overview) — bars of total test time per run with a dashed median line; a run more than 25 % over the median is amber.
+- **Compare two runs** (Results tab) — pick a baseline and a second run: *newly failing* (with the error and whether it was passing or not in the baseline), *fixed*, *still failing*, *was failing, now skipped or not run*, tests that got *slower* (at least 2 s and 1.5×) or *faster*, and the change in total time. Served by `GET /api/results/compare?a=<t>&b=<t>`. **Exact vs approximate:** since this was added, every run the Console sees also stores *every test's* outcome (passed / failed / skipped) and time in `<data dir>/results-cases.json` (newest 40 runs, 3000 tests per run, mode 0600, re-validated on read). Two runs that both have that are compared test by test — "fixed" means *now passing*, a test that was failing and is now skipped or absent is reported separately, and times are compared for every test. A run recorded before that has only its failing tests and slowest tests (the rest was never kept and cannot be recovered), so a comparison involving it falls back to the approximate rule and the panel says so.
+- **Test history drawer** — the **History** button on a Test stability row opens the test's recorded runs (date, failed or not, time, error), its status, flips, average/slowest time and its last error. For exactly-recorded runs each row says passed / failed / skipped / not in this run with the real time; older runs only know failures and (for the slowest tests) a time, and the drawer says how many of each it used. `GET /api/results/test?name=…`.
+- **Quarantine** — in that drawer, switches off the test's **whole class** in `test-config.properties` (test-level switches do not exist in the configuration), after a confirmation. It is the same write as the Configuration tab: it needs the same permission, is recorded in Activity, and can be undone there.
+- **Threshold alerts** — Preferences → *Alerts*: a banner when the latest pass rate or core coverage is below your line, or the run took more than N % longer than the median of the previous runs (needs at least four timed runs). Off by default, per login. Dismissing hides it until the run or the wording changes. No messages are sent anywhere; Slack/Teams notification remains a CI-side concern.
+- **Saved views** (Results tab) — the search, status filter and sort live in the address bar (`?rq=…&rs=…&rk=…&rd=…`), so a view can be bookmarked or shared (**Copy link**); **Save current…** keeps named views (up to 12) in this browser. Everything read from the URL or storage is checked against fixed choices before use.
+
+### Live run view
+
+When the test runner is enabled (`DASHBOARD_RUNNER_ENABLED=1`) and your login may view runs, a **Run in progress** panel appears on Overview while a run is queued or running: classes finished, tests, failing tests (read from Maven's own `Tests run: … in <Class>` lines), the last log lines (colour codes stripped) and a **Stop run** button that uses the same cancel endpoint and permission rule as the Test Hub. It polls every 3 s while a run is active and every 15 s otherwise (every 30–60 s when the runner is off or unavailable to the login), and refreshes the results when a run finishes.
+
+### Environment health
+
+**Check now** (Overview, or the palette) makes one short request (a TCP connect for the emulator) to each service the framework depends on — Selenium Grid (`grid.url`), Ollama (`ai.endpoint`), ReportPortal (`rp.endpoint`) Appium (`appium.server.url`) and the **Android emulator/device**. The emulator is checked **without running `adb`**: `mobile.device.name` is read and, when it is `emulator-<port>` (the emulator's console port on this machine) or `host:port` (Genymotion / Wi-Fi device), a plain TCP connection is opened and closed at once — nothing is sent. A plain name such as "Samsung Galaxy S24" cannot be checked that way, and the panel says so — and shows reachable / not reachable, the HTTP status and the latency. It never runs by itself, the targets come only from your config files (never from the request), only the host and port of each configured URL are used (credentials, paths and query strings are dropped and never shown), a fixed health path is requested, redirects are not followed, the body is not read, and link-local, multicast and unspecified addresses are refused. Results are cached for 5 s. A Grid that is unreachable while `grid.enabled=false` is shown as expected, not as a failure. `GET /api/health/deps`.
+
+### Preferences, density and the phone layout
+
+Open **Preferences** (⚙ in the header, or the command palette) to set, per login: **theme** (match system / light / dark), **density** (comfortable / compact), the **tab to open on**, and the **auto-refresh interval** (off, 15 s, 30 s, 1 min, 5 min). They are stored server-side in `<data dir>/preferences.json` (mode 0600) keyed by user name, so the same person gets the same Console on every browser; changes apply immediately. `GET/POST /api/prefs` serves them; every value must be one of a fixed list of choices (anything else is a 400), a hand-edited file can never feed the UI an unlisted value, and at most 200 users are stored. Any signed-in role — including one that cannot edit the configuration — may change **its own** preferences; the route sits in front of the `config.edit` gate on purpose and does not open that gate. A browser's existing local theme/density choice is only replaced by a value you actually saved on the server, never by a default. Compact density tightens padding and type for more rows on screen. On a phone the section tabs move to a fixed bar at the bottom, wide tables scroll sideways inside their panel, and touch targets grow to about 44 px.
+
+### HTML run report
+
+**Export HTML report** (Overview quick action, Results footer, or palette) downloads one self-contained `.html` file — verdict, KPIs, failures grouped by root cause with the first error, test stability, slowest tests and a per-class table. It is built in the browser from the data the Results tab already has; everything that came from test output is inserted as escaped text, never as markup. For a PDF, open the file and use the browser's **Print → Save as PDF** (the page carries print styles). The Console does not generate PDFs server-side.
+
+`GET /api/system` (authenticated) feeds the Environment card. It reads the git branch and commit straight from `.git`, **without running git**, so the "no subprocess in the default configuration" guarantee still holds.
+
+### Request validation (strict by design)
+
+The config-editing endpoints require real JSON types: `enabled` must be `true`/`false` (not `"false"`, not omitted), `name` and `value` must be strings, and `/api/test-config/run-only` needs an explicit `"value"` (send `""` to clear). Anything else is `400`, never a silent change. Request bodies must use `Content-Length` (chunked bodies get `411`). Responses carry CSP (`object-src 'none'`, no inline script or style), COOP/CORP `same-origin` and a restrictive Permissions-Policy, and static files are served with `Cache-Control: no-cache`. Starting with `--host` other than loopback prints a warning, because Basic auth over plain HTTP is unencrypted — put it behind HTTPS or an SSH tunnel.
+
 ## 🚫 What It Deliberately Doesn't Do
 
 **By default there is no "Run tests" button.** The original dashboard only reads `target/` and edits the two properties files — it never shells out to Maven, git, or anything else, and it never executes anything the browser sends it (see `dashboard_server.py`'s module docstring). Running `mvn test` from a web request is a materially different security posture than editing two config files. The [🧙 Test Wizard](#-test-wizard) can change that, but only if you set `DASHBOARD_RUNNER_ENABLED=1` yourself, and then only through the fixed allowlist described above. Leave it unset and nothing here can run a process; kick off runs yourself (`mvn test ...`, a CI pipeline, Jenkins) and hit **Refresh**. Whatever you choose, keep the dashboard on loopback or behind a tunnel with a strong password — see [🔐 Authentication](#-authentication).
@@ -250,3 +307,15 @@ system-level actions need `DASHBOARD_RUNNER_ALLOW_SYSTEM=1`. Catalog: `Scripts/d
 | A toggle doesn't seem to take effect | Confirm the dashboard's repo root (`/api/health`) matches the checkout your `mvn test` runs from — under Docker this is whatever `docker-compose.dashboard.yml`'s bind mount points at |
 | "Maven not found … no Java or Maven" when starting a run from the Dockerised dashboard | The standalone dashboard image has neither | Run tests on the host or via `docker compose run --rm tests`; see [DOCKER.md](../DOCKER.md#️-dashboard-image-can-it-run-tests) |
 | `docker compose --profile dashboard up` starts nothing | The `dashboard` profile is opt-in on purpose — `--profile dashboard` must be passed explicitly, plain `docker compose up` skips it |
+
+## Quality gate
+
+The Overview tab opens with a **Quality gate**: a READY / BLOCKED / NO DATA verdict for the latest run, with one row per check (pass rate, failing tests, core coverage, run time against the recent median, flaky tests). A check with nothing to measure shows `?` and never counts as a pass.
+
+Limits come from your Preferences (the alert thresholds) and, for coverage, the build's own `jacoco.core.minLineCoverage`. CI can call the same verdict:
+
+```bash
+curl -fsS -u dashboard:"$DASHBOARD_PASSWORD" "http://localhost:5057/api/quality-gate?strict=1"
+```
+
+`strict=1` turns a failing gate into HTTP 422 so `curl -f` fails the step. Override any limit per call with `min_pass`, `max_failed`, `min_coverage`, `max_slowdown`, `max_flaky`; a bad value is a 400.

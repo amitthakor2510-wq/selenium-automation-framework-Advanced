@@ -16,9 +16,13 @@ import os
 import tempfile
 import threading
 
+import case_history
 from specs import spec_store
 
 MAX_ENTRIES = 100
+MAX_FAILS_PER_RUN = 40      # names of the failing tests kept per run (feeds the stability ranking)
+MAX_SLOW_PER_RUN = 15       # slowest tests kept per run (run comparison and the per-test drawer)
+MAX_MSG_LEN = 160           # first error line kept per failing test
 FILE_NAME = "results-history.json"
 _lock = threading.Lock()
 
@@ -50,7 +54,30 @@ def read(limit=MAX_ENTRIES):
     except (OSError, ValueError):
         return []
     entries = [e for e in data if _valid(e)] if isinstance(data, list) else []
+    for e in entries:  # hand-edited or damaged optional fields must never reach the ranking or the UI
+        if "fails" in e:
+            f = e["fails"]
+            e["fails"] = [n[:200] for n in f if isinstance(n, str)][:MAX_FAILS_PER_RUN] if isinstance(f, list) else []
+        _clean_optional(e)
     return entries[-limit:]
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 and v < 10 ** 7
+
+
+def _clean_optional(e):
+    """Validate/trim `dur` (seconds), `slow` ([[name, seconds], ...]) and `msgs` ({name: first error line})."""
+    if "dur" in e and not _num(e["dur"]):
+        del e["dur"]
+    if "slow" in e:
+        s = e["slow"]
+        e["slow"] = [[p[0][:200], p[1]] for p in s if isinstance(p, (list, tuple)) and len(p) == 2
+                     and isinstance(p[0], str) and _num(p[1])][:MAX_SLOW_PER_RUN] if isinstance(s, list) else []
+    if "msgs" in e:
+        m = e["msgs"]
+        e["msgs"] = {k[:200]: v[:MAX_MSG_LEN] for k, v in list(m.items())[:MAX_FAILS_PER_RUN]
+                     if isinstance(k, str) and isinstance(v, str)} if isinstance(m, dict) else {}
 
 
 def _write(entries):
@@ -70,7 +97,7 @@ def _write(entries):
         raise
 
 
-def record(repo_root, surefire, now=None):
+def record(repo_root, surefire, details=None, cases=None, now=None):
     """Add this run if it is new, then return the history (newest last)."""
     total = surefire.get("total") if isinstance(surefire, dict) else 0
     if not isinstance(total, int) or total <= 0:
@@ -82,11 +109,38 @@ def record(repo_root, surefire, now=None):
     sig = f"{total}/{surefire.get('passed', 0)}/{surefire.get('failed', 0)}/{surefire.get('skipped', 0)}"
     with _lock:
         entries = read()
-        if any(e["t"] == t and e["sig"] == sig for e in entries[-5:]):
+        failing = surefire.get("failures")
+        extra = {}
+        if isinstance(details, dict):
+            if _num(details.get("duration_s")) and details["duration_s"] > 0:
+                extra["dur"] = round(float(details["duration_s"]), 1)
+            extra["slow"] = [[f"{x.get('class', '')}.{x.get('name', '')}".lstrip("."), x.get("seconds")]
+                             for x in (details.get("slowest") or []) if isinstance(x, dict)]
+            extra["msgs"] = {f"{x.get('class', '')}.{x.get('name', '')}".lstrip("."): str(x.get("message") or "")
+                             for x in (details.get("failure_details") or []) if isinstance(x, dict)}
+        same = next((e for e in entries[-5:] if e["t"] == t and e["sig"] == sig), None)
+        if same is not None:
+            # Already recorded. A run recorded before durations/messages were kept is filled in once, in place.
+            if extra and "slow" not in same:
+                same.update(extra)
+                _clean_optional(same)
+                try:
+                    _write(entries)
+                except OSError:
+                    pass
+            if cases:
+                case_history.record(same["t"], cases)   # no-op when this run's tests are already stored
             return entries
-        entries.append({"t": t, "sig": sig, "rate": round(100.0 * surefire.get("passed", 0) / total, 1),
+        entry = {"t": t, "sig": sig, "rate": round(100.0 * surefire.get("passed", 0) / total, 1),
                         "total": total, "passed": surefire.get("passed", 0),
-                        "failed": surefire.get("failed", 0), "skipped": surefire.get("skipped", 0)})
+                        "failed": surefire.get("failed", 0), "skipped": surefire.get("skipped", 0),
+                        "fails": [n[:200] for n in failing if isinstance(n, str)][:MAX_FAILS_PER_RUN]
+                                 if isinstance(failing, list) else []}
+        entry.update(extra)
+        _clean_optional(entry)
+        entries.append(entry)
+        if cases:
+            case_history.record(entry["t"], cases)
         entries = entries[-MAX_ENTRIES:]
         try:
             _write(entries)

@@ -4,6 +4,7 @@ import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
 import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
@@ -189,7 +190,12 @@ public final class ExpectationChecker {
         factory.setNamespaceAware(true);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        Document doc = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        // A response body is untrusted input: resolve nothing from the network or disk, whatever it asks for.
+        builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+        Document doc = builder.parse(new InputSource(new StringReader(xml)));
 
         String xpath = path.startsWith("/") || path.contains("(") ? path : dotPathToXPath(path);
         javax.xml.xpath.XPath engine = XPathFactory.newInstance().newXPath();

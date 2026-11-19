@@ -11,8 +11,8 @@
   Scope, per the pom's own comment: catch real problems (unused
   imports, missing braces, duplicate/dead code, obvious equals/hashCode
   bugs) without demanding full Javadoc coverage or nitpicking layout.
-  Deliberately does NOT include LineLength, Indentation, or naming
-  conventions — this project mixes generated Swagger-style URLs and
+  Deliberately does NOT include LineLength or Indentation, and naming
+  conventions are reported at INFO only (never build-failing) — this project mixes generated Swagger-style URLs and
   long fluent Rest-Assured/Selenium chains, and those rules would
   produce noise unrelated to actual bugs.
 
@@ -73,6 +73,40 @@
         <module name="OneStatementPerLine"/>
         <module name="EmptyStatement"/>
         <module name="RedundantModifier"/>
+
+        <!-- ============================================================ -->
+        <!-- Naming conventions — reported at INFO only                    -->
+        <!-- ============================================================ -->
+        <!-- Severity "info" sits below the pom's <violationSeverity>warning</violationSeverity>,
+             so these rules show up in the Checkstyle report (and IDE inspections) but can never
+             fail `mvn verify`. Promote a rule to "warning" once its report is clean. -->
+        <module name="PackageName">
+            <property name="severity" value="info"/>
+        </module>
+        <module name="TypeName">
+            <property name="severity" value="info"/>
+        </module>
+        <module name="ConstantName">
+            <property name="severity" value="info"/>
+            <!-- static final loggers, ThreadLocals and mappers (logger, log, driverTL, objectMapper)
+                 are conventionally lowerCamelCase; only flag names that are neither that nor
+                 UPPER_SNAKE_CASE. -->
+            <property name="format" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|[a-z][a-zA-Z0-9]*)$"/>
+        </module>
+        <module name="MemberName">
+            <property name="severity" value="info"/>
+        </module>
+        <module name="LocalVariableName">
+            <property name="severity" value="info"/>
+        </module>
+        <module name="ParameterName">
+            <property name="severity" value="info"/>
+        </module>
+        <module name="MethodName">
+            <property name="severity" value="info"/>
+            <!-- Allow descriptive test names such as login_withBadPassword_showsError. -->
+            <property name="format" value="^[a-z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*$"/>
+        </module>
 
         <!-- ============================================================ -->
         <!-- Whitespace basics (kept minimal on purpose)                   -->

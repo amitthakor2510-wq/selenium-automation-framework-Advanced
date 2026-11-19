@@ -35,6 +35,11 @@ import java.net.http.HttpRequest;
  *       Needs {@code ai.apiKey} or the {@code ANTHROPIC_API_KEY} env var.</li>
  * </ul>
  *
+ * Endpoints are provider-specific: {@code ai.endpoint} applies to Ollama only (it ships
+ * pointed at an Ollama server), while Anthropic uses {@code ai.anthropic.endpoint}
+ * (optional — defaults to the public Messages API URL). Any other {@code ai.provider}
+ * value is rejected rather than silently treated as Ollama.
+ *
  * "Best free model" note: for {@code ai.provider=ollama}, a coding-tuned
  * model in the Qwen-Coder family is currently the strongest generally-
  * available free/local pick for the reasoning these features need
@@ -56,6 +61,12 @@ public final class OllamaClient {
         if (model.isBlank()) {
             return false;
         }
+        try {
+            provider();
+        } catch (ConfigException e) {
+            log.warn("{} — AI features stay disabled until it is fixed.", e.getMessage());
+            return false;
+        }
         if (isAnthropic()) {
             String key = resolveApiKey();
             return key != null && !key.isBlank();
@@ -63,8 +74,21 @@ public final class OllamaClient {
         return true;
     }
 
+    /** Normalised provider name; blank means the default (ollama). Rejects anything unsupported. */
+    private static String provider() {
+        String raw = ConfigReader.get("ai.provider", "ollama").trim().toLowerCase(java.util.Locale.ROOT);
+        if (raw.isEmpty()) {
+            return "ollama";
+        }
+        if (!"ollama".equals(raw) && !"anthropic".equals(raw)) {
+            throw new ConfigException("[AI] Unsupported ai.provider='" + raw
+                + "' — expected 'ollama' or 'anthropic'.");
+        }
+        return raw;
+    }
+
     private static boolean isAnthropic() {
-        return "anthropic".equalsIgnoreCase(ConfigReader.get("ai.provider", "ollama").trim());
+        return "anthropic".equals(provider());
     }
 
     private static String resolveApiKey() {
@@ -93,11 +117,12 @@ public final class OllamaClient {
                 + "can serve (e.g. a Qwen-Coder tag for ai.provider=ollama). See docs/AI_FEATURES.md.");
         }
         boolean anthropic = isAnthropic();
-        // getNonBlank: ai.endpoint currently ships non-blank in global.properties (pointed at
-        // this project's own Ollama box), but a blank override would otherwise silently resolve
-        // to "" instead of the provider default — see ConfigReader.getNonBlank's javadoc.
-        String endpoint = ConfigReader.getNonBlank("ai.endpoint",
-            anthropic ? "https://api.anthropic.com/v1/messages" : "http://localhost:11434/api/chat");
+        // Provider-specific endpoint: ai.endpoint ships pointed at an Ollama server, so it must
+        // never be used for Anthropic (the API key would be sent to the wrong host).
+        // getNonBlank: a blank override falls back to the provider default.
+        String endpoint = anthropic
+            ? ConfigReader.getNonBlank("ai.anthropic.endpoint", "https://api.anthropic.com/v1/messages")
+            : ConfigReader.getNonBlank("ai.endpoint", "http://localhost:11434/api/chat");
         int timeoutSeconds = ConfigReader.getInt("ai.timeout.seconds", 60);
 
         ObjectNode requestBody = objectMapper.createObjectNode();
@@ -169,6 +194,9 @@ public final class OllamaClient {
         try {
             return objectMapper.readTree(rawReply.substring(start, end + 1));
         } catch (Exception e) {
+            // Models often wrap or truncate JSON; callers treat null as "no usable reply".
+            // Keep the parse error at debug so a persistently malformed reply is diagnosable.
+            log.debug("[OllamaClient] Model reply was not valid JSON: {}", e.getMessage());
             return null;
         }
     }

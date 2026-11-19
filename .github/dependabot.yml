@@ -44,3 +44,20 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+
+  # Selenium Grid / helper images in docker-compose*.yml. The "docker" ecosystem above only reads
+  # Dockerfiles, so these tags were never updated and drifted behind the Selenium client in pom.xml
+  # (Grid images 4.49.0 vs client 4.50.0). Group the hub and nodes so they move together.
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+    groups:
+      selenium-grid:
+        patterns:
+          - "selenium/*"

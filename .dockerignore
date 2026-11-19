@@ -38,3 +38,11 @@ Scripts/dashboard/data/specs/
 
 # Scanner tooling downloaded by Scripts/supply-chain-scan.sh must never be baked into an image
 .security-tools/
+
+# Machine-specific / gitignored local files that `COPY . .` would otherwise bake into the image:
+# mobile.properties holds this developer's real device serial (only the .example is tracked),
+# self-healing-data/ is the local locator cache, and docker-compose.override.yml remaps ports for
+# one specific host (see its header) and must not travel with an image.
+src/test/resources/config/mobile.properties
+self-healing-data/
+docker-compose.override.yml
