@@ -180,7 +180,7 @@
          traversal in attachment paths, fixed in 2.38.0); results written by older libraries are
          read fine by the newer generator. -->
     <allure.report.version>2.39.0</allure.report.version>
-    <aspectj.version>1.9.25.1</aspectj.version>
+    <aspectj.version>1.9.27</aspectj.version>
 
     <!-- Log4j2 — the actual logging backend/engine (see the "Logging"
          dependency block below for the full rationale). Pinned as its own
